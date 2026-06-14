@@ -1,0 +1,21 @@
+Item,Qty,Model / Description,Role,Interface,Notes,Source / reference URL
+Raspberry Pi 3 Model B+,1,Raspberry Pi 3B+ SBC,Main Linux/AI controller,"USB, GPIO, Ethernet, Wi-Fi/Bluetooth",Use Pi-rated 5V/2.5A minimum supply budget,https://www.raspberrypi.com/products/raspberry-pi-3-model-b-plus/
+ESP32-S3 DualEye,1,Waveshare ESP32-S3 DualEye Touch LCD 1.28,"Dual-eye UI, microphone front-end, audio output path","USB serial, Wi-Fi, BLE, audio",Use onboard mic/audio path; no custom PCB,https://docs.waveshare.com/ESP32-S3-DualEye-LCD-1.28
+Nordic nRF52840 Dongle,1,Nordic nRF52840-Dongle / PCA10059,USB BLE research dongle,USB-A via short extension or right-angle adapter,Replaces prior nRF module; official dongle version,https://www.nordicsemi.com/Products/Development-hardware/nRF52840-Dongle
+Short USB-A extension/right-angle adapter,1,USB-A male/female extension or compact right-angle adapter,Mechanical placement for dongle,USB,Keeps dongle mounted inside stack; avoid strain,
+Small speaker,1,8 ohm 1-2 W miniature speaker,AI voice response / alert audio,DualEye speaker output or approved breakout cable,Do not overdrive amplifier; keep volume limited,
+18650 Li-ion protected cells,2,"Protected 18650 cells, matched set",Battery source,2S pack through holder/BMS,Use reputable protected cells only; inspect wrappers,
+2S 18650 holder,1,2-slot 2S holder with leads,Battery mounting,Wire leads,Secure mechanically; add strain relief,
+2S BMS/protection board,1,2S Li-ion BMS with over-current/over/under-voltage protection,Battery protection,Wired between cells and load/charger,Use vendor docs for exact cell wiring,
+5V 5A step-down buck regulator,1,"Pololu 5V, 5A Step-Down Voltage Regulator D24V50F5; Pololu item #2851",Main regulated 5V rail for Pi/ESP32/nRF52840 stack,VIN/GND input; VOUT/GND output; EN optional,"Primary recommended regulator. Input must be above 5V plus dropout; use 9V/12V PD input or 2S source, then validate 5.05-5.15V under load. Add 3A-5A fuse and 470uF-1000uF output capacitor.",https://www.pololu.com/product/2851
+USB-C PD trigger / sink board,1,Adafruit USB Type C Power Delivery Dummy Breakout - I2C or Fixed - HUSB238; Product ID 5807,USB-C PD input trigger / negotiator for bench or internal power input,USB-C input; VOUT/GND terminal block/header; optional I2C,"Configure 5V/2A only for auxiliary/test input. For main 5V 5A rail through Pololu D24V50F5, configure PD source to 9V or 12V and buck down to 5V; 5V input cannot feed a 5V buck regulator correctly.",https://www.adafruit.com/product/5807
+Inline fuse or resettable polyfuse,1,3A-5A fuse/polyfuse,Over-current protection,Series with 5V output,Use conservative value for prototype,
+Power switch,1,Panel/slide switch rated for system current,Main power control,Series with battery/buck input,Mount where accessible,
+2.4 GHz antennas,2,SMA 2.4 GHz antennas,Approved external antenna placement,SMA/RP-SMA as supported,Only attach to hardware designed for external antennas,
+Acrylic/3D-printed layer plates,4,85 mm x 55 mm to 90 mm x 65 mm plates,Stacked frame,M2.5 holes,No custom PCB; these are mechanical plates only,
+M2.5 nylon/brass standoff kit,1 set,"15-25 mm standoffs, screws, nuts",Layer spacing and frame,Mechanical,Use lock nuts or threadlock where appropriate,
+Cable ties / adhesive tie mounts,1 set,Small nylon ties and mounts,Cable management,Mechanical,Prevent wires from entering ports/fan openings,
+microSD card,1,32-128 GB high-endurance card,Pi OS and logs,microSD,128 GB shown in render; 32 GB minimum,
+USB cables,2,Short USB-C and micro-USB cables,Data/power interconnects,USB,"Use short, flexible cables to reduce strain",
+Power rail output capacitor,1,"470uF-1000uF electrolytic capacitor, 10V minimum, low ESR preferred",5V rail transient smoothing,Across 5V and GND near distribution point,Recommended with Pi/ESP32 load switching; observe polarity.,
+Power rail fuse,1,3A-5A inline fuse or resettable polyfuse rated above system load,Over-current protection for 5V distribution,Series with regulator output or main input path,Size after measuring real load; start conservative during prototype testing.,
