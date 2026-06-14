@@ -1,2 +1,2 @@
 # KoalaByte-Blue
-Your own Bluetooth earring so koala
+Your own Bluetooth eating koala
