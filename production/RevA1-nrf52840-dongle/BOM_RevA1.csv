@@ -1,0 +1,13 @@
+Item,Qty,Description,Notes
+Raspberry Pi 3 Model B+,1,Main Linux computer / companion brain,Use stable 5V 2.5A supply
+ESP32-S3 DualEye LCD 1.28,1,Dual-eye UI/mic/display front-end,No custom PCB
+Nordic nRF52840 Dongle / PCA10059,1,USB BLE development/capture dongle,Use authorized lab workflows only
+32GB+ microSD,1,Pi OS/logs/reports,Industrial card recommended
+USB-C data cable,1,ESP32 data/power,Short cable preferred
+Micro USB Pi power cable,1,Pi power,Quality cable required
+5V 2.5A+ USB power bank or supply,1,Primary power source,Use fused/quality supply
+Acrylic plate or printed sled,1,Open-frame stacked mount,No enclosure required
+Nylon standoffs M2.5/M3,1 set,Mechanical stack,Use nonconductive where possible
+Small speaker,1,Audio output if supported by DualEye/audio board,Keep volume modest
+USB microphone optional,1,Alternative voice input to Pi,Only if DualEye mic pins not mapped
+Hook-and-loop/zip ties,1 set,Cable management,Prevent strain on ports

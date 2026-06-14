@@ -1,0 +1,17 @@
+{
+  "capture_dir": "/blecaptures",
+  "scan_window_seconds": 8.0,
+  "sleep_between_scans_seconds": 1.0,
+  "rotate_every_seconds": 3600,
+  "raw_mac_logging": true,
+  "include_manufacturer_data": true,
+  "include_service_data": true,
+  "wigle_upload_enabled": false,
+  "wigle_upload_interval_seconds": 1800,
+  "wigle_api_name_env": "WIGLE_API_NAME",
+  "wigle_api_token_env": "WIGLE_API_TOKEN",
+  "fixed_latitude": null,
+  "fixed_longitude": null,
+  "fixed_altitude_meters": null,
+  "fixed_accuracy_meters": 25.0
+}
