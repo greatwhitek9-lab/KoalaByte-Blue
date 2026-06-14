@@ -1,6 +1,6 @@
 # KoalaByte Blue / killerkoala AI Companion Firmware RevA2
 
-GitHub-ready firmware and Raspberry Pi companion software for the **KoalaByte Blue Pi3B+ stacked research device**.
+eap32-s3 dual eye firmware and Raspberry Pi companion software for the **KoalaByte Blue Pi3B+ stacked research device**.
 
 ## Ready-to-flash status
 
