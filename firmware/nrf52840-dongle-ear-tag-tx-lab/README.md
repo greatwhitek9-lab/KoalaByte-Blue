@@ -1,4 +1,4 @@
-# KoalaByte Blue nRF52840 Dongle Ear Tag TX Lab Peripheral
+# KoalaByte Blue nRF52840 Dongle KoalaByte Lab Peripheral
 
 Safe, authorized-lab firmware for the production compact BLE board:
 
@@ -6,9 +6,11 @@ Safe, authorized-lab firmware for the production compact BLE board:
 Nordic nRF52840 Dongle / PCA10059 / NRF52840-DONGLE
 ```
 
-This project advertises as a clearly labeled KoalaByte lab peripheral named `EarTag-TX-Lab`, emits a synthetic service-data pattern for signal-integrity observation, and exposes a read-only GATT status characteristic for client/app testing.
+This project advertises as a clearly labeled KoalaByte lab peripheral named `KoalaByte Lab`, emits a synthetic service-data pattern for signal-integrity observation, and exposes a read-only GATT status characteristic for client/app testing.
 
 It does not replay captured packets, captured identifiers, or raw NRF_RADIO packet bytes.
+
+The internal firmware folder remains `firmware/nrf52840-dongle-ear-tag-tx-lab/` for compatibility with existing build scripts.
 
 ## Hardware
 
@@ -75,11 +77,11 @@ PYTHONPATH=pi-companion python3 scripts/run_ear_tag_tx_lab.py
 Scan with a BLE scanner app or KoalaByte Blue passive scan. You should see:
 
 ```text
-EarTag-TX-Lab
+KoalaByte Lab
 ```
 
 GATT exposes a read-only status characteristic containing:
 
 ```text
-KoalaByte Blue Ear Tag TX Lab; synthetic owned-device BLE advertisement; no captured packet replay
+KoalaByte Blue KoalaByte Lab; synthetic owned-device BLE advertisement; no captured packet replay
 ```
