@@ -75,10 +75,10 @@ EXPECTED_BOM_ITEMS = [
 ]
 
 REQUIRED_TEXT = {
-    "README.md": ["RevA18", "Outback BlueZ Module Deck", "Gumleaf Gear Check", "build_nrf52840_dongle_lab.sh"],
+    "README.md": ["RevA21", "Outback BlueZ Module Deck", "Koala Mode Switcher", "Seloky USB-C PD/QC 12 V trigger board"],
     "docs/FLASHING.md": ["Outback BlueZ Module Deck", "check_repo_readiness.py", "run_koala_bluez.py", "KoalaByte Lab"],
     "docs/KOALA_BLUEZ_TOOLS_REVA16.md": ["RevA18 Outback BlueZ Module Deck", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "--owned-device"],
-    "docs/NRF52840_DONGLE_FLASHING.md": ["nrf52840dongle_nrf52840", "flash_nrf52840_dongle_lab_dfu.sh", "DFU"],
+    "docs/NRF52840_DONGLE_FLASHING.md": ["nrf52840dongle_nrf52840", "flash_nrf52840_dongle_lab_dfu.sh", "KoalaByte Lab"],
     "docs/EAR_TAG_TX_LAB_REVA15.md": ["KoalaByte Lab", "KBTX", "does not replay captured packets"],
     "docs/KOALA_KONNECT_REVA20.md": ["Koala Konnect", "hci_usb", "koala-konnect-nrf52840-dongle-dfu.zip"],
     "docs/ORDERABLE_PARTS_LIST.md": ["Seloky USB-C PD Trigger Board", "12V", "Do not connect 12V directly to the Pi"],
@@ -86,6 +86,7 @@ REQUIRED_TEXT = {
     "docs/PRODUCTION_FILES.md": ["production/RevA17-dongle-only/", "BOM_RevA17_DongleOnly.csv", "No custom PCB"],
     "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv": ["Seloky USB-C PD Trigger Board Module", "12 V PD-QC trigger"],
     "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md": ["Seloky", "12 V", "5 V buck converter"],
+    "production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv": ["Seloky trigger output", "KoalaByte Lab", "Koala Mode Switcher"],
     "firmware/esp32-dualeye/platformio.ini": ["bodmer/TFT_eSPI"],
     "firmware/esp32-dualeye/src/main.cpp": ["runBootAnimation();", "ENABLE_DISPLAY_BOOT_ANIMATION"],
     "firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt": ["find_package(Zephyr REQUIRED", "target_sources(app PRIVATE src/main.c)"],
@@ -94,6 +95,7 @@ REQUIRED_TEXT = {
     "pi-companion/koalablue/bluez_tools.py": ["BLUEZ_MODULES", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Billabong HCI Watch", "owned_device_required"],
     "pi-companion/koalablue/menu_catalog.py": ["Koala Mode Switcher", "KoalaByte Lab", "Gumleaf Gear Check", "Dropbear Discovery Sweep", "Kookaburra Safe Nest Run"],
     "pi-companion/koalablue/koala_mode_switcher.py": ["Koala Mode Switcher", "KoalaByte Lab", "Koala Konnect", "dongle_mode_state.json"],
+    "pi-companion/koalablue/killerkoala_vocabulary.py": ["KoalaByte Lab", "koalabyte_lab", "lab"],
     "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "Gumleaf Gear Check", "KoalaByte Lab", "Koala Mode Switcher", "killerkoala_companion"],
     "scripts/build_firmware_all.sh": ["pio run", "build_nrf52840_dongle_lab.sh"],
     "scripts/build_nrf52840_dongle_lab.sh": ["west build", "nrf52840dongle_nrf52840", "firmware/nrf52840-dongle-ear-tag-tx-lab"],
@@ -102,6 +104,7 @@ REQUIRED_TEXT = {
     "scripts/flash_nrf52840_dongle_lab_dfu.sh": ["nrfutil", "koalabyte-blue-nrf52840-dongle-dfu.zip", "NRF_DFU_PORT"],
     "scripts/flash_esp32.sh": ["pio run"],
     "scripts/install_pi.sh": ["check_repo_readiness.py", "run_koala_bluez.py manifest", "Gumleaf Gear Check"],
+    "scripts/run_ear_tag_tx_lab.py": ["KoalaByte Lab"],
     "scripts/run_koala_bluez.py": ["bluez_tools", "run_cli"],
     "scripts/run_koala_mode_switcher.py": ["koala_mode_switcher", "run_cli"],
     "scripts/run_koala_bluez_manifest.sh": ["run_koala_bluez.py", "manifest"],
@@ -166,13 +169,17 @@ def check_forbidden_text(failures: list[str]) -> None:
         if not path.is_file() or any(part in ignored_dirs for part in path.parts) or path.name in ignored_files:
             continue
         try:
-            text = path.read_text(encoding="utf-8")
+            lines = path.read_text(encoding="utf-8").splitlines()
         except UnicodeDecodeError:
             continue
         rel = str(path.relative_to(REPO_ROOT))
-        for needle in FORBIDDEN_TEXT:
-            if needle in text:
-                failures.append(f"forbidden legacy reference '{needle}' found in {rel}")
+        for line_no, line in enumerate(lines, start=1):
+            for needle in FORBIDDEN_TEXT:
+                if needle in line:
+                    snippet = line.strip()[:160]
+                    failures.append(
+                        f"forbidden legacy reference '{needle}' found in {rel}:{line_no}: {snippet}"
+                    )
 
 
 def check_json_config(failures: list[str]) -> None:
