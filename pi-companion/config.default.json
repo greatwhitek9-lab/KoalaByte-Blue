@@ -59,6 +59,28 @@
     "xp_reward": 5,
     "rf_transmission": false
   },
+  "menu_selection": {
+    "enabled": true,
+    "visible_rows": 6,
+    "event_log": "logs/menu_events.jsonl",
+    "touch": {
+      "enabled": true,
+      "row_height_px": 48,
+      "long_press_seconds": 0.75,
+      "scroll_threshold_px": 18
+    },
+    "items": [
+      "eucalyptus",
+      "Koala Kapture",
+      "Koala Kry",
+      "Ear Tag",
+      "Urban Poaching",
+      "Reports",
+      "Settings",
+      "Lab",
+      "Shutdown"
+    ]
+  },
   "capture_dir": "/blecaptures",
   "scan_window_seconds": 8.0,
   "sleep_between_scans_seconds": 1.0,
