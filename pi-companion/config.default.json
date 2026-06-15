@@ -1,6 +1,7 @@
 {
   "action_names": {
-    "always_on_ble_scanner_logger": "eucalyptus"
+    "always_on_ble_scanner_logger": "eucalyptus",
+    "ble_fox_hunt_game": "Urban Poaching"
   },
   "eucalyptus": {
     "display_name": "eucalyptus",
@@ -10,6 +11,22 @@
     "mode": "passive_ble_observation",
     "wigle_upload_enabled": false,
     "wigle_upload_interval_seconds": 1800
+  },
+  "urban_poaching": {
+    "display_name": "Urban Poaching",
+    "description": "Authorized BLE fox-hunt style game using RSSI trend hints against owned lab beacons.",
+    "enabled": true,
+    "default_target_name": "EarTag-Lab",
+    "default_target_address": null,
+    "scan_seconds": 4.0,
+    "rounds": 12,
+    "capture_radius_rssi": -48,
+    "close_rssi": -60,
+    "warm_rssi": -72,
+    "log_dir": "logs/urban_poaching",
+    "xp_reward_found": 25,
+    "xp_reward_round": 1,
+    "authorized_only": true
   },
   "capture_dir": "/blecaptures",
   "scan_window_seconds": 8.0,
