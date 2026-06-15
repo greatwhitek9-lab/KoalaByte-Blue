@@ -27,7 +27,6 @@ jobs:
           echo "HEAD=$(git rev-parse HEAD)"
           echo "readiness_sha=$(git rev-parse HEAD:scripts/check_repo_readiness.py)"
           echo "vocabulary_sha=$(git rev-parse HEAD:pi-companion/koalablue/killerkoala_vocabulary.py)"
-          grep -RIn 'Ear Tag TX Lab\|EarTag-TX-Lab' pi-companion/koalablue/killerkoala_vocabulary.py || true
 
       - name: Run repo readiness check
         run: python scripts/check_repo_readiness.py
@@ -52,7 +51,6 @@ jobs:
           echo "HEAD=$(git rev-parse HEAD)"
           echo "readiness_sha=$(git rev-parse HEAD:scripts/check_repo_readiness.py)"
           echo "vocabulary_sha=$(git rev-parse HEAD:pi-companion/koalablue/killerkoala_vocabulary.py)"
-          grep -RIn 'Ear Tag TX Lab\|EarTag-TX-Lab' pi-companion/koalablue/killerkoala_vocabulary.py || true
 
       - name: Run repo readiness check
         run: python scripts/check_repo_readiness.py
@@ -92,7 +90,6 @@ jobs:
           echo "HEAD=$(git rev-parse HEAD)"
           echo "readiness_sha=$(git rev-parse HEAD:scripts/check_repo_readiness.py)"
           echo "vocabulary_sha=$(git rev-parse HEAD:pi-companion/koalablue/killerkoala_vocabulary.py)"
-          grep -RIn 'Ear Tag TX Lab\|EarTag-TX-Lab' pi-companion/koalablue/killerkoala_vocabulary.py || true
 
       - name: Compile Python modules and scripts
         run: python -m compileall pi-companion scripts
