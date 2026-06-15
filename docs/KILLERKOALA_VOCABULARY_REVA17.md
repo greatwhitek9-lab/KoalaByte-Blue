@@ -9,14 +9,14 @@ The companion now has:
 - Australian male voice-profile metadata.
 - Edgy, gruff cyberpunk lab-companion attitude.
 - XP-based confidence scaling.
-- Event reactions for boot, scan, capture, BlueZ, Ear Tag TX Lab, Koala Kry, errors, shutdown, and level-up events.
+- Event reactions for boot, scan, capture, BlueZ, KoalaByte Lab, Koala Kry, errors, shutdown, and level-up events.
 - Inquiry responses for status and help requests.
 - A manifest writer for UI/TTS integration.
 
 ## Implementation files
 
 ```text
-pi-companion/koalablue/killerkoala_vocabulary.py
+pi-companion/koalblue/killerkoala_vocabulary.py
 scripts/run_killerkoala_voice.py
 pi-companion/config.default.json
 pi-companion/koalablue/menu_catalog.py
@@ -90,6 +90,8 @@ shutdown
 inquiry_status
 inquiry_help
 ```
+
+`ear_tag_tx_lab` is retained as the internal event key for compatibility. User-facing text now calls that workflow **KoalaByte Lab**.
 
 Aliases include:
 
