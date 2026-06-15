@@ -52,8 +52,9 @@ class MenuSelectionScreen:
     - Touch scrolling through on_touch_down/on_touch_move/on_touch_up.
     - Touch long-press select.
 
-    This class is display-backend agnostic. The ESP32-S3 display, a terminal UI,
-    or a touchscreen process can all render the same state.
+    This class is display-backend agnostic. The ESP32-S3 display, terminal UI,
+    or Pi touchscreen process can all render the same state. The default text
+    rendering uses the RevA14 jungle/eucalyptus theme preview.
     """
 
     def __init__(
@@ -159,6 +160,14 @@ class MenuSelectionScreen:
         return event
 
     def render_text(self) -> str:
+        try:
+            from .menu_theme import render_terminal_jungle_menu
+
+            return render_terminal_jungle_menu(self)
+        except Exception:
+            return self._render_plain_text()
+
+    def _render_plain_text(self) -> str:
         visible = self.visible_items()
         total = len(self.items)
         lines = ["KoalaByte Blue", f"Main Menu ({self.selected_index + 1}/{total})", ""]
