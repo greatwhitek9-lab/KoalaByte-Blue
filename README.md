@@ -10,7 +10,7 @@ Production compact BLE board:
 Nordic nRF52840 Dongle / PCA10059 / NRF52840-DONGLE
 ```
 
-The nRF52840 DK/PCA10056 has been removed from the retained production and firmware build path. The only Nordic BLE target retained in this repo is the nRF52840 Dongle.
+Only the nRF52840 Dongle/PCA10059 is retained as the Nordic BLE target in this repo.
 
 ## Ready-to-flash check
 
@@ -143,7 +143,7 @@ See [`docs/BOOT_ANIMATION_REVA13.md`](docs/BOOT_ANIMATION_REVA13.md).
 ```text
 pi-companion/koalablue/killerkoala_vocabulary.py
 pi-companion/koalablue/bluez_tools.py
-pi-companion/koalblue/koala_kry.py
+pi-companion/koalablue/koala_kry.py
 pi-companion/koalablue/ear_tag_tx_lab.py
 pi-companion/koalablue/menu_catalog.py
 pi-companion/koalablue/menu_theme.py
