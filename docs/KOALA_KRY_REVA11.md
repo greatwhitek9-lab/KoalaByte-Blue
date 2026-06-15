@@ -1,56 +1,39 @@
-# RevA11 Koala Kry
+# RevA12 Koala Kry
 
-## What it is
+**Koala Kry** is now the saved-metadata session player for KoalaByte Blue.
 
-**Koala Kry** is a local synthetic BLE log generator for KoalaByte Blue. It creates realistic-looking test records so the companion UI, parsers, report generation, XP hooks, and `eucalyptus` import workflow can be stress-tested without transmitting radio traffic.
+It reads files produced by **Koala Kapture** and writes local test events for the KoalaByte UI, reports, `eucalyptus`, Urban Poaching, and XP testing.
 
-## What it does
-
-Koala Kry writes local test files:
+Input folder:
 
 ```text
-logs/koala_kry/*.jsonl
-logs/koala_kry/*.csv
-logs/koala_kry/*_summary.json
+/blecaptures/koala_kapture/
 ```
 
-The records include fields similar to passive BLE observations:
+Output folder:
 
 ```text
-timestamp, address, name, rssi, connectable, source, note
+logs/koala_kry_replay/
 ```
 
-## Safety boundary
-
-Koala Kry does **not** transmit BLE advertisements and does **not** create RF interference. It is local synthetic test data only.
-
-## Run
-
-From the repository root on the Raspberry Pi:
+Run latest saved session:
 
 ```bash
 cd pi-companion
 source .venv/bin/activate
-PYTHONPATH=. python ../scripts/run_koala_kry.py --samples 250 --device-count 40
+PYTHONPATH=. python ../scripts/run_koala_kry.py
 ```
 
-For repeatable test data:
+Run a specific file:
 
 ```bash
-PYTHONPATH=. python ../scripts/run_koala_kry.py --samples 250 --device-count 40 --seed 1337
+PYTHONPATH=. python ../scripts/run_koala_kry.py --input /blecaptures/koala_kapture/koala_kapture_YYYYMMDD_HHMMSS.jsonl
 ```
 
-## Recommended use
+Set playback speed:
 
-Use Koala Kry before live lab testing to verify:
+```bash
+PYTHONPATH=. python ../scripts/run_koala_kry.py --speed 5.0
+```
 
-- BLE table rendering.
-- Log parsing.
-- CSV export.
-- Report generation.
-- XP reward hooks.
-- `eucalyptus` style capture workflow handling.
-
-## XP
-
-Default reward is 5 XP for generating a valid synthetic dataset.
+Default reward: 5 XP for a successful saved-session run.
