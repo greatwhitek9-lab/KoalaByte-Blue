@@ -22,10 +22,11 @@ Included production references:
 
 Current firmware/software production files outside the static package archive:
 
-- `firmware/nrf52840-dk-lab-peripheral/src/main.c` — nRF52840 DK Ear Tag TX Lab synthetic advertisement firmware
+- `firmware/nrf52840-dk-lab-peripheral/src/main.c` — shared safe Ear Tag TX Lab synthetic advertisement firmware for DK and Dongle builds
 - `firmware/nrf52840-dk-lab-peripheral/prj.conf` — EarTag-TX-Lab device-name/config
 - `firmware/nrf52840-dk-lab-peripheral/CMakeLists.txt` — nRF Connect SDK / Zephyr app wiring
 - `firmware/nrf52840-dk-lab-peripheral/README.md` — Ear Tag TX Lab firmware guide
+- `docs/NRF52840_DONGLE_FLASHING.md` — nRF52840 Dongle / PCA10059 Zephyr build and DFU guide
 - `firmware/esp32-dualeye/src/boot_animation.cpp` — ESP32 procedural KoalaByte Blue boot screen
 - `firmware/esp32-dualeye/include/boot_animation.h` — boot screen interface
 - `firmware/esp32-dualeye/src/menu_theme.cpp` — ESP32 eucalyptus branch / bubbly menu helper renderer
@@ -39,8 +40,10 @@ Current firmware/software production files outside the static package archive:
 - `scripts/check_repo_readiness.py` — current ready-to-flash repository validation check
 - `scripts/check_boot_animation_config.py` — compatibility wrapper for old validation workflows
 - `scripts/run_killerkoala_voice.py` — killerkoala vocabulary preview and manifest runner
-- `scripts/build_nrf52840_dk_lab.sh` — nRF Connect SDK / Zephyr build helper
-- `scripts/build_firmware_all.sh` — all-firmware build helper
+- `scripts/build_nrf52840_dk_lab.sh` — nRF52840 DK / PCA10056 Zephyr build helper
+- `scripts/build_nrf52840_dongle_lab.sh` — nRF52840 Dongle / PCA10059 Zephyr build helper
+- `scripts/flash_nrf52840_dongle_lab_dfu.sh` — nRF52840 Dongle DFU package/flash helper
+- `scripts/build_firmware_all.sh` — all-firmware build helper for ESP32, nRF52840 DK, and nRF52840 Dongle
 - `scripts/flash_esp32.sh` — ESP32 clean-build/upload/serial-monitor helper
 - `scripts/flash_nrf52840_dk_lab.sh` — nRF52840 DK Ear Tag TX Lab build/flash helper
 - `scripts/install_pi.sh` — Pi companion dependency installer
@@ -59,4 +62,4 @@ No custom PCB is required. The build uses commercially available development boa
 
 ## RevA17 readiness note
 
-The static production ZIP/PDF names still say RevA1 because they describe the no-custom-PCB hardware package. The live repository now contains newer RevA17 software/firmware additions and the consolidated `scripts/check_repo_readiness.py` validation script. Use the latest repository scripts and docs when flashing or installing software.
+The static production ZIP/PDF names still say RevA1 because they describe the no-custom-PCB hardware package. The live repository now contains newer RevA17 software/firmware additions, nRF52840 DK and Dongle Zephyr build helpers, Dongle DFU guidance, and the consolidated `scripts/check_repo_readiness.py` validation script. Use the latest repository scripts and docs when flashing or installing software.
