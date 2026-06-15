@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Set the KoalaByte Blue Ear Tag TX Lab BLE device name in the dongle firmware config.
+"""Set the KoalaByte Lab BLE device name in the dongle firmware config.
 
 Usage:
-    python3 scripts/set_lab_ble_name.py EarTag-TX-Lab
+    python3 scripts/set_lab_ble_name.py "KoalaByte Lab"
 
 The name is written to firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf as
 CONFIG_BT_DEVICE_NAME.
