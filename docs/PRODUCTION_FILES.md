@@ -36,6 +36,8 @@ Current firmware/software production files outside the static package archive:
 - `pi-companion/koalablue/menu_theme.py` — Pi jungle/eucalyptus graphical and terminal menu theme
 - `pi-companion/koalablue/ear_tag_tx_lab.py` — Pi-side Ear Tag TX Lab plan artifact helper
 - `pi-companion/koalablue/bluez_tools.py` — Koala BlueZ local helper layer
+- `scripts/check_repo_readiness.py` — current ready-to-flash repository validation check
+- `scripts/check_boot_animation_config.py` — compatibility wrapper for old validation workflows
 - `scripts/run_killerkoala_voice.py` — killerkoala vocabulary preview and manifest runner
 - `scripts/build_nrf52840_dk_lab.sh` — nRF Connect SDK / Zephyr build helper
 - `scripts/build_firmware_all.sh` — all-firmware build helper
@@ -51,11 +53,10 @@ Current firmware/software production files outside the static package archive:
 - `scripts/run_koala_bluez_scan.sh` — Koala BlueZ scan wrapper
 - `scripts/run_koala_bluez_monitor.sh` — Koala BlueZ monitor wrapper
 - `scripts/install_boot_splash_autostart.sh` — Pi desktop autostart installer for the boot screen
-- `scripts/check_boot_animation_config.py` — RevA17 repository validation check
-- `.github/workflows/koalabyte-blue-ci.yml` — firmware/Python/Zephyr-project CI workflow
+- `.github/workflows/koalabyte-blue-ci.yml` — firmware/Python/Zephyr-project CI workflow using the readiness check
 
 No custom PCB is required. The build uses commercially available development boards, USB cabling, standoffs, a battery/power system, and an open-frame stacked layout.
 
-## RevA17 note
+## RevA17 readiness note
 
-The static production ZIP/PDF names still say RevA1 because they describe the no-custom-PCB hardware package. The live repository now contains newer RevA17 software/firmware additions, including nRF Connect SDK / Zephyr firmware build helpers, Koala BlueZ local helper commands, and killerkoala companion vocabulary. Use the latest repository scripts and docs when flashing or installing software.
+The static production ZIP/PDF names still say RevA1 because they describe the no-custom-PCB hardware package. The live repository now contains newer RevA17 software/firmware additions and the consolidated `scripts/check_repo_readiness.py` validation script. Use the latest repository scripts and docs when flashing or installing software.
