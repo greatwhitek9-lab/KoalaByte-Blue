@@ -61,7 +61,7 @@ pio device monitor -b 115200
 Expected boot output includes JSON similar to:
 
 ```json
-{"type":"boot","device":"esp32-dualeye","companion":"killerkoala","wake_word":"killerkoala"}
+{"type":"boot","device":"esp32-dualeye","companion":"killerkoala","wake_word":"killerkoala","boot_animation":1}
 ```
 
 If your board's I2S microphone pins have not been mapped yet, the firmware will also report:
@@ -71,6 +71,49 @@ If your board's I2S microphone pins have not been mapped yet, the firmware will 
 ```
 
 That is expected. Mic wake is enabled by default, but real audio capture requires the exact DualEye board revision I2S pin mapping from the vendor schematic/example.
+
+### Boot animation check
+
+On boot, the ESP32 firmware now runs the procedural KoalaByte Blue splash before normal runtime startup:
+
+```cpp
+setupDisplay();
+runBootAnimation();
+```
+
+Expected display behavior:
+
+```text
+Dark KoalaByte face
+Purple pulsing left eye
+Blue pulsing right eye
+KoalaByte Blue title, with Blue actually blue
+BOOTING... label
+Animated segmented progress bar
+```
+
+If the serial boot JSON appears but the display is blank, the firmware is running but the TFT_eSPI display setup likely needs the exact LCD driver and pin mapping for your specific ESP32-S3 DualEye LCD board revision.
+
+Check these first:
+
+```text
+firmware/esp32-dualeye/include/config.h
+firmware/esp32-dualeye/platformio.ini
+```
+
+Then confirm the TFT_eSPI user setup values against the vendor display example for your exact board:
+
+```text
+LCD driver
+TFT_MOSI
+TFT_SCLK
+TFT_CS
+TFT_DC
+TFT_RST
+TFT_BL/backlight
+rotation
+screen width/height
+```
 
 ### One-command helper
 
@@ -86,15 +129,18 @@ From the repo root:
 
 ### Install Raspberry Pi OS
 
-1. Flash Raspberry Pi OS Lite to a 32 GB or larger microSD card.
-2. Enable SSH if desired.
-3. Boot the Pi and connect to network.
+1. Flash Raspberry Pi OS with Desktop to a 32 GB or larger microSD card if you want the fullscreen boot splash.
+2. Use Raspberry Pi OS Lite only if you do not need the graphical boot splash.
+3. Enable SSH if desired.
+4. Boot the Pi and connect to network.
 
 ### Install dependencies
 
+For the Pi companion with graphical boot splash:
+
 ```bash
 sudo apt update
-sudo apt install -y git python3 python3-venv python3-pip bluetooth bluez sqlite3
+sudo apt install -y git python3 python3-venv python3-pip bluetooth bluez sqlite3 libsdl2-2.0-0
 ```
 
 ### Install KoalaByte Blue
@@ -104,6 +150,34 @@ git clone https://github.com/greatwhitek9-lab/KoalaByte-Blue.git
 cd KoalaByte-Blue
 ./scripts/install_pi.sh
 ```
+
+### Test the Pi boot splash manually
+
+Windowed desktop test:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
+```
+
+Fullscreen test:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --duration 3
+```
+
+Install desktop-session autostart:
+
+```bash
+bash scripts/install_boot_splash_autostart.sh
+```
+
+This creates:
+
+```text
+~/.config/autostart/koalabyte-blue-boot-splash.desktop
+```
+
+The splash will run after the Pi desktop session starts. This is the safest default because it does not alter low-level bootloader, framebuffer, or display-manager settings.
 
 ### Run manually
 
@@ -190,14 +264,15 @@ Use real coordinates only for your own authorized collection area.
 ## 5. First functional test
 
 1. Flash ESP32.
-2. Connect ESP32 to Pi by USB.
-3. Start the Pi companion:
+2. Confirm the boot animation appears or confirm serial JSON reports `"boot_animation":1`.
+3. Connect ESP32 to Pi by USB.
+4. Start the Pi companion:
 
 ```bash
 python -m koalablue.app --serial /dev/ttyACM0
 ```
 
-4. Type:
+5. Type:
 
 ```text
 wake killerkoala
@@ -205,7 +280,7 @@ level
 scan
 summary
 report
-alwayson status
+eucalyptus status
 ```
 
 Expected behavior:
