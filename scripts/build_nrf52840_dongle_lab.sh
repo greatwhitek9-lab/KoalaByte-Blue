@@ -11,12 +11,12 @@ if ! command -v west >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Building KoalaByte Blue nRF52840 Dongle Zephyr firmware"
+echo "Building KoalaByte Lab nRF52840 Dongle Zephyr firmware"
 echo "Board: ${BOARD}"
 echo "App: ${APP_DIR}"
 echo "Build dir: ${BUILD_DIR}"
 west build -b "$BOARD" "$APP_DIR" -d "$BUILD_DIR"
 
-echo "nRF52840 Dongle Ear Tag TX Lab firmware build complete: ${BUILD_DIR}"
+echo "nRF52840 Dongle KoalaByte Lab firmware build complete: ${BUILD_DIR}"
 echo "Primary artifacts normally appear under: ${BUILD_DIR}/zephyr/"
 echo "Use docs/NRF52840_DONGLE_FLASHING.md for DFU/package flashing guidance."
