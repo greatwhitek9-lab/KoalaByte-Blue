@@ -13,6 +13,7 @@ from typing import Dict, Iterable, List, Optional
 
 
 DISPLAY_NAME = "Koala Kan Kommander"
+ADAPTER_NAME = "InnoMaker USB to CAN Converter kit"
 DEFAULT_OUTPUT_DIR = Path("logs/koala_kan_kommander")
 CAN_ARPHRD_TYPE = "280"
 CAN_FRAME_FMT = "=IB3x8s"
@@ -108,7 +109,8 @@ def manifest(output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> Dict[str, object]:
     root = ensure_output_dir(output_dir)
     data = {
         "display_name": DISPLAY_NAME,
-        "mode": "socketcan_usb_can_commander_plugin",
+        "revision": "RevA23_InnoMaker_CAN_Update",
+        "mode": "innomaker_socketcan_usb_can_commander_plugin",
         "default_interface": "can0",
         "output_dir": str(root),
         "safe_defaults": {
@@ -118,9 +120,11 @@ def manifest(output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> Dict[str, object]:
             "vehicle_use_requires_written_authorization": True,
         },
         "physical_connection": {
-            "recommended_adapter": "SocketCAN-compatible USB-to-CAN adapter",
+            "recommended_adapter": ADAPTER_NAME,
+            "linux_interface_hint": "SocketCAN interface, typically can0 when configured",
+            "host_path": "Raspberry Pi 3B+ USB host -> short internal USB data cable -> InnoMaker USB to CAN Converter kit",
             "connector_lines": ["CAN_H", "CAN_L", "GND", "optional SHIELD"],
-            "mounting_note": "Expose the adapter connector through the side or rear case panel; do not wire CAN directly to Raspberry Pi GPIO.",
+            "mounting_note": "Mount InnoMaker internally or in a rectangular side/rear service bay; do not use a circular CAN panel port; do not wire CAN directly to Raspberry Pi GPIO.",
         },
         "commands": ["manifest", "inventory", "status", "listen", "report", "transmit-placeholder"],
     }
@@ -135,6 +139,7 @@ def inventory(output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> Dict[str, object]:
     interfaces = detect_can_interfaces()
     data = {
         "display_name": DISPLAY_NAME,
+        "adapter_target": ADAPTER_NAME,
         "interfaces": [asdict(iface) for iface in interfaces],
         "count": len(interfaces),
         "socketcan_hint": "Install can-utils on the Pi for candump/cansniffer workflows; this module can passively listen through Python raw CAN sockets.",
@@ -150,6 +155,7 @@ def status(interface: str = "can0", output_dir: str | Path = DEFAULT_OUTPUT_DIR)
     root = ensure_output_dir(output_dir)
     data = {
         "display_name": DISPLAY_NAME,
+        "adapter_target": ADAPTER_NAME,
         "interface": interface,
         "ip_details": run_command(["ip", "-details", "-statistics", "link", "show", interface], timeout=5.0),
         "inventory": [asdict(iface) for iface in detect_can_interfaces()],
@@ -200,6 +206,7 @@ def listen(interface: str = "can0", duration_seconds: float = 10.0, output_dir: 
         error = str(exc)
     data = {
         "display_name": DISPLAY_NAME,
+        "adapter_target": ADAPTER_NAME,
         "interface": interface,
         "duration_seconds": duration_seconds,
         "frame_count": len(records),
@@ -222,12 +229,17 @@ def report(interface: str = "can0", output_dir: str | Path = DEFAULT_OUTPUT_DIR)
     lines = [
         "# Koala Kan Kommander Report",
         "",
+        f"Adapter target: `{ADAPTER_NAME}`",
         f"Interface: `{interface}`",
         f"Detected CAN interfaces: {inv['count']}",
         "",
         "## Safety scope",
         "",
         "This report is for authorized bench or owned-device CAN observation. Raw CAN frame transmission is intentionally not implemented in this plug-in.",
+        "",
+        "## Mechanical scope",
+        "",
+        "RevA23 uses the InnoMaker USB-to-CAN adapter mounted internally or in a rectangular service bay. The older circular CAN panel port is not part of this build.",
         "",
         "## Artifacts",
         "",
@@ -243,6 +255,7 @@ def blocked_transmit_placeholder(output_dir: str | Path = DEFAULT_OUTPUT_DIR) ->
     root = ensure_output_dir(output_dir)
     data = {
         "display_name": DISPLAY_NAME,
+        "adapter_target": ADAPTER_NAME,
         "action": "transmit-placeholder",
         "status": "blocked",
         "reason": "Raw CAN frame transmission is intentionally not implemented. Use passive listen/status/report for the production plug-in.",
@@ -256,7 +269,7 @@ def blocked_transmit_placeholder(output_dir: str | Path = DEFAULT_OUTPUT_DIR) ->
 
 
 def run_cli(argv: Optional[Iterable[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Koala Kan Kommander safe SocketCAN plug-in")
+    parser = argparse.ArgumentParser(description="Koala Kan Kommander safe InnoMaker SocketCAN plug-in")
     parser.add_argument("action", choices=["manifest", "inventory", "status", "listen", "report", "transmit-placeholder"], nargs="?", default="manifest")
     parser.add_argument("--interface", default="can0", help="SocketCAN interface, for example can0")
     parser.add_argument("--duration", type=float, default=10.0, help="Passive listen duration in seconds")
