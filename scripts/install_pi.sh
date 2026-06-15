@@ -46,5 +46,8 @@ echo
 echo "Koala BlueZ inventory test:"
 echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_koala_bluez.py inventory"
 echo
+echo "killerkoala voice preview:"
+echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_killerkoala_voice.py status --xp 100"
+echo
 echo "Terminal menu validation:"
 echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_menu_screen.py"
