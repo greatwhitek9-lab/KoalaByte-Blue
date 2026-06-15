@@ -4,7 +4,7 @@ This repository contains three retained software targets:
 
 1. **ESP32-S3 DualEye firmware** under `firmware/esp32-dualeye/`.
 2. **Raspberry Pi 3B+ companion tools** under `pi-companion/` and `scripts/`.
-3. **nRF Connect SDK / Zephyr firmware for nRF52840 Dongle Ear Tag TX Lab** under `firmware/nrf52840-dongle-ear-tag-tx-lab/`.
+3. **nRF Connect SDK / Zephyr firmware for nRF52840 Dongle KoalaByte Lab** under `firmware/nrf52840-dongle-ear-tag-tx-lab/`.
 
 The ESP32 firmware builds with PlatformIO. The Pi companion installs into a local Python virtual environment. The nRF52840 Dongle firmware builds with nRF Connect SDK / Zephyr and flashes through the Dongle USB bootloader/DFU flow.
 
@@ -98,7 +98,7 @@ NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_nrf52840_dongle_lab_dfu.sh
 Expected BLE advertisement name:
 
 ```text
-EarTag-TX-Lab
+KoalaByte Lab
 ```
 
 ---
@@ -188,7 +188,7 @@ Koala Kry review manifest:
 PYTHONPATH=pi-companion python3 scripts/run_koala_kry.py --request-rf-transmit --lab-setting --owned-device
 ```
 
-Ear Tag TX Lab plan artifact:
+KoalaByte Lab plan artifact:
 
 ```bash
 PYTHONPATH=pi-companion python3 scripts/run_ear_tag_tx_lab.py
@@ -232,7 +232,7 @@ PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowe
 PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py manifest
 PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py inventory
 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status --xp 100
-PYTHONPATH=pi-companion python3 scripts/run_koala_kapture.py --duration-seconds 30 --target-name EarTag-TX-Lab
+PYTHONPATH=pi-companion python3 scripts/run_koala_kapture.py --duration-seconds 30 --target-name "KoalaByte Lab"
 ```
 
 Expected behavior:
@@ -240,7 +240,7 @@ Expected behavior:
 - Repo readiness check passes before flashing.
 - ESP32 shows the KoalaByte Blue animated boot splash before normal runtime.
 - Serial JSON includes `"boot_animation":1`.
-- nRF52840 Dongle advertises as `EarTag-TX-Lab` with synthetic service data after DFU flashing.
+- nRF52840 Dongle advertises as `KoalaByte Lab` with synthetic service data after DFU flashing.
 - Pi splash opens in windowed or fullscreen mode.
 - Menu validation screen uses the large bubbly jungle/eucalyptus style.
 - Outback BlueZ Module Deck writes themed manifest/inventory artifacts without breaking the dongle-only flash path.
