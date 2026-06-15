@@ -1,8 +1,8 @@
-# RevA22 Koala Kan Kommander
+# RevA23 Koala Kan Kommander - InnoMaker USB-to-CAN Update
 
 ## Purpose
 
-Koala Kan Kommander adds an optional physical CAN-bus plug-in path for KoalaByte Blue using a SocketCAN-compatible USB-to-CAN adapter.
+Koala Kan Kommander adds an optional physical CAN observation path for KoalaByte Blue using the user-specified **InnoMaker USB to CAN Converter kit** as the USB-to-CAN adapter.
 
 It is designed for authorized bench, training, and owned-device CAN observation. The production plug-in is passive by default and does not implement raw CAN frame transmission.
 
@@ -11,13 +11,18 @@ It is designed for authorized bench, training, and owned-device CAN observation.
 Recommended physical path:
 
 ```text
-SocketCAN-compatible USB-to-CAN adapter
-  -> short internal USB cable to Raspberry Pi 3B+
-  -> case-mounted CAN connector
-  -> CAN_H / CAN_L / GND / optional SHIELD
+Raspberry Pi 3B+ USB host
+  -> short internal USB cable
+  -> InnoMaker USB to CAN Converter kit
+  -> adapter-side CAN_H / CAN_L / GND / optional SHIELD
+  -> authorized bench harness or owned-device test network
 ```
 
-Do not wire CAN_H or CAN_L directly to Raspberry Pi GPIO. Use a proper USB-to-CAN adapter or a CAN controller plus transceiver module.
+Do not wire CAN_H or CAN_L directly to Raspberry Pi GPIO. Use the InnoMaker adapter as the CAN controller/transceiver path.
+
+## Mechanical update
+
+RevA23 removes the earlier circular CAN panel port. Mount the InnoMaker converter internally or in a side/rear rectangular service bay and provide cable strain relief. Keep it clear of antennas, batteries, speaker grille, and the Pi GPIO header.
 
 ## Connector lines
 
@@ -26,10 +31,9 @@ CAN_H
 CAN_L
 GND
 optional SHIELD
-optional adapter-side power only when the selected adapter requires it
 ```
 
-For KoalaByte Blue, the cleanest enclosure option is a rear or side-panel connector connected to a USB-to-CAN adapter mounted inside the case.
+Use the adapter-side connection supplied by the selected InnoMaker kit/listing. Do not create a direct Pi GPIO CAN wiring path.
 
 ## Menu entry
 
@@ -60,7 +64,7 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit-plac
 
 | Action | Behavior |
 |---|---|
-| `manifest` | Writes the plug-in manifest. |
+| `manifest` | Writes the plug-in manifest with the InnoMaker adapter path. |
 | `inventory` | Detects SocketCAN interfaces under `/sys/class/net`. |
 | `status` | Saves `ip -details -statistics link show <interface>` output. |
 | `listen` | Performs a bounded passive raw-socket CAN listen and saves JSON artifacts. |
