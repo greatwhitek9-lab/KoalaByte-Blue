@@ -1,6 +1,6 @@
-# KoalaByte Blue / killerkoala AI Companion Firmware RevA13
+# KoalaByte Blue / killerkoala AI Companion Firmware RevA14
 
-ESP32-S3 DualEye firmware, Raspberry Pi companion software, optional Nordic nRF52840 DK lab firmware, RevA6 six-button front-panel GPIO support, RevA8 **eucalyptus** always-on BLE scanner/logger naming, RevA9 **Ear Tag** lab beacon naming, the expanded shared full-function menu, and RevA13 animated **KoalaByte Blue** boot splash support for the **KoalaByte Blue Pi3B+ stacked research device**.
+ESP32-S3 DualEye firmware, Raspberry Pi companion software, optional Nordic nRF52840 DK lab firmware, RevA6 six-button front-panel GPIO support, RevA8 **eucalyptus** always-on BLE scanner/logger naming, RevA9 **Ear Tag** lab beacon naming, the expanded shared full-function menu, RevA13 animated **KoalaByte Blue** boot splash support, and RevA14 large bubbly jungle/eucalyptus menu styling for the **KoalaByte Blue Pi3B+ stacked research device**.
 
 ## Hardware profile
 
@@ -18,9 +18,47 @@ Nordic nRF52840 DK / PCA10056
 
 Use the DK for development and validation. Keep the Dongle in the final compact physical build.
 
+## RevA14 jungle/eucalyptus menu theme
+
+KoalaByte Blue now includes a large rounded bubbly jungle-title style for menu selections, bordered with eucalyptus branches.
+
+Pi companion theme path:
+
+```text
+pi-companion/koalablue/menu_theme.py
+scripts/run_menu_screen.py
+```
+
+ESP32 display helper path:
+
+```text
+firmware/esp32-dualeye/include/menu_theme.h
+firmware/esp32-dualeye/src/menu_theme.cpp
+```
+
+Run the graphical jungle menu windowed:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
+```
+
+Run fullscreen:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical
+```
+
+Terminal validation still works and now shows a eucalyptus branch preview:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py
+```
+
+See [`docs/MENU_THEME_REVA14.md`](docs/MENU_THEME_REVA14.md).
+
 ## RevA13 animated boot splash
 
-KoalaByte Blue now includes boot animation support in both the ESP32-S3 firmware and the Raspberry Pi companion layer.
+KoalaByte Blue includes boot animation support in both the ESP32-S3 firmware and the Raspberry Pi companion layer.
 
 ESP32 firmware path:
 
@@ -51,7 +89,7 @@ Install desktop autostart on the Pi:
 bash scripts/install_boot_splash_autostart.sh
 ```
 
-Validate boot-animation firmware wiring:
+Validate boot/menu firmware wiring:
 
 ```bash
 python3 scripts/check_boot_animation_config.py
@@ -161,7 +199,9 @@ bash scripts/flash_nrf52840_dk_lab.sh
 - ESP32-S3 DualEye firmware scaffold with USB serial JSON protocol.
 - RevA13 procedural ESP32 boot animation launched during firmware `setup()`.
 - RevA13 Pi companion fullscreen boot splash runner and desktop autostart installer.
-- RevA13 Pi companion installer and boot-animation configuration validation script.
+- RevA13 Pi companion installer and boot/menu configuration validation script.
+- RevA14 large rounded jungle/eucalyptus menu theme for Pi graphical/terminal rendering.
+- RevA14 ESP32 display menu-theme helper functions for eucalyptus border and bubbly menu rows.
 - Mic wake path enabled by default with wake word **killerkoala**.
 - Raspberry Pi companion dependency/config files.
 - `eucalyptus` always-on passive BLE capture configuration under `/blecaptures/`.
@@ -189,17 +229,22 @@ Latest hardware/software additions:
 - `docs/EUCALYPTUS_ALWAYS_ON_BLE_REVA8.md`
 - `docs/MENU_SELECTION_REVA12.md`
 - `docs/BOOT_ANIMATION_REVA13.md`
+- `docs/MENU_THEME_REVA14.md`
 - `docs/FLASHING.md`
 - `docs/PRODUCTION_FILES.md`
 - `pi-companion/koalablue/menu_catalog.py`
+- `pi-companion/koalablue/menu_theme.py`
 - `pi-companion/koalablue/boot_animation.py`
 - `firmware/esp32-dualeye/src/boot_animation.cpp`
 - `firmware/esp32-dualeye/include/boot_animation.h`
+- `firmware/esp32-dualeye/src/menu_theme.cpp`
+- `firmware/esp32-dualeye/include/menu_theme.h`
 - `firmware/esp32-dualeye/include/config.h`
 - `firmware/esp32-dualeye/platformio.ini`
 - `scripts/flash_esp32.sh`
 - `scripts/install_pi.sh`
 - `scripts/run_boot_splash.py`
+- `scripts/run_menu_screen.py`
 - `scripts/install_boot_splash_autostart.sh`
 - `scripts/check_boot_animation_config.py`
 - `scripts/set_lab_ble_name.py`
@@ -266,8 +311,13 @@ Touch long press = select
 Validate the terminal menu:
 
 ```bash
-cd pi-companion
-PYTHONPATH=. python ../scripts/run_menu_screen.py
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py
+```
+
+Validate the graphical jungle/eucalyptus menu:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
 ```
 
 ## First ESP32 flash
@@ -286,6 +336,7 @@ git clone https://github.com/greatwhitek9-lab/KoalaByte-Blue.git
 cd KoalaByte-Blue
 bash scripts/install_pi.sh
 PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
 ```
 
 ## First nRF52840 DK flash
