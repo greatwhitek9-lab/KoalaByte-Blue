@@ -73,6 +73,23 @@
     "captured_signal_replay": false,
     "owned_device_required": true
   },
+  "koala_bluez": {
+    "display_name": "Koala BlueZ Tools",
+    "description": "KoalaByte-named wrappers for local BlueZ adapter status, discovery, and monitor logging.",
+    "enabled": true,
+    "output_dir": "logs/koala_bluez",
+    "default_scan_duration_seconds": 15,
+    "default_monitor_duration_seconds": 20,
+    "target_specific_requires_owned_device": true,
+    "tools": {
+      "inventory": "Koala BlueZ Inventory",
+      "status": "Koala BlueZ Status",
+      "scan": "Koala BlueZ Scan",
+      "monitor": "Koala BlueZ Monitor",
+      "info": "Koala BlueZ Info",
+      "services": "Koala BlueZ Services"
+    }
+  },
   "menu_selection": {
     "enabled": true,
     "visible_rows": 6,
@@ -107,6 +124,10 @@
       "Koala Kry RF Review",
       "Ear Tag",
       "Ear Tag TX Lab",
+      "Koala BlueZ Inventory",
+      "Koala BlueZ Status",
+      "Koala BlueZ Scan",
+      "Koala BlueZ Monitor",
       "Urban Poaching",
       "Buttons",
       "Level / Status",
