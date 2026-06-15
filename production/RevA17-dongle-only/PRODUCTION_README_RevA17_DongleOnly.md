@@ -54,6 +54,7 @@ Main retained companion features:
 - Koala Kapture passive metadata capture.
 - Koala Kry offline metadata replay/report pipeline.
 - Ear Tag TX Lab synthetic owned-device BLE advertisement firmware for the USB Dongle.
+- Koala Konnect optional external Bluetooth adapter mode for the USB Dongle.
 
 ## Flash-ready validation flow
 
@@ -134,6 +135,36 @@ EarTag-TX-Lab
 
 The advertisement is synthetic, clearly labeled, and intended for owned-device signal-integrity observation only. It does not replay captured packets or captured identifiers.
 
+## Koala Konnect external Bluetooth adapter mode
+
+Koala Konnect is an optional alternate firmware profile for the same nRF52840 USB Dongle. It turns the dongle into a USB HCI Bluetooth controller for a compatible phone or computer host.
+
+Build Koala Konnect:
+
+```bash
+bash scripts/build_koala_konnect.sh
+```
+
+Create the Koala Konnect DFU package:
+
+```bash
+bash scripts/flash_koala_konnect.sh
+```
+
+Flash after placing the dongle in bootloader mode and identifying the DFU serial port:
+
+```bash
+NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_koala_konnect.sh
+```
+
+Only one dongle firmware mode can be installed at a time. Reflash Ear Tag TX Lab to return to the default KoalaByte Blue lab beacon mode.
+
+See:
+
+```text
+docs/KOALA_KONNECT_REVA20.md
+```
+
 ## Six-button front panel
 
 Use six normally-open tactile buttons, numbered left to right:
@@ -165,7 +196,8 @@ python3 scripts/test_gpio_buttons.py
 - [ ] `python3 scripts/check_repo_readiness.py` passes.
 - [ ] `python -m compileall pi-companion scripts` passes.
 - [ ] ESP32 firmware builds with PlatformIO.
-- [ ] nRF52840 Dongle firmware builds with nRF Connect SDK / Zephyr.
+- [ ] nRF52840 Dongle Ear Tag TX Lab firmware builds with nRF Connect SDK / Zephyr.
+- [ ] Optional Koala Konnect firmware builds when `BUILD_KOALA_KONNECT=1` or `scripts/build_koala_konnect.sh` is used.
 - [ ] Dongle DFU package is generated.
 - [ ] Raspberry Pi companion installs with `scripts/install_pi.sh`.
 - [ ] Pi boots without undervoltage warning.
@@ -181,4 +213,4 @@ python3 scripts/test_gpio_buttons.py
 
 ## Safety boundary
 
-KoalaByte Blue is for lawful educational research, defensive testing, owned-device lab work, and authorized Bluetooth assessment only. Passive capture, local logging, and synthetic owned-device lab advertising must remain scoped to environments where you have permission.
+KoalaByte Blue is for lawful educational research, defensive testing, owned-device lab work, and authorized Bluetooth assessment only. Passive capture, local logging, synthetic owned-device lab advertising, and Koala Konnect host-adapter use must remain scoped to environments where you have permission.
