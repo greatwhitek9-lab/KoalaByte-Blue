@@ -1,17 +1,18 @@
-# KoalaByte Blue RevA13 Assembly, Flashing, Buttons, and Boot Animation Guide
+# KoalaByte Blue RevA14 Assembly, Flashing, Buttons, Boot Animation, and Jungle Menu Guide
 
-## RevA13 changes
+## RevA14 changes
 
 - Keeps the six-button front-panel GPIO layout from RevA6.
 - Keeps Nordic nRF52840 Dongle / PCA10059 as the production BLE board.
 - Keeps Nordic nRF52840 DK / PCA10056 as the optional development/debug board.
-- Adds ESP32-S3 DualEye animated boot splash firmware path.
-- Adds Raspberry Pi companion fullscreen boot splash runner and desktop autostart installer.
+- Keeps ESP32-S3 DualEye animated boot splash firmware path from RevA13.
+- Adds Raspberry Pi companion large bubbly jungle/eucalyptus menu renderer.
+- Adds ESP32 display helper functions for eucalyptus branch borders and bubbly menu rows.
 - Adds validation scripts and CI checks for ESP32 firmware build and Pi companion Python modules.
 
 ## Boot animation behavior
 
-The KoalaByte Blue boot screen now includes:
+The KoalaByte Blue boot screen includes:
 
 ```text
 Dark KoalaByte face
@@ -36,6 +37,35 @@ Pi companion splash files:
 pi-companion/koalablue/boot_animation.py
 scripts/run_boot_splash.py
 scripts/install_boot_splash_autostart.sh
+```
+
+## Jungle/eucalyptus menu behavior
+
+The function menu now uses:
+
+```text
+large rounded bubbly menu item styling
+eucalyptus branch border
+leaf accents on selected rows
+touch drag scrolling
+long-press selection
+six front-panel button navigation
+```
+
+Pi companion menu theme files:
+
+```text
+pi-companion/koalablue/menu_theme.py
+pi-companion/koalablue/menu_ui.py
+pi-companion/koalablue/menu_screen.py
+scripts/run_menu_screen.py
+```
+
+ESP32 menu theme helper files:
+
+```text
+firmware/esp32-dualeye/include/menu_theme.h
+firmware/esp32-dualeye/src/menu_theme.cpp
 ```
 
 ## Button hardware
@@ -80,13 +110,19 @@ For Raspberry Pi OS with Desktop, test the boot splash:
 PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
 ```
 
+Test the jungle/eucalyptus menu in a window:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
+```
+
 Install desktop-session autostart:
 
 ```bash
 bash scripts/install_boot_splash_autostart.sh
 ```
 
-Run the menu validation screen:
+Run the terminal menu validation screen:
 
 ```bash
 PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py
@@ -152,10 +188,13 @@ bash scripts/flash_nrf52840_dk_lab.sh
 - [ ] Pi boots without undervoltage warning.
 - [ ] Pi companion dependencies install with `scripts/install_pi.sh`.
 - [ ] Pi boot splash runs in windowed test mode.
+- [ ] Pi jungle/eucalyptus graphical menu runs in windowed test mode.
+- [ ] Terminal menu shows eucalyptus branch preview.
 - [ ] Optional Pi desktop autostart file is installed.
 - [ ] ESP32 firmware builds with PlatformIO.
 - [ ] ESP32 boot animation appears on the DualEye display.
 - [ ] ESP32 serial JSON boot message includes `boot_animation`.
+- [ ] ESP32 menu theme helper files are present for display menu integration.
 - [ ] nRF52840 Dongle enumerates on USB.
 - [ ] All six front buttons generate GPIO button events.
 - [ ] Button 3 short press emits `select`.
