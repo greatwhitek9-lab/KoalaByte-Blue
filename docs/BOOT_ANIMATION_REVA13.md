@@ -60,7 +60,7 @@ The firmware boot JSON also reports:
 
 ## ESP32 display dependency
 
-The PlatformIO project now includes:
+The PlatformIO project includes:
 
 ```ini
 bodmer/TFT_eSPI@^2.5.43
@@ -73,11 +73,13 @@ TFT_eSPI still needs the correct board display setup for the exact ESP32-S3 Dual
 From the repo root:
 
 ```bash
-python3 scripts/check_boot_animation_config.py
+python3 scripts/check_repo_readiness.py
 bash scripts/flash_esp32.sh
 ```
 
-The flash helper now cleans, builds, uploads, prints expected boot-animation behavior, and opens the serial monitor at 115200 baud.
+The legacy `scripts/check_boot_animation_config.py` wrapper remains for older workflows, but new validation should use `scripts/check_repo_readiness.py`.
+
+The flash helper cleans, builds, uploads, prints expected boot-animation behavior, and opens the serial monitor at 115200 baud.
 
 ## Pi companion boot splash
 
@@ -115,14 +117,14 @@ The autostart path runs when the Pi desktop session starts. For an earlier pre-d
 
 ## CI validation
 
-The repository now includes:
+The repository includes:
 
 ```text
 .github/workflows/koalabyte-blue-ci.yml
-scripts/check_boot_animation_config.py
+scripts/check_repo_readiness.py
 ```
 
-The workflow validates boot-animation wiring, compiles the Pi companion Python modules, and builds the ESP32 PlatformIO firmware.
+The workflow validates ready-to-flash repository wiring, compiles the Pi companion Python modules, checks nRF Connect SDK / Zephyr project structure, and builds the ESP32 PlatformIO firmware.
 
 ## Notes
 
