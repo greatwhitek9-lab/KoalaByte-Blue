@@ -17,7 +17,7 @@ The router supports typed phrase mode for CI and bench testing, plus optional mi
 ```bash
 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice_control.py --phrase "killerkoala bluez inventory"
 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice_control.py --phrase "killerkoala dropbear discovery sweep for 10 seconds"
-PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice_control.py --phrase "killerkoala ear tag tx lab"
+PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice_control.py --phrase "killerkoala koalabyte lab"
 ```
 
 ## Optional microphone mode
@@ -53,7 +53,7 @@ PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice_control.py --loop 
 | `killerkoala bluez all safe` | Kookaburra Safe Nest Run |
 | `killerkoala koala kapture for 15 seconds` | Koala Kapture |
 | `killerkoala koala kry` | Koala Kry offline replay |
-| `killerkoala ear tag tx lab` | Ear Tag TX Lab plan |
+| `killerkoala koalabyte lab` | KoalaByte Lab plan |
 | `killerkoala gatt readiness AA:BB:CC:DD:EE:FF owned device` | Gumnut GATT Readiness |
 
 ## XP rewards
@@ -76,7 +76,7 @@ XP is awarded only when a module returns successfully. Blocked or failed request
 | Kookaburra Safe Nest Run | 12 |
 | Koala Kapture | 15 |
 | Koala Kry | 5 |
-| Ear Tag TX Lab | 5 |
+| KoalaByte Lab | 5 |
 | Gumnut GATT Readiness | 4 |
 
 Ranks remain:
