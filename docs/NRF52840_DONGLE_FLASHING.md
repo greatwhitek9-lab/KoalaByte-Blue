@@ -1,4 +1,4 @@
-# Flash nRF52840 Dongle / PCA10059 Ear Tag TX Lab Firmware
+# Flash nRF52840 Dongle / PCA10059 KoalaByte Lab Firmware
 
 This guide covers the only retained Nordic BLE board in KoalaByte Blue:
 
@@ -13,7 +13,7 @@ Legacy external Nordic development-board targets have been removed from the reta
 The Dongle advertises as:
 
 ```text
-EarTag-TX-Lab
+KoalaByte Lab
 ```
 
 It emits a synthetic 128-bit service-data pattern with KBTX magic bytes, static pattern bytes, a sequence counter, and a simple check byte. It does not replay captured packets or captured identifiers.
@@ -89,7 +89,7 @@ Adjust the port for your OS, for example `/dev/ttyACM1`, `/dev/cu.usbmodem*`, or
 After flashing, scan with KoalaByte Blue passive scan or a BLE scanner app. Confirm:
 
 ```text
-EarTag-TX-Lab
+KoalaByte Lab
 ```
 
 ## Dongle summary
