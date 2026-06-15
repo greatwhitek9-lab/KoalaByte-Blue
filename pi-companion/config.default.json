@@ -1,4 +1,16 @@
 {
+  "action_names": {
+    "always_on_ble_scanner_logger": "eucalyptus"
+  },
+  "eucalyptus": {
+    "display_name": "eucalyptus",
+    "description": "Always-on passive Bluetooth/BLE scanner and logger for authorized lab use.",
+    "enabled": true,
+    "capture_dir": "/blecaptures",
+    "mode": "passive_ble_observation",
+    "wigle_upload_enabled": false,
+    "wigle_upload_interval_seconds": 1800
+  },
   "capture_dir": "/blecaptures",
   "scan_window_seconds": 8.0,
   "sleep_between_scans_seconds": 1.0,
@@ -21,52 +33,12 @@
     "wiring": "Each normally-open button shorts the assigned BCM GPIO to GND. Internal pull-up enabled in software.",
     "hold_seconds": 3.0,
     "buttons": {
-      "button_1": {
-        "number": 1,
-        "label": "Main Menu",
-        "press_command": "main_menu",
-        "pin_bcm": 5,
-        "physical_pin": 29
-      },
-      "button_2": {
-        "number": 2,
-        "label": "Move Left / Back",
-        "press_command": "move_left",
-        "alias_command": "back",
-        "pin_bcm": 6,
-        "physical_pin": 31
-      },
-      "button_3": {
-        "number": 3,
-        "label": "Enter / Select",
-        "press_command": "select",
-        "hold_command": "shutdown",
-        "hold_seconds": 3.0,
-        "pin_bcm": 13,
-        "physical_pin": 33
-      },
-      "button_4": {
-        "number": 4,
-        "label": "Move Right / Forward",
-        "press_command": "move_right",
-        "alias_command": "forward",
-        "pin_bcm": 19,
-        "physical_pin": 35
-      },
-      "button_5": {
-        "number": 5,
-        "label": "Up",
-        "press_command": "up",
-        "pin_bcm": 26,
-        "physical_pin": 37
-      },
-      "button_6": {
-        "number": 6,
-        "label": "Down",
-        "press_command": "down",
-        "pin_bcm": 21,
-        "physical_pin": 40
-      }
+      "button_1": {"number": 1, "label": "Main Menu", "press_command": "main_menu", "pin_bcm": 5, "physical_pin": 29},
+      "button_2": {"number": 2, "label": "Move Left / Back", "press_command": "move_left", "alias_command": "back", "pin_bcm": 6, "physical_pin": 31},
+      "button_3": {"number": 3, "label": "Enter / Select", "press_command": "select", "hold_command": "shutdown", "hold_seconds": 3.0, "pin_bcm": 13, "physical_pin": 33},
+      "button_4": {"number": 4, "label": "Move Right / Forward", "press_command": "move_right", "alias_command": "forward", "pin_bcm": 19, "physical_pin": 35},
+      "button_5": {"number": 5, "label": "Up", "press_command": "up", "pin_bcm": 26, "physical_pin": 37},
+      "button_6": {"number": 6, "label": "Down", "press_command": "down", "pin_bcm": 21, "physical_pin": 40}
     },
     "physical_pins": {
       "button_1_main_menu": 29,
