@@ -1,10 +1,10 @@
-# RevA15 Ear Tag / Ear Tag TX Lab Beacon Skill
+# RevA15 KoalaByte Lab Beacon Skill
 
 ## Purpose
 
-The safe lab BLE beacon skill is named **Ear Tag**. It is designed for owned-device testing and advertises a clearly labeled lab BLE name that KoalaByte Blue can detect, log, and report during authorized lab work.
+The safe lab BLE beacon skill is now named **KoalaByte Lab**. It is designed for owned-device testing and advertises a clearly labeled lab BLE name that KoalaByte Blue can detect, log, and report during authorized lab work.
 
-RevA15 adds **Ear Tag TX Lab**, a synthetic owned-device advertisement pattern for signal-integrity observation. It does not replay captured packets or captured identifiers.
+KoalaByte Lab uses a synthetic owned-device advertisement pattern for signal-integrity observation. It does not replay captured packets or captured identifiers.
 
 This is useful for:
 
@@ -19,7 +19,7 @@ This is useful for:
 The current dongle lab firmware advertises as:
 
 ```text
-EarTag-TX-Lab
+KoalaByte Lab
 ```
 
 It includes a synthetic 128-bit service-data field containing:
@@ -49,13 +49,13 @@ firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf
 Set:
 
 ```text
-CONFIG_BT_DEVICE_NAME="EarTag-TX-Lab"
+CONFIG_BT_DEVICE_NAME="KoalaByte Lab"
 ```
 
 Or use the helper:
 
 ```bash
-python3 scripts/set_lab_ble_name.py EarTag-TX-Lab
+python3 scripts/set_lab_ble_name.py "KoalaByte Lab"
 ```
 
 ## Build and flash the dongle
@@ -78,7 +78,7 @@ Or set the DFU port explicitly:
 NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_nrf52840_dongle_lab_dfu.sh
 ```
 
-## Generate a Pi-side Ear Tag TX Lab plan
+## Generate a Pi-side KoalaByte Lab plan
 
 ```bash
 PYTHONPATH=pi-companion python3 scripts/run_ear_tag_tx_lab.py
