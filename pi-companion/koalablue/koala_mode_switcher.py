@@ -24,6 +24,7 @@ class DongleModeSpec:
     hex_path: str
     dfu_zip: str
     host_note: str
+    killerkoala_loaded_line: str
 
 
 @dataclass
@@ -44,6 +45,7 @@ MODES: Dict[str, DongleModeSpec] = {
         "build/nrf52840-dongle-lab/zephyr/zephyr.hex",
         "build/nrf52840-dongle-lab/koalabyte-blue-nrf52840-dongle-dfu.zip",
         "Dongle advertises as KoalaByte Lab for owned-device BLE scan testing.",
+        "KoalaByte Lab loaded. Clean beacon, clean scope, and the lab signal is ours.",
     ),
     "koala_konnect": DongleModeSpec(
         "koala_konnect",
@@ -54,6 +56,7 @@ MODES: Dict[str, DongleModeSpec] = {
         "build/nrf52840-dongle-koala-konnect/zephyr/zephyr.hex",
         "build/nrf52840-dongle-koala-konnect/koala-konnect-nrf52840-dongle-dfu.zip",
         "Replug the dongle into the phone or computer host USB port.",
+        "Koala Konnect loaded. Plug me into the host and let the machine drive the stack.",
     ),
 }
 
@@ -61,10 +64,12 @@ ALIASES = {
     "lab": "koalabyte_lab",
     "koalabyte lab": "koalabyte_lab",
     "koalabyte_lab": "koalabyte_lab",
+    "koala lab": "koalabyte_lab",
     "konnect": "koala_konnect",
     "koala konnect": "koala_konnect",
     "koala_konnect": "koala_konnect",
     "adapter": "koala_konnect",
+    "external adapter": "koala_konnect",
 }
 
 
@@ -73,9 +78,10 @@ def repo_root() -> Path:
 
 
 def resolve_mode(name: str) -> DongleModeSpec:
-    key = ALIASES.get(name.strip().lower(), name.strip().lower())
+    normalized = name.strip().lower().replace("-", " ").replace("_", " ")
+    key = ALIASES.get(normalized, normalized.replace(" ", "_"))
     if key not in MODES:
-        raise ValueError(f"Unknown dongle mode: {name}")
+        raise ValueError(f"Unknown dongle mode: {name}. Use koalabyte_lab or koala_konnect.")
     return MODES[key]
 
 
@@ -109,11 +115,16 @@ def artifact_status(root: Optional[Path] = None) -> Dict[str, Dict[str, Any]]:
 
 def load_state(path: Path = DEFAULT_STATE_PATH) -> Dict[str, Any]:
     if not path.exists():
+        default = MODES[DEFAULT_ACTIVE_MODE]
         return {
             "active_mode": DEFAULT_ACTIVE_MODE,
-            "active_title": MODES[DEFAULT_ACTIVE_MODE].title,
+            "active_title": default.title,
+            "default_mode": DEFAULT_ACTIVE_MODE,
+            "default_title": default.title,
+            "killerkoala_line": default.killerkoala_loaded_line,
             "last_action": "default",
             "updated_at": time.time(),
+            "note": "Default production/lab mode is KoalaByte Lab until Koala Konnect is flashed.",
         }
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -142,6 +153,7 @@ def finish(action: str, mode: Optional[DongleModeSpec], status: str, message: st
     previous = load_state(state_path)
     mode_key = active_mode or str(previous.get("active_mode", DEFAULT_ACTIVE_MODE))
     title = MODES[mode_key].title if mode_key in MODES else str(previous.get("active_title", "Unknown"))
+    killerkoala_line = MODES[mode_key].killerkoala_loaded_line if mode_key in MODES else "Koala mode state is unknown. Check the dongle before testing."
     payload = {
         "action": action,
         "requested_mode": mode.key if mode else None,
@@ -151,11 +163,20 @@ def finish(action: str, mode: Optional[DongleModeSpec], status: str, message: st
         "error": error,
         "active_mode": mode_key,
         "active_title": title,
+        "default_mode": DEFAULT_ACTIVE_MODE,
+        "default_title": MODES[DEFAULT_ACTIVE_MODE].title,
+        "killerkoala_line": killerkoala_line,
         "updated_at": time.time(),
         "state_path": str(state_path),
         "event_log": str(event_log),
         "artifacts": artifact_status(root),
         "steps": steps,
+        "safety": {
+            "default_production_lab_mode": MODES[DEFAULT_ACTIVE_MODE].title,
+            "single_firmware_installed_at_a_time": True,
+            "dfu_flash_requires_explicit_port": True,
+            "authorized_lab_use_only": True,
+        },
     }
     write_state(payload, state_path)
     append_event(payload, event_log)
@@ -164,7 +185,8 @@ def finish(action: str, mode: Optional[DongleModeSpec], status: str, message: st
 
 def status(state_path: Path = DEFAULT_STATE_PATH, event_log: Path = DEFAULT_EVENT_LOG) -> Dict[str, Any]:
     state = load_state(state_path)
-    return finish("status", None, "success", "Koala Mode Switcher status written.", [], active_mode=str(state.get("active_mode", DEFAULT_ACTIVE_MODE)), state_path=state_path, event_log=event_log)
+    active = str(state.get("active_mode", DEFAULT_ACTIVE_MODE))
+    return finish("status", None, "success", "Koala Mode Switcher status written.", [], active_mode=active, state_path=state_path, event_log=event_log)
 
 
 def build(mode_name: str, state_path: Path = DEFAULT_STATE_PATH, event_log: Path = DEFAULT_EVENT_LOG) -> Dict[str, Any]:
@@ -212,23 +234,23 @@ def prepare_all(state_path: Path = DEFAULT_STATE_PATH, event_log: Path = DEFAULT
         steps.append(second)
         if second.returncode != 0:
             return finish("prepare-all", mode, "error", f"Prepare all failed while packaging {mode.title}.", steps, error=second.stderr or second.stdout, state_path=state_path, event_log=event_log)
-    return finish("prepare-all", None, "success", "KoalaByte Lab and Koala Konnect builds and DFU packages are ready.", steps, state_path=state_path, event_log=event_log)
+    return finish("prepare-all", None, "success", "Both firmwares built and both DFU ZIPs created.", steps, state_path=state_path, event_log=event_log)
 
 
 def apply_mode(mode_name: str, dfu_port: str, state_path: Path = DEFAULT_STATE_PATH, event_log: Path = DEFAULT_EVENT_LOG) -> Dict[str, Any]:
     mode = resolve_mode(mode_name)
     if not dfu_port.strip():
-        return finish("apply", mode, "blocked", "DFU port required. Use --dfu-port /dev/ttyACM0 or NRF_DFU_PORT.", [], error="missing DFU port", state_path=state_path, event_log=event_log)
+        return finish("switch", mode, "blocked", "DFU port required. Use --dfu-port /dev/ttyACM0 or NRF_DFU_PORT.", [], error="missing DFU port", state_path=state_path, event_log=event_log)
     root = repo_root()
     step = run_step(["bash", mode.package_script], root=root, env_extra={"NRF_DFU_PORT": dfu_port.strip()})
     if step.returncode != 0:
-        return finish("apply", mode, "error", f"{mode.title} DFU apply failed.", [step], error=step.stderr or step.stdout, state_path=state_path, event_log=event_log)
-    return finish("apply", mode, "success", f"{mode.title} is now selected. {mode.host_note}", [step], active_mode=mode.key, state_path=state_path, event_log=event_log)
+        return finish("switch", mode, "error", f"{mode.title} DFU switch failed.", [step], error=step.stderr or step.stdout, state_path=state_path, event_log=event_log)
+    return finish("switch", mode, "success", f"{mode.title} is now selected. {mode.host_note}", [step], active_mode=mode.key, state_path=state_path, event_log=event_log)
 
 
 def run_cli() -> int:
     parser = argparse.ArgumentParser(description="Koala Mode Switcher for the nRF52840 Dongle")
-    parser.add_argument("action", choices=["status", "build", "package", "prepare", "prepare-all", "apply"])
+    parser.add_argument("action", choices=["status", "build", "package", "prepare", "prepare-all", "apply", "switch"])
     parser.add_argument("mode", nargs="?", default=None, help="koalabyte_lab or koala_konnect")
     parser.add_argument("--dfu-port", default=os.environ.get("NRF_DFU_PORT", ""))
     parser.add_argument("--state-path", default=str(DEFAULT_STATE_PATH))
@@ -251,7 +273,7 @@ def run_cli() -> int:
                 result = package(args.mode, state_path, event_log)
             elif args.action == "prepare":
                 result = prepare(args.mode, state_path, event_log)
-            elif args.action == "apply":
+            elif args.action in {"apply", "switch"}:
                 result = apply_mode(args.mode, args.dfu_port, state_path, event_log)
             else:
                 raise ValueError(args.action)
