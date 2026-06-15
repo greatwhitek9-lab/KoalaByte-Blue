@@ -2,155 +2,211 @@ from __future__ import annotations
 
 import csv
 import json
-import random
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 
 @dataclass
 class KoalaKryConfig:
-    """Synthetic BLE log generator for parser/UI stress testing.
+    """Offline captured BLE metadata replay simulator.
 
-    Koala Kry does not transmit RF. It writes realistic-looking local test
-    records so the companion UI, reports, eucalyptus import path, and leveling
-    hooks can be tested without filling the air with BLE traffic.
+    Koala Kry replays metadata captured by Koala Kapture into local output files
+    and console events. It does not transmit BLE advertisements, RF packets, or
+    radio noise. It is intended for UI, parser, report, eucalyptus, Urban
+    Poaching, and XP-system testing.
     """
 
-    output_dir: str = "logs/koala_kry"
-    device_count: int = 40
-    samples: int = 250
-    min_rssi: int = -94
-    max_rssi: int = -38
-    include_named_lab_devices: bool = True
+    input_path: Optional[str] = None
+    input_dir: str = "/blecaptures/koala_kapture"
+    output_dir: str = "logs/koala_kry_replay"
+    speed: float = 1.0
+    loop: bool = False
+    max_records: Optional[int] = None
     xp_reward: int = 5
 
 
 @dataclass
-class SyntheticBleRecord:
-    timestamp: float
+class ReplayEvent:
+    replay_timestamp: float
+    source_timestamp: Optional[float]
     address: str
     name: str
-    rssi: int
-    connectable: bool
-    source: str = "koala_kry_synthetic"
-    note: str = "local synthetic test record; no RF transmission"
+    rssi: Optional[int]
+    record_type: str = "koala_kry_replay_event"
+    source: str = "Koala Kry"
+    replay_mode: str = "offline_metadata_replay"
+    rf_transmission: bool = False
+    original_record: Dict[str, Any] = field(default_factory=dict)
 
 
-LAB_NAMES = [
-    "EarTag-Lab",
-    "KoalaBlue-Lab",
-    "BenchBeacon-01",
-    "LabSensor-A",
-    "UrbanPoaching-Target",
-]
-
-GENERIC_NAMES = [
-    "",
-    "BLE-Test",
-    "DevBoard",
-    "EnvSensor",
-    "LoggerNode",
-    "BeaconSim",
-    "LabPeripheral",
-]
+@dataclass
+class KoalaKryReplayResult:
+    action: str
+    input_path: str
+    started_at: float
+    ended_at: float
+    replayed_records: int
+    output_jsonl_path: str
+    summary_path: str
+    xp_reward: int
 
 
-def random_static_address(rng: random.Random) -> str:
-    first = rng.randint(0xC0, 0xFF)  # static random high bits set
-    parts = [first] + [rng.randint(0, 255) for _ in range(5)]
-    return ":".join(f"{p:02X}" for p in parts)
-
-
-def build_device_pool(config: KoalaKryConfig, rng: random.Random) -> List[tuple[str, str]]:
-    pool: List[tuple[str, str]] = []
-    names: Iterable[str] = LAB_NAMES + GENERIC_NAMES if config.include_named_lab_devices else GENERIC_NAMES
-    name_list = list(names)
-    for i in range(config.device_count):
-        base = rng.choice(name_list)
-        if base and rng.random() < 0.55:
-            name = f"{base}-{i:02d}"
-        else:
-            name = base
-        pool.append((random_static_address(rng), name))
-    return pool
-
-
-def generate_records(config: Optional[KoalaKryConfig] = None, seed: Optional[int] = None) -> List[SyntheticBleRecord]:
-    cfg = config or KoalaKryConfig()
-    rng = random.Random(seed)
-    pool = build_device_pool(cfg, rng)
-    records: List[SyntheticBleRecord] = []
-    now = time.time()
-    for idx in range(cfg.samples):
-        address, name = rng.choice(pool)
-        rssi = rng.randint(cfg.min_rssi, cfg.max_rssi)
-        # Add a slow wave so the synthetic data has movement-like variation.
-        rssi = max(cfg.min_rssi, min(cfg.max_rssi, rssi + int(6 * rng.random()) - 3))
-        records.append(
-            SyntheticBleRecord(
-                timestamp=now + idx * 0.25,
-                address=address,
-                name=name,
-                rssi=rssi,
-                connectable=bool(rng.getrandbits(1)),
-            )
-        )
+def _load_jsonl(path: Path) -> List[Dict[str, Any]]:
+    records: List[Dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            records.append(json.loads(line))
     return records
 
 
-def write_records(records: List[SyntheticBleRecord], output_dir: str | Path) -> dict:
-    out = Path(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    stamp = time.strftime("%Y%m%d_%H%M%S")
-    jsonl_path = out / f"koala_kry_{stamp}.jsonl"
-    csv_path = out / f"koala_kry_{stamp}.csv"
-    summary_path = out / f"koala_kry_{stamp}_summary.json"
+def _load_json(path: Path) -> List[Dict[str, Any]]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(payload, list):
+        return [dict(item) for item in payload]
+    if isinstance(payload, dict) and isinstance(payload.get("records"), list):
+        return [dict(item) for item in payload["records"]]
+    if isinstance(payload, dict):
+        return [payload]
+    raise ValueError(f"Unsupported JSON replay format: {path}")
 
-    with jsonl_path.open("w", encoding="utf-8") as fh:
-        for rec in records:
-            fh.write(json.dumps(asdict(rec), sort_keys=True) + "\n")
 
-    with csv_path.open("w", newline="", encoding="utf-8") as fh:
-        writer = csv.DictWriter(fh, fieldnames=list(asdict(records[0]).keys()) if records else ["timestamp"])
-        writer.writeheader()
-        for rec in records:
-            writer.writerow(asdict(rec))
+def _load_csv(path: Path) -> List[Dict[str, Any]]:
+    with path.open("r", encoding="utf-8", newline="") as fh:
+        return [dict(row) for row in csv.DictReader(fh)]
 
-    unique_addresses = len({rec.address for rec in records})
-    named = sum(1 for rec in records if rec.name)
-    summary = {
-        "action": "Koala Kry",
-        "mode": "synthetic_ble_log_generator",
-        "rf_transmission": False,
-        "records": len(records),
-        "unique_addresses": unique_addresses,
-        "named_records": named,
-        "jsonl_path": str(jsonl_path),
-        "csv_path": str(csv_path),
-        "xp_reward": 5,
-        "safety_scope": "local synthetic test data only",
-    }
-    summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
-    summary["summary_path"] = str(summary_path)
-    return summary
+
+def load_capture_records(path: Path) -> List[Dict[str, Any]]:
+    suffix = path.suffix.lower()
+    if suffix == ".jsonl":
+        return _load_jsonl(path)
+    if suffix == ".json":
+        return _load_json(path)
+    if suffix == ".csv":
+        return _load_csv(path)
+    raise ValueError(f"Unsupported replay input type: {path.suffix}")
+
+
+def find_latest_capture(input_dir: str | Path) -> Path:
+    root = Path(input_dir)
+    candidates = sorted(
+        list(root.glob("*.jsonl")) + list(root.glob("*.json")) + list(root.glob("*.csv")),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not candidates:
+        raise FileNotFoundError(f"No capture files found in {root}")
+    return candidates[0]
+
+
+def _timestamp(record: Dict[str, Any]) -> Optional[float]:
+    value = record.get("timestamp")
+    try:
+        return float(value) if value is not None and value != "" else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _rssi(record: Dict[str, Any]) -> Optional[int]:
+    value = record.get("rssi")
+    try:
+        return int(value) if value is not None and value != "" else None
+    except (TypeError, ValueError):
+        return None
+
+
+class KoalaKryReplay:
+    def __init__(self, config: Optional[KoalaKryConfig] = None) -> None:
+        self.config = config or KoalaKryConfig()
+        self.output_dir = Path(self.config.output_dir)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
+    def replay(self) -> KoalaKryReplayResult:
+        input_path = Path(self.config.input_path) if self.config.input_path else find_latest_capture(self.config.input_dir)
+        records = load_capture_records(input_path)
+        records = sorted(records, key=lambda rec: _timestamp(rec) or 0.0)
+        if self.config.max_records is not None:
+            records = records[: self.config.max_records]
+
+        started = time.time()
+        stamp = time.strftime("%Y%m%d_%H%M%S", time.localtime(started))
+        output_jsonl = self.output_dir / f"koala_kry_replay_{stamp}.jsonl"
+        summary_path = self.output_dir / f"koala_kry_replay_{stamp}_summary.json"
+
+        replayed = 0
+        previous_ts: Optional[float] = None
+        with output_jsonl.open("w", encoding="utf-8") as fh:
+            while True:
+                for record in records:
+                    source_ts = _timestamp(record)
+                    if previous_ts is not None and source_ts is not None and self.config.speed > 0:
+                        delay = max(0.0, (source_ts - previous_ts) / self.config.speed)
+                        if delay > 0:
+                            time.sleep(min(delay, 5.0))
+                    previous_ts = source_ts if source_ts is not None else previous_ts
+                    event = ReplayEvent(
+                        replay_timestamp=time.time(),
+                        source_timestamp=source_ts,
+                        address=str(record.get("address", "")),
+                        name=str(record.get("name", record.get("local_name", "")) or ""),
+                        rssi=_rssi(record),
+                        original_record=record,
+                    )
+                    fh.write(json.dumps(asdict(event), sort_keys=True) + "\n")
+                    replayed += 1
+                if not self.config.loop:
+                    break
+
+        ended = time.time()
+        summary = {
+            "action": "Koala Kry",
+            "mode": "captured_metadata_replay",
+            "rf_transmission": False,
+            "input_path": str(input_path),
+            "started_at": started,
+            "ended_at": ended,
+            "replayed_records": replayed,
+            "output_jsonl_path": str(output_jsonl),
+            "xp_reward": self.config.xp_reward,
+            "safety_scope": "offline metadata replay only",
+        }
+        summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+        return KoalaKryReplayResult(
+            action="Koala Kry",
+            input_path=str(input_path),
+            started_at=started,
+            ended_at=ended,
+            replayed_records=replayed,
+            output_jsonl_path=str(output_jsonl),
+            summary_path=str(summary_path),
+            xp_reward=self.config.xp_reward,
+        )
 
 
 def run_cli() -> int:
     import argparse
 
-    parser = argparse.ArgumentParser(description="Koala Kry synthetic BLE log generator")
-    parser.add_argument("--output-dir", default="logs/koala_kry")
-    parser.add_argument("--device-count", type=int, default=40)
-    parser.add_argument("--samples", type=int, default=250)
-    parser.add_argument("--seed", type=int, default=None)
+    parser = argparse.ArgumentParser(description="Koala Kry offline captured BLE metadata replay")
+    parser.add_argument("--input", dest="input_path", default=None, help="Capture file to replay: jsonl, json, or csv")
+    parser.add_argument("--input-dir", default="/blecaptures/koala_kapture", help="Directory used when --input is omitted")
+    parser.add_argument("--output-dir", default="logs/koala_kry_replay")
+    parser.add_argument("--speed", type=float, default=1.0, help="Replay speed multiplier")
+    parser.add_argument("--max-records", type=int, default=None)
     args = parser.parse_args()
 
-    cfg = KoalaKryConfig(output_dir=args.output_dir, device_count=args.device_count, samples=args.samples)
-    records = generate_records(cfg, seed=args.seed)
-    summary = write_records(records, cfg.output_dir)
-    print(json.dumps(summary, indent=2, sort_keys=True))
+    config = KoalaKryConfig(
+        input_path=args.input_path,
+        input_dir=args.input_dir,
+        output_dir=args.output_dir,
+        speed=args.speed,
+        max_records=args.max_records,
+    )
+    result = KoalaKryReplay(config).replay()
+    print(json.dumps(asdict(result), indent=2, sort_keys=True))
     return 0
 
 
