@@ -1,7 +1,7 @@
 # KoalaByte Blue Orderable Parts List - RevA3
 This production update adds exact models, model numbers, and recommended ordering sources for the KoalaByte Blue physical build.
 ## Best buying strategy
-- Buy critical electronics and power parts from PiShop.us, Waveshare, DigiKey, Pololu, and Adafruit.
+- Buy critical electronics and power parts from PiShop.us, Waveshare, DigiKey, Pololu, Amazon brand storefronts, and authorized distributors.
 - Buy commodity cables, standoffs, acrylic, and strain relief from reputable Amazon brand storefronts or McMaster-Carr.
 - Avoid no-name power converters, no-name SD cards, and suspiciously cheap Raspberry Pi listings.
 ## Exact order list
@@ -10,10 +10,10 @@ This production update adds exact models, model numbers, and recommended orderin
 | Main SBC | Raspberry Pi 3 Model B+ | SC0073 / PiShop SKU 9001 / UPC 5060214370165 | 1 | PiShop.us, CanaKit, Micro Center | PiShop.us when in stock | $35-$60 | Core Linux computer. Use stable 5V rail. |
 | Dual-eye UI / mic board | Waveshare ESP32-S3-DualEye-LCD-1.28 | ESP32-S3-DualEye-LCD-1.28 | 1 | Waveshare official store | Waveshare official AliExpress store | $28-$40 | UI, mic front-end, serial companion bridge. |
 | BLE dongle | Nordic nRF52840 Dongle | PCA10059 / NRF52840-DONGLE / DigiKey 1490-1073-ND | 1 | DigiKey, Mouser, Newark | DigiKey | $11-$25 | USB BLE research dongle. |
-| 5V 5A buck regulator | Pololu 5V, 5A Step-Down Voltage Regulator | D24V50F5 / Pololu item #2851 | 1 | Pololu | Pololu or authorized distributor | $29.95 | Main regulated 5V rail; feed from 9V/12V PD or 2S source. |
-| USB-C PD trigger / sink board | Adafruit USB Type C Power Delivery Dummy Breakout - I2C or Fixed - HUSB238 | Adafruit Product ID 5807 | 1 | Adafruit | Adafruit or DigiKey | $5.95 | Use to request PD input. For main buck input use 9V or 12V, not 5V. |
+| 5V 5A buck regulator | Pololu 5V, 5A Step-Down Voltage Regulator | D24V50F5 / Pololu item #2851 | 1 | Pololu | Pololu or authorized distributor | $29.95 | Main regulated 5V rail; feed from the 12V PD/QC trigger output or 2S source. |
+| USB-C PD/QC 12V trigger board | Seloky USB-C PD Trigger Board Module PD/QC Decoy Fast Charge USB Type-C to 12V | Seloky USB-C to 12V PD/QC decoy trigger module | 1 | Amazon / Seloky listing | Amazon | varies | Use as the USB-C input trigger. Verify 12V output with a multimeter before connecting the buck converter. Do not connect 12V directly to the Pi. |
 | microSD card | SanDisk High Endurance microSDXC 64GB | SDSQQNR-064G-GN6IA | 1 | Amazon direct, B&H, Best Buy | Amazon direct, not marketplace clones | $8-$13 | Pi OS, logs, reports. |
-| USB-C wall charger | Anker 511 Charger Nano 3, 30W | A2147 | 1 | Anker, Amazon Anker store, Best Buy | Amazon Anker store | $15-$23 | PD source for bench or portable charger input. |
+| USB-C wall charger | Anker 511 Charger Nano 3, 30W | A2147 | 1 | Anker, Amazon Anker store, Best Buy | Amazon Anker store | $15-$23 | PD source for bench or portable charger input. Must support 12V output for the Seloky trigger board. |
 | USB-C PD cable | Anker 333 USB-C to USB-C 100W cable | A8758 | 1 | Anker, Amazon Anker store | Amazon Anker store | $8-$13 | PD cable from charger/power bank to PD trigger. |
 | ESP32 USB-C data cable | Anker 310 USB-C to USB-C cable or equivalent data cable | A81E6 or equivalent | 1 | Anker / Amazon Anker store | Amazon | $6-$10 | Use actual data-capable cable. |
 | Pi micro-USB cable | StarTech 1m Micro-USB cable | UUSBHAUB1M | 1 | DigiKey, Amazon, CDW | Amazon | $5-$8 | Short, quality cable for Pi power/data path. |
@@ -28,8 +28,9 @@ This production update adds exact models, model numbers, and recommended orderin
 
 ## Power notes
 - Main regulator: Pololu D24V50F5 / Pololu item #2851.
-- PD trigger/sink board: Adafruit HUSB238 USB Type-C PD Dummy Breakout / Product ID 5807.
-- For the main power rail, configure the USB-C PD input for 9V or 12V, then step down to 5V with the Pololu regulator. Do not feed a 5V buck regulator with a 5V PD setting.
+- PD trigger/sink board: Seloky USB-C PD Trigger Board Module PD/QC Decoy Fast Charge USB Type-C to 12V.
+- Verify the Seloky trigger board outputs about 12V before connecting it to the buck converter.
+- Step the 12V trigger output down to 5V with the Pololu regulator. Do not feed the Raspberry Pi directly from the 12V trigger output.
 - Add a 3A-5A fuse and 470uF-1000uF output capacitor near the 5V distribution point.
 
 ## Approximate total
