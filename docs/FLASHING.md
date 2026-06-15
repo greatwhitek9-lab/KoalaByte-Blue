@@ -3,9 +3,9 @@
 This repository contains two pieces of software:
 
 1. **ESP32-S3 DualEye firmware** under `firmware/esp32-dualeye/`.
-2. **Raspberry Pi 3B+ companion service** under `pi-companion/`.
+2. **Raspberry Pi 3B+ companion tools** under `pi-companion/` and `scripts/`.
 
-The ESP32 firmware is ready to flash with PlatformIO. The Raspberry Pi companion is installed as a Python service.
+The ESP32 firmware is ready to build/flash with PlatformIO. The Raspberry Pi companion is installed into a local Python virtual environment.
 
 > Safety boundary: this code is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, and lab placeholders only. Offensive lab entries intentionally return blocked placeholder responses and contain no working exploit, bypass, jamming, injection, or brute-force code.
 
@@ -38,6 +38,20 @@ pio --version
 1. Plug the ESP32-S3 DualEye into your computer with a USB-C data cable.
 2. Put the board in normal boot mode.
 3. If upload fails, hold **BOOT**, tap **RESET**, release **BOOT**, and retry.
+
+### Validate boot-animation wiring
+
+From the repo root:
+
+```bash
+python3 scripts/check_boot_animation_config.py
+```
+
+Expected result:
+
+```text
+KoalaByte Blue boot animation config check passed.
+```
 
 ### Build firmware
 
@@ -123,6 +137,8 @@ From the repo root:
 ./scripts/flash_esp32.sh
 ```
 
+The helper cleans, builds, uploads, prints the expected boot-animation behavior, and opens the serial monitor.
+
 ---
 
 ## 2. Install the Raspberry Pi 3B+ companion
@@ -134,7 +150,7 @@ From the repo root:
 3. Enable SSH if desired.
 4. Boot the Pi and connect to network.
 
-### Install dependencies
+### Install system packages
 
 For the Pi companion with graphical boot splash:
 
@@ -143,13 +159,21 @@ sudo apt update
 sudo apt install -y git python3 python3-venv python3-pip bluetooth bluez sqlite3 libsdl2-2.0-0
 ```
 
-### Install KoalaByte Blue
+### Install KoalaByte Blue Python dependencies
 
 ```bash
 git clone https://github.com/greatwhitek9-lab/KoalaByte-Blue.git
 cd KoalaByte-Blue
-./scripts/install_pi.sh
+bash scripts/install_pi.sh
 ```
+
+The installer creates/updates:
+
+```text
+pi-companion/.venv/
+```
+
+and runs a Python compile check across `pi-companion/` and `scripts/`.
 
 ### Test the Pi boot splash manually
 
@@ -179,49 +203,48 @@ This creates:
 
 The splash will run after the Pi desktop session starts. This is the safest default because it does not alter low-level bootloader, framebuffer, or display-manager settings.
 
-### Run manually
+### Run available Pi companion tools manually
+
+Menu validation screen:
 
 ```bash
-cd pi-companion
-source .venv/bin/activate
-python -m koalablue.app --serial /dev/ttyACM0
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py
 ```
 
-Use `--no-serial` for Pi-only testing:
+Koala Kapture passive BLE metadata capture:
 
 ```bash
-python -m koalablue.app --no-serial
+PYTHONPATH=pi-companion python3 scripts/run_koala_kapture.py --duration-seconds 30
+```
+
+Koala Kry offline replay:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_kry.py
+```
+
+Urban Poaching authorized lab game:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_urban_poaching.py
 ```
 
 ---
 
-## 3. Enable always-on BLE capture
+## 3. Passive BLE capture outputs
 
-The always-on service writes captures to:
-
-```text
-/blecaptures/
-```
-
-Install the systemd service:
-
-```bash
-sudo ./scripts/install_blecapture_service.sh
-```
-
-Service commands:
-
-```bash
-sudo systemctl status koalablue-blecapture
-sudo systemctl restart koalablue-blecapture
-sudo journalctl -u koalablue-blecapture -f
-```
-
-Capture outputs:
+Koala Kapture writes passive metadata captures to:
 
 ```text
-/blecaptures/YYYY-MM-DD_HH.jsonl
-/blecaptures/YYYY-MM-DD_HH.csv
+/blecaptures/koala_kapture/
+```
+
+Capture outputs include:
+
+```text
+koala_kapture_YYYYMMDD_HHMMSS.jsonl
+koala_kapture_YYYYMMDD_HHMMSS.csv
+koala_kapture_YYYYMMDD_HHMMSS_manifest.json
 ```
 
 Raw MAC logging is enabled in `pi-companion/config.default.json`. Only use this in authorized environments and comply with local law and platform rules.
@@ -266,27 +289,29 @@ Use real coordinates only for your own authorized collection area.
 1. Flash ESP32.
 2. Confirm the boot animation appears or confirm serial JSON reports `"boot_animation":1`.
 3. Connect ESP32 to Pi by USB.
-4. Start the Pi companion:
+4. Install the Pi companion dependencies:
 
 ```bash
-python -m koalablue.app --serial /dev/ttyACM0
+bash scripts/install_pi.sh
 ```
 
-5. Type:
+5. Test the splash and menu:
 
-```text
-wake killerkoala
-level
-scan
-summary
-report
-eucalyptus status
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py
+```
+
+6. Optional passive BLE capture test:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_kapture.py --duration-seconds 10 --max-records 50
 ```
 
 Expected behavior:
 
-- killerkoala responds in cyberpunk companion style.
-- XP increases after completed safe actions.
-- BLE scan results appear in the console.
-- Reports write under `pi-companion/logs/`.
-- Always-on capture reports status.
+- ESP32 shows the KoalaByte Blue animated boot splash before normal runtime.
+- Serial JSON includes `"boot_animation":1`.
+- Pi splash opens in windowed or fullscreen mode.
+- Menu validation screen responds to keyboard/GPIO input.
+- Passive BLE capture writes authorized metadata artifacts under `/blecaptures/koala_kapture/`.
