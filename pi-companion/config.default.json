@@ -84,7 +84,7 @@
     "description": "Synthetic owned-device BLE advertisement for signal-integrity observation. Does not replay captured packets.",
     "enabled": true,
     "mode": "synthetic_owned_lab_ble_advertisement",
-    "firmware_path": "firmware/nrf52840-dk-lab-peripheral",
+    "firmware_path": "firmware/nrf52840-dongle-ear-tag-tx-lab",
     "device_name": "EarTag-TX-Lab",
     "refresh_seconds": 5,
     "captured_signal_replay": false,
