@@ -1,12 +1,12 @@
 # Flashing and Installation Guide
 
-This repository contains three pieces of software:
+This repository contains three retained software targets:
 
 1. **ESP32-S3 DualEye firmware** under `firmware/esp32-dualeye/`.
 2. **Raspberry Pi 3B+ companion tools** under `pi-companion/` and `scripts/`.
-3. **nRF Connect SDK / Zephyr firmware for nRF52840 DK and nRF52840 Dongle Ear Tag TX Lab** under `firmware/nrf52840-dk-lab-peripheral/`.
+3. **nRF Connect SDK / Zephyr firmware for nRF52840 Dongle Ear Tag TX Lab** under `firmware/nrf52840-dongle-ear-tag-tx-lab/`.
 
-The ESP32 firmware builds with PlatformIO. The Pi companion installs into a local Python virtual environment. The nRF52840 DK and Dongle lab firmware builds with nRF Connect SDK / Zephyr.
+The ESP32 firmware builds with PlatformIO. The Pi companion installs into a local Python virtual environment. The nRF52840 Dongle firmware builds with nRF Connect SDK / Zephyr and flashes through the Dongle USB bootloader/DFU flow.
 
 > Safety boundary: this code is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, synthetic owned-device lab advertising, and safe lab validation only. Koala Kry remains offline metadata replay only.
 
@@ -24,7 +24,7 @@ Expected result:
 
 ```text
 KoalaByte Blue repo readiness check passed.
-Ready-to-flash file wiring is present for ESP32, nRF52840 DK/Zephyr, nRF52840 Dongle/DFU, and Pi companion.
+Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, and Pi companion.
 ```
 
 The legacy `scripts/check_boot_animation_config.py` wrapper is still present for old workflows, but new docs and CI use `scripts/check_repo_readiness.py`.
@@ -63,43 +63,7 @@ Expected serial boot JSON includes:
 
 ---
 
-## 3. nRF52840 DK nRF Connect SDK / Zephyr firmware
-
-Requirements:
-
-- Nordic nRF52840 DK / PCA10056
-- nRF Connect SDK installed
-- `west` command available
-- USB cable connected to the DK debug USB port
-
-Build only:
-
-```bash
-bash scripts/build_nrf52840_dk_lab.sh
-```
-
-Build and flash:
-
-```bash
-bash scripts/flash_nrf52840_dk_lab.sh
-```
-
-Manual build/flash:
-
-```bash
-west build -b nrf52840dk_nrf52840 firmware/nrf52840-dk-lab-peripheral -d build/nrf52840-dk-lab-peripheral
-west flash -d build/nrf52840-dk-lab-peripheral
-```
-
-Expected BLE advertisement name:
-
-```text
-EarTag-TX-Lab
-```
-
----
-
-## 4. nRF52840 Dongle nRF Connect SDK / Zephyr firmware
+## 3. nRF52840 Dongle nRF Connect SDK / Zephyr firmware
 
 Requirements:
 
@@ -118,7 +82,7 @@ bash scripts/build_nrf52840_dongle_lab.sh
 Manual build:
 
 ```bash
-west build -b nrf52840dongle_nrf52840 firmware/nrf52840-dk-lab-peripheral -d build/nrf52840-dongle-lab
+west build -b nrf52840dongle_nrf52840 firmware/nrf52840-dongle-ear-tag-tx-lab -d build/nrf52840-dongle-lab
 ```
 
 Create a DFU package:
@@ -135,21 +99,27 @@ NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_nrf52840_dongle_lab_dfu.sh
 
 See `docs/NRF52840_DONGLE_FLASHING.md` for details and port notes.
 
+Expected BLE advertisement name:
+
+```text
+EarTag-TX-Lab
+```
+
 ---
 
-## 5. Build all firmware targets
+## 4. Build all firmware targets
 
-Build all available firmware targets from one helper:
+Build all retained firmware targets from one helper:
 
 ```bash
 bash scripts/build_firmware_all.sh
 ```
 
-The helper builds ESP32 when PlatformIO is installed and builds both nRF52840 DK and nRF52840 Dongle when `west` is installed.
+The helper builds ESP32 when PlatformIO is installed and builds the nRF52840 Dongle when `west` is installed.
 
 ---
 
-## 6. Raspberry Pi companion and Koala BlueZ Tools
+## 5. Raspberry Pi companion and Koala BlueZ Tools
 
 Install Raspberry Pi OS with Desktop if you want the fullscreen boot splash and graphical jungle menu. Raspberry Pi OS Lite works for terminal-only use.
 
@@ -186,7 +156,7 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py monitor --duration 20
 
 ---
 
-## 7. Available Pi companion tools
+## 6. Available Pi companion tools
 
 Koala Kapture passive BLE metadata capture:
 
@@ -226,7 +196,7 @@ PYTHONPATH=pi-companion python3 scripts/run_urban_poaching.py
 
 ---
 
-## 8. Passive BLE capture outputs
+## 7. Passive BLE capture outputs
 
 Koala Kapture writes passive metadata captures to:
 
@@ -246,13 +216,12 @@ Raw MAC logging is enabled in `pi-companion/config.default.json`. Only use this 
 
 ---
 
-## 9. First functional test
+## 8. First functional test
 
 ```bash
 python3 scripts/check_repo_readiness.py
 bash scripts/install_pi.sh
 bash scripts/build_firmware_all.sh
-bash scripts/flash_nrf52840_dk_lab.sh
 bash scripts/build_nrf52840_dongle_lab.sh
 PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
 PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
@@ -266,7 +235,7 @@ Expected behavior:
 - Repo readiness check passes before flashing.
 - ESP32 shows the KoalaByte Blue animated boot splash before normal runtime.
 - Serial JSON includes `"boot_animation":1`.
-- nRF52840 DK or Dongle advertises as `EarTag-TX-Lab` with synthetic service data.
+- nRF52840 Dongle advertises as `EarTag-TX-Lab` with synthetic service data after DFU flashing.
 - Pi splash opens in windowed or fullscreen mode.
 - Menu validation screen uses the large bubbly jungle/eucalyptus style.
 - Koala BlueZ inventory reports available local BlueZ commands.
