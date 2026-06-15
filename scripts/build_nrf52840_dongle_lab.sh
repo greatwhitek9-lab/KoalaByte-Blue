@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="firmware/nrf52840-dk-lab-peripheral"
+APP_DIR="firmware/nrf52840-dongle-ear-tag-tx-lab"
 BUILD_DIR="build/nrf52840-dongle-lab"
 BOARD="${BOARD:-nrf52840dongle_nrf52840}"
 
