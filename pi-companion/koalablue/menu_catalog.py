@@ -21,6 +21,7 @@ FUNCTION_MENU_ITEMS: List[dict[str, object]] = [
     {"label": "Ear Tag", "command": "ear_tag", "description": "Named lab BLE beacon"},
     {"label": "KoalaByte Lab", "command": "ear_tag_tx_lab", "description": "Synthetic owned-device BLE advertisement for signal-integrity observation"},
     {"label": "Koala Mode Switcher", "command": "koala_mode_switcher", "description": "Build/package/select KoalaByte Lab or Koala Konnect for the nRF52840 Dongle"},
+    {"label": "Koala Kan Kommander", "command": "koala_kan_kommander", "description": "Optional safe SocketCAN USB-to-CAN status, passive listen, and report plug-in"},
     {"label": "Gumleaf Gear Check", "command": "koala_bluez_inventory", "description": "Inventory installed BlueZ helpers under KoalaByte themed names"},
     {"label": "Eucalyptus Bus Scout", "command": "koala_bluez_status", "description": "Collect local adapter, controller, rfkill, and optional D-Bus status"},
     {"label": "Dropbear Discovery Sweep", "command": "koala_bluez_scan", "description": "Run bounded Bluetooth discovery and save redacted results by default"},
