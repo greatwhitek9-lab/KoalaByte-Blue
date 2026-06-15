@@ -5,6 +5,23 @@
     "metadata_capture": "Koala Kapture",
     "metadata_replay": "Koala Kry"
   },
+  "killerkoala_companion": {
+    "display_name": "killerkoala",
+    "enabled": true,
+    "voice_profile": {
+      "accent": "Australian male",
+      "attitude": "edgy, gruff, cyberpunk lab companion",
+      "tts_voice_hint": "en-AU male, low pitch, gravelly delivery, confident but not hostile"
+    },
+    "xp_ranks": {
+      "Noob": {"min_xp": 0, "confidence": 1, "tone": "rough beginner, cautious, scoped"},
+      "Hacker": {"min_xp": 75, "confidence": 2, "tone": "sharper, more confident, dry humor"},
+      "Legend": {"min_xp": 250, "confidence": 3, "tone": "cocky, controlled, veteran lab operator"}
+    },
+    "vocabulary_module": "koalablue.killerkoala_vocabulary",
+    "default_event": "status",
+    "safe_scope": "authorized lab guidance, local diagnostics, status reactions, and defensive workflow narration"
+  },
   "eucalyptus": {
     "display_name": "eucalyptus",
     "description": "Always-on passive Bluetooth/BLE scanner and logger for authorized lab use.",
@@ -128,6 +145,7 @@
       "Koala BlueZ Status",
       "Koala BlueZ Scan",
       "Koala BlueZ Monitor",
+      "KillerKoala Voice",
       "Urban Poaching",
       "Buttons",
       "Level / Status",
