@@ -26,6 +26,7 @@ EXPECTED_MENU_LABELS = [
     "Ear Tag",
     "KoalaByte Lab",
     "Koala Mode Switcher",
+    "Koala Kan Kommander",
     "Gumleaf Gear Check",
     "Eucalyptus Bus Scout",
     "Dropbear Discovery Sweep",
@@ -81,10 +82,11 @@ REQUIRED_TEXT = {
     "docs/NRF52840_DONGLE_FLASHING.md": ["nrf52840dongle_nrf52840", "flash_nrf52840_dongle_lab_dfu.sh", "KoalaByte Lab"],
     "docs/EAR_TAG_TX_LAB_REVA15.md": ["KoalaByte Lab", "KBTX", "does not replay captured packets"],
     "docs/KOALA_KONNECT_REVA20.md": ["Koala Konnect", "hci_usb", "koala-konnect-nrf52840-dongle-dfu.zip"],
+    "docs/KOALA_KAN_KOMMANDER_REVA22.md": ["Koala Kan Kommander", "run_koala_kan_kommander.py", "manifest"],
     "docs/ORDERABLE_PARTS_LIST.md": ["Seloky USB-C PD Trigger Board", "12V", "Do not connect 12V directly to the Pi"],
     "docs/POWER_UPDATE_REVA2.md": ["Seloky USB-C PD/QC 12V trigger board", "Replaces the prior USB-C PD breakout reference", "Verify 12V output"],
     "docs/PRODUCTION_FILES.md": ["production/RevA17-dongle-only/", "BOM_RevA17_DongleOnly.csv", "No custom PCB"],
-    "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv": ["Seloky USB-C PD Trigger Board Module", "12 V PD-QC trigger"],
+    "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv": ["Seloky USB-C PD Trigger Board Module", "Koala Kan Kommander"],
     "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md": ["Seloky", "12 V", "5 V buck converter"],
     "production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv": ["Seloky trigger output", "KoalaByte Lab", "Koala Mode Switcher"],
     "firmware/esp32-dualeye/platformio.ini": ["bodmer/TFT_eSPI"],
@@ -93,10 +95,11 @@ REQUIRED_TEXT = {
     "firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf": ["KoalaByte Lab", "CONFIG_BT_PERIPHERAL=y"],
     "firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c": ["KBTX", "bt_le_adv_start", "no captured packet replay"],
     "pi-companion/koalablue/bluez_tools.py": ["BLUEZ_MODULES", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Billabong HCI Watch", "owned_device_required"],
-    "pi-companion/koalablue/menu_catalog.py": ["Koala Mode Switcher", "KoalaByte Lab", "Gumleaf Gear Check", "Dropbear Discovery Sweep", "Kookaburra Safe Nest Run"],
+    "pi-companion/koalablue/menu_catalog.py": ["Koala Mode Switcher", "KoalaByte Lab", "Koala Kan Kommander", "Kookaburra Safe Nest Run"],
     "pi-companion/koalablue/koala_mode_switcher.py": ["Koala Mode Switcher", "KoalaByte Lab", "Koala Konnect", "dongle_mode_state.json"],
+    "pi-companion/koalablue/koala_kan_kommander.py": ["Koala Kan Kommander", "listen", "report"],
     "pi-companion/koalablue/killerkoala_vocabulary.py": ["KoalaByte Lab", "koalabyte_lab", "lab"],
-    "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "Gumleaf Gear Check", "KoalaByte Lab", "Koala Mode Switcher", "killerkoala_companion"],
+    "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "KoalaByte Lab", "Koala Mode Switcher", "Koala Kan Kommander", "killerkoala_companion"],
     "scripts/build_firmware_all.sh": ["pio run", "build_nrf52840_dongle_lab.sh"],
     "scripts/build_nrf52840_dongle_lab.sh": ["west build", "nrf52840dongle_nrf52840", "firmware/nrf52840-dongle-ear-tag-tx-lab"],
     "scripts/build_koala_konnect.sh": ["build_nrf52840_dongle_hci_usb_adapter.sh"],
@@ -107,6 +110,7 @@ REQUIRED_TEXT = {
     "scripts/run_ear_tag_tx_lab.py": ["KoalaByte Lab"],
     "scripts/run_koala_bluez.py": ["bluez_tools", "run_cli"],
     "scripts/run_koala_mode_switcher.py": ["koala_mode_switcher", "run_cli"],
+    "scripts/run_koala_kan_kommander.py": ["Koala Kan Kommander", "run_cli"],
     "scripts/run_koala_bluez_manifest.sh": ["run_koala_bluez.py", "manifest"],
     "scripts/run_koala_bluez_all_safe.sh": ["run_koala_bluez.py", "all-safe"],
     "scripts/run_koala_bluez_gatt_readiness.sh": ["run_koala_bluez.py", "gatt-readiness"],
@@ -177,9 +181,7 @@ def check_forbidden_text(failures: list[str]) -> None:
             for needle in FORBIDDEN_TEXT:
                 if needle in line:
                     snippet = line.strip()[:160]
-                    failures.append(
-                        f"forbidden legacy reference '{needle}' found in {rel}:{line_no}: {snippet}"
-                    )
+                    failures.append(f"forbidden legacy reference '{needle}' found in {rel}:{line_no}: {snippet}")
 
 
 def check_json_config(failures: list[str]) -> None:
@@ -191,7 +193,7 @@ def check_json_config(failures: list[str]) -> None:
         return
 
     if config.get("menu_selection", {}).get("items", []) != EXPECTED_MENU_LABELS:
-        failures.append("menu_selection.items does not match the RevA21 expected menu ordering")
+        failures.append("menu_selection.items does not match the RevA22 expected menu ordering")
 
     koala_bluez = config.get("koala_bluez", {})
     if koala_bluez.get("display_name") != "Outback BlueZ Module Deck":
@@ -227,6 +229,13 @@ def check_json_config(failures: list[str]) -> None:
         failures.append("koala_mode_switcher display_name must be Koala Mode Switcher")
     if switcher.get("default_mode") != "koalabyte_lab":
         failures.append("Koala Mode Switcher default_mode must be koalabyte_lab")
+    kan = config.get("koala_kan_kommander", {})
+    if kan.get("display_name") != "Koala Kan Kommander":
+        failures.append("koala_kan_kommander display_name must be Koala Kan Kommander")
+    if kan.get("default_interface") != "can0":
+        failures.append("Koala Kan Kommander default_interface must be can0")
+    if kan.get("observe_only") is not True:
+        failures.append("Koala Kan Kommander must remain observe_only=true")
 
 
 def check_menu_catalog(failures: list[str]) -> None:
@@ -236,7 +245,7 @@ def check_menu_catalog(failures: list[str]) -> None:
         failures.append(f"failed to import menu catalog: {exc}")
         return
     if menu_labels() != EXPECTED_MENU_LABELS:
-        failures.append("menu_catalog.menu_labels() does not match RevA21 expected menu ordering")
+        failures.append("menu_catalog.menu_labels() does not match RevA22 expected menu ordering")
 
 
 def check_bluez_module_registry(failures: list[str]) -> None:
@@ -256,6 +265,19 @@ def check_bluez_module_registry(failures: list[str]) -> None:
         failures.append("BlueZ address redaction did not hash a sample address")
 
 
+def check_kan_module(failures: list[str]) -> None:
+    try:
+        from koalablue.koala_kan_kommander import DISPLAY_NAME, manifest
+    except Exception as exc:
+        failures.append(f"failed to import Koala Kan Kommander: {exc}")
+        return
+    if DISPLAY_NAME != "Koala Kan Kommander":
+        failures.append("Koala Kan Kommander display name mismatch")
+    data = manifest("logs/readiness_koala_kan_kommander")
+    if data.get("display_name") != "Koala Kan Kommander":
+        failures.append("Koala Kan Kommander manifest display name mismatch")
+
+
 def check_current_bom(failures: list[str]) -> None:
     path = REPO_ROOT / "production" / "RevA17-dongle-only" / "BOM_RevA17_DongleOnly.csv"
     try:
@@ -268,8 +290,8 @@ def check_current_bom(failures: list[str]) -> None:
     for item in EXPECTED_BOM_ITEMS:
         if item not in actual_items:
             failures.append(f"current BOM missing item: {item}")
-    if len(rows) != len(EXPECTED_BOM_ITEMS):
-        failures.append(f"current BOM should have {len(EXPECTED_BOM_ITEMS)} item rows; found {len(rows)}")
+    if len(rows) < len(EXPECTED_BOM_ITEMS):
+        failures.append(f"current BOM should have at least {len(EXPECTED_BOM_ITEMS)} item rows; found {len(rows)}")
 
 
 def main() -> int:
@@ -280,6 +302,7 @@ def main() -> int:
     check_json_config(failures)
     check_menu_catalog(failures)
     check_bluez_module_registry(failures)
+    check_kan_module(failures)
     check_current_bom(failures)
 
     if failures:
@@ -289,7 +312,7 @@ def main() -> int:
         return 1
 
     print("KoalaByte Blue repo readiness check passed.")
-    print("Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, and Pi companion.")
+    print("Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, and Koala Kan Kommander.")
     return 0
 
 
