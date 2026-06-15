@@ -6,7 +6,7 @@ This guide covers the only retained Nordic BLE board in KoalaByte Blue:
 Nordic nRF52840 Dongle / PCA10059 / NRF52840-DONGLE
 ```
 
-The nRF52840 DK/PCA10056 has been removed from the retained production and firmware build path.
+Legacy external Nordic development-board targets have been removed from the retained production and firmware build path. The current build is USB Dongle only.
 
 ## What the firmware does
 
