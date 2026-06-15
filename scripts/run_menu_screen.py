@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import time
+from typing import Optional
 
 from koalablue.menu_ui import MenuEvent, MenuSelectionScreen
 
@@ -33,7 +34,7 @@ def clear() -> None:
     os.system("clear" if os.name != "nt" else "cls")
 
 
-def selected_quit(event: MenuEvent | None) -> bool:
+def selected_quit(event: Optional[MenuEvent]) -> bool:
     return event is not None and event.event_type in {"select", "touch_long_press_select"} and event.command == "quit"
 
 
