@@ -1,8 +1,8 @@
-# RevA7 KoalaTag Lab Beacon Skill
+# RevA9 Ear Tag Lab Beacon Skill
 
 ## Purpose
 
-RevA7 adds a safe **KoalaTag Lab Beacon** skill for owned-device testing. It is designed to advertise a clearly labeled lab BLE name that KoalaByte Blue can detect, log, and report during authorized lab work.
+RevA9 renames the safe lab BLE beacon skill to **Ear Tag**. It is designed for owned-device testing and advertises a clearly labeled lab BLE name that KoalaByte Blue can detect, log, and report during authorized lab work.
 
 This is useful for:
 
@@ -13,17 +13,17 @@ This is useful for:
 
 ## Behavior
 
-The lab beacon advertises a configurable name such as:
+The **Ear Tag** lab beacon advertises a configurable name such as:
 
 ```text
-KoalaTag-Lab
+EarTag-Lab
 ```
 
 The name can be changed at build time. Use a name that clearly identifies the device as your own lab beacon.
 
 ## Safety boundary
 
-This skill is limited to clearly labeled lab-device advertising and a read-only status characteristic. It does not implement third-party tracker identity behavior, tracking-network behavior, hidden identity rotation, or location-tracking workflows.
+This skill is limited to clearly labeled lab-device advertising and a read-only status characteristic.
 
 ## Configure the lab beacon name
 
@@ -36,8 +36,13 @@ firmware/nrf52840-dk-lab-peripheral/prj.conf
 Set:
 
 ```text
-CONFIG_BT_DEVICE_NAME="KoalaTag-Lab"
-CONFIG_KOALABYTE_LAB_TAG_NAME="KoalaTag-Lab"
+CONFIG_BT_DEVICE_NAME="EarTag-Lab"
+```
+
+Or use the helper:
+
+```bash
+python3 scripts/set_lab_ble_name.py EarTag-Lab
 ```
 
 ## Flash
@@ -48,4 +53,4 @@ bash scripts/flash_nrf52840_dk_lab.sh
 
 ## Test
 
-Run KoalaByte Blue passive scan or a BLE scanner app. Confirm the advertisement name matches your lab name and that captures are stored under `/blecaptures/` when always-on capture is enabled.
+Run KoalaByte Blue passive scan or a BLE scanner app. Confirm the advertisement name matches your lab name and that captures are stored under `/blecaptures/` when `eucalyptus` always-on capture is enabled.
