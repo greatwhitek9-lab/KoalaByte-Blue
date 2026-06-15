@@ -50,6 +50,8 @@ EXPECTED_MENU_LABELS = [
     "Quit",
 ]
 
+SEL0KY_PD_ITEM = "Seloky USB-C PD Trigger Board Module PD/QC Decoy Fast Charge USB Type-C to 12V"
+
 EXPECTED_BOM_ITEMS = [
     "Raspberry Pi 3 Model B+",
     "Nordic nRF52840 USB Dongle / PCA10059 / NRF52840-DONGLE",
@@ -61,7 +63,7 @@ EXPECTED_BOM_ITEMS = [
     "KoalaByte Blue front button bezel 6x6mm RevA6",
     "Protected 18650 Li-ion cell",
     "2x18650 holder with protection / BMS",
-    "USB-C PD charging module",
+    SEL0KY_PD_ITEM,
     "5 V 3 A buck converter",
     "Inline rated power switch",
     "microSD card",
@@ -79,7 +81,11 @@ REQUIRED_TEXT = {
     "docs/NRF52840_DONGLE_FLASHING.md": ["nrf52840dongle_nrf52840", "flash_nrf52840_dongle_lab_dfu.sh", "DFU"],
     "docs/EAR_TAG_TX_LAB_REVA15.md": ["KoalaByte Lab", "KBTX", "does not replay captured packets"],
     "docs/KOALA_KONNECT_REVA20.md": ["Koala Konnect", "hci_usb", "koala-konnect-nrf52840-dongle-dfu.zip"],
+    "docs/ORDERABLE_PARTS_LIST.md": ["Seloky USB-C PD Trigger Board", "12V", "Do not connect 12V directly to the Pi"],
+    "docs/POWER_UPDATE_REVA2.md": ["Seloky USB-C PD/QC 12V trigger board", "Replaces the prior Adafruit HUSB238 reference", "Verify 12V output"],
     "docs/PRODUCTION_FILES.md": ["production/RevA17-dongle-only/", "BOM_RevA17_DongleOnly.csv", "No custom PCB"],
+    "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv": ["Seloky USB-C PD Trigger Board Module", "12 V PD-QC trigger"],
+    "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md": ["Seloky", "12 V", "5 V buck converter"],
     "firmware/esp32-dualeye/platformio.ini": ["bodmer/TFT_eSPI"],
     "firmware/esp32-dualeye/src/main.cpp": ["runBootAnimation();", "ENABLE_DISPLAY_BOOT_ANIMATION"],
     "firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt": ["find_package(Zephyr REQUIRED", "target_sources(app PRIVATE src/main.c)"],
