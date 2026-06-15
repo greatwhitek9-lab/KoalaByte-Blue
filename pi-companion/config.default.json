@@ -2,7 +2,8 @@
   "action_names": {
     "always_on_ble_scanner_logger": "eucalyptus",
     "ble_fox_hunt_game": "Urban Poaching",
-    "synthetic_ble_log_generator": "Koala Kry"
+    "synthetic_ble_log_generator": "Koala Kry",
+    "beacon_record_replay_simulator": "Beacon Record & Replay Simulator"
   },
   "eucalyptus": {
     "display_name": "eucalyptus",
@@ -40,6 +41,17 @@
     "min_rssi": -94,
     "max_rssi": -38,
     "include_named_lab_devices": true,
+    "xp_reward": 5,
+    "rf_transmission": false
+  },
+  "beacon_replay": {
+    "display_name": "Beacon Record & Replay Simulator",
+    "description": "Local replay of previously captured BLE advertisement metadata for UI/parser/report testing. No RF transmission.",
+    "enabled": true,
+    "mode": "local_metadata_replay",
+    "input_formats": ["jsonl", "json", "csv"],
+    "output_dir": "logs/beacon_replay",
+    "default_speed": 10.0,
     "xp_reward": 5,
     "rf_transmission": false
   },
