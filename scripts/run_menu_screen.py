@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Run a simple KoalaByte Blue menu screen loop.
+"""Run the KoalaByte Blue menu screen.
 
-This terminal loop is mainly for validation. On the device, the same
-MenuSelectionScreen state machine can be rendered on the ESP32-S3 display or a
-Pi touchscreen UI process.
+Default mode is the terminal validation loop. Use --graphical for the RevA14
+large bubbly jungle/eucalyptus touchscreen menu.
 """
 
 from __future__ import annotations
 
+import argparse
 import os
 import time
 from typing import Optional
@@ -38,7 +38,7 @@ def selected_quit(event: Optional[MenuEvent]) -> bool:
     return event is not None and event.event_type in {"select", "touch_long_press_select"} and event.command == "quit"
 
 
-def main() -> int:
+def run_terminal() -> int:
     menu = MenuSelectionScreen()
     buttons = GPIOButtonManager() if GPIOButtonManager is not None else None
     if buttons is not None:
@@ -53,6 +53,7 @@ def main() -> int:
             elif buttons is not None and buttons.error:
                 print(f"GPIO buttons: {buttons.error}")
             print("Keyboard test: w/s/a/d, Enter=select, m=menu, q=quit")
+            print("Graphical jungle menu: python scripts/run_menu_screen.py --graphical --windowed")
 
             if buttons is not None:
                 button_event = buttons.get_event(timeout=0.05)
@@ -73,6 +74,25 @@ def main() -> int:
     finally:
         if buttons is not None:
             buttons.close()
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Run the KoalaByte Blue menu screen")
+    parser.add_argument("--graphical", action="store_true", help="Run the large bubbly jungle/eucalyptus touchscreen menu")
+    parser.add_argument("--windowed", action="store_true", help="Run graphical mode in a window instead of fullscreen")
+    parser.add_argument("--width", type=int, default=800, help="Window width when --windowed is used")
+    parser.add_argument("--height", type=int, default=480, help="Window height when --windowed is used")
+    args = parser.parse_args()
+
+    if args.graphical:
+        from koalablue.menu_theme import JungleMenuRenderer, JungleMenuUnavailable
+
+        try:
+            return JungleMenuRenderer(fullscreen=not args.windowed, width=args.width, height=args.height).run()
+        except JungleMenuUnavailable as exc:
+            print(f"Graphical jungle menu unavailable: {exc}")
+            return run_terminal()
+    return run_terminal()
 
 
 if __name__ == "__main__":
