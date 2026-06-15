@@ -4,9 +4,7 @@ import math
 import os
 import time
 from dataclasses import dataclass
-from typing import Optional, Tuple
-
-from .menu_ui import MenuEvent, MenuSelectionScreen
+from typing import Any, Optional, Tuple
 
 Color = Tuple[int, int, int]
 
@@ -15,8 +13,8 @@ Color = Tuple[int, int, int]
 class JungleMenuTheme:
     """KoalaByte Blue menu styling.
 
-    The theme intentionally approximates a large rounded adventure/jungle title
-    look using system fonts. No third-party font files are bundled in the repo.
+    The theme approximates a large rounded adventure/jungle title look using
+    system fonts. No third-party font files are bundled in the repo.
     """
 
     title: str = "KoalaByte Blue"
@@ -42,12 +40,12 @@ class JungleMenuTheme:
 
 
 DEFAULT_JUNGLE_MENU_THEME = JungleMenuTheme()
-
-
 _TERMINAL_BRANCH = "🌿"
 
 
-def render_terminal_jungle_menu(menu: MenuSelectionScreen, theme: JungleMenuTheme = DEFAULT_JUNGLE_MENU_THEME) -> str:
+def render_terminal_jungle_menu(menu: Any, theme: JungleMenuTheme = DEFAULT_JUNGLE_MENU_THEME) -> str:
+    """Render a terminal-safe preview of the jungle menu theme."""
+
     visible = menu.visible_items()
     total = len(menu.items)
     width = 74
@@ -69,7 +67,7 @@ def render_terminal_jungle_menu(menu: MenuSelectionScreen, theme: JungleMenuThem
             lines.append(f"  {desc:<70}")
     lines.append(top)
     lines.append("Buttons: B1 menu | B2 prev/back | B3 select/hold shutdown | B4 next | B5 up | B6 down")
-    lines.append("Touch: drag/scroll through branches | long press to select")
+    lines.append("Touch: drag/scroll through eucalyptus branches | long press to select")
     return "\n".join(lines)
 
 
@@ -85,7 +83,7 @@ def _import_pygame():
     return pygame
 
 
-def _pick_font(pygame, family_csv: str, size: int, bold: bool = True):
+def _pick_font(pygame: Any, family_csv: str, size: int, bold: bool = True):
     available = {name.lower().replace(" ", "") for name in pygame.font.get_fonts()}
     for name in [part.strip() for part in family_csv.split(",") if part.strip()]:
         key = name.lower().replace(" ", "")
@@ -97,8 +95,12 @@ def _pick_font(pygame, family_csv: str, size: int, bold: bool = True):
 class JungleMenuRenderer:
     """Pygame renderer for the KoalaByte Blue jungle-styled menu."""
 
-    def __init__(self, menu: Optional[MenuSelectionScreen] = None, theme: JungleMenuTheme = DEFAULT_JUNGLE_MENU_THEME, *, fullscreen: bool = True, width: int = 800, height: int = 480, fps: int = 30) -> None:
-        self.menu = menu or MenuSelectionScreen(visible_rows=5)
+    def __init__(self, menu: Optional[Any] = None, theme: JungleMenuTheme = DEFAULT_JUNGLE_MENU_THEME, *, fullscreen: bool = True, width: int = 800, height: int = 480, fps: int = 30) -> None:
+        if menu is None:
+            from .menu_ui import MenuSelectionScreen
+
+            menu = MenuSelectionScreen(visible_rows=5)
+        self.menu = menu
         self.theme = theme
         self.fullscreen = fullscreen
         self.width = width
@@ -187,10 +189,8 @@ class JungleMenuRenderer:
         return None
 
     def draw(self) -> None:
-        pygame = self.pygame
         screen = self.screen
         assert screen is not None
-        w, h = screen.get_size()
         screen.fill(self.theme.background)
         self._draw_leafy_border()
         self._draw_title()
@@ -204,13 +204,11 @@ class JungleMenuRenderer:
         w, h = screen.get_size()
         margin = max(16, int(min(w, h) * 0.035))
         stem_width = max(4, int(min(w, h) * 0.012))
-        # Branch stems.
         pygame.draw.line(screen, self.theme.bark, (margin, margin), (w - margin, margin), stem_width)
         pygame.draw.line(screen, self.theme.bark, (margin, h - margin), (w - margin, h - margin), stem_width)
         pygame.draw.line(screen, self.theme.bark, (margin, margin), (margin, h - margin), stem_width)
         pygame.draw.line(screen, self.theme.bark, (w - margin, margin), (w - margin, h - margin), stem_width)
         pygame.draw.line(screen, self.theme.bark_highlight, (margin, margin - 2), (w - margin, margin - 2), 1)
-        # Eucalyptus leaves around the frame.
         spacing = max(34, int(w * 0.055))
         for x in range(margin + 18, w - margin, spacing):
             self._leaf((x, margin - 3), 16, -25)
@@ -238,8 +236,7 @@ class JungleMenuRenderer:
         screen = self.screen
         assert screen is not None
         w, h = screen.get_size()
-        y = int(h * 0.13)
-        self._bubble_text(self.theme.title, w // 2, y, self.title_font, self.theme.title_fill, self.theme.title_outline, outline=4)
+        self._bubble_text(self.theme.title, w // 2, int(h * 0.13), self.title_font, self.theme.title_fill, self.theme.title_outline, outline_size=4)
 
     def _draw_items(self) -> None:
         pygame = self.pygame
@@ -256,7 +253,7 @@ class JungleMenuRenderer:
             selected = absolute_index == self.menu.selected_index
             rect = pygame.Rect(left, y, width, int(row_h * 0.78))
             fill = self.theme.selected_fill if selected else self.theme.item_fill
-            outline = self.theme.selected_outline if selected else self.theme.item_outline
+            outline_color = self.theme.selected_outline if selected else self.theme.item_outline
             if not item.enabled:
                 fill = self.theme.disabled_fill
             if selected:
@@ -265,12 +262,12 @@ class JungleMenuRenderer:
                 self._leaf((rect.left - 26, rect.centery), 22, 0)
                 self._leaf((rect.right + 26, rect.centery), 22, 180)
             pygame.draw.rect(screen, fill, rect, border_radius=max(18, rect.height // 2))
-            pygame.draw.rect(screen, outline, rect, width=max(3, int(row_h * 0.045)), border_radius=max(18, rect.height // 2))
+            pygame.draw.rect(screen, outline_color, rect, width=max(3, int(row_h * 0.045)), border_radius=max(18, rect.height // 2))
             label = f"{absolute_index + 1:02d}. {item.label}"
             if not item.enabled:
                 label += "  LOCKED"
-            x = rect.centerx
-            self._bubble_text(label, x, rect.centery, self.item_font, self.theme.item_outline if selected else self.theme.item_shadow, fill, outline=2)
+            text_fill = self.theme.item_outline if selected else self.theme.item_shadow
+            self._bubble_text(label, rect.centerx, rect.centery, self.item_font, text_fill, fill, outline_size=2)
 
     def _draw_footer(self) -> None:
         screen = self.screen
@@ -280,13 +277,10 @@ class JungleMenuRenderer:
         surf = self.small_font.render(footer, True, self.theme.leaf_glow)
         screen.blit(surf, surf.get_rect(center=(w // 2, int(h * 0.94))))
 
-    def _bubble_text(self, text: str, x: int, y: int, font, fill: Color, outline: Color, outline_size: int = 3, outline: int | None = None) -> None:  # type: ignore[no-redef]
-        # Backward-compatible keyword name: callers pass outline=number.
-        if outline is not None:
-            outline_size = outline
+    def _bubble_text(self, text: str, x: int, y: int, font: Any, fill: Color, outline_color: Color, outline_size: int = 3) -> None:
         screen = self.screen
         assert screen is not None
-        outline_surf = font.render(text, True, outline)
+        outline_surf = font.render(text, True, outline_color)
         fill_surf = font.render(text, True, fill)
         for dx in range(-outline_size, outline_size + 1):
             for dy in range(-outline_size, outline_size + 1):
@@ -295,7 +289,7 @@ class JungleMenuRenderer:
         screen.blit(fill_surf, fill_surf.get_rect(center=(x, y)))
 
 
-def _selected_quit(event: Optional[MenuEvent]) -> bool:
+def _selected_quit(event: Optional[Any]) -> bool:
     return event is not None and event.event_type in {"select", "touch_long_press_select"} and event.command == "quit"
 
 
