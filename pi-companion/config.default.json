@@ -18,7 +18,7 @@
     "display_name": "Urban Poaching",
     "description": "Authorized BLE RSSI lab game using trend hints against owned lab beacons.",
     "enabled": true,
-    "default_target_name": "EarTag-Lab",
+    "default_target_name": "EarTag-TX-Lab",
     "default_target_address": null,
     "scan_seconds": 4.0,
     "rounds": 12,
@@ -62,6 +62,17 @@
     "allow_captured_signal_replay": false,
     "allow_synthetic_owned_lab_beacon_reference": true
   },
+  "ear_tag_tx_lab": {
+    "display_name": "Ear Tag TX Lab",
+    "description": "Synthetic owned-device BLE advertisement for signal-integrity observation. Does not replay captured packets.",
+    "enabled": true,
+    "mode": "synthetic_owned_lab_ble_advertisement",
+    "firmware_path": "firmware/nrf52840-dk-lab-peripheral",
+    "device_name": "EarTag-TX-Lab",
+    "refresh_seconds": 5,
+    "captured_signal_replay": false,
+    "owned_device_required": true
+  },
   "menu_selection": {
     "enabled": true,
     "visible_rows": 6,
@@ -95,6 +106,7 @@
       "Koala Kry",
       "Koala Kry RF Review",
       "Ear Tag",
+      "Ear Tag TX Lab",
       "Urban Poaching",
       "Buttons",
       "Level / Status",
