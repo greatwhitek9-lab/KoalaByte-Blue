@@ -1,6 +1,6 @@
 # KoalaByte Blue / killerkoala AI Companion Firmware RevA9
 
-ESP32-S3 DualEye firmware, Raspberry Pi companion software, optional Nordic nRF52840 DK lab firmware, RevA6 six-button front-panel GPIO support, RevA8 **eucalyptus** always-on BLE scanner/logger naming, and RevA9 **Ear Tag** lab beacon naming for the **KoalaByte Blue Pi3B+ stacked research device**.
+ESP32-S3 DualEye firmware, Raspberry Pi companion software, optional Nordic nRF52840 DK lab firmware, RevA6 six-button front-panel GPIO support, RevA8 **eucalyptus** always-on BLE scanner/logger naming, RevA9 **Ear Tag** lab beacon naming, and the expanded shared full-function menu for the **KoalaByte Blue Pi3B+ stacked research device**.
 
 ## Hardware profile
 
@@ -117,6 +117,7 @@ bash scripts/flash_nrf52840_dk_lab.sh
 - `eucalyptus` always-on passive BLE capture configuration under `/blecaptures/`.
 - RevA6 Raspberry Pi six-button GPIO manager.
 - RevA9 **Ear Tag** named lab beacon configuration.
+- Shared full-function menu catalog for GPIO buttons, touch scrolling, and long-press selection.
 - Production BOM and safety-test CSV files.
 - Optional nRF52840 DK safe lab-peripheral firmware.
 - Flashing guides and production-file manifests.
@@ -136,6 +137,8 @@ Latest hardware/software additions:
 - `docs/BUTTON_WIRING_REVA5.md`
 - `docs/LAB_TAG_BEACON_SKILL_REVA7.md`
 - `docs/EUCALYPTUS_ALWAYS_ON_BLE_REVA8.md`
+- `docs/MENU_SELECTION_REVA12.md`
+- `pi-companion/koalablue/menu_catalog.py`
 - `scripts/set_lab_ble_name.py`
 - `production/RevA1-nrf52840-dongle/BOM_RevA5_Dongle_DK_Buttons.csv`
 - `production/RevA1-nrf52840-dongle/ASSEMBLY_AND_FLASHING_INSTRUCTIONS_RevA5_BUTTONS.md`
@@ -147,17 +150,60 @@ This package is for authorized Bluetooth research, BLE inventory, local logging,
 ## Main Pi commands
 
 ```text
-scan              Run a safe BLE inventory scan
-summary           Summarize observed BLE devices
-show              Show device table
-eucalyptus        Always-on passive BLE scanner/logger action name
-Ear Tag           Safe named lab BLE beacon skill
-buttons           Show/check GPIO front-panel button status
-level/status      Show XP and rank
-report            Write Markdown report
-wake killerkoala  Test wake-word flow
-lab               Password-gated Authorized Lab Use menu
-quit              Exit
+scan                         Run a safe BLE inventory scan
+summary                      Summarize observed BLE devices
+show                         Show device table
+eucalyptus status            Show always-on passive BLE logger status
+eucalyptus start             Start always-on passive BLE logger
+eucalyptus stop              Stop always-on passive BLE logger
+eucalyptus restart           Restart always-on passive BLE logger
+eucalyptus upload-status     Show WiGLE upload readiness/status
+koala_kapture                Capture and archive BLE advertisement metadata
+koala_kry                    Replay captured metadata offline into the report/XP pipeline
+ear_tag                      Safe named lab BLE beacon skill
+urban_poaching               Authorized BLE RSSI lab game
+buttons                      Show/check GPIO front-panel button status
+level/status                 Show XP and rank
+report                       Write Markdown report
+wake killerkoala             Test wake-word flow
+authorized_ble_inventory     Generate authorized BLE inventory artifact
+gatt_readiness_checklist     Generate owned-device GATT readiness checklist
+pairing_security_review      Generate pairing/access-control review notes
+lab_beacon_plan              Generate safe lab beacon/peripheral plan
+packet_capture_notes         Generate protocol-analysis notes for owned/lab traffic
+defensive_report             Generate defensive lab report template
+lab                          Password-gated Authorized Lab Use menu
+settings                     Device and companion settings
+shutdown_confirm             Confirm safe shutdown
+quit                         Exit
+```
+
+## Full function menu
+
+The Pi companion menu uses the shared catalog at:
+
+```text
+pi-companion/koalablue/menu_catalog.py
+```
+
+Controls:
+
+```text
+Button 1 = main menu
+Button 2 = previous / left / back
+Button 3 = select; hold for shutdown
+Button 4 = next / right / forward
+Button 5 = up / previous
+Button 6 = down / next
+Touch drag = scroll
+Touch long press = select
+```
+
+Validate the terminal menu:
+
+```bash
+cd pi-companion
+PYTHONPATH=. python ../scripts/run_menu_screen.py
 ```
 
 ## First ESP32 flash
