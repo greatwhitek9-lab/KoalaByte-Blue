@@ -19,6 +19,7 @@ FUNCTION_MENU_ITEMS: List[dict[str, object]] = [
     {"label": "Koala Kry", "command": "koala_kry", "description": "Replay captured metadata offline into the report/XP pipeline"},
     {"label": "Koala Kry RF Review", "command": "koala_kry_transmit_review", "description": "Write blocked RF transmit review manifest; no RF is sent"},
     {"label": "Ear Tag", "command": "ear_tag", "description": "Named lab BLE beacon"},
+    {"label": "Ear Tag TX Lab", "command": "ear_tag_tx_lab", "description": "Synthetic owned-device BLE advertisement for signal-integrity observation"},
     {"label": "Urban Poaching", "command": "urban_poaching", "description": "Authorized BLE RSSI lab game"},
     {"label": "Buttons", "command": "buttons", "description": "Show/check GPIO front-panel button status"},
     {"label": "Level / Status", "command": "level/status", "description": "Show XP and rank"},
