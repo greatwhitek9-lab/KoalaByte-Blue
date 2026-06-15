@@ -1,6 +1,6 @@
-# KoalaByte Blue / killerkoala AI Companion Firmware RevA16
+# KoalaByte Blue / killerkoala AI Companion Firmware RevA17
 
-ESP32-S3 DualEye firmware, Raspberry Pi companion software, nRF Connect SDK / Zephyr firmware for the Nordic nRF52840 DK, RevA6 six-button front-panel GPIO support, RevA8 **eucalyptus** passive BLE scanner/logger naming, RevA13 animated boot splash support, RevA14 jungle/eucalyptus menu styling, RevA15 Ear Tag TX Lab, and RevA16 **Koala BlueZ Tools** for the **KoalaByte Blue Pi3B+ stacked research device**.
+ESP32-S3 DualEye firmware, Raspberry Pi companion software, nRF Connect SDK / Zephyr firmware for the Nordic nRF52840 DK, RevA6 six-button front-panel GPIO support, RevA8 **eucalyptus** passive BLE scanner/logger naming, RevA13 animated boot splash support, RevA14 jungle/eucalyptus menu styling, RevA15 Ear Tag TX Lab, RevA16 **Koala BlueZ Tools**, and RevA17 **killerkoala companion vocabulary** for the **KoalaByte Blue Pi3B+ stacked research device**.
 
 ## Hardware profile
 
@@ -18,25 +18,37 @@ Nordic nRF52840 DK / PCA10056
 
 Use nRF Connect SDK / Zephyr for the DK firmware. Keep the Dongle in the final compact physical build.
 
-## RevA16 nRF Connect SDK / Zephyr firmware build
+## RevA17 killerkoala companion vocabulary
 
-Local nRF build helper:
+killerkoala now has a structured event/inquiry vocabulary with Australian male voice metadata, gruff cyberpunk attitude, and XP-based confidence scaling.
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status
+PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py scan_start --xp 100
+PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py bluez_status --xp 300
+PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py --manifest
+```
+
+XP ranks:
+
+```text
+Noob   = 0+ XP
+Hacker = 75+ XP
+Legend = 250+ XP
+```
+
+See [`docs/KILLERKOALA_VOCABULARY_REVA17.md`](docs/KILLERKOALA_VOCABULARY_REVA17.md).
+
+## RevA16 nRF Connect SDK / Zephyr firmware build
 
 ```bash
 bash scripts/build_nrf52840_dk_lab.sh
-```
-
-Build all firmware targets when PlatformIO and west are installed:
-
-```bash
 bash scripts/build_firmware_all.sh
 ```
 
-The CI workflow now validates the nRF Zephyr project wiring alongside the ESP32 and Pi companion checks.
+The CI workflow validates the nRF Zephyr project wiring alongside the ESP32 and Pi companion checks.
 
 ## RevA16 Koala BlueZ Tools
-
-Koala BlueZ Tools are KoalaByte-named wrappers for local BlueZ adapter status, discovery, and monitor logging.
 
 ```bash
 PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py inventory
@@ -64,15 +76,8 @@ Ear Tag TX Lab is the safe transmit-oriented lab mode. It advertises a clearly n
 EarTag-TX-Lab
 ```
 
-Build and flash:
-
 ```bash
 bash scripts/flash_nrf52840_dk_lab.sh
-```
-
-Generate the Pi-side plan artifact:
-
-```bash
 PYTHONPATH=pi-companion python3 scripts/run_ear_tag_tx_lab.py
 ```
 
@@ -111,6 +116,7 @@ See [`docs/BOOT_ANIMATION_REVA13.md`](docs/BOOT_ANIMATION_REVA13.md).
 ## Core paths
 
 ```text
+pi-companion/koalablue/killerkoala_vocabulary.py
 pi-companion/koalablue/bluez_tools.py
 pi-companion/koalablue/koala_kry.py
 pi-companion/koalablue/ear_tag_tx_lab.py
@@ -120,6 +126,7 @@ pi-companion/koalablue/boot_animation.py
 firmware/nrf52840-dk-lab-peripheral/src/main.c
 firmware/esp32-dualeye/src/boot_animation.cpp
 firmware/esp32-dualeye/src/menu_theme.cpp
+scripts/run_killerkoala_voice.py
 scripts/build_nrf52840_dk_lab.sh
 scripts/build_firmware_all.sh
 scripts/run_koala_bluez.py
@@ -159,6 +166,7 @@ koala_bluez_inventory        List installed local BlueZ helper tools
 koala_bluez_status           Save local Bluetooth/BlueZ adapter status
 koala_bluez_scan             Run timed local discovery and save results
 koala_bluez_monitor          Run timed local HCI monitor logging
+killerkoala_voice            Preview event reactions and inquiry vocabulary by XP rank
 urban_poaching               Authorized BLE RSSI lab game
 buttons                      Show/check GPIO front-panel button status
 level/status                 Show XP and rank
@@ -191,4 +199,4 @@ Touch long press = select
 
 ## Safety boundary
 
-This package is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, and safe lab validation only. Koala Kry stays offline; Ear Tag TX Lab uses owned-device synthetic lab payloads; Koala BlueZ Tools wrap local adapter status, discovery, and logging workflows.
+This package is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, and safe lab validation only. Koala Kry stays offline; Ear Tag TX Lab uses owned-device synthetic lab payloads; Koala BlueZ Tools wrap local adapter status, discovery, and logging workflows; killerkoala vocabulary provides safe lab narration and status responses.
