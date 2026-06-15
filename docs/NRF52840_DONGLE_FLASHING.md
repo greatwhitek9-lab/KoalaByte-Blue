@@ -1,12 +1,12 @@
 # Flash nRF52840 Dongle / PCA10059 Ear Tag TX Lab Firmware
 
-This guide covers the compact production BLE board:
+This guide covers the only retained Nordic BLE board in KoalaByte Blue:
 
 ```text
 Nordic nRF52840 Dongle / PCA10059 / NRF52840-DONGLE
 ```
 
-The same safe Ear Tag TX Lab Zephyr app is used for both the DK and the Dongle. The Dongle build target is separate from the DK target.
+The nRF52840 DK/PCA10056 has been removed from the retained production and firmware build path.
 
 ## What the firmware does
 
@@ -29,7 +29,7 @@ bash scripts/build_nrf52840_dongle_lab.sh
 Manual build:
 
 ```bash
-west build -b nrf52840dongle_nrf52840 firmware/nrf52840-dk-lab-peripheral -d build/nrf52840-dongle-lab
+west build -b nrf52840dongle_nrf52840 firmware/nrf52840-dongle-ear-tag-tx-lab -d build/nrf52840-dongle-lab
 ```
 
 If your installed Zephyr/NCS version uses a newer board target naming style, override the board from the shell:
@@ -56,7 +56,7 @@ zephyr.elf
 
 ## Flashing / DFU note
 
-The nRF52840 Dongle normally flashes through its USB bootloader/DFU flow, not the DK's J-Link `west flash` path. Use the DK helper for the DK and the Dongle helper for the Dongle.
+The nRF52840 Dongle normally flashes through its USB bootloader/DFU flow.
 
 Build the firmware first:
 
@@ -92,13 +92,11 @@ After flashing, scan with KoalaByte Blue passive scan or a BLE scanner app. Conf
 EarTag-TX-Lab
 ```
 
-## DK vs Dongle summary
+## Dongle summary
 
 ```text
-DK board target:      nrf52840dk_nrf52840
 Dongle board target:  nrf52840dongle_nrf52840
-DK build dir:         build/nrf52840-dk-lab-peripheral
+Dongle firmware path: firmware/nrf52840-dongle-ear-tag-tx-lab
 Dongle build dir:     build/nrf52840-dongle-lab
-DK flashing:          west flash through J-Link/debug USB
 Dongle flashing:      USB bootloader/DFU package flow
 ```
