@@ -24,7 +24,7 @@ EXPECTED_MENU_LABELS = [
     "Koala Kry",
     "Koala Kry RF Review",
     "Ear Tag",
-    "Ear Tag TX Lab",
+    "KoalaByte Lab",
     "Gumleaf Gear Check",
     "Eucalyptus Bus Scout",
     "Dropbear Discovery Sweep",
@@ -73,19 +73,19 @@ EXPECTED_BOM_ITEMS = [
 
 REQUIRED_TEXT = {
     "README.md": ["RevA18", "Outback BlueZ Module Deck", "Gumleaf Gear Check", "build_nrf52840_dongle_lab.sh"],
-    "docs/FLASHING.md": ["Outback BlueZ Module Deck", "check_repo_readiness.py", "run_koala_bluez.py", "EarTag-TX-Lab"],
+    "docs/FLASHING.md": ["Outback BlueZ Module Deck", "check_repo_readiness.py", "run_koala_bluez.py", "KoalaByte Lab"],
     "docs/KOALA_BLUEZ_TOOLS_REVA16.md": ["RevA18 Outback BlueZ Module Deck", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "--owned-device"],
     "docs/NRF52840_DONGLE_FLASHING.md": ["nrf52840dongle_nrf52840", "flash_nrf52840_dongle_lab_dfu.sh", "DFU"],
-    "docs/EAR_TAG_TX_LAB_REVA15.md": ["EarTag-TX-Lab", "KBTX", "does not replay captured packets"],
+    "docs/EAR_TAG_TX_LAB_REVA15.md": ["KoalaByte Lab", "KBTX", "does not replay captured packets"],
     "docs/PRODUCTION_FILES.md": ["production/RevA17-dongle-only/", "BOM_RevA17_DongleOnly.csv", "No custom PCB"],
     "firmware/esp32-dualeye/platformio.ini": ["bodmer/TFT_eSPI"],
     "firmware/esp32-dualeye/src/main.cpp": ["runBootAnimation();", "ENABLE_DISPLAY_BOOT_ANIMATION"],
     "firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt": ["find_package(Zephyr REQUIRED", "target_sources(app PRIVATE src/main.c)"],
-    "firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf": ["EarTag-TX-Lab", "CONFIG_BT_PERIPHERAL=y"],
+    "firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf": ["KoalaByte Lab", "CONFIG_BT_PERIPHERAL=y"],
     "firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c": ["KBTX", "bt_le_adv_start", "no captured packet replay"],
     "pi-companion/koalablue/bluez_tools.py": ["BLUEZ_MODULES", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Billabong HCI Watch", "owned_device_required"],
-    "pi-companion/koalablue/menu_catalog.py": ["Gumleaf Gear Check", "Dropbear Discovery Sweep", "Kookaburra Safe Nest Run"],
-    "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "Gumleaf Gear Check", "EarTag-TX-Lab", "killerkoala_companion"],
+    "pi-companion/koalablue/menu_catalog.py": ["KoalaByte Lab", "Gumleaf Gear Check", "Dropbear Discovery Sweep", "Kookaburra Safe Nest Run"],
+    "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "Gumleaf Gear Check", "KoalaByte Lab", "killerkoala_companion"],
     "scripts/build_firmware_all.sh": ["pio run", "build_nrf52840_dongle_lab.sh"],
     "scripts/build_nrf52840_dongle_lab.sh": ["west build", "nrf52840dongle_nrf52840", "firmware/nrf52840-dongle-ear-tag-tx-lab"],
     "scripts/flash_nrf52840_dongle_lab_dfu.sh": ["nrfutil", "koalabyte-blue-nrf52840-dongle-dfu.zip", "NRF_DFU_PORT"],
@@ -191,8 +191,11 @@ def check_json_config(failures: list[str]) -> None:
         failures.append("killerkoala voice profile accent is not Australian male")
     if config.get("koala_kry", {}).get("rf_transmission") is not False:
         failures.append("Koala Kry must remain offline with rf_transmission=false")
-    if config.get("ear_tag_tx_lab", {}).get("firmware_path") != "firmware/nrf52840-dongle-ear-tag-tx-lab":
-        failures.append("Ear Tag TX Lab firmware_path must point to the dongle-only firmware path")
+    lab_mode = config.get("ear_tag_tx_lab", {})
+    if lab_mode.get("firmware_path") != "firmware/nrf52840-dongle-ear-tag-tx-lab":
+        failures.append("KoalaByte Lab firmware_path must point to the dongle-only firmware path")
+    if lab_mode.get("display_name") != "KoalaByte Lab" or lab_mode.get("device_name") != "KoalaByte Lab":
+        failures.append("KoalaByte Lab display_name/device_name must be KoalaByte Lab")
 
 
 def check_menu_catalog(failures: list[str]) -> None:
