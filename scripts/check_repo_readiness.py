@@ -70,8 +70,15 @@ OBSOLETE_PATHS = [
     "firmware/nrf52840-dk-lab-peripheral/README.md",
     "scripts/build_nrf52840_dk_lab.sh",
     "scripts/flash_nrf52840_dk_lab.sh",
-    "production/RevA1-nrf52840-dongle",
-    "production/RevA11-no-nrf-no-generic-lcd",
+    "production/RevA1-nrf52840-dongle/BOM_RevA1.csv",
+    "production/RevA1-nrf52840-dongle/BOM_RevA2_power_update.csv",
+    "production/RevA1-nrf52840-dongle/BOM_RevA4_Dongle_Plus_DK.csv",
+    "production/RevA1-nrf52840-dongle/BOM_RevA5_Dongle_DK_Buttons.csv",
+    "production/RevA1-nrf52840-dongle/BOM_RevA11_Physical_Build.csv",
+    "production/RevA1-nrf52840-dongle/ASSEMBLY_AND_FLASHING_INSTRUCTIONS_RevA5_BUTTONS.md",
+    "production/RevA1-nrf52840-dongle/Safety_Test_Record_RevA1.csv",
+    "production/RevA11-no-nrf-no-generic-lcd/BOM_RevA11_NoNRF_NoGenericLCD.csv",
+    "production/RevA11-no-nrf-no-generic-lcd/README_RevA11_NoNRF_NoGenericLCD.md",
 ]
 
 FORBIDDEN_TEXT = [
@@ -162,7 +169,7 @@ def check_required_text(failures: list[str]) -> None:
 def check_obsolete_paths(failures: list[str]) -> None:
     for relative_path in OBSOLETE_PATHS:
         if (REPO_ROOT / relative_path).exists():
-            failures.append(f"obsolete file or directory still present: {relative_path}")
+            failures.append(f"obsolete file still present: {relative_path}")
 
 
 def check_forbidden_text(failures: list[str]) -> None:
