@@ -1,4 +1,4 @@
-# RevA12 Menu Selection Screen / RevA17 killerkoala Voice Update
+# RevA12 Menu Selection Screen / RevA21 Koala Mode Update
 
 ## Purpose
 
@@ -10,9 +10,10 @@ The menu layer gives KoalaByte Blue a single selection screen that can be driven
 - Keyboard input during development.
 - RevA14 large bubbly jungle/eucalyptus graphical rendering.
 - RevA15 Koala Kry RF Review safe manifest path.
-- RevA15 Ear Tag TX Lab synthetic owned-device advertisement workflow.
+- RevA15 KoalaByte Lab synthetic owned-device advertisement workflow.
 - RevA16 Koala BlueZ local helper workflows.
 - RevA17 killerkoala voice/vocabulary preview.
+- RevA21 Koala Mode Switcher for selecting KoalaByte Lab or Koala Konnect.
 
 ## Full function menu
 
@@ -45,28 +46,30 @@ Default menu entries:
 10 Koala Kry                  Replay captured metadata offline into the report/XP pipeline
 11 Koala Kry RF Review        Write blocked RF review manifest; no RF is sent
 12 Ear Tag                    Named lab BLE beacon
-13 Ear Tag TX Lab             Synthetic owned-device BLE advertisement observation workflow
-14 Koala BlueZ Inventory      List installed local BlueZ helper tools
-15 Koala BlueZ Status         Save local Bluetooth/BlueZ adapter status
-16 Koala BlueZ Scan           Run timed local discovery and save results
-17 Koala BlueZ Monitor        Run timed local HCI monitor logging
-18 KillerKoala Voice          Preview event reactions and inquiry vocabulary by XP rank
-19 Urban Poaching             Authorized BLE RSSI lab game
-20 Buttons                    Show/check GPIO front-panel button status
-21 Level / Status             Show XP and rank
-22 Report                     Write a Markdown session report
-23 Wake killerkoala           Test wake-word flow
-24 Authorized BLE Inventory   Create a lab inventory from passive BLE observations
-25 GATT Readiness Checklist   Generate a pre-test checklist for owned-device GATT review
-26 Pairing Security Review    Review pairing and access-control posture for owned lab devices
-27 Lab Beacon Plan            Create a safe ESP32 demo beacon/peripheral testing plan
-28 Packet Capture Notes       Create safe Wireshark/nRF52840 protocol-analysis notes
-29 Defensive Lab Report       Generate a defensive lab report template
-30 Restricted Placeholder     Locked/non-operational reserved slot
-31 Settings                   Device and companion settings
-32 Lab                        Password-gated Authorized Lab Use menu
-33 Shutdown                   Confirm safe shutdown
-34 Quit                       Exit the Pi companion UI
+13 KoalaByte Lab              Synthetic owned-device BLE advertisement observation workflow
+14 Koala Mode Switcher        Build/package/select KoalaByte Lab or Koala Konnect
+15 Gumleaf Gear Check         Inventory installed BlueZ helper tools
+16 Eucalyptus Bus Scout       Save local Bluetooth/BlueZ adapter status
+17 Dropbear Discovery Sweep   Run timed local discovery and save results
+18 Billabong HCI Watch        Run timed local HCI monitor logging
+19 Kookaburra Safe Nest Run   Run safe BlueZ helper sequence
+20 KillerKoala Voice          Preview event reactions and inquiry vocabulary by XP rank
+21 Urban Poaching             Authorized BLE RSSI lab game
+22 Buttons                    Show/check GPIO front-panel button status
+23 Level / Status             Show XP and rank
+24 Report                     Write a Markdown session report
+25 Wake killerkoala           Test wake-word flow
+26 Authorized BLE Inventory   Create a lab inventory from passive BLE observations
+27 GATT Readiness Checklist   Generate a pre-test checklist for owned-device GATT review
+28 Pairing Security Review    Review pairing and access-control posture for owned lab devices
+29 Lab Beacon Plan            Create a safe ESP32 demo beacon/peripheral testing plan
+30 Packet Capture Notes       Create safe Wireshark/nRF52840 protocol-analysis notes
+31 Defensive Lab Report       Generate a defensive lab report template
+32 Restricted Placeholder     Locked/non-operational reserved slot
+33 Settings                   Device and companion settings
+34 Lab                        Password-gated Authorized Lab Use menu
+35 Shutdown                   Confirm safe shutdown
+36 Quit                       Exit the Pi companion UI
 ```
 
 ## RevA17 killerkoala voice entry
@@ -84,6 +87,22 @@ Use the runner directly:
 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status
 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py scan_start --xp 100
 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py --manifest
+```
+
+## RevA21 mode switcher entry
+
+The `Koala Mode Switcher` entry points to:
+
+```text
+pi-companion/koalablue/koala_mode_switcher.py
+scripts/run_koala_mode_switcher.py
+```
+
+Useful commands:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py status
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py prepare-all
 ```
 
 ## RevA14 visual theme
