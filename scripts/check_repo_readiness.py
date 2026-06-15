@@ -25,6 +25,7 @@ EXPECTED_MENU_LABELS = [
     "Koala Kry RF Review",
     "Ear Tag",
     "KoalaByte Lab",
+    "Koala Mode Switcher",
     "Gumleaf Gear Check",
     "Eucalyptus Bus Scout",
     "Dropbear Discovery Sweep",
@@ -77,6 +78,7 @@ REQUIRED_TEXT = {
     "docs/KOALA_BLUEZ_TOOLS_REVA16.md": ["RevA18 Outback BlueZ Module Deck", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "--owned-device"],
     "docs/NRF52840_DONGLE_FLASHING.md": ["nrf52840dongle_nrf52840", "flash_nrf52840_dongle_lab_dfu.sh", "DFU"],
     "docs/EAR_TAG_TX_LAB_REVA15.md": ["KoalaByte Lab", "KBTX", "does not replay captured packets"],
+    "docs/KOALA_KONNECT_REVA20.md": ["Koala Konnect", "hci_usb", "koala-konnect-nrf52840-dongle-dfu.zip"],
     "docs/PRODUCTION_FILES.md": ["production/RevA17-dongle-only/", "BOM_RevA17_DongleOnly.csv", "No custom PCB"],
     "firmware/esp32-dualeye/platformio.ini": ["bodmer/TFT_eSPI"],
     "firmware/esp32-dualeye/src/main.cpp": ["runBootAnimation();", "ENABLE_DISPLAY_BOOT_ANIMATION"],
@@ -84,14 +86,18 @@ REQUIRED_TEXT = {
     "firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf": ["KoalaByte Lab", "CONFIG_BT_PERIPHERAL=y"],
     "firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c": ["KBTX", "bt_le_adv_start", "no captured packet replay"],
     "pi-companion/koalablue/bluez_tools.py": ["BLUEZ_MODULES", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Billabong HCI Watch", "owned_device_required"],
-    "pi-companion/koalablue/menu_catalog.py": ["KoalaByte Lab", "Gumleaf Gear Check", "Dropbear Discovery Sweep", "Kookaburra Safe Nest Run"],
-    "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "Gumleaf Gear Check", "KoalaByte Lab", "killerkoala_companion"],
+    "pi-companion/koalablue/menu_catalog.py": ["Koala Mode Switcher", "KoalaByte Lab", "Gumleaf Gear Check", "Dropbear Discovery Sweep", "Kookaburra Safe Nest Run"],
+    "pi-companion/koalablue/koala_mode_switcher.py": ["Koala Mode Switcher", "KoalaByte Lab", "Koala Konnect", "dongle_mode_state.json"],
+    "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "Gumleaf Gear Check", "KoalaByte Lab", "Koala Mode Switcher", "killerkoala_companion"],
     "scripts/build_firmware_all.sh": ["pio run", "build_nrf52840_dongle_lab.sh"],
     "scripts/build_nrf52840_dongle_lab.sh": ["west build", "nrf52840dongle_nrf52840", "firmware/nrf52840-dongle-ear-tag-tx-lab"],
+    "scripts/build_koala_konnect.sh": ["build_nrf52840_dongle_hci_usb_adapter.sh"],
+    "scripts/flash_koala_konnect.sh": ["flash_nrf52840_dongle_koala_konnect_dfu.sh"],
     "scripts/flash_nrf52840_dongle_lab_dfu.sh": ["nrfutil", "koalabyte-blue-nrf52840-dongle-dfu.zip", "NRF_DFU_PORT"],
     "scripts/flash_esp32.sh": ["pio run"],
     "scripts/install_pi.sh": ["check_repo_readiness.py", "run_koala_bluez.py manifest", "Gumleaf Gear Check"],
     "scripts/run_koala_bluez.py": ["bluez_tools", "run_cli"],
+    "scripts/run_koala_mode_switcher.py": ["koala_mode_switcher", "run_cli"],
     "scripts/run_koala_bluez_manifest.sh": ["run_koala_bluez.py", "manifest"],
     "scripts/run_koala_bluez_all_safe.sh": ["run_koala_bluez.py", "all-safe"],
     "scripts/run_koala_bluez_gatt_readiness.sh": ["run_koala_bluez.py", "gatt-readiness"],
@@ -165,7 +171,7 @@ def check_json_config(failures: list[str]) -> None:
         return
 
     if config.get("menu_selection", {}).get("items", []) != EXPECTED_MENU_LABELS:
-        failures.append("menu_selection.items does not match the RevA18 expected menu ordering")
+        failures.append("menu_selection.items does not match the RevA21 expected menu ordering")
 
     koala_bluez = config.get("koala_bluez", {})
     if koala_bluez.get("display_name") != "Outback BlueZ Module Deck":
@@ -196,6 +202,11 @@ def check_json_config(failures: list[str]) -> None:
         failures.append("KoalaByte Lab firmware_path must point to the dongle-only firmware path")
     if lab_mode.get("display_name") != "KoalaByte Lab" or lab_mode.get("device_name") != "KoalaByte Lab":
         failures.append("KoalaByte Lab display_name/device_name must be KoalaByte Lab")
+    switcher = config.get("koala_mode_switcher", {})
+    if switcher.get("display_name") != "Koala Mode Switcher":
+        failures.append("koala_mode_switcher display_name must be Koala Mode Switcher")
+    if switcher.get("default_mode") != "koalabyte_lab":
+        failures.append("Koala Mode Switcher default_mode must be koalabyte_lab")
 
 
 def check_menu_catalog(failures: list[str]) -> None:
@@ -205,7 +216,7 @@ def check_menu_catalog(failures: list[str]) -> None:
         failures.append(f"failed to import menu catalog: {exc}")
         return
     if menu_labels() != EXPECTED_MENU_LABELS:
-        failures.append("menu_catalog.menu_labels() does not match RevA18 expected menu ordering")
+        failures.append("menu_catalog.menu_labels() does not match RevA21 expected menu ordering")
 
 
 def check_bluez_module_registry(failures: list[str]) -> None:
