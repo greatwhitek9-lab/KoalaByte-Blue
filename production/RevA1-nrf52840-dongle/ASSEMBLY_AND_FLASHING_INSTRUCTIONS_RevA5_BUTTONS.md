@@ -1,13 +1,42 @@
-# KoalaByte Blue RevA6 Six-Button Assembly and Flashing Guide
+# KoalaByte Blue RevA13 Assembly, Flashing, Buttons, and Boot Animation Guide
 
-## RevA6 changes
+## RevA13 changes
 
-- Expands the front-panel control layout from four buttons to six buttons.
-- Numbers buttons **1 through 6 from left to right** across the front panel.
+- Keeps the six-button front-panel GPIO layout from RevA6.
 - Keeps Nordic nRF52840 Dongle / PCA10059 as the production BLE board.
 - Keeps Nordic nRF52840 DK / PCA10056 as the optional development/debug board.
-- Adds Raspberry Pi GPIO button firmware support through `gpiozero`.
-- Adds hold behavior: Button 3 normal press is Enter/Select; hold for 3 seconds produces a Shutdown command event.
+- Adds ESP32-S3 DualEye animated boot splash firmware path.
+- Adds Raspberry Pi companion fullscreen boot splash runner and desktop autostart installer.
+- Adds validation scripts and CI checks for ESP32 firmware build and Pi companion Python modules.
+
+## Boot animation behavior
+
+The KoalaByte Blue boot screen now includes:
+
+```text
+Dark KoalaByte face
+Purple pulsing left eye
+Blue pulsing right eye
+KoalaByte Blue title, with Blue actually blue
+BOOTING... label
+Animated segmented progress bar
+```
+
+ESP32 firmware files:
+
+```text
+firmware/esp32-dualeye/src/boot_animation.cpp
+firmware/esp32-dualeye/include/boot_animation.h
+firmware/esp32-dualeye/include/config.h
+```
+
+Pi companion splash files:
+
+```text
+pi-companion/koalablue/boot_animation.py
+scripts/run_boot_splash.py
+scripts/install_boot_splash_autostart.sh
+```
 
 ## Button hardware
 
@@ -37,6 +66,32 @@ Use six buttons from the pack:
 
 Each button is normally open. One leg goes to the assigned GPIO pin, and the other leg goes to GND. The software uses internal pull-up resistors.
 
+## Step-by-step software installation
+
+From the repository root on the Raspberry Pi:
+
+```bash
+bash scripts/install_pi.sh
+```
+
+For Raspberry Pi OS with Desktop, test the boot splash:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
+```
+
+Install desktop-session autostart:
+
+```bash
+bash scripts/install_boot_splash_autostart.sh
+```
+
+Run the menu validation screen:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py
+```
+
 ## Step-by-step button build
 
 1. Print the front-panel/button bezel from the production ZIP. The previous four-button bezel should be replaced by a six-button bezel or drilled panel with six 6mm tactile switch positions.
@@ -51,40 +106,40 @@ Each button is normally open. One leg goes to the assigned GPIO pin, and the oth
 10. Connect Button 6 to Pi GPIO21 / physical pin 40.
 11. Connect the shared ground to Pi physical pin 39.
 12. Add heat-shrink and strain relief so the button harness cannot pull on the Pi header.
-13. Boot the Pi and install requirements:
-
-```bash
-cd pi-companion
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-14. Run the six-button GPIO test:
+13. Run the six-button GPIO test from the repo root:
 
 ```bash
 python3 scripts/test_gpio_buttons.py
 ```
 
-15. Press each button from left to right and verify the output matches buttons 1 through 6.
-16. Hold Button 3 for 3 seconds and verify a `shutdown` hold event is printed.
-17. Run the companion:
-
-```bash
-python -m koalablue.app --serial /dev/ttyACM0
-```
-
-18. Verify events are logged in:
-
-```text
-pi-companion/logs/gpio_buttons.jsonl
-```
+14. Press each button from left to right and verify the output matches buttons 1 through 6.
+15. Hold Button 3 for 3 seconds and verify a `shutdown` hold event is printed.
 
 ## ESP32 flashing
+
+From the repo root:
 
 ```bash
 bash scripts/flash_esp32.sh
 ```
+
+Expected ESP32 display behavior:
+
+```text
+KoalaByte Blue animated boot splash appears first
+Left eye pulses purple
+Right eye pulses blue
+Progress bar completes
+Firmware then emits normal serial JSON boot message
+```
+
+Expected serial JSON includes:
+
+```json
+{"boot_animation":1}
+```
+
+If the display remains blank but serial boot JSON appears, confirm the exact TFT_eSPI LCD setup for the ESP32-S3 DualEye board revision.
 
 ## Optional nRF52840 DK flashing
 
@@ -95,7 +150,12 @@ bash scripts/flash_nrf52840_dk_lab.sh
 ## Validation checklist
 
 - [ ] Pi boots without undervoltage warning.
-- [ ] ESP32 serial JSON boot message is visible.
+- [ ] Pi companion dependencies install with `scripts/install_pi.sh`.
+- [ ] Pi boot splash runs in windowed test mode.
+- [ ] Optional Pi desktop autostart file is installed.
+- [ ] ESP32 firmware builds with PlatformIO.
+- [ ] ESP32 boot animation appears on the DualEye display.
+- [ ] ESP32 serial JSON boot message includes `boot_animation`.
 - [ ] nRF52840 Dongle enumerates on USB.
 - [ ] All six front buttons generate GPIO button events.
 - [ ] Button 3 short press emits `select`.
