@@ -11,5 +11,11 @@ if ! command -v west >/dev/null 2>&1; then
   exit 1
 fi
 
+echo "Building KoalaByte Blue Ear Tag TX Lab firmware for ${BOARD}"
+echo "Mode: synthetic owned-device BLE advertisement; no captured packet replay"
 west build -b "$BOARD" "$APP_DIR" -d "$BUILD_DIR"
+
+echo "Flashing Ear Tag TX Lab firmware"
 west flash -d "$BUILD_DIR"
+
+echo "Flash complete. Scan for BLE device name: EarTag-TX-Lab"
