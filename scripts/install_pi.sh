@@ -36,6 +36,10 @@ echo "Running Python compile check..."
 python -m compileall "${REPO_ROOT}/pi-companion" "${REPO_ROOT}/scripts"
 
 echo
+echo "Running repo readiness check..."
+python "${REPO_ROOT}/scripts/check_repo_readiness.py"
+
+echo
 echo "Pi companion install complete."
 echo "Boot splash test:"
 echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_boot_splash.py --windowed --duration 3"
