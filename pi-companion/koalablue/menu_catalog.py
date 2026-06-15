@@ -24,6 +24,7 @@ FUNCTION_MENU_ITEMS: List[dict[str, object]] = [
     {"label": "Koala BlueZ Status", "command": "koala_bluez_status", "description": "Collect local Bluetooth adapter and BlueZ status"},
     {"label": "Koala BlueZ Scan", "command": "koala_bluez_scan", "description": "Run timed local Bluetooth discovery and save results"},
     {"label": "Koala BlueZ Monitor", "command": "koala_bluez_monitor", "description": "Run timed local HCI monitor logging"},
+    {"label": "KillerKoala Voice", "command": "killerkoala_voice", "description": "Preview event reactions and inquiry vocabulary by XP rank"},
     {"label": "Urban Poaching", "command": "urban_poaching", "description": "Authorized BLE RSSI lab game"},
     {"label": "Buttons", "command": "buttons", "description": "Show/check GPIO front-panel button status"},
     {"label": "Level / Status", "command": "level/status", "description": "Show XP and rank"},
