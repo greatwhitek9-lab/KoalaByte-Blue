@@ -1,6 +1,6 @@
-# KoalaByte Blue / killerkoala AI Companion Firmware RevA8
+# KoalaByte Blue / killerkoala AI Companion Firmware RevA9
 
-ESP32-S3 DualEye firmware, Raspberry Pi companion software, optional Nordic nRF52840 DK lab firmware, RevA6 six-button front-panel GPIO support, RevA7 configurable KoalaTag Lab Beacon support, and RevA8 **eucalyptus** always-on BLE scanner/logger naming for the **KoalaByte Blue Pi3B+ stacked research device**.
+ESP32-S3 DualEye firmware, Raspberry Pi companion software, optional Nordic nRF52840 DK lab firmware, RevA6 six-button front-panel GPIO support, RevA8 **eucalyptus** always-on BLE scanner/logger naming, and RevA9 **Ear Tag** lab beacon naming for the **KoalaByte Blue Pi3B+ stacked research device**.
 
 ## Hardware profile
 
@@ -44,12 +44,18 @@ eucalyptus upload-status
 
 WiGLE upload remains disabled until credentials and valid location settings are configured.
 
-## RevA7 KoalaTag Lab Beacon
+## RevA9 Ear Tag lab beacon
 
-RevA7 adds a safe named lab BLE device profile for owned-device testing. It advertises as:
+The safe named lab BLE beacon skill is now named:
 
 ```text
-KoalaTag-Lab
+Ear Tag
+```
+
+The default lab BLE advertisement name is:
+
+```text
+EarTag-Lab
 ```
 
 To rename it before flashing:
@@ -110,7 +116,7 @@ bash scripts/flash_nrf52840_dk_lab.sh
 - Raspberry Pi companion dependency/config files.
 - `eucalyptus` always-on passive BLE capture configuration under `/blecaptures/`.
 - RevA6 Raspberry Pi six-button GPIO manager.
-- RevA7 configurable KoalaTag Lab Beacon naming helper.
+- RevA9 **Ear Tag** named lab beacon configuration.
 - Production BOM and safety-test CSV files.
 - Optional nRF52840 DK safe lab-peripheral firmware.
 - Flashing guides and production-file manifests.
@@ -145,6 +151,7 @@ scan              Run a safe BLE inventory scan
 summary           Summarize observed BLE devices
 show              Show device table
 eucalyptus        Always-on passive BLE scanner/logger action name
+Ear Tag           Safe named lab BLE beacon skill
 buttons           Show/check GPIO front-panel button status
 level/status      Show XP and rank
 report            Write Markdown report
@@ -169,7 +176,7 @@ Install Nordic nRF Connect SDK first, then:
 ```bash
 git clone https://github.com/greatwhitek9-lab/KoalaByte-Blue.git
 cd KoalaByte-Blue
-python3 scripts/set_lab_ble_name.py KoalaTag-Lab
+python3 scripts/set_lab_ble_name.py EarTag-Lab
 bash scripts/flash_nrf52840_dk_lab.sh
 ```
 
