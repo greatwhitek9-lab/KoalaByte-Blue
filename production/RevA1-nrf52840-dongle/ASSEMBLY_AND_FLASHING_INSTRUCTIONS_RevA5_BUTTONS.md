@@ -1,49 +1,57 @@
-# KoalaByte Blue RevA5 Assembly and Flashing Guide
+# KoalaByte Blue RevA6 Six-Button Assembly and Flashing Guide
 
-## RevA5 changes
+## RevA6 changes
 
-- Adds four external front-panel buttons for the final compact build.
+- Expands the front-panel control layout from four buttons to six buttons.
+- Numbers buttons **1 through 6 from left to right** across the front panel.
 - Keeps Nordic nRF52840 Dongle / PCA10059 as the production BLE board.
 - Keeps Nordic nRF52840 DK / PCA10056 as the optional development/debug board.
 - Adds Raspberry Pi GPIO button firmware support through `gpiozero`.
-- Adds printable front button bezel STL for four 6mm tactile buttons in the downloadable production ZIP.
+- Adds hold behavior: Button 3 normal press is Enter/Select; hold for 3 seconds produces a Shutdown command event.
 
 ## Button hardware
 
-The nRF52840 Dongle includes one tiny onboard user button, but it is not enough for a front-panel user interface. The production build now adds:
+The nRF52840 Dongle includes one tiny onboard user button, but it is not enough for a front-panel user interface. The production build uses:
 
 ```text
 Adafruit Tactile Button switch (6mm) x 20 pack, Product ID 367
 ```
 
-Use four buttons from the pack:
+Use six buttons from the pack:
 
 ```text
-Back, Select, Next, Menu
+1 Main Menu | 2 Left/Back | 3 Enter/Select + hold Shutdown | 4 Right/Forward | 5 Up | 6 Down
 ```
 
 ## Button wiring
 
-| Button | Pi BCM GPIO | Pi physical pin | Button other side |
-|---|---:|---:|---|
-| Back | GPIO5 | 29 | GND |
-| Select | GPIO6 | 31 | GND |
-| Next | GPIO13 | 33 | GND |
-| Menu | GPIO19 | 35 | GND |
-| Shared ground | GND | 39 | All button grounds |
+| Button # | Function | Pi BCM GPIO | Pi physical pin | Button other side |
+|---:|---|---:|---:|---|
+| 1 | Main Menu | GPIO5 | 29 | GND |
+| 2 | Move Left / Back | GPIO6 | 31 | GND |
+| 3 | Enter / Select; hold for Shutdown | GPIO13 | 33 | GND |
+| 4 | Move Right / Forward | GPIO19 | 35 | GND |
+| 5 | Up | GPIO26 | 37 | GND |
+| 6 | Down | GPIO21 | 40 | GND |
+| Shared ground | GND bus | GND | 39 | All button grounds |
 
 Each button is normally open. One leg goes to the assigned GPIO pin, and the other leg goes to GND. The software uses internal pull-up resistors.
 
 ## Step-by-step button build
 
-1. Print `KoalaByte_Blue_Front_Button_Bezel_4x6mm_RevA5.stl` from the production ZIP.
-2. Dry-fit the four tactile switches in the bezel/front panel.
+1. Print the front-panel/button bezel from the production ZIP. The previous four-button bezel should be replaced by a six-button bezel or drilled panel with six 6mm tactile switch positions.
+2. Dry-fit six tactile switches in the bezel/front panel and label the positions left-to-right as 1 through 6.
 3. Solder or crimp one signal wire to each button.
-4. Daisy-chain the other side of all buttons to a shared black GND wire.
-5. Connect signal wires to Pi GPIO5, GPIO6, GPIO13, and GPIO19.
-6. Connect the shared ground to Pi physical pin 39.
-7. Add heat-shrink and strain relief so the button harness cannot pull on the Pi header.
-8. Boot the Pi and install requirements:
+4. Daisy-chain the other side of all six buttons to a shared black GND wire.
+5. Connect Button 1 to Pi GPIO5 / physical pin 29.
+6. Connect Button 2 to Pi GPIO6 / physical pin 31.
+7. Connect Button 3 to Pi GPIO13 / physical pin 33.
+8. Connect Button 4 to Pi GPIO19 / physical pin 35.
+9. Connect Button 5 to Pi GPIO26 / physical pin 37.
+10. Connect Button 6 to Pi GPIO21 / physical pin 40.
+11. Connect the shared ground to Pi physical pin 39.
+12. Add heat-shrink and strain relief so the button harness cannot pull on the Pi header.
+13. Boot the Pi and install requirements:
 
 ```bash
 cd pi-companion
@@ -52,19 +60,21 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-9. Run the companion:
+14. Run the six-button GPIO test:
+
+```bash
+python3 scripts/test_gpio_buttons.py
+```
+
+15. Press each button from left to right and verify the output matches buttons 1 through 6.
+16. Hold Button 3 for 3 seconds and verify a `shutdown` hold event is printed.
+17. Run the companion:
 
 ```bash
 python -m koalablue.app --serial /dev/ttyACM0
 ```
 
-10. Type:
-
-```text
-buttons
-```
-
-11. Press each button and verify events are logged in:
+18. Verify events are logged in:
 
 ```text
 pi-companion/logs/gpio_buttons.jsonl
@@ -87,7 +97,9 @@ bash scripts/flash_nrf52840_dk_lab.sh
 - [ ] Pi boots without undervoltage warning.
 - [ ] ESP32 serial JSON boot message is visible.
 - [ ] nRF52840 Dongle enumerates on USB.
-- [ ] All four front buttons generate GPIO button events.
+- [ ] All six front buttons generate GPIO button events.
+- [ ] Button 3 short press emits `select`.
+- [ ] Button 3 hold emits `shutdown`.
 - [ ] Shared GND bus is secure.
 - [ ] Button harness has strain relief.
 - [ ] Case closes without pinching wires.
