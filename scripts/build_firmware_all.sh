@@ -12,7 +12,7 @@ else
 fi
 
 if command -v west >/dev/null 2>&1; then
-  echo "Building nRF52840 Dongle Ear Tag TX Lab firmware..."
+  echo "Building nRF52840 Dongle KoalaByte Lab firmware..."
   bash scripts/build_nrf52840_dongle_lab.sh
   if [[ "${BUILD_KOALA_KONNECT:-0}" == "1" ]]; then
     echo "Building optional Koala Konnect external Bluetooth adapter firmware..."
