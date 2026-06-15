@@ -9,6 +9,13 @@ CONFIG = REPO_ROOT / "firmware" / "esp32-dualeye" / "include" / "config.h"
 PLATFORMIO = REPO_ROOT / "firmware" / "esp32-dualeye" / "platformio.ini"
 MAIN = REPO_ROOT / "firmware" / "esp32-dualeye" / "src" / "main.cpp"
 BOOT = REPO_ROOT / "firmware" / "esp32-dualeye" / "src" / "boot_animation.cpp"
+FW_MENU_THEME_H = REPO_ROOT / "firmware" / "esp32-dualeye" / "include" / "menu_theme.h"
+FW_MENU_THEME_CPP = REPO_ROOT / "firmware" / "esp32-dualeye" / "src" / "menu_theme.cpp"
+PI_MENU_THEME = REPO_ROOT / "pi-companion" / "koalablue" / "menu_theme.py"
+PI_MENU_UI = REPO_ROOT / "pi-companion" / "koalablue" / "menu_ui.py"
+PI_MENU_SCREEN = REPO_ROOT / "pi-companion" / "koalablue" / "menu_screen.py"
+RUN_MENU = REPO_ROOT / "scripts" / "run_menu_screen.py"
+DEFAULT_CONFIG = REPO_ROOT / "pi-companion" / "config.default.json"
 
 REQUIRED = {
     CONFIG: [
@@ -32,6 +39,39 @@ REQUIRED = {
         "Blue",
         "BOOTING...",
     ],
+    FW_MENU_THEME_H: [
+        "drawEucalyptusMenuBorder",
+        "drawJungleMenuTitle",
+        "drawJungleMenuItem",
+    ],
+    FW_MENU_THEME_CPP: [
+        "drawEucalyptusMenuBorder",
+        "drawJungleMenuTitle",
+        "drawJungleMenuItem",
+        "drawBubbleText",
+    ],
+    PI_MENU_THEME: [
+        "JungleMenuTheme",
+        "JungleMenuRenderer",
+        "render_terminal_jungle_menu",
+        "eucalyptus_branches",
+    ],
+    PI_MENU_UI: [
+        "render_terminal_jungle_menu",
+        "RevA14 jungle/eucalyptus theme",
+    ],
+    PI_MENU_SCREEN: [
+        "render_terminal_jungle_menu",
+    ],
+    RUN_MENU: [
+        "--graphical",
+        "JungleMenuRenderer",
+    ],
+    DEFAULT_CONFIG: [
+        "RevA14 Jungle Book style eucalyptus menu",
+        "eucalyptus_branches",
+        "font_family_candidates",
+    ],
 }
 
 
@@ -46,11 +86,11 @@ def main() -> int:
             if needle not in text:
                 failures.append(f"missing '{needle}' in {path.relative_to(REPO_ROOT)}")
     if failures:
-        print("KoalaByte Blue boot animation config check failed:", file=sys.stderr)
+        print("KoalaByte Blue boot/menu theme config check failed:", file=sys.stderr)
         for failure in failures:
             print(f"- {failure}", file=sys.stderr)
         return 1
-    print("KoalaByte Blue boot animation config check passed.")
+    print("KoalaByte Blue boot/menu theme config check passed.")
     return 0
 
 
