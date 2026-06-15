@@ -50,7 +50,7 @@ EXPECTED_MENU_LABELS = [
     "Quit",
 ]
 
-SEL0KY_PD_ITEM = "Seloky USB-C PD Trigger Board Module PD/QC Decoy Fast Charge USB Type-C to 12V"
+SELOKY_PD_ITEM = "Seloky USB-C PD Trigger Board Module PD/QC Decoy Fast Charge USB Type-C to 12V"
 
 EXPECTED_BOM_ITEMS = [
     "Raspberry Pi 3 Model B+",
@@ -63,7 +63,7 @@ EXPECTED_BOM_ITEMS = [
     "KoalaByte Blue front button bezel 6x6mm RevA6",
     "Protected 18650 Li-ion cell",
     "2x18650 holder with protection / BMS",
-    SEL0KY_PD_ITEM,
+    SELOKY_PD_ITEM,
     "5 V 3 A buck converter",
     "Inline rated power switch",
     "microSD card",
@@ -119,6 +119,7 @@ OBSOLETE_PATHS = [
     "scripts/build_nrf52840_dk_lab.sh",
     "scripts/flash_nrf52840_dk_lab.sh",
     "production/RevA1-nrf52840-dongle/BOM_RevA1.csv",
+    "production/RevA1-nrf52840-dongle/ORDERABLE_PARTS_LIST_RevA3.csv",
     "production/RevA11-no-nrf-no-generic-lcd/BOM_RevA11_NoNRF_NoGenericLCD.csv",
 ]
 
