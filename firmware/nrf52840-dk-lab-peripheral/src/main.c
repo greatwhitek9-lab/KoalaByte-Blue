@@ -47,16 +47,15 @@ static struct bt_uuid_128 koala_status_uuid = BT_UUID_INIT_128(
     0x42, 0x61, 0x6c, 0x61, 0x6f, 0x4b);
 
 /*
- * Synthetic service-data payload for observation and packet-loss/sequence tests.
+ * Synthetic service-data payload sized to fit legacy advertising data with flags.
  * Layout after the 128-bit UUID:
  *   0-3  ASCII KBTX magic
  *   4    payload format version
  *   5    synthetic pattern byte A
  *   6    synthetic pattern byte B
- *   7    synthetic pattern byte C
- *   8    sequence low byte
- *   9    sequence high byte
- *   10   simple XOR check byte for the synthetic sequence bytes
+ *   7    sequence low byte
+ *   8    sequence high byte
+ *   9    simple XOR check byte for the synthetic sequence bytes
  */
 static uint8_t tx_lab_service_data[] = {
     /* 4b6f616c-6142-6c75-6554-584c41420001: Koala TX Lab service-data UUID */
@@ -67,7 +66,7 @@ static uint8_t tx_lab_service_data[] = {
     0x42, 0x61, 0x6c, 0x61, 0x6f, 0x4b,
     'K', 'B', 'T', 'X',
     0x01,
-    0xA5, 0x5A, 0x3C,
+    0xA5, 0x5A,
     0x00, 0x00,
     0xFF,
 };
@@ -103,9 +102,9 @@ static const struct bt_data sd[] = {
 
 static void update_synthetic_payload(void)
 {
-    tx_lab_service_data[24] = (uint8_t)(lab_sequence & 0xff);
-    tx_lab_service_data[25] = (uint8_t)((lab_sequence >> 8) & 0xff);
-    tx_lab_service_data[26] = (uint8_t)(0xff ^ tx_lab_service_data[24] ^ tx_lab_service_data[25]);
+    tx_lab_service_data[23] = (uint8_t)(lab_sequence & 0xff);
+    tx_lab_service_data[24] = (uint8_t)((lab_sequence >> 8) & 0xff);
+    tx_lab_service_data[25] = (uint8_t)(0xff ^ tx_lab_service_data[23] ^ tx_lab_service_data[24]);
 }
 
 static int start_lab_advertising(void)
