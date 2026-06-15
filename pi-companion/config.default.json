@@ -2,8 +2,8 @@
   "action_names": {
     "always_on_ble_scanner_logger": "eucalyptus",
     "ble_fox_hunt_game": "Urban Poaching",
-    "synthetic_ble_log_generator": "Koala Kry",
-    "beacon_record_replay_simulator": "Beacon Record & Replay Simulator"
+    "metadata_capture": "Koala Kapture",
+    "metadata_replay": "Koala Kry"
   },
   "eucalyptus": {
     "display_name": "eucalyptus",
@@ -30,28 +30,32 @@
     "xp_reward_round": 1,
     "authorized_only": true
   },
-  "koala_kry": {
-    "display_name": "Koala Kry",
-    "description": "Local synthetic BLE log generator for UI/parser/report stress testing. No RF transmission.",
+  "koala_kapture": {
+    "display_name": "Koala Kapture",
+    "description": "Passive metadata capture for owned or written-scope lab BLE devices. No connection, pairing, write, disruption, or retransmission.",
     "enabled": true,
-    "mode": "synthetic_ble_log_generation",
-    "output_dir": "logs/koala_kry",
-    "device_count": 40,
-    "samples": 250,
-    "min_rssi": -94,
-    "max_rssi": -38,
-    "include_named_lab_devices": true,
-    "xp_reward": 5,
+    "mode": "passive_metadata_capture",
+    "output_dir": "/blecaptures/koala_kapture",
+    "duration_seconds": 30.0,
+    "scan_window_seconds": 5.0,
+    "target_name": null,
+    "target_address": null,
+    "max_records": 1000,
+    "include_manufacturer_data": true,
+    "include_service_data": true,
+    "authorized_only": true,
     "rf_transmission": false
   },
-  "beacon_replay": {
-    "display_name": "Beacon Record & Replay Simulator",
-    "description": "Local replay of previously captured BLE advertisement metadata for UI/parser/report testing. No RF transmission.",
+  "koala_kry": {
+    "display_name": "Koala Kry",
+    "description": "Offline replay simulator for metadata captured by Koala Kapture. No over-the-air replay or RF transmission.",
     "enabled": true,
-    "mode": "local_metadata_replay",
-    "input_formats": ["jsonl", "json", "csv"],
-    "output_dir": "logs/beacon_replay",
-    "default_speed": 10.0,
+    "mode": "captured_metadata_replay",
+    "input_dir": "/blecaptures/koala_kapture",
+    "output_dir": "logs/koala_kry_replay",
+    "speed": 1.0,
+    "loop": false,
+    "max_records": null,
     "xp_reward": 5,
     "rf_transmission": false
   },
