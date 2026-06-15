@@ -176,15 +176,15 @@ VOCABULARY: Mapping[str, Mapping[str, List[str]]] = {
     },
     "ear_tag_tx_lab": {
         RANK_NOOB: [
-            "Ear Tag TX Lab is synthetic only. Clean beacon, clean conscience.",
-            "Starting lab beacon notes. Fresh payloads only, no replay rubbish.",
+            "KoalaByte Lab is synthetic only. Clean beacon, clean conscience.",
+            "Starting KoalaByte Lab notes. Fresh payloads only, no replay rubbish.",
         ],
         RANK_HACKER: [
-            "Ear Tag TX Lab ready. Synthetic signal, owned board, tidy test.",
+            "KoalaByte Lab ready. Synthetic signal, owned board, tidy test.",
             "That beacon is ours, mate. Watch the sequence and mind the logs.",
         ],
         RANK_LEGEND: [
-            "Ear Tag TX Lab is hot. Synthetic, labeled, and cleaner than a lab coat at sunrise.",
+            "KoalaByte Lab is hot. Synthetic, labeled, and cleaner than a lab coat at sunrise.",
             "Beacon workflow ready. The signal has a name, a leash, and a purpose.",
         ],
     },
@@ -232,11 +232,11 @@ VOCABULARY: Mapping[str, Mapping[str, List[str]]] = {
     },
     "inquiry_help": {
         RANK_NOOB: [
-            "Ask for scan, status, logs, BlueZ, Ear Tag, Koala Kapture, or Koala Kry.",
+            "Ask for scan, status, logs, BlueZ, KoalaByte Lab, Koala Kapture, or Koala Kry.",
             "I can help with safe lab scans, captures, reports, and local adapter checks.",
         ],
         RANK_HACKER: [
-            "Give me scan, BlueZ status, monitor, capture, replay, report, or Ear Tag TX Lab.",
+            "Give me scan, BlueZ status, monitor, capture, replay, report, or KoalaByte Lab.",
             "I can drive the lab flow: observe, log, summarize, and keep the mess contained.",
         ],
         RANK_LEGEND: [
@@ -256,6 +256,7 @@ ALIASES: Mapping[str, str] = {
     "kapture": "capture_saved",
     "kry": "koala_kry",
     "ear_tag": "ear_tag_tx_lab",
+    "koalabyte_lab": "ear_tag_tx_lab",
     "shutdown_confirm": "shutdown",
 }
 
