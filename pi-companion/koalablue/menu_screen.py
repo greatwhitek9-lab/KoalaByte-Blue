@@ -42,6 +42,27 @@ class MenuController:
         self.state = state or MenuState()
         self._clamp()
 
+    @property
+    def selected_index(self) -> int:
+        return self.state.selected_index
+
+    @property
+    def scroll_offset(self) -> int:
+        return self.state.scroll_offset
+
+    @property
+    def visible_rows(self) -> int:
+        return self.state.visible_rows
+
+    @property
+    def touch_config(self):
+        class _TouchConfig:
+            row_height_px = 48
+            long_press_seconds = 0.75
+            scroll_threshold_px = 18
+
+        return _TouchConfig()
+
     def handle_command(self, command: str) -> Optional[MenuItem]:
         command = command.strip().lower()
         selected: Optional[MenuItem] = None
@@ -94,6 +115,15 @@ class MenuController:
         return list(enumerate(self.items[start:end], start=start))
 
     def render_text(self) -> str:
+        try:
+            from .menu_theme import render_terminal_jungle_menu
+
+            themed = render_terminal_jungle_menu(self)
+            return f"{themed}\nLast: {self.state.last_action}"
+        except Exception:
+            return self._render_plain_text()
+
+    def _render_plain_text(self) -> str:
         lines = [f"=== {self.state.title} ===", f"Function Menu ({self.state.selected_index + 1}/{len(self.items)})", ""]
         for index, item in self.visible_items():
             cursor = ">" if index == self.state.selected_index else " "
