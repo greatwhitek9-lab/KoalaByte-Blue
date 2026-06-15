@@ -53,8 +53,9 @@ Main retained companion features:
 - Koala BlueZ local adapter inventory/status/discovery/monitor helpers.
 - Koala Kapture passive metadata capture.
 - Koala Kry offline metadata replay/report pipeline.
-- Ear Tag TX Lab synthetic owned-device BLE advertisement firmware for the USB Dongle.
+- KoalaByte Lab synthetic owned-device BLE advertisement firmware for the USB Dongle.
 - Koala Konnect optional external Bluetooth adapter mode for the USB Dongle.
+- Koala Mode Switcher Pi-side controller for preparing and selecting the dongle firmware profile.
 
 ## Flash-ready validation flow
 
@@ -97,13 +98,14 @@ Useful smoke tests:
 PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
 PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
 PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py inventory
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py status
 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status --xp 100
-PYTHONPATH=pi-companion python3 scripts/run_koala_kapture.py --duration-seconds 30 --target-name EarTag-TX-Lab
+PYTHONPATH=pi-companion python3 scripts/run_koala_kapture.py --duration-seconds 30 --target-name "KoalaByte Lab"
 ```
 
 ## nRF52840 Dongle build and DFU
 
-Build the retained dongle firmware:
+Build the default KoalaByte Lab dongle firmware:
 
 ```bash
 bash scripts/build_nrf52840_dongle_lab.sh
@@ -127,43 +129,66 @@ Adjust the DFU serial port for your OS. The dongle workflow is documented in:
 docs/NRF52840_DONGLE_FLASHING.md
 ```
 
-Expected BLE advertisement name after the retained lab firmware is flashed:
+Expected BLE advertisement name after the default lab firmware is flashed:
 
 ```text
-EarTag-TX-Lab
+KoalaByte Lab
 ```
 
 The advertisement is synthetic, clearly labeled, and intended for owned-device signal-integrity observation only. It does not replay captured packets or captured identifiers.
+
+## Koala Mode Switcher
+
+Koala Mode Switcher prepares and selects between the two supported nRF52840 Dongle profiles:
+
+```text
+KoalaByte Lab   default BLE lab advertisement profile
+Koala Konnect   optional USB HCI external Bluetooth adapter profile
+```
+
+Show current mode and artifacts:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py status
+```
+
+Build and create DFU ZIPs for both profiles:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py prepare-all
+```
+
+Select KoalaByte Lab after placing the dongle in bootloader mode:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py switch koalabyte_lab --dfu-port /dev/ttyACM0
+```
+
+Select Koala Konnect after placing the dongle in bootloader mode:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py switch koala_konnect --dfu-port /dev/ttyACM0
+```
+
+State and event logs:
+
+```text
+logs/dongle_mode_state.json
+logs/dongle_mode_events.jsonl
+```
+
+See:
+
+```text
+docs/KOALA_MODE_SWITCHER_REVA21.md
+docs/KOALA_KONNECT_REVA20.md
+```
 
 ## Koala Konnect external Bluetooth adapter mode
 
 Koala Konnect is an optional alternate firmware profile for the same nRF52840 USB Dongle. It turns the dongle into a USB HCI Bluetooth controller for a compatible phone or computer host.
 
-Build Koala Konnect:
-
-```bash
-bash scripts/build_koala_konnect.sh
-```
-
-Create the Koala Konnect DFU package:
-
-```bash
-bash scripts/flash_koala_konnect.sh
-```
-
-Flash after placing the dongle in bootloader mode and identifying the DFU serial port:
-
-```bash
-NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_koala_konnect.sh
-```
-
-Only one dongle firmware mode can be installed at a time. Reflash Ear Tag TX Lab to return to the default KoalaByte Blue lab beacon mode.
-
-See:
-
-```text
-docs/KOALA_KONNECT_REVA20.md
-```
+Only one dongle firmware mode can be installed at a time. Use Koala Mode Switcher to select KoalaByte Lab or Koala Konnect.
 
 ## Six-button front panel
 
@@ -196,8 +221,10 @@ python3 scripts/test_gpio_buttons.py
 - [ ] `python3 scripts/check_repo_readiness.py` passes.
 - [ ] `python -m compileall pi-companion scripts` passes.
 - [ ] ESP32 firmware builds with PlatformIO.
-- [ ] nRF52840 Dongle Ear Tag TX Lab firmware builds with nRF Connect SDK / Zephyr.
+- [ ] nRF52840 Dongle KoalaByte Lab firmware builds with nRF Connect SDK / Zephyr.
 - [ ] Optional Koala Konnect firmware builds when `BUILD_KOALA_KONNECT=1` or `scripts/build_koala_konnect.sh` is used.
+- [ ] Koala Mode Switcher `status` command writes `logs/dongle_mode_state.json`.
+- [ ] Koala Mode Switcher `prepare-all` creates both expected DFU ZIPs.
 - [ ] Dongle DFU package is generated.
 - [ ] Raspberry Pi companion installs with `scripts/install_pi.sh`.
 - [ ] Pi boots without undervoltage warning.
@@ -213,4 +240,4 @@ python3 scripts/test_gpio_buttons.py
 
 ## Safety boundary
 
-KoalaByte Blue is for lawful educational research, defensive testing, owned-device lab work, and authorized Bluetooth assessment only. Passive capture, local logging, synthetic owned-device lab advertising, and Koala Konnect host-adapter use must remain scoped to environments where you have permission.
+KoalaByte Blue is for lawful educational research, defensive testing, owned-device lab work, and authorized Bluetooth assessment only. Passive capture, local logging, synthetic owned-device lab advertising, Koala Mode Switcher DFU use, and Koala Konnect host-adapter use must remain scoped to environments where you have permission.
