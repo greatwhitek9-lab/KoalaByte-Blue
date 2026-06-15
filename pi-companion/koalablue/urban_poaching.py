@@ -19,7 +19,7 @@ except Exception:  # pragma: no cover - allows docs/tests on non-BLE hosts
 class UrbanPoachingConfig:
     """Config for the Urban Poaching authorized BLE fox-hunt game."""
 
-    target_name: str = "EarTag-Lab"
+    target_name: str = "KoalaByte Lab"
     target_address: Optional[str] = None
     scan_seconds: float = 4.0
     rounds: int = 12
@@ -71,7 +71,7 @@ class HuntResult:
 class UrbanPoachingGame:
     """RSSI-guided BLE fox-hunt game for owned/authorized lab beacons.
 
-    The default target is the Ear Tag lab beacon. This class does not connect,
+    The default target is the KoalaByte Lab beacon. This class does not connect,
     pair, write, or interact with devices. It only observes BLE advertisements
     and turns RSSI trend changes into game hints.
     """
@@ -216,7 +216,7 @@ def run_cli() -> int:
     import argparse
 
     parser = argparse.ArgumentParser(description="Urban Poaching authorized BLE fox-hunt game")
-    parser.add_argument("--target-name", default="EarTag-Lab", help="Owned/authorized BLE beacon name to hunt")
+    parser.add_argument("--target-name", default="KoalaByte Lab", help="Owned/authorized BLE beacon name to hunt")
     parser.add_argument("--target-address", default=None, help="Optional exact BLE address for owned/authorized target")
     parser.add_argument("--rounds", type=int, default=12)
     parser.add_argument("--scan-seconds", type=float, default=4.0)
