@@ -1,0 +1,37 @@
+Line,Category,Subsystem,Qty,Part / Assembly,Recommended Model / Spec,Required,Purpose / Placement,Notes,Est. Unit USD,Est. Ext. USD,Source / Search
+1,Core compute,Main SBC,1,Raspberry Pi 3B+,Raspberry Pi 3 Model B+,Yes,Main Linux companion computer,Use known-good Pi 3B+ with 40-pin header.,45,45,raspberrypi.com/products/raspberry-pi-3-model-b-plus/
+2,Core compute,Storage,1,microSD card,Samsung EVO Plus / SanDisk Extreme 128GB A1/A2,Yes,"OS, captures, logs, reports",32GB minimum; 128GB recommended for captures.,15,15,
+3,Core compute,Cooling,1,Low-profile heatsink kit,Raspberry Pi 3B+ aluminum/copper heatsink set,Recommended,Thermal stability inside case,Add airflow path in printed case.,6,6,
+4,Display / UI,Eyes + mic,1,ESP32-S3 Dual Eye LCD module,Waveshare ESP32-S3-DualEye-LCD-1.28 or equivalent,Yes,"Dual round eye displays, companion animations, mic/wake interface",Mount above main screen/face area.,30,30,waveshare.com
+5,Display / UI,Main touchscreen,1,Touchscreen display,"3.5 in HDMI/USB touch LCD for Raspberry Pi, 480x320 or better",Yes,"Main menu, reports, controls",USB touch cable plus HDMI/adapter as needed.,35,35,
+6,Display / UI,Front controls,6,Tactile push buttons,"Adafruit tactile button switch 6mm x20, Product ID 367",Yes,Six-button front panel navigation,"Left-to-right: Main, Back/Left, Select/Hold, Right, Up, Down.",0.15,0.9,adafruit.com/product/367
+7,Display / UI,Button bezel,1,3D printed front button bezel,KoalaByte Blue 6x6mm RevA6 STL,Yes,Aligns six buttons in the printable case,Use PETG/ABS; verify button clearance.,2,2,local print
+8,Display / UI,Touch protection,1,Screen lens/protector,3.5 in acrylic/polycarbonate clear lens,Optional,Protects touchscreen,Use only if touch still functions reliably.,5,5,
+9,Bluetooth,Production BLE board,1,Nordic nRF52840 Dongle,PCA10059 / NRF52840-DONGLE,Yes,Compact BLE scanning / lab firmware target,Final compact build BLE hardware.,12,12,nordicsemi.com
+10,Bluetooth,Development BLE board,1,Nordic nRF52840 DK,PCA10056,Recommended,"Firmware development, debug, Ear Tag lab beacon testing",Optional in final case; useful for flashing/debug.,59,59,nordicsemi.com
+11,Bluetooth,BLE antennas,2,2.4GHz antenna,RP-SMA 2.4GHz 3-5dBi whip antenna,Recommended,Top antenna cutouts / improved BLE lab reception,Only for boards/cables that expose antenna connectors.,8,16,
+12,Bluetooth,Antenna cable,2,RF pigtail / bulkhead,"U.FL/IPEX to RP-SMA bulkhead cable, 2.4GHz rated",Optional,Routes antennas through top case cutouts,Match connector to selected radio board; do not force U.FL on stock boards without compatible connector.,6,12,
+13,Audio,Speaker amp,1,I2S audio amplifier,MAX98357A I2S Class-D amplifier board,Recommended,KillerKoala voice/audio output,Connect to Pi I2S or chosen audio path.,6,6,
+14,Audio,Speaker,1,Mini speaker,8Ω 3W 40mm round speaker,Recommended,Voice output / alert sounds,Mount behind speaker grille.,5,5,
+15,Audio,Microphone fallback,1,USB microphone,Low-profile USB mic,Optional,Fallback mic if ESP32 mic path is not used,Useful for testing wake word on Pi.,10,10,
+16,Power,Portable battery,1,USB-C PD battery pack,"20,000mAh 45-100W USB-C PD power bank",Yes,External portable power source,Use reputable pack with PD output.,45,45,
+17,Power,PD trigger,1,USB-C PD trigger board,HUSB238 I2C/fixed PD trigger or ZY12PDN,Yes,Negotiates 9V/12V from PD source for buck converter,Do not feed 5V PD into buck expecting stable 5V output headroom.,10,10,
+18,Power,Main buck converter,1,5V buck converter,"Pololu D24V50F5 5V 5A fixed buck, item #2851",Yes,Stable 5V rail for Pi/display/modules,Recommended over generic noisy converters.,25,25,pololu.com/product/2851
+19,Power,Protection,1,Inline fuse,3A-5A resettable/polyfuse or blade fuse holder,Yes,Protects main 5V rail,Place after buck output.,3,3,
+20,Power,Bulk capacitor,1,Low ESR capacitor,"470µF-1000µF, 10V or higher electrolytic/polymer",Yes,Reduces 5V rail dips near Pi/display,Observe polarity.,2,2,
+21,Power,Power switch,1,Panel mount switch,Rated for 5V/3A+ DC or switch upstream low-current enable,Yes,Main power control,Avoid undersized slide switches on high current rail.,4,4,
+22,Power,Battery wiring,1,Power wire set,"18-22AWG silicone wire, red/black",Yes,Power distribution,Use thicker wire on main 5V/GND path.,8,8,
+23,USB / internal I/O,USB hub,1,Compact powered USB hub,Low-profile 4-port USB hub,Recommended,Expands Pi USB for BLE/mic/ESP32/devices,Prefer powered/short internal cabling.,15,15,
+24,USB / internal I/O,USB cables,1,USB cable set,Short USB-A/micro-USB/USB-C cables as required,Yes,"Internal links between Pi, ESP32, nRF dongle, hub","Use short, flexible cables to reduce case bulk.",15,15,
+25,Wiring,GPIO harness,1,Dupont/JST wire kit,Female-female Dupont plus JST-XH/PH connectors,Yes,"Buttons, power sense, internal headers",Label each harness.,12,12,
+26,Wiring,Heat shrink,1,Heat shrink tubing kit,Assorted small diameter heat shrink,Yes,Insulation and strain relief,Use on all solder joints.,8,8,
+27,Wiring,Cable management,1,Small zip ties / adhesive anchors,Nylon micro zip ties + cable tie mounts,Recommended,Internal cable control,Keep cables away from antennas and vents.,5,5,
+28,Mechanical,Printable case,1,KoalaByte Blue case,RevA6/RevA11 PETG printable case with top antenna cutouts,Yes,Device enclosure,"Print case shell, faceplate, rear cover, ears, buttons bezel.",20,20,local print
+29,Mechanical,Fasteners M2.5,1,M2.5 standoff kit,"M2.5 brass/nylon standoffs, screws, nuts assortment",Yes,Raspberry Pi/display/module mounting,Common for Pi hardware.,10,10,
+30,Mechanical,Fasteners M3,1,M3 screw kit,"M3 screws/nuts/inserts assortment",Yes,Case assembly,Heat-set inserts recommended for serviceability.,10,10,
+31,Mechanical,Rubber feet,4,Adhesive rubber feet,Small black rubber feet,Optional,Stability and surface protection,Mount on back/bottom.,2,8,
+32,Mechanical,Vent mesh,1,Speaker/vent mesh,Fine black plastic/metal mesh,Optional,Speaker grille and vent protection,Keeps debris out.,4,4,
+33,Tools / consumables,Soldering consumables,1,Solder/flux/wick,Lead-free or 63/37 solder + flux,Build supply,Assembly,Not part of final device but needed.,15,15,
+34,Tools / consumables,Adhesive,1,Electronics-safe adhesive,3M VHB / E6000 / hot glue for strain relief,Build supply,Mounting/strain relief,Do not block vents or service access.,8,8,
+35,Tools / consumables,Labels,1,Wire labels,Printable or wraparound labels,Recommended,Harness/service labeling,"Label power, GPIO, USB, antenna routes.",5,5,
+36,Software / media,OS image,1,Raspberry Pi OS Lite/Bookworm,64-bit preferred where compatible,Yes,Base OS,Install Python dependencies from repo.,0,0,raspberrypi.com/software/
