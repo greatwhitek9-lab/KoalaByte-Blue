@@ -1,16 +1,18 @@
-# Flash nRF52840 DK Lab Peripheral Firmware
+# Flash nRF52840 DK Ear Tag TX Lab Firmware
 
-This guide covers the optional **Nordic nRF52840 DK / PCA10056** firmware added in RevA4.
+This guide covers the optional **Nordic nRF52840 DK / PCA10056** firmware used for Ear Tag TX Lab.
 
 ## What this firmware does
 
 The DK firmware advertises as:
 
 ```text
-KoalaBlue-Lab
+EarTag-TX-Lab
 ```
 
-It exposes one custom read-only GATT status characteristic. It is intended for owned-device lab testing, app testing, and validation before moving compact workflows back to the nRF52840 Dongle.
+It emits a synthetic 128-bit service-data pattern with a sequence counter that updates every 5 seconds. It also exposes one custom read-only GATT status characteristic. It is intended for owned-device lab testing, app testing, signal-integrity observation, and validation before moving compact workflows back to the nRF52840 Dongle.
+
+It does not replay captured packets or captured identifiers.
 
 ## Requirements
 
@@ -39,18 +41,24 @@ west flash -d build/nrf52840-dk-lab-peripheral
 ./scripts/flash_nrf52840_dk_lab.sh
 ```
 
+## Generate Pi-side plan
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_ear_tag_tx_lab.py
+```
+
 ## Test
 
 Use a BLE scanner or the KoalaByte Blue passive scan mode. Confirm the DK advertises as:
 
 ```text
-KoalaBlue-Lab
+EarTag-TX-Lab
 ```
 
 Then connect with your own authorized BLE client and read the status characteristic. It should return:
 
 ```text
-KoalaByte Blue authorized lab peripheral; read-only demo
+KoalaByte Blue Ear Tag TX Lab; synthetic owned-device BLE advertisement; no captured packet replay
 ```
 
 ## Production note
