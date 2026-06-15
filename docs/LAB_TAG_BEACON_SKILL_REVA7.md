@@ -16,7 +16,7 @@ This is useful for:
 
 ## Behavior
 
-The current lab firmware advertises as:
+The current dongle lab firmware advertises as:
 
 ```text
 EarTag-TX-Lab
@@ -43,7 +43,7 @@ This skill is limited to clearly labeled lab-device advertising, synthetic servi
 Edit:
 
 ```text
-firmware/nrf52840-dk-lab-peripheral/prj.conf
+firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf
 ```
 
 Set:
@@ -58,10 +58,24 @@ Or use the helper:
 python3 scripts/set_lab_ble_name.py EarTag-TX-Lab
 ```
 
-## Flash
+## Build and flash the dongle
+
+Build the retained Nordic dongle firmware:
 
 ```bash
-bash scripts/flash_nrf52840_dk_lab.sh
+bash scripts/build_nrf52840_dongle_lab.sh
+```
+
+Create the DFU package and flash when the dongle is in bootloader mode:
+
+```bash
+bash scripts/flash_nrf52840_dongle_lab_dfu.sh
+```
+
+Or set the DFU port explicitly:
+
+```bash
+NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_nrf52840_dongle_lab_dfu.sh
 ```
 
 ## Generate a Pi-side Ear Tag TX Lab plan
