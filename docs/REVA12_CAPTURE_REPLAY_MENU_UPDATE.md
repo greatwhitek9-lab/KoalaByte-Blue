@@ -1,13 +1,14 @@
-# RevA12 Capture, Replay, and Menu Update
+# RevA15 Capture, Replay, and Menu Update
 
 ## Naming
 
 ```text
-eucalyptus     = always-on passive BLE observation/logger
-Koala Kapture  = passive BLE metadata capture and archive
-Koala Kry      = offline replay of Koala Kapture metadata
-Ear Tag        = named lab BLE beacon
-Urban Poaching = BLE RSSI lab game
+eucalyptus            = always-on passive BLE observation/logger
+Koala Kapture         = passive BLE metadata capture and archive
+Koala Kry             = offline replay of Koala Kapture metadata
+Koala Kry RF Review   = safe review manifest path; no radio output
+Ear Tag               = named lab BLE beacon
+Urban Poaching        = BLE RSSI lab game
 ```
 
 ## Koala Kapture
@@ -32,7 +33,9 @@ Output:
 
 ## Koala Kry
 
-Koala Kry now replays saved metadata captured by Koala Kapture. It does not transmit RF and does not replay BLE advertisements over the air.
+Koala Kry replays saved metadata captured by Koala Kapture into local files only.
+
+RevA15 adds a review-manifest path. The review command records the request, keeps radio output disabled, and writes a JSON file with safe next steps.
 
 Primary files:
 
@@ -47,26 +50,25 @@ Output:
 ```text
 logs/koala_kry_replay/*.jsonl
 logs/koala_kry_replay/*_summary.json
+logs/koala_kry_replay/koala_kry_transmit_review_*.json
+```
+
+Review command:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_kry.py --request-rf-transmit --lab-setting --owned-device
 ```
 
 ## Menu Selection Screen
 
-The menu screen supports:
-
-- Button 1: Main Menu
-- Button 2: Left / Back
-- Button 3: Select; hold for shutdown route
-- Button 4: Right / Forward
-- Button 5: Up
-- Button 6: Down
-- Touch drag to scroll
-- Touch long press to select
+The menu screen supports the six front-panel buttons, touch drag scrolling, touch long-press selection, and the Koala Kry RF Review entry.
 
 Primary files:
 
 ```text
 pi-companion/koalablue/menu_ui.py
 pi-companion/koalablue/menu_screen.py
+pi-companion/koalablue/menu_catalog.py
 scripts/run_menu_screen.py
 docs/MENU_SELECTION_REVA12.md
 ```
@@ -81,4 +83,4 @@ pi-companion/config.default.json
 
 ## Safety
 
-All RevA12 capture and replay work is local/passive/offline unless the device is running the existing named lab beacon firmware. No RF flooding, jamming, disruption, or over-the-air replay is included.
+Capture and replay work is local/passive/offline unless the device is running the existing named lab beacon firmware. Use synthetic, clearly named owned-device lab beacon payloads for radio-oriented learning.
