@@ -63,9 +63,19 @@
     "enabled": true,
     "visible_rows": 6,
     "event_log": "logs/menu_events.jsonl",
+    "theme": {
+      "name": "RevA14 Jungle Book style eucalyptus menu",
+      "renderer": "koalablue.menu_theme.JungleMenuRenderer",
+      "text_preview": "koalablue.menu_theme.render_terminal_jungle_menu",
+      "font_style": "large rounded bubbly jungle title style using system fonts; no bundled third-party font files",
+      "font_family_candidates": ["cooperblack", "arialroundedmsbold", "dejavusans"],
+      "border_style": "eucalyptus_branches",
+      "selected_item_style": "large rounded pill with eucalyptus leaves and glow",
+      "fullscreen_default": true
+    },
     "touch": {
       "enabled": true,
-      "row_height_px": 48,
+      "row_height_px": 64,
       "long_press_seconds": 0.75,
       "scroll_threshold_px": 18
     },
