@@ -25,7 +25,7 @@ The ESP32-S3 DualEye firmware is a PlatformIO project and can be built/flashed d
 Quick ESP32 flash:
 
 ```bash
-./scripts/flash_esp32.sh
+bash scripts/flash_esp32.sh
 ```
 
 The optional nRF52840 DK lab peripheral firmware is an nRF Connect SDK / Zephyr project at:
@@ -37,7 +37,7 @@ firmware/nrf52840-dk-lab-peripheral/
 Quick nRF52840 DK flash:
 
 ```bash
-./scripts/flash_nrf52840_dk_lab.sh
+bash scripts/flash_nrf52840_dk_lab.sh
 ```
 
 ## What is included
@@ -86,7 +86,7 @@ quit              Exit
 git clone https://github.com/greatwhitek9-lab/KoalaByte-Blue.git
 cd KoalaByte-Blue
 python3 -m pip install --user platformio
-./scripts/flash_esp32.sh
+bash scripts/flash_esp32.sh
 ```
 
 ## First nRF52840 DK flash
@@ -96,5 +96,5 @@ Install Nordic nRF Connect SDK first, then:
 ```bash
 git clone https://github.com/greatwhitek9-lab/KoalaByte-Blue.git
 cd KoalaByte-Blue
-./scripts/flash_nrf52840_dk_lab.sh
+bash scripts/flash_nrf52840_dk_lab.sh
 ```
