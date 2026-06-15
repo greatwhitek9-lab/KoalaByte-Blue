@@ -3,11 +3,12 @@ from __future__ import annotations
 import json
 import queue
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from .gpio_buttons import ButtonEvent, GPIOButtonManager
+from .menu_catalog import make_menu_items
 
 
 @dataclass(frozen=True)
@@ -15,6 +16,7 @@ class MenuItem:
     label: str
     command: str
     description: str = ""
+    enabled: bool = True
 
 
 @dataclass
@@ -27,16 +29,7 @@ class MenuState:
     last_selected: Optional[MenuItem] = None
 
 
-DEFAULT_MENU_ITEMS: List[MenuItem] = [
-    MenuItem("eucalyptus", "eucalyptus", "Always-on passive BLE scanner/logger"),
-    MenuItem("Koala Kapture", "koala_kapture", "Capture and archive BLE metadata"),
-    MenuItem("Koala Kry", "koala_kry", "Replay captured BLE metadata offline"),
-    MenuItem("Ear Tag", "ear_tag", "Named lab BLE beacon"),
-    MenuItem("Urban Poaching", "urban_poaching", "BLE RSSI lab game"),
-    MenuItem("Reports", "reports", "Generate and review session reports"),
-    MenuItem("Settings", "settings", "Device configuration"),
-    MenuItem("Lab", "lab", "Authorized lab-use menu"),
-]
+DEFAULT_MENU_ITEMS: List[MenuItem] = make_menu_items(MenuItem)
 
 
 class MenuController:
@@ -56,16 +49,21 @@ class MenuController:
             self.move(-1)
         elif command in {"down", "move_down", "scroll_down"}:
             self.move(1)
-        elif command in {"move_left", "back"}:
-            self.state.last_action = "back"
-        elif command in {"move_right", "forward"}:
+        elif command in {"move_left", "left", "back"}:
+            self.move(-1)
+            self.state.last_action = "move_left"
+        elif command in {"move_right", "right", "forward"}:
             self.move(1)
+            self.state.last_action = "move_right"
         elif command in {"select", "enter", "touch_select", "long_press_select"}:
             selected = self.select()
         elif command in {"main_menu", "home"}:
             self.state.selected_index = 0
             self.state.scroll_offset = 0
             self.state.last_action = "main_menu"
+        elif command == "shutdown":
+            self._select_by_command("shutdown_confirm")
+            selected = self.select()
         else:
             self.state.last_action = f"ignored:{command}"
         self._clamp()
@@ -76,8 +74,12 @@ class MenuController:
         self.state.last_action = "move"
         self._clamp_scroll()
 
-    def select(self) -> MenuItem:
+    def select(self) -> Optional[MenuItem]:
         item = self.items[self.state.selected_index]
+        if not item.enabled:
+            self.state.last_selected = None
+            self.state.last_action = f"disabled:{item.command}"
+            return None
         self.state.last_selected = item
         self.state.last_action = f"select:{item.command}"
         return item
@@ -92,19 +94,27 @@ class MenuController:
         return list(enumerate(self.items[start:end], start=start))
 
     def render_text(self) -> str:
-        lines = [f"=== {self.state.title} ===", ""]
+        lines = [f"=== {self.state.title} ===", f"Function Menu ({self.state.selected_index + 1}/{len(self.items)})", ""]
         for index, item in self.visible_items():
             cursor = ">" if index == self.state.selected_index else " "
-            lines.append(f"{cursor} {index + 1:02d}. {item.label}")
+            disabled = " [locked]" if not item.enabled else ""
+            lines.append(f"{cursor} {index + 1:02d}. {item.label}{disabled}")
             if index == self.state.selected_index and item.description:
                 lines.append(f"     {item.description}")
         lines.extend([
             "",
-            "Buttons: B1 menu | B2 back | B3 select/hold shutdown | B4 next | B5 up | B6 down",
+            "Buttons: B1 menu | B2 previous/back | B3 select/hold shutdown | B4 next | B5 up | B6 down",
             "Touch: scroll list | long press item to select",
             f"Last: {self.state.last_action}",
         ])
         return "\n".join(lines)
+
+    def _select_by_command(self, command: str) -> None:
+        for idx, item in enumerate(self.items):
+            if item.command == command:
+                self.state.selected_index = idx
+                self._clamp_scroll()
+                return
 
     def _clamp(self) -> None:
         self.state.selected_index = max(0, min(self.state.selected_index, len(self.items) - 1))
