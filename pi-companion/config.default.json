@@ -1,7 +1,8 @@
 {
   "action_names": {
     "always_on_ble_scanner_logger": "eucalyptus",
-    "ble_fox_hunt_game": "Urban Poaching"
+    "ble_fox_hunt_game": "Urban Poaching",
+    "synthetic_ble_log_generator": "Koala Kry"
   },
   "eucalyptus": {
     "display_name": "eucalyptus",
@@ -14,7 +15,7 @@
   },
   "urban_poaching": {
     "display_name": "Urban Poaching",
-    "description": "Authorized BLE fox-hunt style game using RSSI trend hints against owned lab beacons.",
+    "description": "Authorized BLE RSSI lab game using trend hints against owned lab beacons.",
     "enabled": true,
     "default_target_name": "EarTag-Lab",
     "default_target_address": null,
@@ -27,6 +28,20 @@
     "xp_reward_found": 25,
     "xp_reward_round": 1,
     "authorized_only": true
+  },
+  "koala_kry": {
+    "display_name": "Koala Kry",
+    "description": "Local synthetic BLE log generator for UI/parser/report stress testing. No RF transmission.",
+    "enabled": true,
+    "mode": "synthetic_ble_log_generation",
+    "output_dir": "logs/koala_kry",
+    "device_count": 40,
+    "samples": 250,
+    "min_rssi": -94,
+    "max_rssi": -38,
+    "include_named_lab_devices": true,
+    "xp_reward": 5,
+    "rf_transmission": false
   },
   "capture_dir": "/blecaptures",
   "scan_window_seconds": 8.0,
