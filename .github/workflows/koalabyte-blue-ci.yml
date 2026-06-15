@@ -43,14 +43,20 @@ jobs:
       - name: Run repo readiness check
         run: python scripts/check_repo_readiness.py
 
-      - name: Confirm nRF Zephyr app files
+      - name: Confirm nRF Zephyr app and board helpers
         run: |
           test -f firmware/nrf52840-dk-lab-peripheral/CMakeLists.txt
           test -f firmware/nrf52840-dk-lab-peripheral/prj.conf
           test -f firmware/nrf52840-dk-lab-peripheral/src/main.c
+          test -f scripts/build_nrf52840_dk_lab.sh
+          test -f scripts/build_nrf52840_dongle_lab.sh
+          test -f scripts/flash_nrf52840_dongle_lab_dfu.sh
           grep -q 'find_package(Zephyr REQUIRED' firmware/nrf52840-dk-lab-peripheral/CMakeLists.txt
           grep -q 'CONFIG_BT_DEVICE_NAME="EarTag-TX-Lab"' firmware/nrf52840-dk-lab-peripheral/prj.conf
           grep -q 'bt_le_adv_start' firmware/nrf52840-dk-lab-peripheral/src/main.c
+          grep -q 'nrf52840dk_nrf52840' scripts/build_nrf52840_dk_lab.sh
+          grep -q 'nrf52840dongle_nrf52840' scripts/build_nrf52840_dongle_lab.sh
+          grep -q 'NRF_DFU_PORT' scripts/flash_nrf52840_dongle_lab_dfu.sh
 
   pi-companion-python-check:
     name: Check Pi companion Python
