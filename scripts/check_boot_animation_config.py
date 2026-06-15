@@ -20,10 +20,12 @@ PI_MENU_SCREEN = REPO_ROOT / "pi-companion" / "koalablue" / "menu_screen.py"
 PI_KOALA_KRY = REPO_ROOT / "pi-companion" / "koalablue" / "koala_kry.py"
 PI_EAR_TAG_TX = REPO_ROOT / "pi-companion" / "koalablue" / "ear_tag_tx_lab.py"
 PI_BLUEZ = REPO_ROOT / "pi-companion" / "koalablue" / "bluez_tools.py"
+PI_KILLERKOALA_VOICE = REPO_ROOT / "pi-companion" / "koalablue" / "killerkoala_vocabulary.py"
 MENU_CATALOG = REPO_ROOT / "pi-companion" / "koalablue" / "menu_catalog.py"
 RUN_MENU = REPO_ROOT / "scripts" / "run_menu_screen.py"
 RUN_EAR_TAG_TX = REPO_ROOT / "scripts" / "run_ear_tag_tx_lab.py"
 RUN_BLUEZ = REPO_ROOT / "scripts" / "run_koala_bluez.py"
+RUN_KILLERKOALA_VOICE = REPO_ROOT / "scripts" / "run_killerkoala_voice.py"
 BUILD_NRF = REPO_ROOT / "scripts" / "build_nrf52840_dk_lab.sh"
 BUILD_ALL = REPO_ROOT / "scripts" / "build_firmware_all.sh"
 DEFAULT_CONFIG = REPO_ROOT / "pi-companion" / "config.default.json"
@@ -44,13 +46,15 @@ REQUIRED = {
     PI_KOALA_KRY: ["request_rf_transmit", "KoalaKryTransmitReview", "blocked_no_over_the_air_replay", "--request-rf-transmit"],
     PI_EAR_TAG_TX: ["EarTag-TX-Lab", "synthetic_owned_lab_ble_advertisement", "KBTX"],
     PI_BLUEZ: ["BLUEZ_TOOLS", "Koala Blue Controller", "bluetoothctl", "btmon", "owned_device_required"],
-    MENU_CATALOG: ["Koala Kry RF Review", "koala_kry_transmit_review", "Ear Tag TX Lab", "ear_tag_tx_lab", "Koala BlueZ Scan", "koala_bluez_scan"],
+    PI_KILLERKOALA_VOICE: ["KillerKoalaVoiceProfile", "Australian male", "RANK_NOOB", "RANK_HACKER", "RANK_LEGEND", "line_for_event", "vocabulary_manifest"],
+    MENU_CATALOG: ["Koala Kry RF Review", "koala_kry_transmit_review", "Ear Tag TX Lab", "ear_tag_tx_lab", "Koala BlueZ Scan", "koala_bluez_scan", "KillerKoala Voice", "killerkoala_voice"],
     RUN_MENU: ["--graphical", "JungleMenuRenderer"],
     RUN_EAR_TAG_TX: ["run_cli"],
     RUN_BLUEZ: ["bluez_tools", "run_cli"],
+    RUN_KILLERKOALA_VOICE: ["killerkoala_vocabulary", "run_cli"],
     BUILD_NRF: ["west build", "nrf52840dk_nrf52840"],
     BUILD_ALL: ["pio run", "build_nrf52840_dk_lab.sh"],
-    DEFAULT_CONFIG: ["RevA14 Jungle Book style eucalyptus menu", "Koala BlueZ Tools", "koala_bluez", "Koala BlueZ Scan", "ear_tag_tx_lab", "EarTag-TX-Lab"],
+    DEFAULT_CONFIG: ["RevA14 Jungle Book style eucalyptus menu", "Koala BlueZ Tools", "koala_bluez", "KillerKoala Voice", "killerkoala_companion", "Australian male", "Legend"],
 }
 
 
@@ -65,11 +69,11 @@ def main() -> int:
             if needle not in text:
                 failures.append(f"missing '{needle}' in {path.relative_to(REPO_ROOT)}")
     if failures:
-        print("KoalaByte Blue RevA16 config check failed:", file=sys.stderr)
+        print("KoalaByte Blue RevA17 config check failed:", file=sys.stderr)
         for failure in failures:
             print(f"- {failure}", file=sys.stderr)
         return 1
-    print("KoalaByte Blue RevA16 config check passed.")
+    print("KoalaByte Blue RevA17 config check passed.")
     return 0
 
 
