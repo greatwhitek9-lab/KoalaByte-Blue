@@ -1,27 +1,29 @@
-# RevA12 Menu Selection Screen
+# RevA12 Menu Selection Screen / RevA14 Jungle Theme Update
 
 ## Purpose
 
-The RevA12 menu layer gives KoalaByte Blue a single selection screen that can be driven by:
+The menu layer gives KoalaByte Blue a single selection screen that can be driven by:
 
 - Six front-panel GPIO buttons.
 - Touchscreen drag scrolling.
 - Touchscreen long-press select.
 - Keyboard input during development.
+- RevA14 large bubbly jungle/eucalyptus graphical rendering.
 
 ## Full function menu
 
-The default menu is now generated from one shared catalog:
+The default menu is generated from one shared catalog:
 
 ```text
 pi-companion/koalablue/menu_catalog.py
 ```
 
-That catalog is consumed by both:
+That catalog is consumed by:
 
 ```text
 pi-companion/koalablue/menu_ui.py
 pi-companion/koalablue/menu_screen.py
+pi-companion/koalablue/menu_theme.py
 ```
 
 Default menu entries:
@@ -55,6 +57,27 @@ Default menu entries:
 26 Shutdown                   Confirm safe shutdown
 27 Quit                       Exit the Pi companion UI
 ```
+
+## RevA14 visual theme
+
+The menu selection screen now has a jungle/eucalyptus visual theme:
+
+```text
+large rounded bubbly menu item font
+eucalyptus branch border
+leaf accents on the selected row
+rounded pill-style menu rows
+touch-ready graphical renderer
+terminal eucalyptus branch preview
+```
+
+Theme implementation:
+
+```text
+pi-companion/koalablue/menu_theme.py
+```
+
+The renderer uses system fonts only. It tries rounded/bubbly font candidates when present and falls back to DejaVu Sans. No external font files are bundled.
 
 ## Button mapping
 
@@ -108,9 +131,13 @@ Default long-press threshold:
 ## Test from terminal
 
 ```bash
-cd pi-companion
-source .venv/bin/activate
-PYTHONPATH=. python ../scripts/run_menu_screen.py
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py
+```
+
+Graphical jungle/eucalyptus menu:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
 ```
 
 Keyboard test controls:
