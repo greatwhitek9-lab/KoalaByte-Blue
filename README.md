@@ -1,6 +1,6 @@
-# KoalaByte Blue / killerkoala AI Companion Firmware RevA9
+# KoalaByte Blue / killerkoala AI Companion Firmware RevA13
 
-ESP32-S3 DualEye firmware, Raspberry Pi companion software, optional Nordic nRF52840 DK lab firmware, RevA6 six-button front-panel GPIO support, RevA8 **eucalyptus** always-on BLE scanner/logger naming, RevA9 **Ear Tag** lab beacon naming, and the expanded shared full-function menu for the **KoalaByte Blue Pi3B+ stacked research device**.
+ESP32-S3 DualEye firmware, Raspberry Pi companion software, optional Nordic nRF52840 DK lab firmware, RevA6 six-button front-panel GPIO support, RevA8 **eucalyptus** always-on BLE scanner/logger naming, RevA9 **Ear Tag** lab beacon naming, the expanded shared full-function menu, and RevA13 animated **KoalaByte Blue** boot splash support for the **KoalaByte Blue Pi3B+ stacked research device**.
 
 ## Hardware profile
 
@@ -17,6 +17,41 @@ Nordic nRF52840 DK / PCA10056
 ```
 
 Use the DK for development and validation. Keep the Dongle in the final compact physical build.
+
+## RevA13 animated boot splash
+
+KoalaByte Blue now includes boot animation support in both the ESP32-S3 firmware and the Raspberry Pi companion layer.
+
+ESP32 firmware path:
+
+```text
+firmware/esp32-dualeye/src/boot_animation.cpp
+firmware/esp32-dualeye/include/boot_animation.h
+```
+
+Pi companion path:
+
+```text
+pi-companion/koalablue/boot_animation.py
+scripts/run_boot_splash.py
+scripts/install_boot_splash_autostart.sh
+```
+
+The boot screen shows a dark KoalaByte face, pulsing purple left eye, pulsing true-blue right eye, **KoalaByte Blue** title with **Blue** rendered blue, `BOOTING...`, and an animated progress bar.
+
+Test Pi splash windowed:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
+```
+
+Install desktop autostart on the Pi:
+
+```bash
+bash scripts/install_boot_splash_autostart.sh
+```
+
+See [`docs/BOOT_ANIMATION_REVA13.md`](docs/BOOT_ANIMATION_REVA13.md).
 
 ## RevA8 eucalyptus always-on BLE scanner/logger
 
@@ -112,6 +147,8 @@ bash scripts/flash_nrf52840_dk_lab.sh
 ## What is included
 
 - ESP32-S3 DualEye firmware scaffold with USB serial JSON protocol.
+- RevA13 procedural ESP32 boot animation launched during firmware `setup()`.
+- RevA13 Pi companion fullscreen boot splash runner and desktop autostart installer.
 - Mic wake path enabled by default with wake word **killerkoala**.
 - Raspberry Pi companion dependency/config files.
 - `eucalyptus` always-on passive BLE capture configuration under `/blecaptures/`.
@@ -138,7 +175,12 @@ Latest hardware/software additions:
 - `docs/LAB_TAG_BEACON_SKILL_REVA7.md`
 - `docs/EUCALYPTUS_ALWAYS_ON_BLE_REVA8.md`
 - `docs/MENU_SELECTION_REVA12.md`
+- `docs/BOOT_ANIMATION_REVA13.md`
 - `pi-companion/koalablue/menu_catalog.py`
+- `pi-companion/koalablue/boot_animation.py`
+- `firmware/esp32-dualeye/src/boot_animation.cpp`
+- `scripts/run_boot_splash.py`
+- `scripts/install_boot_splash_autostart.sh`
 - `scripts/set_lab_ble_name.py`
 - `production/RevA1-nrf52840-dongle/BOM_RevA5_Dongle_DK_Buttons.csv`
 - `production/RevA1-nrf52840-dongle/ASSEMBLY_AND_FLASHING_INSTRUCTIONS_RevA5_BUTTONS.md`
