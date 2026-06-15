@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 import time
 
-from koalablue.menu_ui import MenuSelectionScreen
+from koalablue.menu_ui import MenuEvent, MenuSelectionScreen
 
 try:
     from koalablue.gpio_buttons import GPIOButtonManager
@@ -33,6 +33,10 @@ def clear() -> None:
     os.system("clear" if os.name != "nt" else "cls")
 
 
+def selected_quit(event: MenuEvent | None) -> bool:
+    return event is not None and event.event_type in {"select", "touch_long_press_select"} and event.command == "quit"
+
+
 def main() -> int:
     menu = MenuSelectionScreen()
     buttons = GPIOButtonManager() if GPIOButtonManager is not None else None
@@ -50,16 +54,20 @@ def main() -> int:
             print("Keyboard test: w/s/a/d, Enter=select, m=menu, q=quit")
 
             if buttons is not None:
-                event = buttons.get_event(timeout=0.05)
-                if event is not None:
-                    menu.handle_command(event.command)
+                button_event = buttons.get_event(timeout=0.05)
+                if button_event is not None:
+                    menu_event = menu.handle_command(button_event.command)
+                    if selected_quit(menu_event):
+                        return 0
                     continue
 
             raw = input("> ").strip().lower()
             command = KEY_MAP.get(raw, raw)
             if command == "quit":
                 return 0
-            menu.handle_command(command)
+            menu_event = menu.handle_command(command)
+            if selected_quit(menu_event):
+                return 0
             time.sleep(0.05)
     finally:
         if buttons is not None:
