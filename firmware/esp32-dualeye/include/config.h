@@ -1,9 +1,9 @@
 #pragma once
 
-// killerkoala ESP32-S3 DualEye config RevA2
-// Confirm exact DualEye audio/display pins against your board revision before relying on hardware wake-word capture.
+// killerkoala ESP32-S3 DualEye config RevA13
+// Confirm exact DualEye audio/display pins against your board revision before relying on hardware wake-word capture or display output.
 
-#define KOALABLUE_FW_VERSION "0.3.0-killerkoala-alwayson"
+#define KOALABLUE_FW_VERSION "0.4.0-killerkoala-bootanim"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define SERIAL_BAUD 115200
@@ -14,8 +14,14 @@
 #define ENABLE_LOCAL_BLE_SCAN 1
 #define ENABLE_MIC_WAKE       1
 #define ENABLE_WAKE_WORD_FILTER 1
-#define ENABLE_DISPLAY_STUB   1
+#define ENABLE_DISPLAY_STUB   0
+#define ENABLE_DISPLAY_BOOT_ANIMATION 1
 #define ENABLE_AUDIO_SPEAKER  1
+
+// Boot animation behavior.
+#define BOOT_ANIMATION_TOTAL_MS 2500
+#define BOOT_ANIMATION_FRAME_MS 50
+#define DISPLAY_ROTATION 0
 
 // Buttons. Use -1 to disable a button.
 #define BTN_BACK_PIN    0
