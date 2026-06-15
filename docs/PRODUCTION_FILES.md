@@ -20,6 +20,7 @@ Current production references:
 - `firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf` - KoalaByte Lab device-name/config.
 - `firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt` - nRF Connect SDK / Zephyr app wiring.
 - `firmware/nrf52840-dongle-ear-tag-tx-lab/README.md` - Dongle app guide.
+- `docs/FLASHING.md` - current all-component flashing and install guide.
 - `docs/NRF52840_DONGLE_FLASHING.md` - nRF52840 Dongle / PCA10059 Zephyr build and DFU guide.
 - `docs/KOALA_MODE_SWITCHER_REVA21.md` - Koala Mode Switcher status/build/package/select workflow.
 - `docs/KOALA_KONNECT_REVA20.md` - Koala Konnect USB HCI adapter profile guide.
@@ -27,9 +28,11 @@ Current production references:
 - `docs/ORDERABLE_PARTS_LIST.md` - orderable hardware list with Seloky 12 V PD/QC trigger board and InnoMaker USB-to-CAN kit.
 - `docs/POWER_UPDATE_REVA2.md` - power-path validation guide for Seloky trigger and 5 V buck regulator.
 - `firmware/esp32-dualeye/` - ESP32-S3 DualEye firmware and display helpers.
+- `pi-companion/koalbl...` - removed; do not use the old typo path.
 - `pi-companion/koalablue/koala_kan_kommander.py` - optional Koala Kan Kommander module.
 - `pi-companion/` - Raspberry Pi companion app, menu, theme, and helper modules.
 - `scripts/check_repo_readiness.py` - current ready-to-run repository validation check.
+- `scripts/flash_all_components.sh` - one-command Pi install, ESP32 flash, nRF52840 Dongle build/DFU, and InnoMaker CAN manifest helper.
 - `scripts/run_koala_mode_switcher.py` - Koala Mode Switcher CLI runner.
 - `scripts/run_koala_kan_kommander.py` - Koala Kan Kommander CLI runner.
 - `scripts/build_nrf52840_dongle_lab.sh` - KoalaByte Lab dongle build helper.
@@ -57,4 +60,5 @@ The repository is considered current only when:
 3. ESP32 firmware builds with PlatformIO.
 4. The nRF52840 Dongle Zephyr project wiring and DFU helpers are present.
 5. Optional Koala Kan Kommander files remain present and passive by default.
-6. Removed legacy production packages and legacy power parts are not reintroduced.
+6. `scripts/flash_all_components.sh --all` is documented as the primary all-component helper.
+7. Removed legacy production packages and legacy power parts are not reintroduced.
