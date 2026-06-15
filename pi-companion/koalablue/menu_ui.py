@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional
+
+from .menu_catalog import make_menu_items
 
 
 @dataclass
@@ -39,17 +41,7 @@ class TouchState:
     moved: bool = False
 
 
-DEFAULT_MENU_ITEMS: List[MenuItem] = [
-    MenuItem("eucalyptus", "eucalyptus", "Always-on passive BLE scanner/logger"),
-    MenuItem("Koala Kapture", "koala_kapture", "Capture and archive BLE advertisement metadata"),
-    MenuItem("Koala Kry", "koala_kry", "Replay captured metadata into the UI/report/XP pipeline"),
-    MenuItem("Ear Tag", "ear_tag", "Named lab BLE beacon"),
-    MenuItem("Urban Poaching", "urban_poaching", "Authorized BLE RSSI lab game"),
-    MenuItem("Reports", "reports", "Generate and review reports"),
-    MenuItem("Settings", "settings", "Device and companion settings"),
-    MenuItem("Lab", "lab", "Password-gated authorized lab menu"),
-    MenuItem("Shutdown", "shutdown_confirm", "Confirm safe shutdown"),
-]
+DEFAULT_MENU_ITEMS: List[MenuItem] = make_menu_items(MenuItem)
 
 
 class MenuSelectionScreen:
@@ -72,6 +64,8 @@ class MenuSelectionScreen:
         log_path: str | Path = "logs/menu_events.jsonl",
     ) -> None:
         self.items: List[MenuItem] = list(items or DEFAULT_MENU_ITEMS)
+        if not self.items:
+            raise ValueError("menu requires at least one item")
         self.visible_rows = max(1, visible_rows)
         self.touch_config = touch_config or TouchConfig()
         self.selected_index = 0
@@ -115,14 +109,17 @@ class MenuSelectionScreen:
     def move(self, delta: int) -> None:
         if not self.items:
             return
-        self.selected_index = max(0, min(len(self.items) - 1, self.selected_index + delta))
+        # Wrap around so the six front-panel buttons can browse the whole function list quickly.
+        self.selected_index = (self.selected_index + delta) % len(self.items)
         self._clamp_scroll_to_selection()
 
     def select(self) -> MenuEvent:
         item = self.selected_item
+        if not item.enabled:
+            return self._event("disabled", item.command)
         event = self._event("select", item.command)
         handler = self._handlers.get(item.command)
-        if handler and item.enabled:
+        if handler:
             handler(item)
         return event
 
@@ -152,7 +149,6 @@ class MenuSelectionScreen:
             return None
         held = t - self.touch.down_time
         self._select_row_at_y(y)
-        event: Optional[MenuEvent]
         if held >= self.touch_config.long_press_seconds and not self.touch.moved:
             event = self.select()
             event.event_type = "touch_long_press_select"
@@ -164,12 +160,13 @@ class MenuSelectionScreen:
 
     def render_text(self) -> str:
         visible = self.visible_items()
-        lines = ["KoalaByte Blue", "Main Menu", ""]
+        total = len(self.items)
+        lines = ["KoalaByte Blue", f"Main Menu ({self.selected_index + 1}/{total})", ""]
         for absolute_index, item in visible:
             prefix = ">" if absolute_index == self.selected_index else " "
-            disabled = " [disabled]" if not item.enabled else ""
-            lines.append(f"{prefix} {item.label}{disabled}")
-            if item.description:
+            disabled = " [locked]" if not item.enabled else ""
+            lines.append(f"{prefix} {absolute_index + 1:02d}. {item.label}{disabled}")
+            if absolute_index == self.selected_index and item.description:
                 lines.append(f"    {item.description}")
         lines.append("")
         lines.append("Buttons: 1 menu | 2 left/back | 3 select/hold shutdown | 4 right | 5 up | 6 down")
