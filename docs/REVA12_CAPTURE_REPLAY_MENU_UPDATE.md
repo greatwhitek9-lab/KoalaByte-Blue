@@ -66,7 +66,7 @@ Primary files:
 
 ```text
 pi-companion/koalablue/menu_ui.py
-pi-companion/koalblue/menu_screen.py
+pi-companion/koalablue/menu_screen.py
 scripts/run_menu_screen.py
 docs/MENU_SELECTION_REVA12.md
 ```
