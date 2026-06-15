@@ -1,7 +1,7 @@
 /* KoalaByte Blue nRF52840 Dongle authorized lab peripheral.
  *
  * Safe purpose: advertise as a clearly labeled owned lab peripheral, emit a
- * synthetic Ear Tag TX Lab service-data pattern for RF/signal-integrity
+ * synthetic KoalaByte Lab service-data pattern for RF/signal-integrity
  * observation, and expose one read-only GATT status characteristic for
  * owned-device/client testing.
  *
@@ -28,7 +28,7 @@
 static uint16_t lab_sequence;
 
 static const char lab_status[] =
-    "KoalaByte Blue Ear Tag TX Lab; synthetic owned-device BLE advertisement; no captured packet replay";
+    "KoalaByte Blue KoalaByte Lab; synthetic owned-device BLE advertisement; no captured packet replay";
 
 /* 4b6f616c-6142-6c75-6500-000000000001: KoalaBlue lab service */
 static struct bt_uuid_128 koala_service_uuid = BT_UUID_INIT_128(
@@ -119,7 +119,7 @@ static void connected(struct bt_conn *conn, uint8_t err)
         printk("Connection failed: 0x%02x\n", err);
         return;
     }
-    printk("Client connected to KoalaByte Blue Ear Tag TX Lab dongle peripheral\n");
+    printk("Client connected to KoalaByte Lab dongle peripheral\n");
 }
 
 static void disconnected(struct bt_conn *conn, uint8_t reason)
@@ -136,7 +136,7 @@ int main(void)
 {
     int err;
 
-    printk("KoalaByte Blue nRF52840 Dongle Ear Tag TX Lab booting\n");
+    printk("KoalaByte Blue nRF52840 Dongle KoalaByte Lab booting\n");
     printk("Scope: synthetic owned-device BLE advertisement only; no captured packet replay\n");
 
     err = bt_enable(NULL);
@@ -151,7 +151,7 @@ int main(void)
         return err;
     }
 
-    printk("Advertising synthetic Ear Tag TX Lab payload as %s\n", DEVICE_NAME);
+    printk("Advertising synthetic KoalaByte Lab payload as %s\n", DEVICE_NAME);
     printk("GATT status characteristic is read-only\n");
 
     while (true) {
@@ -165,7 +165,7 @@ int main(void)
         if (err) {
             printk("Advertising restart failed: %d\n", err);
         } else {
-            printk("Ear Tag TX Lab sequence=%u\n", lab_sequence);
+            printk("KoalaByte Lab sequence=%u\n", lab_sequence);
         }
     }
 
