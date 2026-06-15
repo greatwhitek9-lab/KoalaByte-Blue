@@ -62,7 +62,7 @@ Touch: drag/scroll through menu rows, long press to select
 
 ## ESP32 display helper
 
-The ESP32 firmware now includes reusable menu theme helpers:
+The ESP32 firmware includes reusable menu theme helpers:
 
 ```cpp
 drawEucalyptusMenuBorder(tft);
@@ -77,8 +77,10 @@ These helpers are staged for the ESP32 display menu path and use the same visual
 Run:
 
 ```bash
-python3 scripts/check_boot_animation_config.py
+python3 scripts/check_repo_readiness.py
 python -m compileall pi-companion scripts
 ```
 
-The GitHub Actions workflow also runs the boot/menu theme config check, compiles Python modules, and builds the ESP32 PlatformIO firmware.
+The legacy `scripts/check_boot_animation_config.py` wrapper still exists for old workflows, but new validation should use `scripts/check_repo_readiness.py`.
+
+The GitHub Actions workflow runs the readiness check, compiles Python modules, checks the nRF Connect SDK / Zephyr project structure, and builds the ESP32 PlatformIO firmware.
