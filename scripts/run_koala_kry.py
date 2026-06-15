@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run Koala Kry synthetic BLE log generation."""
+"""Run Koala Kry offline captured BLE metadata replay."""
 
 from koalablue.koala_kry import run_cli
 
