@@ -18,6 +18,23 @@ Nordic nRF52840 DK / PCA10056
 
 Use nRF Connect SDK / Zephyr for the DK firmware. Keep the Dongle in the final compact physical build.
 
+## Ready-to-flash check
+
+Run the consolidated readiness check before flashing:
+
+```bash
+python3 scripts/check_repo_readiness.py
+```
+
+Expected result:
+
+```text
+KoalaByte Blue repo readiness check passed.
+Ready-to-flash file wiring is present for ESP32, nRF52840 DK/Zephyr, and Pi companion.
+```
+
+The older `scripts/check_boot_animation_config.py` remains as a compatibility wrapper, but new workflows should use `scripts/check_repo_readiness.py`.
+
 ## RevA17 killerkoala companion vocabulary
 
 killerkoala now has a structured event/inquiry vocabulary with Australian male voice metadata, gruff cyberpunk attitude, and XP-based confidence scaling.
@@ -108,7 +125,7 @@ See [`docs/MENU_THEME_REVA14.md`](docs/MENU_THEME_REVA14.md).
 ```bash
 PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
 bash scripts/install_boot_splash_autostart.sh
-python3 scripts/check_boot_animation_config.py
+python3 scripts/check_repo_readiness.py
 ```
 
 See [`docs/BOOT_ANIMATION_REVA13.md`](docs/BOOT_ANIMATION_REVA13.md).
@@ -126,6 +143,7 @@ pi-companion/koalablue/boot_animation.py
 firmware/nrf52840-dk-lab-peripheral/src/main.c
 firmware/esp32-dualeye/src/boot_animation.cpp
 firmware/esp32-dualeye/src/menu_theme.cpp
+scripts/check_repo_readiness.py
 scripts/run_killerkoala_voice.py
 scripts/build_nrf52840_dk_lab.sh
 scripts/build_firmware_all.sh
@@ -134,12 +152,12 @@ scripts/run_koala_kry.py
 scripts/run_ear_tag_tx_lab.py
 scripts/run_menu_screen.py
 scripts/run_boot_splash.py
-scripts/check_boot_animation_config.py
 ```
 
 ## Ready-to-flash status
 
 ```bash
+python3 scripts/check_repo_readiness.py
 bash scripts/flash_esp32.sh
 bash scripts/install_pi.sh
 bash scripts/build_nrf52840_dk_lab.sh
