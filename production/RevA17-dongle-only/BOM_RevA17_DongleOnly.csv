@@ -17,6 +17,7 @@ USB and JST power/data cables,1 set,Internal power and data harnesses,Use short 
 M2.5 standoffs / screws / nuts,1 set,Mechanical stacked assembly,Use insulating standoffs where clearance is tight
 Acrylic or printed frame plates,1 set,Open-frame stacked module structure,No custom PCB required
 3D printed case / stacked frame / rear panel,1 set,Optional production enclosure with koala-ear form factor,Print and test-fit before final wiring
-SocketCAN-compatible USB-to-CAN adapter,0-1 optional,Optional Koala Kan Kommander physical plug-in,Mount internally with a short USB cable and expose CAN_H/CAN_L/GND/optional SHIELD on a rear or side connector
-Panel-mount CAN connector,0-1 optional,Optional physical Koala Kan Kommander connector,Use 3-pin screw terminal 4-pin JST-GH DB9 CAN or equivalent wired through the USB-to-CAN adapter only
-Cable management / strain relief,1 set,Zip ties heat-shrink adhesive cable anchors,Keep wires away from antennas vents battery contacts and optional CAN connector
+InnoMaker USB to CAN Converter kit,0-1 optional,Optional Koala Kan Kommander USB-to-CAN adapter,Mount internally or in a side/rear service bay; use as SocketCAN interface such as can0 on Linux
+InnoMaker CAN cable / adapter-side harness,0-1 optional,Adapter-matched CAN_H / CAN_L / GND / optional SHIELD connection,No circular panel CAN port; route to authorized bench harness with strain relief
+Adapter mount / strain relief,0-1 optional,Printed bracket adhesive mount Velcro or standoff support for InnoMaker converter,Keep clear of antennas battery contacts speaker grille and Raspberry Pi GPIO
+Cable management / strain relief,1 set,Zip ties heat-shrink adhesive cable anchors,Keep wires away from antennas vents battery contacts and optional InnoMaker CAN adapter
