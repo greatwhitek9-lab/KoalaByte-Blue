@@ -12,19 +12,22 @@ The ESP32 firmware builds with PlatformIO. The Pi companion installs into a loca
 
 ---
 
-## 1. Validate repository wiring
+## 1. Validate repository readiness
 
 From the repo root:
 
 ```bash
-python3 scripts/check_boot_animation_config.py
+python3 scripts/check_repo_readiness.py
 ```
 
 Expected result:
 
 ```text
-KoalaByte Blue RevA16 config check passed.
+KoalaByte Blue repo readiness check passed.
+Ready-to-flash file wiring is present for ESP32, nRF52840 DK/Zephyr, and Pi companion.
 ```
+
+The legacy `scripts/check_boot_animation_config.py` wrapper is still present for old workflows, but new docs and CI use `scripts/check_repo_readiness.py`.
 
 ---
 
@@ -182,6 +185,12 @@ Ear Tag TX Lab plan artifact:
 PYTHONPATH=pi-companion python3 scripts/run_ear_tag_tx_lab.py
 ```
 
+killerkoala voice preview:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status --xp 100
+```
+
 Urban Poaching authorized lab game:
 
 ```bash
@@ -213,21 +222,25 @@ Raw MAC logging is enabled in `pi-companion/config.default.json`. Only use this 
 ## 7. First functional test
 
 ```bash
+python3 scripts/check_repo_readiness.py
 bash scripts/install_pi.sh
 bash scripts/build_firmware_all.sh
 bash scripts/flash_nrf52840_dk_lab.sh
 PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
 PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
 PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py inventory
+PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status --xp 100
 PYTHONPATH=pi-companion python3 scripts/run_koala_kapture.py --duration-seconds 30 --target-name EarTag-TX-Lab
 ```
 
 Expected behavior:
 
+- Repo readiness check passes before flashing.
 - ESP32 shows the KoalaByte Blue animated boot splash before normal runtime.
 - Serial JSON includes `"boot_animation":1`.
 - nRF52840 DK advertises as `EarTag-TX-Lab` with synthetic service data.
 - Pi splash opens in windowed or fullscreen mode.
 - Menu validation screen uses the large bubbly jungle/eucalyptus style.
 - Koala BlueZ inventory reports available local BlueZ commands.
+- killerkoala returns an XP-scaled companion response.
 - Passive BLE capture writes authorized metadata artifacts under `/blecaptures/koala_kapture/`.
