@@ -11,8 +11,9 @@ if str(PI_ROOT) not in sys.path:
     sys.path.insert(0, str(PI_ROOT))
 
 REQUIRED_TEXT = {
-    "README.md": ["RevA17", "killerkoala_voice", "Koala BlueZ Tools", "build_nrf52840_dk_lab.sh", "check_repo_readiness.py"],
-    "docs/FLASHING.md": ["check_repo_readiness.py", "build_nrf52840_dk_lab.sh", "run_koala_bluez.py", "EarTag-TX-Lab"],
+    "README.md": ["RevA17", "killerkoala_voice", "Koala BlueZ Tools", "build_nrf52840_dk_lab.sh", "build_nrf52840_dongle_lab.sh", "check_repo_readiness.py"],
+    "docs/FLASHING.md": ["check_repo_readiness.py", "build_nrf52840_dk_lab.sh", "build_nrf52840_dongle_lab.sh", "run_koala_bluez.py", "EarTag-TX-Lab"],
+    "docs/NRF52840_DONGLE_FLASHING.md": ["nrf52840dongle_nrf52840", "flash_nrf52840_dongle_lab_dfu.sh", "EarTag-TX-Lab", "DFU"],
     "docs/KILLERKOALA_VOCABULARY_REVA17.md": ["Australian male", "Noob", "Hacker", "Legend", "KillerKoala Voice"],
     "docs/KOALA_BLUEZ_TOOLS_REVA16.md": ["Koala Blue Controller", "bluetoothctl", "btmon", "--owned-device"],
     "docs/EAR_TAG_TX_LAB_REVA15.md": ["EarTag-TX-Lab", "KBTX", "does not replay captured packets"],
@@ -36,8 +37,10 @@ REQUIRED_TEXT = {
     "pi-companion/koalablue/menu_ui.py": ["render_terminal_jungle_menu", "RevA14 jungle/eucalyptus theme"],
     "pi-companion/koalablue/menu_screen.py": ["render_terminal_jungle_menu"],
     "pi-companion/config.default.json": ["killerkoala_companion", "Australian male", "Koala BlueZ Tools", "KillerKoala Voice", "EarTag-TX-Lab"],
-    "scripts/build_firmware_all.sh": ["pio run", "build_nrf52840_dk_lab.sh"],
+    "scripts/build_firmware_all.sh": ["pio run", "build_nrf52840_dk_lab.sh", "build_nrf52840_dongle_lab.sh"],
     "scripts/build_nrf52840_dk_lab.sh": ["west build", "nrf52840dk_nrf52840"],
+    "scripts/build_nrf52840_dongle_lab.sh": ["west build", "nrf52840dongle_nrf52840"],
+    "scripts/flash_nrf52840_dongle_lab_dfu.sh": ["nrfutil", "koalabyte-blue-nrf52840-dongle-dfu.zip", "NRF_DFU_PORT"],
     "scripts/flash_esp32.sh": ["pio run"],
     "scripts/flash_nrf52840_dk_lab.sh": ["west flash", "EarTag-TX-Lab"],
     "scripts/install_pi.sh": ["check_repo_readiness.py", "run_koala_bluez.py inventory", "run_killerkoala_voice.py status"],
@@ -160,7 +163,7 @@ def main() -> int:
         return 1
 
     print("KoalaByte Blue repo readiness check passed.")
-    print("Ready-to-flash file wiring is present for ESP32, nRF52840 DK/Zephyr, and Pi companion.")
+    print("Ready-to-flash file wiring is present for ESP32, nRF52840 DK/Zephyr, nRF52840 Dongle/DFU, and Pi companion.")
     return 0
 
 
