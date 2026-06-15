@@ -257,6 +257,7 @@ ALIASES: Mapping[str, str] = {
     "kry": "koala_kry",
     "ear_tag": "ear_tag_tx_lab",
     "koalabyte_lab": "ear_tag_tx_lab",
+    "lab": "ear_tag_tx_lab",
     "shutdown_confirm": "shutdown",
 }
 
