@@ -1,4 +1,4 @@
-# RevA12 Menu Selection Screen / RevA15 Koala Kry Review Update
+# RevA12 Menu Selection Screen / RevA15 Ear Tag TX Lab Update
 
 ## Purpose
 
@@ -10,6 +10,7 @@ The menu layer gives KoalaByte Blue a single selection screen that can be driven
 - Keyboard input during development.
 - RevA14 large bubbly jungle/eucalyptus graphical rendering.
 - RevA15 Koala Kry RF Review safe manifest path.
+- RevA15 Ear Tag TX Lab synthetic owned-device advertisement workflow.
 
 ## Full function menu
 
@@ -42,22 +43,23 @@ Default menu entries:
 10 Koala Kry                  Replay captured metadata offline into the report/XP pipeline
 11 Koala Kry RF Review        Write blocked RF review manifest; no RF is sent
 12 Ear Tag                    Named lab BLE beacon
-13 Urban Poaching             Authorized BLE RSSI lab game
-14 Buttons                    Show/check GPIO front-panel button status
-15 Level / Status             Show XP and rank
-16 Report                     Write a Markdown session report
-17 Wake killerkoala           Test wake-word flow
-18 Authorized BLE Inventory   Create a lab inventory from passive BLE observations
-19 GATT Readiness Checklist   Generate a pre-test checklist for owned-device GATT review
-20 Pairing Security Review    Review pairing and access-control posture for owned lab devices
-21 Lab Beacon Plan            Create a safe ESP32 demo beacon/peripheral testing plan
-22 Packet Capture Notes       Create safe Wireshark/nRF52840 protocol-analysis notes
-23 Defensive Lab Report       Generate a defensive lab report template
-24 Restricted Placeholder     Locked/non-operational reserved slot
-25 Settings                   Device and companion settings
-26 Lab                        Password-gated Authorized Lab Use menu
-27 Shutdown                   Confirm safe shutdown
-28 Quit                       Exit the Pi companion UI
+13 Ear Tag TX Lab             Synthetic owned-device BLE advertisement observation workflow
+14 Urban Poaching             Authorized BLE RSSI lab game
+15 Buttons                    Show/check GPIO front-panel button status
+16 Level / Status             Show XP and rank
+17 Report                     Write a Markdown session report
+18 Wake killerkoala           Test wake-word flow
+19 Authorized BLE Inventory   Create a lab inventory from passive BLE observations
+20 GATT Readiness Checklist   Generate a pre-test checklist for owned-device GATT review
+21 Pairing Security Review    Review pairing and access-control posture for owned lab devices
+22 Lab Beacon Plan            Create a safe ESP32 demo beacon/peripheral testing plan
+23 Packet Capture Notes       Create safe Wireshark/nRF52840 protocol-analysis notes
+24 Defensive Lab Report       Generate a defensive lab report template
+25 Restricted Placeholder     Locked/non-operational reserved slot
+26 Settings                   Device and companion settings
+27 Lab                        Password-gated Authorized Lab Use menu
+28 Shutdown                   Confirm safe shutdown
+29 Quit                       Exit the Pi companion UI
 ```
 
 ## RevA14 visual theme
