@@ -28,7 +28,6 @@ Current production references:
 - `docs/ORDERABLE_PARTS_LIST.md` - orderable hardware list with Seloky 12 V PD/QC trigger board and InnoMaker USB-to-CAN kit.
 - `docs/POWER_UPDATE_REVA2.md` - power-path validation guide for Seloky trigger and 5 V buck regulator.
 - `firmware/esp32-dualeye/` - ESP32-S3 DualEye firmware and display helpers.
-- `pi-companion/koalbl...` - removed; do not use the old typo path.
 - `pi-companion/koalablue/koala_kan_kommander.py` - optional Koala Kan Kommander module.
 - `pi-companion/` - Raspberry Pi companion app, menu, theme, and helper modules.
 - `scripts/check_repo_readiness.py` - current ready-to-run repository validation check.
