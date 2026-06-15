@@ -10,6 +10,7 @@
  * clearly identifies the device as lab hardware.
  */
 
+#include <errno.h>
 #include <stdint.h>
 #include <string.h>
 #include <zephyr/kernel.h>
