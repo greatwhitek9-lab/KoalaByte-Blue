@@ -14,8 +14,10 @@ fi
 if command -v west >/dev/null 2>&1; then
   echo "Building nRF52840 DK Zephyr firmware..."
   bash scripts/build_nrf52840_dk_lab.sh
+  echo "Building nRF52840 Dongle Zephyr firmware..."
+  bash scripts/build_nrf52840_dongle_lab.sh
 else
-  echo "Skipping nRF52840 Zephyr build: west not found." >&2
+  echo "Skipping nRF52840 Zephyr builds: west not found." >&2
 fi
 
-echo "Firmware build helper complete. Install PlatformIO and nRF Connect SDK to build both targets."
+echo "Firmware build helper complete. Install PlatformIO and nRF Connect SDK to build all targets."
