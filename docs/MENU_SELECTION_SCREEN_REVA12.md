@@ -1,17 +1,12 @@
-# RevA12 Menu Selection Screen
+# RevA12 Menu Selection Screen / RevA14 Jungle Theme Update
 
 ## Purpose
 
-The RevA12 menu screen gives KoalaByte Blue one shared navigation model for:
-
-- The six front-panel GPIO buttons.
-- Touchscreen scrolling.
-- Touchscreen long-press select.
-- Terminal validation during development.
+The menu screen gives KoalaByte Blue one shared navigation model for six front-panel GPIO buttons, touchscreen scrolling, touchscreen long-press selection, keyboard validation, and the RevA14 large bubbly jungle/eucalyptus graphical menu.
 
 ## Shared full-function catalog
 
-Both menu implementations now use the same catalog:
+Both menu implementations use the same catalog:
 
 ```text
 pi-companion/koalablue/menu_catalog.py
@@ -51,6 +46,18 @@ The catalog includes the available Pi companion commands, eucalyptus controls, c
 27 Quit
 ```
 
+## RevA14 visual layer
+
+The RevA14 renderer adds large rounded bubbly menu text, eucalyptus branch borders, leaf accents on selected rows, rounded pill menu rows, touch scrolling, and long-press selection.
+
+Implementation files:
+
+```text
+pi-companion/koalablue/menu_theme.py
+firmware/esp32-dualeye/include/menu_theme.h
+firmware/esp32-dualeye/src/menu_theme.cpp
+```
+
 ## Button mapping
 
 ```text
@@ -63,18 +70,6 @@ Button 5 = Up / Previous item
 Button 6 = Down / Next item
 ```
 
-The menu state machine consumes the existing command names from `gpio_buttons.py`:
-
-```text
-main_menu
-move_left
-select
-shutdown
-move_right
-up
-down
-```
-
 ## Touch behavior
 
 ```text
@@ -83,22 +78,26 @@ Tap row = move selection to row
 Long press row = select row
 ```
 
-Default touch tuning:
+Default touch tuning for the themed menu:
 
 ```text
-row_height_px = 48
+row_height_px = 64
 scroll_threshold_px = 18
 long_press_seconds = 0.75
 ```
 
 ## Validation runner
 
-Run a terminal validation menu on the Pi:
+Terminal validation:
 
 ```bash
-cd pi-companion
-source .venv/bin/activate
-PYTHONPATH=. python ../scripts/run_menu_screen.py
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py
+```
+
+Graphical jungle/eucalyptus menu:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
 ```
 
 Keyboard test controls:
@@ -121,5 +120,8 @@ GPIO buttons are enabled automatically when `gpiozero` is available and the scri
 pi-companion/koalablue/menu_catalog.py
 pi-companion/koalablue/menu_ui.py
 pi-companion/koalablue/menu_screen.py
+pi-companion/koalablue/menu_theme.py
 scripts/run_menu_screen.py
+firmware/esp32-dualeye/include/menu_theme.h
+firmware/esp32-dualeye/src/menu_theme.cpp
 ```
