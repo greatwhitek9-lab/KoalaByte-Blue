@@ -7,7 +7,7 @@ This update locks the power-management BOM to exact, orderable parts.
 | Function | Exact model | Model / item number | Qty | Notes |
 |---|---|---:|---:|---|
 | Main 5V buck regulator | Pololu 5V, 5A Step-Down Voltage Regulator D24V50F5 | Pololu item #2851 | 1 | Main regulated 5V rail. Input must be above 5V plus dropout; use the Seloky 12V PD/QC trigger output or a verified 2S source. |
-| USB-C PD/QC 12V trigger board | Seloky USB-C PD Trigger Board Module PD/QC Decoy Fast Charge USB Type-C to 12V | Seloky USB-C to 12V PD/QC decoy trigger module | 1 | Replaces the prior Adafruit HUSB238 reference. Verify 12V output with a multimeter before connecting the buck converter. |
+| USB-C PD/QC 12V trigger board | Seloky USB-C PD Trigger Board Module PD/QC Decoy Fast Charge USB Type-C to 12V | Seloky USB-C to 12V PD/QC decoy trigger module | 1 | Replaces the prior USB-C PD breakout reference. Verify 12V output with a multimeter before connecting the buck converter. |
 
 ## Wiring recommendation
 
