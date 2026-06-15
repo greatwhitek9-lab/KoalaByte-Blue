@@ -1,6 +1,6 @@
-# KoalaByte Blue / killerkoala AI Companion Firmware RevA7
+# KoalaByte Blue / killerkoala AI Companion Firmware RevA8
 
-ESP32-S3 DualEye firmware, Raspberry Pi companion software, optional Nordic nRF52840 DK lab firmware, RevA6 six-button front-panel GPIO support, and RevA7 configurable KoalaTag Lab Beacon support for the **KoalaByte Blue Pi3B+ stacked research device**.
+ESP32-S3 DualEye firmware, Raspberry Pi companion software, optional Nordic nRF52840 DK lab firmware, RevA6 six-button front-panel GPIO support, RevA7 configurable KoalaTag Lab Beacon support, and RevA8 **eucalyptus** always-on BLE scanner/logger naming for the **KoalaByte Blue Pi3B+ stacked research device**.
 
 ## Hardware profile
 
@@ -17,6 +17,32 @@ Nordic nRF52840 DK / PCA10056
 ```
 
 Use the DK for development and validation. Keep the Dongle in the final compact physical build.
+
+## RevA8 eucalyptus always-on BLE scanner/logger
+
+The always-on passive Bluetooth/BLE scanner/logger action is named:
+
+```text
+eucalyptus
+```
+
+`eucalyptus` stores passive BLE observations under:
+
+```text
+/blecaptures/
+```
+
+Suggested UI/CLI command names:
+
+```text
+eucalyptus status
+eucalyptus start
+eucalyptus stop
+eucalyptus restart
+eucalyptus upload-status
+```
+
+WiGLE upload remains disabled until credentials and valid location settings are configured.
 
 ## RevA7 KoalaTag Lab Beacon
 
@@ -82,7 +108,7 @@ bash scripts/flash_nrf52840_dk_lab.sh
 - ESP32-S3 DualEye firmware scaffold with USB serial JSON protocol.
 - Mic wake path enabled by default with wake word **killerkoala**.
 - Raspberry Pi companion dependency/config files.
-- Always-on passive BLE capture configuration under `/blecaptures/`.
+- `eucalyptus` always-on passive BLE capture configuration under `/blecaptures/`.
 - RevA6 Raspberry Pi six-button GPIO manager.
 - RevA7 configurable KoalaTag Lab Beacon naming helper.
 - Production BOM and safety-test CSV files.
@@ -103,6 +129,7 @@ Latest hardware/software additions:
 - `docs/FRONT_PANEL_BUTTONS_REVA5.md`
 - `docs/BUTTON_WIRING_REVA5.md`
 - `docs/LAB_TAG_BEACON_SKILL_REVA7.md`
+- `docs/EUCALYPTUS_ALWAYS_ON_BLE_REVA8.md`
 - `scripts/set_lab_ble_name.py`
 - `production/RevA1-nrf52840-dongle/BOM_RevA5_Dongle_DK_Buttons.csv`
 - `production/RevA1-nrf52840-dongle/ASSEMBLY_AND_FLASHING_INSTRUCTIONS_RevA5_BUTTONS.md`
@@ -117,6 +144,7 @@ This package is for authorized Bluetooth research, BLE inventory, local logging,
 scan              Run a safe BLE inventory scan
 summary           Summarize observed BLE devices
 show              Show device table
+eucalyptus        Always-on passive BLE scanner/logger action name
 buttons           Show/check GPIO front-panel button status
 level/status      Show XP and rank
 report            Write Markdown report
