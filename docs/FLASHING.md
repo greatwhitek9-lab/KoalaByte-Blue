@@ -39,7 +39,7 @@ pio --version
 2. Put the board in normal boot mode.
 3. If upload fails, hold **BOOT**, tap **RESET**, release **BOOT**, and retry.
 
-### Validate boot-animation wiring
+### Validate boot/menu firmware wiring
 
 From the repo root:
 
@@ -50,7 +50,7 @@ python3 scripts/check_boot_animation_config.py
 Expected result:
 
 ```text
-KoalaByte Blue boot animation config check passed.
+KoalaByte Blue boot/menu theme config check passed.
 ```
 
 ### Build firmware
@@ -129,6 +129,23 @@ rotation
 screen width/height
 ```
 
+### ESP32 menu theme helper
+
+The ESP32 firmware also includes RevA14 menu-theme helper functions for future direct display menu rendering:
+
+```cpp
+drawEucalyptusMenuBorder(tft);
+drawJungleMenuTitle(tft, "KoalaByte Blue");
+drawJungleMenuItem(tft, row, label, selected, enabled);
+```
+
+These helpers live in:
+
+```text
+firmware/esp32-dualeye/include/menu_theme.h
+firmware/esp32-dualeye/src/menu_theme.cpp
+```
+
 ### One-command helper
 
 From the repo root:
@@ -145,14 +162,14 @@ The helper cleans, builds, uploads, prints the expected boot-animation behavior,
 
 ### Install Raspberry Pi OS
 
-1. Flash Raspberry Pi OS with Desktop to a 32 GB or larger microSD card if you want the fullscreen boot splash.
-2. Use Raspberry Pi OS Lite only if you do not need the graphical boot splash.
+1. Flash Raspberry Pi OS with Desktop to a 32 GB or larger microSD card if you want the fullscreen boot splash and graphical jungle menu.
+2. Use Raspberry Pi OS Lite only if you do not need the graphical boot splash or graphical menu.
 3. Enable SSH if desired.
 4. Boot the Pi and connect to network.
 
 ### Install system packages
 
-For the Pi companion with graphical boot splash:
+For the Pi companion with graphical boot splash/menu:
 
 ```bash
 sudo apt update
@@ -203,13 +220,27 @@ This creates:
 
 The splash will run after the Pi desktop session starts. This is the safest default because it does not alter low-level bootloader, framebuffer, or display-manager settings.
 
-### Run available Pi companion tools manually
+### Test the RevA14 jungle/eucalyptus menu
 
-Menu validation screen:
+Terminal preview with eucalyptus branch border:
 
 ```bash
 PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py
 ```
+
+Graphical windowed menu:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
+```
+
+Graphical fullscreen menu:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical
+```
+
+### Run available Pi companion tools manually
 
 Koala Kapture passive BLE metadata capture:
 
@@ -299,7 +330,7 @@ bash scripts/install_pi.sh
 
 ```bash
 PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
-PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
 ```
 
 6. Optional passive BLE capture test:
@@ -313,5 +344,5 @@ Expected behavior:
 - ESP32 shows the KoalaByte Blue animated boot splash before normal runtime.
 - Serial JSON includes `"boot_animation":1`.
 - Pi splash opens in windowed or fullscreen mode.
-- Menu validation screen responds to keyboard/GPIO input.
+- Menu validation screen uses the large bubbly jungle/eucalyptus style and responds to keyboard/GPIO/touch input.
 - Passive BLE capture writes authorized metadata artifacts under `/blecaptures/koala_kapture/`.
