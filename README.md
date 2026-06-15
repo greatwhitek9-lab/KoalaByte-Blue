@@ -1,6 +1,6 @@
 # KoalaByte Blue / killerkoala AI Companion Firmware RevA17
 
-ESP32-S3 DualEye firmware, Raspberry Pi companion software, nRF Connect SDK / Zephyr firmware for the Nordic nRF52840 DK, RevA6 six-button front-panel GPIO support, RevA8 **eucalyptus** passive BLE scanner/logger naming, RevA13 animated boot splash support, RevA14 jungle/eucalyptus menu styling, RevA15 Ear Tag TX Lab, RevA16 **Koala BlueZ Tools**, and RevA17 **killerkoala companion vocabulary** for the **KoalaByte Blue Pi3B+ stacked research device**.
+ESP32-S3 DualEye firmware, Raspberry Pi companion software, nRF Connect SDK / Zephyr firmware for the Nordic nRF52840 DK and nRF52840 Dongle, RevA6 six-button front-panel GPIO support, RevA8 **eucalyptus** passive BLE scanner/logger naming, RevA13 animated boot splash support, RevA14 jungle/eucalyptus menu styling, RevA15 Ear Tag TX Lab, RevA16 **Koala BlueZ Tools**, and RevA17 **killerkoala companion vocabulary** for the **KoalaByte Blue Pi3B+ stacked research device**.
 
 ## Hardware profile
 
@@ -16,7 +16,7 @@ Optional development/debug board:
 Nordic nRF52840 DK / PCA10056
 ```
 
-Use nRF Connect SDK / Zephyr for the DK firmware. Keep the Dongle in the final compact physical build.
+Use nRF Connect SDK / Zephyr for both nRF52840 firmware targets. The DK uses a J-Link/west flash workflow; the Dongle uses its USB bootloader/DFU workflow.
 
 ## Ready-to-flash check
 
@@ -30,7 +30,7 @@ Expected result:
 
 ```text
 KoalaByte Blue repo readiness check passed.
-Ready-to-flash file wiring is present for ESP32, nRF52840 DK/Zephyr, and Pi companion.
+Ready-to-flash file wiring is present for ESP32, nRF52840 DK/Zephyr, nRF52840 Dongle/DFU, and Pi companion.
 ```
 
 The older `scripts/check_boot_animation_config.py` remains as a compatibility wrapper, but new workflows should use `scripts/check_repo_readiness.py`.
@@ -56,14 +56,33 @@ Legend = 250+ XP
 
 See [`docs/KILLERKOALA_VOCABULARY_REVA17.md`](docs/KILLERKOALA_VOCABULARY_REVA17.md).
 
-## RevA16 nRF Connect SDK / Zephyr firmware build
+## nRF Connect SDK / Zephyr firmware builds
+
+DK build:
 
 ```bash
 bash scripts/build_nrf52840_dk_lab.sh
+```
+
+Dongle build:
+
+```bash
+bash scripts/build_nrf52840_dongle_lab.sh
+```
+
+Build all available firmware targets:
+
+```bash
 bash scripts/build_firmware_all.sh
 ```
 
-The CI workflow validates the nRF Zephyr project wiring alongside the ESP32 and Pi companion checks.
+Dongle DFU package/flash helper:
+
+```bash
+bash scripts/flash_nrf52840_dongle_lab_dfu.sh
+```
+
+See [`docs/NRF52840_DONGLE_FLASHING.md`](docs/NRF52840_DONGLE_FLASHING.md).
 
 ## RevA16 Koala BlueZ Tools
 
@@ -87,7 +106,7 @@ See [`docs/KOALA_BLUEZ_TOOLS_REVA16.md`](docs/KOALA_BLUEZ_TOOLS_REVA16.md).
 
 ## RevA15 Ear Tag TX Lab
 
-Ear Tag TX Lab is the safe transmit-oriented lab mode. It advertises a clearly named, synthetic BLE service-data pattern from the nRF52840 DK for owned-device signal-integrity observation.
+Ear Tag TX Lab is the safe transmit-oriented lab mode. It advertises a clearly named, synthetic BLE service-data pattern from the nRF52840 DK or nRF52840 Dongle for owned-device signal-integrity observation.
 
 ```text
 EarTag-TX-Lab
@@ -95,6 +114,7 @@ EarTag-TX-Lab
 
 ```bash
 bash scripts/flash_nrf52840_dk_lab.sh
+bash scripts/build_nrf52840_dongle_lab.sh
 PYTHONPATH=pi-companion python3 scripts/run_ear_tag_tx_lab.py
 ```
 
@@ -146,6 +166,8 @@ firmware/esp32-dualeye/src/menu_theme.cpp
 scripts/check_repo_readiness.py
 scripts/run_killerkoala_voice.py
 scripts/build_nrf52840_dk_lab.sh
+scripts/build_nrf52840_dongle_lab.sh
+scripts/flash_nrf52840_dongle_lab_dfu.sh
 scripts/build_firmware_all.sh
 scripts/run_koala_bluez.py
 scripts/run_koala_kry.py
@@ -161,6 +183,7 @@ python3 scripts/check_repo_readiness.py
 bash scripts/flash_esp32.sh
 bash scripts/install_pi.sh
 bash scripts/build_nrf52840_dk_lab.sh
+bash scripts/build_nrf52840_dongle_lab.sh
 bash scripts/flash_nrf52840_dk_lab.sh
 ```
 
@@ -200,19 +223,6 @@ lab                          Password-gated Authorized Lab Use menu
 settings                     Device and companion settings
 shutdown_confirm             Confirm safe shutdown
 quit                         Exit
-```
-
-## Front-panel controls
-
-```text
-Button 1 = main menu
-Button 2 = previous / left / back
-Button 3 = select; hold for shutdown
-Button 4 = next / right / forward
-Button 5 = up / previous
-Button 6 = down / next
-Touch drag = scroll
-Touch long press = select
 ```
 
 ## Safety boundary
