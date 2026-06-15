@@ -1,80 +1,13 @@
 #!/usr/bin/env python3
+"""Compatibility wrapper for the current KoalaByte Blue readiness check.
+
+The original script name is kept so older docs, CI jobs, and local workflows do
+not break. New automation should call scripts/check_repo_readiness.py directly.
+"""
+
 from __future__ import annotations
 
-from pathlib import Path
-import sys
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
-CONFIG = REPO_ROOT / "firmware" / "esp32-dualeye" / "include" / "config.h"
-PLATFORMIO = REPO_ROOT / "firmware" / "esp32-dualeye" / "platformio.ini"
-MAIN = REPO_ROOT / "firmware" / "esp32-dualeye" / "src" / "main.cpp"
-BOOT = REPO_ROOT / "firmware" / "esp32-dualeye" / "src" / "boot_animation.cpp"
-FW_MENU_THEME_H = REPO_ROOT / "firmware" / "esp32-dualeye" / "include" / "menu_theme.h"
-FW_MENU_THEME_CPP = REPO_ROOT / "firmware" / "esp32-dualeye" / "src" / "menu_theme.cpp"
-NRF_MAIN = REPO_ROOT / "firmware" / "nrf52840-dk-lab-peripheral" / "src" / "main.c"
-NRF_CONF = REPO_ROOT / "firmware" / "nrf52840-dk-lab-peripheral" / "prj.conf"
-NRF_CMAKE = REPO_ROOT / "firmware" / "nrf52840-dk-lab-peripheral" / "CMakeLists.txt"
-PI_MENU_THEME = REPO_ROOT / "pi-companion" / "koalablue" / "menu_theme.py"
-PI_MENU_UI = REPO_ROOT / "pi-companion" / "koalablue" / "menu_ui.py"
-PI_MENU_SCREEN = REPO_ROOT / "pi-companion" / "koalablue" / "menu_screen.py"
-PI_KOALA_KRY = REPO_ROOT / "pi-companion" / "koalablue" / "koala_kry.py"
-PI_EAR_TAG_TX = REPO_ROOT / "pi-companion" / "koalablue" / "ear_tag_tx_lab.py"
-PI_BLUEZ = REPO_ROOT / "pi-companion" / "koalablue" / "bluez_tools.py"
-PI_KILLERKOALA_VOICE = REPO_ROOT / "pi-companion" / "koalablue" / "killerkoala_vocabulary.py"
-MENU_CATALOG = REPO_ROOT / "pi-companion" / "koalablue" / "menu_catalog.py"
-RUN_MENU = REPO_ROOT / "scripts" / "run_menu_screen.py"
-RUN_EAR_TAG_TX = REPO_ROOT / "scripts" / "run_ear_tag_tx_lab.py"
-RUN_BLUEZ = REPO_ROOT / "scripts" / "run_koala_bluez.py"
-RUN_KILLERKOALA_VOICE = REPO_ROOT / "scripts" / "run_killerkoala_voice.py"
-BUILD_NRF = REPO_ROOT / "scripts" / "build_nrf52840_dk_lab.sh"
-BUILD_ALL = REPO_ROOT / "scripts" / "build_firmware_all.sh"
-DEFAULT_CONFIG = REPO_ROOT / "pi-companion" / "config.default.json"
-
-REQUIRED = {
-    CONFIG: ["#define ENABLE_DISPLAY_BOOT_ANIMATION 1", "#define BOOT_ANIMATION_TOTAL_MS", "#define DISPLAY_ROTATION"],
-    PLATFORMIO: ["bodmer/TFT_eSPI"],
-    MAIN: ['#include "boot_animation.h"', "setupDisplay();", "runBootAnimation();", 'doc["boot_animation"] = ENABLE_DISPLAY_BOOT_ANIMATION;'],
-    BOOT: ["void setupDisplay()", "void runBootAnimation()", "KoalaByte", "Blue", "BOOTING..."],
-    FW_MENU_THEME_H: ["drawEucalyptusMenuBorder", "drawJungleMenuTitle", "drawJungleMenuItem"],
-    FW_MENU_THEME_CPP: ["drawEucalyptusMenuBorder", "drawJungleMenuTitle", "drawJungleMenuItem", "drawBubbleText"],
-    NRF_MAIN: ["Ear Tag TX Lab", "tx_lab_service_data", "KBTX", "sequence", "no captured packet replay"],
-    NRF_CONF: ['CONFIG_BT_DEVICE_NAME="EarTag-TX-Lab"', "CONFIG_BT_PERIPHERAL=y"],
-    NRF_CMAKE: ["find_package(Zephyr REQUIRED", "target_sources(app PRIVATE src/main.c)"],
-    PI_MENU_THEME: ["JungleMenuTheme", "JungleMenuRenderer", "render_terminal_jungle_menu", "eucalyptus_branches"],
-    PI_MENU_UI: ["render_terminal_jungle_menu", "RevA14 jungle/eucalyptus theme"],
-    PI_MENU_SCREEN: ["render_terminal_jungle_menu"],
-    PI_KOALA_KRY: ["request_rf_transmit", "KoalaKryTransmitReview", "blocked_no_over_the_air_replay", "--request-rf-transmit"],
-    PI_EAR_TAG_TX: ["EarTag-TX-Lab", "synthetic_owned_lab_ble_advertisement", "KBTX"],
-    PI_BLUEZ: ["BLUEZ_TOOLS", "Koala Blue Controller", "bluetoothctl", "btmon", "owned_device_required"],
-    PI_KILLERKOALA_VOICE: ["KillerKoalaVoiceProfile", "Australian male", "RANK_NOOB", "RANK_HACKER", "RANK_LEGEND", "line_for_event", "vocabulary_manifest"],
-    MENU_CATALOG: ["Koala Kry RF Review", "koala_kry_transmit_review", "Ear Tag TX Lab", "ear_tag_tx_lab", "Koala BlueZ Scan", "koala_bluez_scan", "KillerKoala Voice", "killerkoala_voice"],
-    RUN_MENU: ["--graphical", "JungleMenuRenderer"],
-    RUN_EAR_TAG_TX: ["run_cli"],
-    RUN_BLUEZ: ["bluez_tools", "run_cli"],
-    RUN_KILLERKOALA_VOICE: ["killerkoala_vocabulary", "run_cli"],
-    BUILD_NRF: ["west build", "nrf52840dk_nrf52840"],
-    BUILD_ALL: ["pio run", "build_nrf52840_dk_lab.sh"],
-    DEFAULT_CONFIG: ["RevA14 Jungle Book style eucalyptus menu", "Koala BlueZ Tools", "koala_bluez", "KillerKoala Voice", "killerkoala_companion", "Australian male", "Legend"],
-}
-
-
-def main() -> int:
-    failures: list[str] = []
-    for path, needles in REQUIRED.items():
-        if not path.exists():
-            failures.append(f"missing file: {path.relative_to(REPO_ROOT)}")
-            continue
-        text = path.read_text(encoding="utf-8")
-        for needle in needles:
-            if needle not in text:
-                failures.append(f"missing '{needle}' in {path.relative_to(REPO_ROOT)}")
-    if failures:
-        print("KoalaByte Blue RevA17 config check failed:", file=sys.stderr)
-        for failure in failures:
-            print(f"- {failure}", file=sys.stderr)
-        return 1
-    print("KoalaByte Blue RevA17 config check passed.")
-    return 0
+from check_repo_readiness import main
 
 
 if __name__ == "__main__":
