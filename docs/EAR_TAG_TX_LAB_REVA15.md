@@ -1,8 +1,8 @@
-# RevA17 Ear Tag TX Lab
+# RevA17 KoalaByte Lab
 
 ## Purpose
 
-Ear Tag TX Lab is the safe transmit-oriented lab mode for KoalaByte Blue. It uses the Nordic nRF52840 Dongle / PCA10059 to advertise a clearly named, synthetic BLE service-data payload that can be observed by KoalaByte Blue passive scans, mobile BLE scanner apps, or protocol-analysis tools.
+KoalaByte Lab is the safe transmit-oriented lab mode for KoalaByte Blue. It uses the Nordic nRF52840 Dongle / PCA10059 to advertise a clearly named, synthetic BLE service-data payload that can be observed by KoalaByte Blue passive scans, mobile BLE scanner apps, or protocol-analysis tools.
 
 It is for owned-device signal-integrity observation and workflow validation. It does not replay captured packets, captured identifiers, preambles, access addresses, PDUs, or raw radio buffers.
 
@@ -20,10 +20,12 @@ firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf
 firmware/nrf52840-dongle-ear-tag-tx-lab/README.md
 ```
 
+The internal firmware path is retained for compatibility, but the user-facing mode and advertised BLE name are now KoalaByte Lab.
+
 ## Advertisement name
 
 ```text
-EarTag-TX-Lab
+KoalaByte Lab
 ```
 
 ## Synthetic payload
@@ -75,17 +77,17 @@ PYTHONPATH=pi-companion python3 scripts/run_ear_tag_tx_lab.py
 Output:
 
 ```text
-logs/ear_tag_tx_lab/ear_tag_tx_lab_plan_YYYYMMDD_HHMMSS.json
+logs/koalabyte_lab/koalabyte_lab_plan_YYYYMMDD_HHMMSS.json
 ```
 
 ## Observe from KoalaByte Blue
 
 ```bash
-PYTHONPATH=pi-companion python3 scripts/run_koala_kapture.py --duration-seconds 30 --target-name EarTag-TX-Lab
+PYTHONPATH=pi-companion python3 scripts/run_koala_kapture.py --duration-seconds 30 --target-name "KoalaByte Lab"
 ```
 
-Or use the normal passive scan/menu flow and look for `EarTag-TX-Lab`.
+Or use the normal passive scan/menu flow and look for `KoalaByte Lab`.
 
 ## Safety boundary
 
-Ear Tag TX Lab is synthetic and clearly labeled. Koala Kry remains offline metadata replay only. Captured-signal over-the-air replay is intentionally not part of this repository.
+KoalaByte Lab is synthetic and clearly labeled. Koala Kry remains offline metadata replay only. Captured-signal over-the-air replay is intentionally not part of this repository.
