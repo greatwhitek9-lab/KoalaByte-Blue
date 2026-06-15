@@ -85,7 +85,7 @@ VOICE_MODULES: Dict[str, VoiceModuleSpec] = {
     "gatt_readiness": VoiceModuleSpec("gatt_readiness", "Gumnut GATT Readiness", ["gumnut gatt readiness", "gatt readiness", "gatt checklist", "owned gatt checklist"], 4, "bluez_status", "Write an owned-device GATT readiness checklist. Does not perform GATT writes.", owned_device_required=True, target_required=True),
     "koala_kapture": VoiceModuleSpec("koala_kapture", "Koala Kapture", ["koala kapture", "kapture", "capture ble", "capture metadata", "metadata capture"], 15, "capture_saved", "Run passive BLE metadata capture only."),
     "koala_kry": VoiceModuleSpec("koala_kry", "Koala Kry", ["koala kry", "kry", "offline replay", "replay metadata"], 5, "koala_kry", "Replay captured metadata offline only. No RF transmission."),
-    "ear_tag_tx_lab": VoiceModuleSpec("ear_tag_tx_lab", "Ear Tag TX Lab", ["ear tag tx lab", "ear tag", "lab beacon plan", "beacon plan"], 5, "ear_tag_tx_lab", "Write a synthetic owned-device BLE advertisement plan artifact."),
+    "ear_tag_tx_lab": VoiceModuleSpec("ear_tag_tx_lab", "KoalaByte Lab", ["koalabyte lab", "koala byte lab", "ear tag tx lab", "ear tag", "lab beacon plan", "beacon plan"], 5, "ear_tag_tx_lab", "Write a synthetic owned-device BLE advertisement plan artifact."),
     "killerkoala_help": VoiceModuleSpec("killerkoala_help", "killerkoala Help", ["help", "what can you do", "list commands", "voice commands"], 1, "inquiry_help", "Show available voice-controlled modules."),
 }
 
@@ -308,8 +308,8 @@ def execute_module(parsed: ParsedVoiceCommand, output_dir: Path = DEFAULT_OUTPUT
         elif parsed.module_key == "ear_tag_tx_lab":
             from .ear_tag_tx_lab import write_ear_tag_tx_lab_plan
 
-            plan_path = write_ear_tag_tx_lab_plan(output_dir / "ear_tag_tx_lab")
-            payload = {"action": "Ear Tag TX Lab", "plan_path": str(plan_path)}
+            plan_path = write_ear_tag_tx_lab_plan(output_dir / "koalabyte_lab")
+            payload = {"action": "KoalaByte Lab", "plan_path": str(plan_path)}
         elif parsed.module_key == "killerkoala_help":
             manifest_path = output_dir / "killerkoala_voice_modules.json"
             _write_json(manifest_path, module_manifest())
