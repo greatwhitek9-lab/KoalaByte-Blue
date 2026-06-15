@@ -11,11 +11,11 @@ if str(PI_ROOT) not in sys.path:
     sys.path.insert(0, str(PI_ROOT))
 
 REQUIRED_TEXT = {
-    "README.md": ["RevA17", "killerkoala_voice", "Koala BlueZ Tools", "build_nrf52840_dk_lab.sh"],
-    "docs/FLASHING.md": ["RevA16", "build_nrf52840_dk_lab.sh", "run_koala_bluez.py", "EarTag-TX-Lab"],
+    "README.md": ["RevA17", "killerkoala_voice", "Koala BlueZ Tools", "build_nrf52840_dk_lab.sh", "check_repo_readiness.py"],
+    "docs/FLASHING.md": ["check_repo_readiness.py", "build_nrf52840_dk_lab.sh", "run_koala_bluez.py", "EarTag-TX-Lab"],
     "docs/KILLERKOALA_VOCABULARY_REVA17.md": ["Australian male", "Noob", "Hacker", "Legend", "KillerKoala Voice"],
     "docs/KOALA_BLUEZ_TOOLS_REVA16.md": ["Koala Blue Controller", "bluetoothctl", "btmon", "--owned-device"],
-    "docs/EAR_TAG_TX_LAB_REVA15.md": ["EarTag-TX-Lab", "KBTX", "No captured packet replay"],
+    "docs/EAR_TAG_TX_LAB_REVA15.md": ["EarTag-TX-Lab", "KBTX", "does not replay captured packets"],
     "firmware/esp32-dualeye/include/config.h": ["#define ENABLE_DISPLAY_BOOT_ANIMATION 1", "#define BOOT_ANIMATION_TOTAL_MS", "#define DISPLAY_ROTATION"],
     "firmware/esp32-dualeye/platformio.ini": ["bodmer/TFT_eSPI"],
     "firmware/esp32-dualeye/src/main.cpp": ['#include "boot_animation.h"', "setupDisplay();", "runBootAnimation();", 'doc["boot_animation"] = ENABLE_DISPLAY_BOOT_ANIMATION;'],
@@ -40,7 +40,7 @@ REQUIRED_TEXT = {
     "scripts/build_nrf52840_dk_lab.sh": ["west build", "nrf52840dk_nrf52840"],
     "scripts/flash_esp32.sh": ["pio run"],
     "scripts/flash_nrf52840_dk_lab.sh": ["west flash", "EarTag-TX-Lab"],
-    "scripts/install_pi.sh": ["run_koala_bluez.py inventory", "run_killerkoala_voice.py status"],
+    "scripts/install_pi.sh": ["check_repo_readiness.py", "run_koala_bluez.py inventory", "run_killerkoala_voice.py status"],
     "scripts/run_boot_splash.py": ["run_boot_splash"],
     "scripts/run_ear_tag_tx_lab.py": ["run_cli"],
     "scripts/run_killerkoala_voice.py": ["killerkoala_vocabulary", "run_cli"],
@@ -91,10 +91,6 @@ EXPECTED_MENU_LABELS = [
     "Shutdown",
     "Quit",
 ]
-
-
-def read_text(relative_path: str) -> str:
-    return (REPO_ROOT / relative_path).read_text(encoding="utf-8")
 
 
 def check_required_text(failures: list[str]) -> None:
