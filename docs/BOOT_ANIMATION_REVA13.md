@@ -68,7 +68,24 @@ bodmer/TFT_eSPI@^2.5.43
 
 TFT_eSPI still needs the correct board display setup for the exact ESP32-S3 DualEye LCD revision. If the screen is blank, confirm the display driver, SPI pins, backlight pin, and rotation against the vendor example for the exact board.
 
+## Install and validate ESP32 firmware
+
+From the repo root:
+
+```bash
+python3 scripts/check_boot_animation_config.py
+bash scripts/flash_esp32.sh
+```
+
+The flash helper now cleans, builds, uploads, prints expected boot-animation behavior, and opens the serial monitor at 115200 baud.
+
 ## Pi companion boot splash
+
+Install Pi companion dependencies:
+
+```bash
+bash scripts/install_pi.sh
+```
 
 Run a windowed test from the repository root:
 
@@ -95,6 +112,17 @@ This installs:
 ```
 
 The autostart path runs when the Pi desktop session starts. For an earlier pre-desktop boot splash, use a graphical boot service after the display stack and framebuffer are confirmed on the target OS image.
+
+## CI validation
+
+The repository now includes:
+
+```text
+.github/workflows/koalabyte-blue-ci.yml
+scripts/check_boot_animation_config.py
+```
+
+The workflow validates boot-animation wiring, compiles the Pi companion Python modules, and builds the ESP32 PlatformIO firmware.
 
 ## Notes
 
