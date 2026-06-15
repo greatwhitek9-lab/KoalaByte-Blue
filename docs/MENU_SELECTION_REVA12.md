@@ -1,4 +1,4 @@
-# RevA12 Menu Selection Screen / RevA14 Jungle Theme Update
+# RevA12 Menu Selection Screen / RevA15 Koala Kry Review Update
 
 ## Purpose
 
@@ -9,6 +9,7 @@ The menu layer gives KoalaByte Blue a single selection screen that can be driven
 - Touchscreen long-press select.
 - Keyboard input during development.
 - RevA14 large bubbly jungle/eucalyptus graphical rendering.
+- RevA15 Koala Kry RF Review safe manifest path.
 
 ## Full function menu
 
@@ -39,28 +40,29 @@ Default menu entries:
 08 eucalyptus Upload Status   Show WiGLE upload readiness/status
 09 Koala Kapture              Capture and archive BLE advertisement metadata
 10 Koala Kry                  Replay captured metadata offline into the report/XP pipeline
-11 Ear Tag                    Named lab BLE beacon
-12 Urban Poaching             Authorized BLE RSSI lab game
-13 Buttons                    Show/check GPIO front-panel button status
-14 Level / Status             Show XP and rank
-15 Report                     Write a Markdown session report
-16 Wake killerkoala           Test wake-word flow
-17 Authorized BLE Inventory   Create a lab inventory from passive BLE observations
-18 GATT Readiness Checklist   Generate a pre-test checklist for owned-device GATT review
-19 Pairing Security Review    Review pairing and access-control posture for owned lab devices
-20 Lab Beacon Plan            Create a safe ESP32 demo beacon/peripheral testing plan
-21 Packet Capture Notes       Create safe Wireshark/nRF52840 protocol-analysis notes
-22 Defensive Lab Report       Generate a defensive lab report template
-23 Restricted Placeholder     Locked/non-operational reserved slot
-24 Settings                   Device and companion settings
-25 Lab                        Password-gated Authorized Lab Use menu
-26 Shutdown                   Confirm safe shutdown
-27 Quit                       Exit the Pi companion UI
+11 Koala Kry RF Review        Write blocked RF review manifest; no RF is sent
+12 Ear Tag                    Named lab BLE beacon
+13 Urban Poaching             Authorized BLE RSSI lab game
+14 Buttons                    Show/check GPIO front-panel button status
+15 Level / Status             Show XP and rank
+16 Report                     Write a Markdown session report
+17 Wake killerkoala           Test wake-word flow
+18 Authorized BLE Inventory   Create a lab inventory from passive BLE observations
+19 GATT Readiness Checklist   Generate a pre-test checklist for owned-device GATT review
+20 Pairing Security Review    Review pairing and access-control posture for owned lab devices
+21 Lab Beacon Plan            Create a safe ESP32 demo beacon/peripheral testing plan
+22 Packet Capture Notes       Create safe Wireshark/nRF52840 protocol-analysis notes
+23 Defensive Lab Report       Generate a defensive lab report template
+24 Restricted Placeholder     Locked/non-operational reserved slot
+25 Settings                   Device and companion settings
+26 Lab                        Password-gated Authorized Lab Use menu
+27 Shutdown                   Confirm safe shutdown
+28 Quit                       Exit the Pi companion UI
 ```
 
 ## RevA14 visual theme
 
-The menu selection screen now has a jungle/eucalyptus visual theme:
+The menu selection screen has a jungle/eucalyptus visual theme:
 
 ```text
 large rounded bubbly menu item font
