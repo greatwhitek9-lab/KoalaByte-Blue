@@ -16,7 +16,7 @@ The companion now has:
 ## Implementation files
 
 ```text
-pi-companion/koalblue/killerkoala_vocabulary.py
+pi-companion/koalablue/killerkoala_vocabulary.py
 scripts/run_killerkoala_voice.py
 pi-companion/config.default.json
 pi-companion/koalablue/menu_catalog.py
