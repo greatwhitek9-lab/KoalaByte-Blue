@@ -1,7 +1,7 @@
 Item,Qty,Description,Notes
 Raspberry Pi 3 Model B+,1,Main Linux computer / KoalaByte Blue companion brain,Use stable 5V 2.5A or better supply
 ESP32-S3 DualEye LCD 1.28,1,Dual-eye UI/mic/display front-end,No custom PCB
-Nordic nRF52840 Dongle / PCA10059 / NRF52840-DONGLE,1,Only retained Nordic BLE board; replaces DK in production path,Build with nRF Connect SDK / Zephyr and flash by USB DFU
+Nordic nRF52840 Dongle / PCA10059 / NRF52840-DONGLE,1,Only retained Nordic BLE board,Build with nRF Connect SDK / Zephyr and flash by USB DFU
 32GB+ microSD,1,Pi OS/logs/reports,Industrial card recommended
 USB-C data cable,1,ESP32 data/power,Short quality cable preferred
 Micro USB Pi power cable,1,Pi power,Quality cable required
