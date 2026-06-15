@@ -43,7 +43,7 @@ REQUIRED = {
     PI_MENU_SCREEN: ["render_terminal_jungle_menu"],
     PI_KOALA_KRY: ["request_rf_transmit", "KoalaKryTransmitReview", "blocked_no_over_the_air_replay", "--request-rf-transmit"],
     PI_EAR_TAG_TX: ["EarTag-TX-Lab", "synthetic_owned_lab_ble_advertisement", "KBTX"],
-    PI_BLUEZ: ["BLUEZ_TOOLS", "Koala Blue Controller", "bluetoothctl", "btmon", "target_specific"],
+    PI_BLUEZ: ["BLUEZ_TOOLS", "Koala Blue Controller", "bluetoothctl", "btmon", "owned_device_required"],
     MENU_CATALOG: ["Koala Kry RF Review", "koala_kry_transmit_review", "Ear Tag TX Lab", "ear_tag_tx_lab", "Koala BlueZ Scan", "koala_bluez_scan"],
     RUN_MENU: ["--graphical", "JungleMenuRenderer"],
     RUN_EAR_TAG_TX: ["run_cli"],
