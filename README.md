@@ -1,6 +1,6 @@
-# KoalaByte Blue / killerkoala AI Companion Firmware RevA5
+# KoalaByte Blue / killerkoala AI Companion Firmware RevA6
 
-ESP32-S3 DualEye firmware, Raspberry Pi companion software, optional Nordic nRF52840 DK lab firmware, and RevA5 front-panel GPIO button support for the **KoalaByte Blue Pi3B+ stacked research device**.
+ESP32-S3 DualEye firmware, Raspberry Pi companion software, optional Nordic nRF52840 DK lab firmware, and RevA6 six-button front-panel GPIO support for the **KoalaByte Blue Pi3B+ stacked research device**.
 
 ## Hardware profile
 
@@ -18,19 +18,21 @@ Nordic nRF52840 DK / PCA10056
 
 Use the DK for development and validation. Keep the Dongle in the final compact physical build.
 
-## RevA5 front-panel controls
+## RevA6 front-panel controls
 
-The nRF52840 Dongle includes one small onboard user button, but the final KoalaByte Blue case needs four external user controls. RevA5 adds four Raspberry Pi GPIO buttons:
+The nRF52840 Dongle includes one small onboard user button, but the final KoalaByte Blue case uses six external Raspberry Pi GPIO buttons numbered **1 through 6 from left to right**:
 
 ```text
-Back   -> Pi GPIO5  / physical pin 29
-Select -> Pi GPIO6  / physical pin 31
-Next   -> Pi GPIO13 / physical pin 33
-Menu   -> Pi GPIO19 / physical pin 35
-GND    -> Pi GND    / physical pin 39
+Button 1 = Main Menu                         -> Pi GPIO5  / physical pin 29
+Button 2 = Move Left / Back                  -> Pi GPIO6  / physical pin 31
+Button 3 = Enter / Select; hold for Shutdown -> Pi GPIO13 / physical pin 33
+Button 4 = Move Right / Forward              -> Pi GPIO19 / physical pin 35
+Button 5 = Up                                -> Pi GPIO26 / physical pin 37
+Button 6 = Down                              -> Pi GPIO21 / physical pin 40
+GND      = Shared ground bus                 -> Pi GND    / physical pin 39
 ```
 
-Button part added to BOM:
+Button part in BOM:
 
 ```text
 Adafruit Tactile Button switch (6mm) x 20 pack / Product ID 367
@@ -41,7 +43,7 @@ See:
 ```text
 docs/FRONT_PANEL_BUTTONS_REVA5.md
 docs/BUTTON_WIRING_REVA5.md
-production/RevA1-nrf52840-dongle/BOM_RevA5_Dongle_DK_Buttons.csv
+production/RevA1-nrf52840-dongle/ASSEMBLY_AND_FLASHING_INSTRUCTIONS_RevA5_BUTTONS.md
 ```
 
 ## Ready-to-flash status
@@ -72,7 +74,7 @@ bash scripts/flash_nrf52840_dk_lab.sh
 - Mic wake path enabled by default with wake word **killerkoala**.
 - Raspberry Pi companion dependency/config files.
 - Always-on passive BLE capture configuration under `/blecaptures/`.
-- RevA5 Raspberry Pi GPIO button manager.
+- RevA6 Raspberry Pi six-button GPIO manager.
 - Production BOM and safety-test CSV files.
 - Optional nRF52840 DK safe lab-peripheral firmware.
 - Flashing guides and production-file manifests.
@@ -128,4 +130,10 @@ Install Nordic nRF Connect SDK first, then:
 git clone https://github.com/greatwhitek9-lab/KoalaByte-Blue.git
 cd KoalaByte-Blue
 bash scripts/flash_nrf52840_dk_lab.sh
+```
+
+## Button test
+
+```bash
+python3 scripts/test_gpio_buttons.py
 ```
