@@ -4,7 +4,7 @@
 
 - ESP32-S3 DualEye boot screen and menu-theme helper firmware.
 - Raspberry Pi companion with boot splash, jungle/eucalyptus menu, Koala BlueZ helpers, and killerkoala vocabulary.
-- nRF Connect SDK / Zephyr firmware for the optional nRF52840 DK Ear Tag TX Lab beacon.
+- nRF Connect SDK / Zephyr firmware for both the optional nRF52840 DK and the production nRF52840 Dongle Ear Tag TX Lab beacon.
 - Six-button Raspberry Pi front-panel navigation.
 - No custom PCB required.
 
@@ -20,7 +20,7 @@ Expected output:
 
 ```text
 KoalaByte Blue repo readiness check passed.
-Ready-to-flash file wiring is present for ESP32, nRF52840 DK/Zephyr, and Pi companion.
+Ready-to-flash file wiring is present for ESP32, nRF52840 DK/Zephyr, nRF52840 Dongle/DFU, and Pi companion.
 ```
 
 The older `scripts/check_boot_animation_config.py` file remains only as a compatibility wrapper.
@@ -61,7 +61,7 @@ From the repository root on the Raspberry Pi:
 bash scripts/install_pi.sh
 ```
 
-The installer now runs Python compile checks and the consolidated repo readiness check.
+The installer runs Python compile checks and the consolidated repo readiness check.
 
 Test the boot splash:
 
@@ -134,6 +134,32 @@ Expected BLE advertisement name:
 EarTag-TX-Lab
 ```
 
+## nRF52840 Dongle / Zephyr + DFU flashing
+
+Build only:
+
+```bash
+bash scripts/build_nrf52840_dongle_lab.sh
+```
+
+Create the Dongle DFU package:
+
+```bash
+bash scripts/flash_nrf52840_dongle_lab_dfu.sh
+```
+
+Flash after putting the Dongle into bootloader mode and identifying its DFU serial port:
+
+```bash
+NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_nrf52840_dongle_lab_dfu.sh
+```
+
+Adjust the port for your OS. The Dongle workflow is documented in:
+
+```text
+docs/NRF52840_DONGLE_FLASHING.md
+```
+
 This is a synthetic owned-device lab advertisement. It does not replay captured packets or identifiers.
 
 ## Step-by-step button build
@@ -173,6 +199,9 @@ python3 scripts/test_gpio_buttons.py
 - [ ] ESP32 serial JSON boot message includes `boot_animation`.
 - [ ] nRF52840 DK Zephyr firmware builds.
 - [ ] nRF52840 DK advertises as `EarTag-TX-Lab`.
+- [ ] nRF52840 Dongle Zephyr firmware builds.
+- [ ] nRF52840 Dongle DFU package is generated.
+- [ ] nRF52840 Dongle advertises as `EarTag-TX-Lab` after DFU flashing.
 - [ ] nRF52840 Dongle enumerates on USB for the compact production build.
 - [ ] All six front buttons generate GPIO button events.
 - [ ] Button 3 short press emits `select`.
