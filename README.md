@@ -1,6 +1,6 @@
-# KoalaByte Blue / killerkoala AI Companion Firmware RevA6
+# KoalaByte Blue / killerkoala AI Companion Firmware RevA7
 
-ESP32-S3 DualEye firmware, Raspberry Pi companion software, optional Nordic nRF52840 DK lab firmware, and RevA6 six-button front-panel GPIO support for the **KoalaByte Blue Pi3B+ stacked research device**.
+ESP32-S3 DualEye firmware, Raspberry Pi companion software, optional Nordic nRF52840 DK lab firmware, RevA6 six-button front-panel GPIO support, and RevA7 configurable KoalaTag Lab Beacon support for the **KoalaByte Blue Pi3B+ stacked research device**.
 
 ## Hardware profile
 
@@ -17,6 +17,23 @@ Nordic nRF52840 DK / PCA10056
 ```
 
 Use the DK for development and validation. Keep the Dongle in the final compact physical build.
+
+## RevA7 KoalaTag Lab Beacon
+
+RevA7 adds a safe named lab BLE device profile for owned-device testing. It advertises as:
+
+```text
+KoalaTag-Lab
+```
+
+To rename it before flashing:
+
+```bash
+python3 scripts/set_lab_ble_name.py MyLabName
+bash scripts/flash_nrf52840_dk_lab.sh
+```
+
+Use names that clearly identify the device as your own lab hardware.
 
 ## RevA6 front-panel controls
 
@@ -36,14 +53,6 @@ Button part in BOM:
 
 ```text
 Adafruit Tactile Button switch (6mm) x 20 pack / Product ID 367
-```
-
-See:
-
-```text
-docs/FRONT_PANEL_BUTTONS_REVA5.md
-docs/BUTTON_WIRING_REVA5.md
-production/RevA1-nrf52840-dongle/ASSEMBLY_AND_FLASHING_INSTRUCTIONS_RevA5_BUTTONS.md
 ```
 
 ## Ready-to-flash status
@@ -75,6 +84,7 @@ bash scripts/flash_nrf52840_dk_lab.sh
 - Raspberry Pi companion dependency/config files.
 - Always-on passive BLE capture configuration under `/blecaptures/`.
 - RevA6 Raspberry Pi six-button GPIO manager.
+- RevA7 configurable KoalaTag Lab Beacon naming helper.
 - Production BOM and safety-test CSV files.
 - Optional nRF52840 DK safe lab-peripheral firmware.
 - Flashing guides and production-file manifests.
@@ -87,17 +97,19 @@ The no-custom-PCB physical production files are staged under:
 production/RevA1-nrf52840-dongle/
 ```
 
-Latest hardware additions:
+Latest hardware/software additions:
 
 - `docs/NRF52840_DK_OPTION_REVA4.md`
 - `docs/FRONT_PANEL_BUTTONS_REVA5.md`
 - `docs/BUTTON_WIRING_REVA5.md`
+- `docs/LAB_TAG_BEACON_SKILL_REVA7.md`
+- `scripts/set_lab_ble_name.py`
 - `production/RevA1-nrf52840-dongle/BOM_RevA5_Dongle_DK_Buttons.csv`
 - `production/RevA1-nrf52840-dongle/ASSEMBLY_AND_FLASHING_INSTRUCTIONS_RevA5_BUTTONS.md`
 
 ## Safety boundary
 
-This package is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, and safe lab validation. It does not include working exploit, bypass, jamming, injection, brute-force, tracking, or unauthorized access code.
+This package is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, and safe lab validation only.
 
 ## Main Pi commands
 
@@ -129,6 +141,7 @@ Install Nordic nRF Connect SDK first, then:
 ```bash
 git clone https://github.com/greatwhitek9-lab/KoalaByte-Blue.git
 cd KoalaByte-Blue
+python3 scripts/set_lab_ble_name.py KoalaTag-Lab
 bash scripts/flash_nrf52840_dk_lab.sh
 ```
 
