@@ -3,6 +3,10 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FW_DIR="${REPO_ROOT}/firmware/esp32-dualeye"
+PIO_ENV="${PIO_ENV:-}"
+ESP32_PORT="${ESP32_PORT:-}"
+NO_MONITOR="${NO_MONITOR:-0}"
+NO_CLEAN="${NO_CLEAN:-0}"
 
 cd "${FW_DIR}"
 
@@ -12,19 +16,42 @@ if ! command -v pio >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "KoalaByte Blue ESP32-S3 DualEye firmware flash helper"
-echo "Firmware directory: ${FW_DIR}"
-echo "Boot animation: enabled in include/config.h when ENABLE_DISPLAY_BOOT_ANIMATION=1"
-echo
+PIO_COMMON_ARGS=()
+if [[ -n "${PIO_ENV}" ]]; then
+  PIO_COMMON_ARGS+=( -e "${PIO_ENV}" )
+fi
 
-echo "Cleaning previous build output..."
-pio run -t clean
+PIO_UPLOAD_ARGS=("${PIO_COMMON_ARGS[@]}")
+if [[ -n "${ESP32_PORT}" ]]; then
+  PIO_UPLOAD_ARGS+=( --upload-port "${ESP32_PORT}" )
+fi
+
+MONITOR_ARGS=()
+if [[ -n "${ESP32_PORT}" ]]; then
+  MONITOR_ARGS+=( --port "${ESP32_PORT}" )
+fi
+
+cat <<EOF
+KoalaByte Blue ESP32-S3 DualEye firmware flash helper
+Firmware directory: ${FW_DIR}
+Boot animation: enabled in include/config.h when ENABLE_DISPLAY_BOOT_ANIMATION=1
+PlatformIO env: ${PIO_ENV:-default}
+Upload port: ${ESP32_PORT:-PlatformIO auto-detect}
+EOF
+
+echo
+if [[ "${NO_CLEAN}" != "1" ]]; then
+  echo "Cleaning previous build output..."
+  pio run "${PIO_COMMON_ARGS[@]}" -t clean
+else
+  echo "Skipping clean because NO_CLEAN=1."
+fi
 
 echo "Building firmware..."
-pio run
+pio run "${PIO_COMMON_ARGS[@]}"
 
 echo "Uploading firmware..."
-pio run -t upload
+pio run "${PIO_UPLOAD_ARGS[@]}" -t upload
 
 cat <<'EOF'
 
@@ -32,14 +59,20 @@ Flash complete.
 
 Expected on-device boot behavior:
   - KoalaByte Blue splash appears on the ESP32 display.
-  - Left eye pulses purple.
-  - Right eye pulses true blue.
-  - BOOTING... progress bar advances.
+  - Dual-eye UI comes up with the KoalaByte/killerkoala theme.
+  - BOOTING... progress bar advances when boot animation is enabled.
 
 Expected serial boot JSON includes:
   "boot_animation": 1
-
-Opening serial monitor at 115200 baud. Press Ctrl+C to exit.
 EOF
 
-pio device monitor -b 115200
+if [[ "${NO_MONITOR}" == "1" ]]; then
+  echo
+  echo "NO_MONITOR=1 set; skipping serial monitor."
+  echo "To monitor manually: pio device monitor -b 115200 ${ESP32_PORT:+--port ${ESP32_PORT}}"
+  exit 0
+fi
+
+echo
+echo "Opening serial monitor at 115200 baud. Press Ctrl+C to exit."
+pio device monitor -b 115200 "${MONITOR_ARGS[@]}"
