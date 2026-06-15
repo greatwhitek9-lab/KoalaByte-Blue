@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write an Ear Tag TX Lab setup/observation plan."""
+"""Write a KoalaByte Lab setup/observation plan."""
 
 from koalablue.ear_tag_tx_lab import run_cli
 
