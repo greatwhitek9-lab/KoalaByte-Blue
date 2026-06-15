@@ -1,8 +1,8 @@
-# KoalaByte Blue / killerkoala AI Companion Firmware RevA18
+# KoalaByte Blue / killerkoala AI Companion Firmware RevA21
 
 ESP32-S3 DualEye firmware, Raspberry Pi companion software, and nRF Connect SDK / Zephyr firmware for the Nordic nRF52840 Dongle/PCA10059 production target.
 
-RevA18 adds the **Outback BlueZ Module Deck**: themed, flash-ready BlueZ automation wrappers for the Pi companion while preserving the dongle-only production build.
+RevA21 keeps the build **dongle-only**, adds **Koala Mode Switcher**, keeps **KoalaByte Lab** as the default dongle firmware profile, preserves **Koala Konnect** as the optional USB HCI adapter profile, and updates the power path to the **Seloky USB-C PD/QC 12 V trigger board**.
 
 ## Hardware profile
 
@@ -13,6 +13,24 @@ Nordic nRF52840 Dongle / PCA10059 / NRF52840-DONGLE
 ```
 
 Only the nRF52840 Dongle/PCA10059 is retained as the Nordic BLE target in this repo.
+
+Current USB-C input trigger:
+
+```text
+Seloky USB-C PD Trigger Board Module PD/QC Decoy Fast Charge USB Type-C to 12V
+```
+
+Power path:
+
+```text
+USB-C PD/QC charger capable of 12 V
+  -> Seloky USB-C PD/QC 12 V trigger board
+  -> 5 V buck converter
+  -> fused regulated 5 V rail
+  -> Raspberry Pi / ESP32-S3 DualEye / USB peripherals
+```
+
+Verify the Seloky trigger output is about 12 V before connecting the buck converter. Do not connect 12 V directly to the Pi or any 5 V module.
 
 ## Ready-to-flash check
 
@@ -31,7 +49,7 @@ Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, and Pi com
 
 ## RevA18 Outback BlueZ Module Deck
 
-KoalaByte Blue now wraps local BlueZ tooling as themed, bounded automation modules on the Pi companion.
+KoalaByte Blue wraps local BlueZ tooling as themed, bounded automation modules on the Pi companion.
 
 ```bash
 PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py manifest
@@ -70,9 +88,29 @@ bash scripts/run_koala_bluez_gatt_readiness.sh --target AA:BB:CC:DD:EE:FF --owne
 
 See [`docs/KOALA_BLUEZ_TOOLS_REVA16.md`](docs/KOALA_BLUEZ_TOOLS_REVA16.md).
 
+## Koala Mode Switcher
+
+Koala Mode Switcher prepares and selects the active nRF52840 Dongle profile.
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py status
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py prepare-all
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py switch koalabyte_lab --dfu-port /dev/ttyACM0
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py switch koala_konnect --dfu-port /dev/ttyACM0
+```
+
+Supported dongle profiles:
+
+```text
+koalabyte_lab   KoalaByte Lab synthetic owned-device BLE lab advertisement
+koala_konnect   Koala Konnect USB HCI external Bluetooth adapter mode
+```
+
+See [`docs/KOALA_MODE_SWITCHER_REVA21.md`](docs/KOALA_MODE_SWITCHER_REVA21.md).
+
 ## nRF Connect SDK / Zephyr firmware build
 
-Dongle build:
+Default KoalaByte Lab dongle build:
 
 ```bash
 bash scripts/build_nrf52840_dongle_lab.sh
@@ -115,16 +153,24 @@ PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status --xp 100
 pi-companion/koalablue/bluez_tools.py
 pi-companion/koalablue/killerkoala_vocabulary.py
 pi-companion/koalablue/menu_catalog.py
+pi-companion/koalablue/koala_mode_switcher.py
 pi-companion/config.default.json
 firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c
 firmware/esp32-dualeye/src/main.cpp
 scripts/check_repo_readiness.py
 scripts/run_koala_bluez.py
+scripts/run_koala_mode_switcher.py
 scripts/run_koala_bluez_manifest.sh
+scripts/run_koala_bluez_inventory.sh
+scripts/run_koala_bluez_status.sh
+scripts/run_koala_bluez_scan.sh
+scripts/run_koala_bluez_monitor.sh
 scripts/run_koala_bluez_all_safe.sh
 scripts/run_koala_bluez_gatt_readiness.sh
 scripts/build_nrf52840_dongle_lab.sh
 scripts/flash_nrf52840_dongle_lab_dfu.sh
+scripts/build_koala_konnect.sh
+scripts/flash_koala_konnect.sh
 scripts/build_firmware_all.sh
 ```
 
@@ -143,7 +189,8 @@ koala_kapture                Capture and archive BLE advertisement metadata
 koala_kry                    Replay captured metadata offline into the report/XP pipeline
 koala_kry_transmit_review    Write safe review manifest; no radio output
 ear_tag                      Safe named lab BLE beacon skill
-ear_tag_tx_lab               Synthetic owned-device BLE advertisement plan and firmware path
+ear_tag_tx_lab               KoalaByte Lab synthetic owned-device BLE advertisement plan and firmware path
+koala_mode_switcher          Build/package/select KoalaByte Lab or Koala Konnect
 koala_bluez_manifest         Write the Outback BlueZ module manifest
 koala_bluez_inventory        Gumleaf Gear Check: local BlueZ helper inventory
 koala_bluez_status           Eucalyptus Bus Scout: adapter/controller status
@@ -170,4 +217,4 @@ quit                         Exit
 
 ## Safety boundary
 
-This package is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, and safe lab validation only. Koala Kry stays offline; Ear Tag TX Lab uses owned-device synthetic lab payloads; the Outback BlueZ Module Deck wraps local adapter status, discovery, HCI capture, and owned-device documentation workflows.
+This package is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, and safe lab validation only. Koala Kry stays offline; KoalaByte Lab uses owned-device synthetic lab payloads; Koala Konnect turns the dongle into a host-controlled USB HCI adapter; the Outback BlueZ Module Deck wraps local adapter status, discovery, HCI capture, and owned-device documentation workflows.
