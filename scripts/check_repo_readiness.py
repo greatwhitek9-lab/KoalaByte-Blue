@@ -11,8 +11,8 @@ if str(PI_ROOT) not in sys.path:
     sys.path.insert(0, str(PI_ROOT))
 
 REQUIRED_TEXT = {
-    "README.md": ["RevA17", "killerkoala_voice", "Koala BlueZ Tools", "build_nrf52840_dk_lab.sh", "build_nrf52840_dongle_lab.sh", "check_repo_readiness.py"],
-    "docs/FLASHING.md": ["check_repo_readiness.py", "build_nrf52840_dk_lab.sh", "build_nrf52840_dongle_lab.sh", "run_koala_bluez.py", "EarTag-TX-Lab"],
+    "README.md": ["RevA17", "killerkoala_voice", "Koala BlueZ Tools", "build_nrf52840_dongle_lab.sh", "check_repo_readiness.py"],
+    "docs/FLASHING.md": ["check_repo_readiness.py", "build_nrf52840_dongle_lab.sh", "run_koala_bluez.py", "EarTag-TX-Lab"],
     "docs/NRF52840_DONGLE_FLASHING.md": ["nrf52840dongle_nrf52840", "flash_nrf52840_dongle_lab_dfu.sh", "EarTag-TX-Lab", "DFU"],
     "docs/KILLERKOALA_VOCABULARY_REVA17.md": ["Australian male", "Noob", "Hacker", "Legend", "KillerKoala Voice"],
     "docs/KOALA_BLUEZ_TOOLS_REVA16.md": ["Koala Blue Controller", "bluetoothctl", "btmon", "--owned-device"],
@@ -23,13 +23,15 @@ REQUIRED_TEXT = {
     "firmware/esp32-dualeye/src/boot_animation.cpp": ["void setupDisplay()", "void runBootAnimation()", "KoalaByte", "Blue", "BOOTING..."],
     "firmware/esp32-dualeye/include/menu_theme.h": ["drawEucalyptusMenuBorder", "drawJungleMenuTitle", "drawJungleMenuItem"],
     "firmware/esp32-dualeye/src/menu_theme.cpp": ["drawEucalyptusMenuBorder", "drawJungleMenuTitle", "drawJungleMenuItem", "drawBubbleText"],
-    "firmware/nrf52840-dk-lab-peripheral/CMakeLists.txt": ["find_package(Zephyr REQUIRED", "target_sources(app PRIVATE src/main.c)"],
-    "firmware/nrf52840-dk-lab-peripheral/prj.conf": ['CONFIG_BT_DEVICE_NAME="EarTag-TX-Lab"', "CONFIG_BT_PERIPHERAL=y"],
-    "firmware/nrf52840-dk-lab-peripheral/src/main.c": ["Ear Tag TX Lab", "tx_lab_service_data", "KBTX", "sequence", "no captured packet replay", "bt_le_adv_start"],
+    "firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt": ["find_package(Zephyr REQUIRED", "target_sources(app PRIVATE src/main.c)"],
+    "firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf": ['CONFIG_BT_DEVICE_NAME="EarTag-TX-Lab"', "CONFIG_BT_PERIPHERAL=y"],
+    "firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c": ["Ear Tag TX Lab", "tx_lab_service_data", "KBTX", "sequence", "no captured packet replay", "bt_le_adv_start"],
+    "firmware/nrf52840-dongle-ear-tag-tx-lab/README.md": ["nRF52840 Dongle", "nrf52840dongle_nrf52840", "DFU", "EarTag-TX-Lab"],
     "pi-companion/koalablue/boot_animation.py": ["KoalaByte", "Blue"],
     "pi-companion/koalablue/bluez_tools.py": ["BLUEZ_TOOLS", "Koala Blue Controller", "bluetoothctl", "btmon", "owned_device_required"],
     "pi-companion/koalablue/ear_tag_tx_lab.py": ["EarTag-TX-Lab", "synthetic_owned_lab_ble_advertisement", "KBTX"],
     "pi-companion/koalablue/killerkoala_vocabulary.py": ["KillerKoalaVoiceProfile", "Australian male", "RANK_NOOB", "RANK_HACKER", "RANK_LEGEND", "line_for_event", "vocabulary_manifest"],
+    "pi-companion/koalblue/koala_kry.py": ["Koala Kry"],
     "pi-companion/koalablue/koala_kapture.py": ["Koala Kapture", "passive"],
     "pi-companion/koalablue/koala_kry.py": ["Koala Kry", "request_rf_transmit", "KoalaKryTransmitReview", "blocked_no_over_the_air_replay", "--request-rf-transmit"],
     "pi-companion/koalablue/menu_catalog.py": ["Koala Kry RF Review", "Ear Tag TX Lab", "Koala BlueZ Scan", "KillerKoala Voice"],
@@ -37,12 +39,10 @@ REQUIRED_TEXT = {
     "pi-companion/koalablue/menu_ui.py": ["render_terminal_jungle_menu", "RevA14 jungle/eucalyptus theme"],
     "pi-companion/koalablue/menu_screen.py": ["render_terminal_jungle_menu"],
     "pi-companion/config.default.json": ["killerkoala_companion", "Australian male", "Koala BlueZ Tools", "KillerKoala Voice", "EarTag-TX-Lab"],
-    "scripts/build_firmware_all.sh": ["pio run", "build_nrf52840_dk_lab.sh", "build_nrf52840_dongle_lab.sh"],
-    "scripts/build_nrf52840_dk_lab.sh": ["west build", "nrf52840dk_nrf52840"],
-    "scripts/build_nrf52840_dongle_lab.sh": ["west build", "nrf52840dongle_nrf52840"],
+    "scripts/build_firmware_all.sh": ["pio run", "build_nrf52840_dongle_lab.sh"],
+    "scripts/build_nrf52840_dongle_lab.sh": ["west build", "nrf52840dongle_nrf52840", "firmware/nrf52840-dongle-ear-tag-tx-lab"],
     "scripts/flash_nrf52840_dongle_lab_dfu.sh": ["nrfutil", "koalabyte-blue-nrf52840-dongle-dfu.zip", "NRF_DFU_PORT"],
     "scripts/flash_esp32.sh": ["pio run"],
-    "scripts/flash_nrf52840_dk_lab.sh": ["west flash", "EarTag-TX-Lab"],
     "scripts/install_pi.sh": ["check_repo_readiness.py", "run_koala_bluez.py inventory", "run_killerkoala_voice.py status"],
     "scripts/run_boot_splash.py": ["run_boot_splash"],
     "scripts/run_ear_tag_tx_lab.py": ["run_cli"],
@@ -56,6 +56,22 @@ OBSOLETE_PATHS = [
     "docs/KOALA_KRY_REVA11.md",
     "docs/MENU_SELECTION_SCREEN_REVA12.md",
     "docs/REVA12_CAPTURE_REPLAY_MENU_UPDATE.md",
+    "docs/NRF52840_DK_FLASHING.md",
+    "firmware/nrf52840-dk-lab-peripheral/CMakeLists.txt",
+    "firmware/nrf52840-dk-lab-peripheral/prj.conf",
+    "firmware/nrf52840-dk-lab-peripheral/src/main.c",
+    "firmware/nrf52840-dk-lab-peripheral/README.md",
+    "scripts/build_nrf52840_dk_lab.sh",
+    "scripts/flash_nrf52840_dk_lab.sh",
+]
+
+FORBIDDEN_TEXT = [
+    "nrf52840dk_nrf52840",
+    "PCA10056",
+    "nRF52840 DK",
+    "build_nrf52840_dk_lab.sh",
+    "flash_nrf52840_dk_lab.sh",
+    "firmware/nrf52840-dk-lab-peripheral",
 ]
 
 EXPECTED_MENU_LABELS = [
@@ -114,6 +130,26 @@ def check_obsolete_paths(failures: list[str]) -> None:
             failures.append(f"obsolete file still present: {relative_path}")
 
 
+def check_forbidden_text(failures: list[str]) -> None:
+    ignored_dirs = {".git", ".pio", "build", "__pycache__", ".venv"}
+    ignored_files = {"check_repo_readiness.py"}
+    for path in REPO_ROOT.rglob("*"):
+        if not path.is_file():
+            continue
+        if any(part in ignored_dirs for part in path.parts):
+            continue
+        if path.name in ignored_files:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        rel = str(path.relative_to(REPO_ROOT))
+        for needle in FORBIDDEN_TEXT:
+            if needle in text:
+                failures.append(f"forbidden DK reference '{needle}' found in {rel}")
+
+
 def check_json_config(failures: list[str]) -> None:
     path = REPO_ROOT / "pi-companion" / "config.default.json"
     try:
@@ -136,6 +172,8 @@ def check_json_config(failures: list[str]) -> None:
         failures.append("Koala Kry must remain offline with rf_transmission=false")
     if config.get("ear_tag_tx_lab", {}).get("device_name") != "EarTag-TX-Lab":
         failures.append("Ear Tag TX Lab device_name must be EarTag-TX-Lab")
+    if config.get("ear_tag_tx_lab", {}).get("firmware_path") != "firmware/nrf52840-dongle-ear-tag-tx-lab":
+        failures.append("Ear Tag TX Lab firmware_path must point to the dongle-only firmware path")
 
 
 def check_menu_catalog(failures: list[str]) -> None:
@@ -153,6 +191,7 @@ def main() -> int:
     failures: list[str] = []
     check_required_text(failures)
     check_obsolete_paths(failures)
+    check_forbidden_text(failures)
     check_json_config(failures)
     check_menu_catalog(failures)
 
@@ -163,7 +202,7 @@ def main() -> int:
         return 1
 
     print("KoalaByte Blue repo readiness check passed.")
-    print("Ready-to-flash file wiring is present for ESP32, nRF52840 DK/Zephyr, nRF52840 Dongle/DFU, and Pi companion.")
+    print("Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, and Pi companion.")
     return 0
 
 
