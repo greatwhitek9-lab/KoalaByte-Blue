@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This production package removes the nRF52840 DK/PCA10056 from the retained build and firmware path. The only Nordic BLE board used by KoalaByte Blue is now:
+This production package keeps a single Nordic BLE board in the retained build and firmware path:
 
 ```text
 Nordic nRF52840 Dongle / PCA10059 / NRF52840-DONGLE
@@ -39,15 +39,6 @@ Retained firmware paths:
 firmware/esp32-dualeye/
 firmware/nrf52840-dongle-ear-tag-tx-lab/
 pi-companion/
-```
-
-Removed DK firmware/build paths:
-
-```text
-firmware/nrf52840-dk-lab-peripheral/
-scripts/build_nrf52840_dk_lab.sh
-scripts/flash_nrf52840_dk_lab.sh
-docs/NRF52840_DK_FLASHING.md
 ```
 
 ## Flashing flow
@@ -97,4 +88,4 @@ The advertisement is synthetic, clearly labeled, and intended for owned-device s
 
 ## Readiness rule
 
-The repo readiness check intentionally fails if DK build/flash files or DK board-target text are reintroduced outside the readiness script itself.
+The repo readiness check intentionally fails if removed board-target text, removed build helpers, or removed firmware paths are reintroduced outside the readiness script itself.
