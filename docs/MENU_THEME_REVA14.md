@@ -8,7 +8,7 @@ The theme is applied to:
 
 ```text
 pi-companion/koalablue/menu_theme.py
-pi-companion/koalblue/menu_ui.py
+pi-companion/koalablue/menu_ui.py
 pi-companion/koalablue/menu_screen.py
 scripts/run_menu_screen.py
 pi-companion/config.default.json
