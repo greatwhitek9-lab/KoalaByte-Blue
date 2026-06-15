@@ -27,8 +27,6 @@ KoalaByte Blue repo readiness check passed.
 Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, and Pi companion.
 ```
 
-The legacy `scripts/check_boot_animation_config.py` wrapper is still present for old workflows, but new docs and CI use `scripts/check_repo_readiness.py`.
-
 ---
 
 ## 2. ESP32-S3 DualEye firmware
@@ -97,8 +95,6 @@ Flash after identifying the Dongle DFU serial port:
 NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_nrf52840_dongle_lab_dfu.sh
 ```
 
-See `docs/NRF52840_DONGLE_FLASHING.md` for details and port notes.
-
 Expected BLE advertisement name:
 
 ```text
@@ -109,8 +105,6 @@ EarTag-TX-Lab
 
 ## 4. Build all firmware targets
 
-Build all retained firmware targets from one helper:
-
 ```bash
 bash scripts/build_firmware_all.sh
 ```
@@ -119,7 +113,7 @@ The helper builds ESP32 when PlatformIO is installed and builds the nRF52840 Don
 
 ---
 
-## 5. Raspberry Pi companion and Koala BlueZ Tools
+## 5. Raspberry Pi companion and Outback BlueZ Module Deck
 
 Install Raspberry Pi OS with Desktop if you want the fullscreen boot splash and graphical jungle menu. Raspberry Pi OS Lite works for terminal-only use.
 
@@ -145,13 +139,31 @@ PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration
 PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
 ```
 
-Koala BlueZ Tools:
+Outback BlueZ Module Deck:
 
 ```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py manifest
 PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py inventory
 PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py status
 PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py scan --duration 15
 PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py monitor --duration 20
+PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py all-safe --duration 15
+```
+
+Themed titles displayed by the module deck:
+
+```text
+Gumleaf Gear Check
+Eucalyptus Bus Scout
+Dropbear Discovery Sweep
+Billabong HCI Watch
+Kookaburra Safe Nest Run
+```
+
+Target-specific notes require an owned/scope-approved target:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py gatt-readiness --target AA:BB:CC:DD:EE:FF --owned-device
 ```
 
 ---
@@ -204,15 +216,7 @@ Koala Kapture writes passive metadata captures to:
 /blecaptures/koala_kapture/
 ```
 
-Capture outputs include:
-
-```text
-koala_kapture_YYYYMMDD_HHMMSS.jsonl
-koala_kapture_YYYYMMDD_HHMMSS.csv
-koala_kapture_YYYYMMDD_HHMMSS_manifest.json
-```
-
-Raw MAC logging is enabled in `pi-companion/config.default.json`. Only use this in authorized environments and comply with local law and platform rules.
+Raw MAC logging is enabled in `pi-companion/config.default.json` for the legacy passive logger path. Only use this in authorized environments and comply with local law and platform rules. The Outback BlueZ Module Deck hashes/redacts Bluetooth addresses by default unless `--raw-addresses` is explicitly passed.
 
 ---
 
@@ -225,6 +229,7 @@ bash scripts/build_firmware_all.sh
 bash scripts/build_nrf52840_dongle_lab.sh
 PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
 PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
+PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py manifest
 PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py inventory
 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status --xp 100
 PYTHONPATH=pi-companion python3 scripts/run_koala_kapture.py --duration-seconds 30 --target-name EarTag-TX-Lab
@@ -238,6 +243,4 @@ Expected behavior:
 - nRF52840 Dongle advertises as `EarTag-TX-Lab` with synthetic service data after DFU flashing.
 - Pi splash opens in windowed or fullscreen mode.
 - Menu validation screen uses the large bubbly jungle/eucalyptus style.
-- Koala BlueZ inventory reports available local BlueZ commands.
-- killerkoala returns an XP-scaled companion response.
-- Passive BLE capture writes authorized metadata artifacts under `/blecaptures/koala_kapture/`.
+- Outback BlueZ Module Deck writes themed manifest/inventory artifacts without breaking the dongle-only flash path.
