@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <NimBLEDevice.h>
+#include "boot_animation.h"
 #include "config.h"
 
 struct ButtonDef {
@@ -44,6 +45,7 @@ void emitBoot() {
   doc["ble_scan"] = ENABLE_LOCAL_BLE_SCAN;
   doc["mic_wake"] = ENABLE_MIC_WAKE;
   doc["display_stub"] = ENABLE_DISPLAY_STUB;
+  doc["boot_animation"] = ENABLE_DISPLAY_BOOT_ANIMATION;
   sendJson(doc);
 #if ENABLE_MIC_WAKE
   if (MIC_I2S_BCLK_PIN < 0 || MIC_I2S_WS_PIN < 0 || MIC_I2S_DIN_PIN < 0) {
@@ -199,6 +201,10 @@ void heartbeat() {
 void setup() {
   Serial.begin(SERIAL_BAUD);
   delay(1200);
+
+  setupDisplay();
+  runBootAnimation();
+
   setupButtons();
 #if ENABLE_LOCAL_BLE_SCAN
   setupBle();
