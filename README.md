@@ -1,8 +1,10 @@
-# KoalaByte Blue / killerkoala AI Companion Firmware RevA21
+# KoalaByte Blue / killerkoala AI Companion Firmware RevA21 + RevA23 InnoMaker CAN Update
 
 ESP32-S3 DualEye firmware, Raspberry Pi companion software, and nRF Connect SDK / Zephyr firmware for the Nordic nRF52840 Dongle/PCA10059 production target.
 
 RevA21 keeps the build **dongle-only**, adds **Koala Mode Switcher**, keeps **KoalaByte Lab** as the default dongle firmware profile, preserves **Koala Konnect** as the optional USB HCI adapter profile, and updates the power path to the **Seloky USB-C PD/QC 12 V trigger board**.
+
+RevA23 adds the user-specified **InnoMaker USB to CAN Converter kit** for the optional **Koala Kan Kommander** path. This replaces the earlier generic/circular CAN panel-port visual with an internal or side/rear service-bay adapter mount.
 
 ## Hardware profile
 
@@ -31,6 +33,37 @@ USB-C PD/QC charger capable of 12 V
 ```
 
 Verify the Seloky trigger output is about 12 V before connecting the buck converter. Do not connect 12 V directly to the Pi or any 5 V module.
+
+## RevA23 Koala Kan Kommander - InnoMaker CAN kit
+
+Recommended optional CAN observation path:
+
+```text
+Raspberry Pi 3B+ USB host
+  -> short internal USB data cable
+  -> InnoMaker USB to CAN Converter kit
+  -> adapter-side CAN_H / CAN_L / GND / optional SHIELD
+  -> authorized bench harness or owned-device test network
+```
+
+Mechanical update:
+
+- Do **not** use the earlier circular CAN panel port.
+- Mount the InnoMaker adapter inside the Level 2 USB service bay or side/rear service area.
+- Use a rectangular service slot or internal strain-relieved mount if the adapter or harness must be accessible.
+- Keep the adapter and CAN cable away from antennas, battery contacts, speaker grille, and Raspberry Pi GPIO.
+- Do not wire CAN_H or CAN_L directly to Raspberry Pi GPIO.
+
+Software remains passive by default. The `transmit-placeholder` action stays blocked.
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py inventory
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py status --interface can0
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py listen --interface can0 --duration 10
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py report --interface can0
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit-placeholder
+```
 
 ## Ready-to-flash check
 
@@ -154,12 +187,14 @@ pi-companion/koalablue/bluez_tools.py
 pi-companion/koalablue/killerkoala_vocabulary.py
 pi-companion/koalablue/menu_catalog.py
 pi-companion/koalablue/koala_mode_switcher.py
+pi-companion/koalablue/koala_kan_kommander.py
 pi-companion/config.default.json
 firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c
 firmware/esp32-dualeye/src/main.cpp
 scripts/check_repo_readiness.py
 scripts/run_koala_bluez.py
 scripts/run_koala_mode_switcher.py
+scripts/run_koala_kan_kommander.py
 scripts/run_koala_bluez_manifest.sh
 scripts/run_koala_bluez_inventory.sh
 scripts/run_koala_bluez_status.sh
@@ -191,6 +226,7 @@ koala_kry_transmit_review    Write safe review manifest; no radio output
 ear_tag                      Safe named lab BLE beacon skill
 ear_tag_tx_lab               KoalaByte Lab synthetic owned-device BLE advertisement plan and firmware path
 koala_mode_switcher          Build/package/select KoalaByte Lab or Koala Konnect
+koala_kan_kommander          Passive InnoMaker USB-to-CAN status/listen/report workflow
 koala_bluez_manifest         Write the Outback BlueZ module manifest
 koala_bluez_inventory        Gumleaf Gear Check: local BlueZ helper inventory
 koala_bluez_status           Eucalyptus Bus Scout: adapter/controller status
@@ -217,4 +253,4 @@ quit                         Exit
 
 ## Safety boundary
 
-This package is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, and safe lab validation only. Koala Kry stays offline; KoalaByte Lab uses owned-device synthetic lab payloads; Koala Konnect turns the dongle into a host-controlled USB HCI adapter; the Outback BlueZ Module Deck wraps local adapter status, discovery, HCI capture, and owned-device documentation workflows.
+This package is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, safe lab validation, and scoped CAN observation only. Koala Kry stays offline; KoalaByte Lab uses owned-device synthetic lab payloads; Koala Konnect turns the dongle into a host-controlled USB HCI adapter; Outback BlueZ wraps local adapter status, discovery, HCI capture, and owned-device documentation workflows; Koala Kan Kommander uses the InnoMaker USB-to-CAN kit passively by default.
