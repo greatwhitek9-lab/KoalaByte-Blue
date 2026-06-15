@@ -10,7 +10,7 @@ production/RevA17-dongle-only/
 
 Current production references:
 
-- `production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv` — current complete dongle-only BOM with Seloky 12 V PD/QC trigger board.
+- `production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv` — current complete dongle-only BOM with Seloky 12 V PD/QC trigger board and optional Koala Kan Kommander connector hardware.
 - `production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md` — current production, assembly, power, and validation guide.
 - `production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv` — safety, bring-up, and functional test record template.
 
@@ -23,12 +23,15 @@ Current production references:
 - `docs/NRF52840_DONGLE_FLASHING.md` — nRF52840 Dongle / PCA10059 Zephyr build and DFU guide.
 - `docs/KOALA_MODE_SWITCHER_REVA21.md` — Koala Mode Switcher status/build/package/select workflow.
 - `docs/KOALA_KONNECT_REVA20.md` — Koala Konnect USB HCI adapter profile guide.
+- `docs/KOALA_KAN_KOMMANDER_REVA22.md` — optional Koala Kan Kommander physical connector and safe plug-in guide.
 - `docs/ORDERABLE_PARTS_LIST.md` — orderable hardware list with Seloky 12 V PD/QC trigger board.
 - `docs/POWER_UPDATE_REVA2.md` — power-path validation guide for Seloky trigger and 5 V buck regulator.
 - `firmware/esp32-dualeye/` — ESP32-S3 DualEye firmware and display helpers.
+- `pi-companion/koalblue/koala_kan_kommander.py` — optional Koala Kan Kommander plug-in module.
 - `pi-companion/` — Raspberry Pi companion app, menu, theme, and helper modules.
 - `scripts/check_repo_readiness.py` — current ready-to-run repository validation check.
 - `scripts/run_koala_mode_switcher.py` — Koala Mode Switcher CLI runner.
+- `scripts/run_koala_kan_kommander.py` — Koala Kan Kommander CLI runner.
 - `scripts/build_nrf52840_dongle_lab.sh` — KoalaByte Lab dongle build helper.
 - `scripts/flash_nrf52840_dongle_lab_dfu.sh` — KoalaByte Lab dongle DFU package/apply helper.
 - `scripts/build_koala_konnect.sh` — Koala Konnect build wrapper.
@@ -39,7 +42,7 @@ Current production references:
 - `scripts/run_koala_bluez.py` and `scripts/run_koala_bluez_*.sh` — Koala BlueZ runners.
 - `.github/workflows/koalabyte-blue-ci.yml` — CI workflow using the readiness check.
 
-No custom PCB is required. The build uses commercially available development boards/modules, USB cabling, standoffs, a protected battery/power system, and an open-frame stacked layout.
+No custom PCB is required. The build uses commercially available development boards/modules, USB cabling, standoffs, a protected battery/power system, optional connector accessory hardware, and an open-frame stacked layout.
 
 ## Readiness rule
 
@@ -49,4 +52,5 @@ The repository is considered current only when:
 2. CI can compile the Pi companion Python code and scripts.
 3. ESP32 firmware builds with PlatformIO.
 4. The nRF52840 Dongle Zephyr project wiring and DFU helpers are present.
-5. Removed legacy production packages and legacy power parts are not reintroduced.
+5. Optional Koala Kan Kommander files remain present and observe-only.
+6. Removed legacy production packages and legacy power parts are not reintroduced.
