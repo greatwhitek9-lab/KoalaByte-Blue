@@ -1,23 +1,23 @@
-# RevA15 Ear Tag TX Lab
+# RevA17 Ear Tag TX Lab
 
 ## Purpose
 
-Ear Tag TX Lab is the safe transmit-oriented lab mode for KoalaByte Blue. It uses the Nordic nRF52840 DK to advertise a clearly named, synthetic BLE service-data payload that can be observed by KoalaByte Blue passive scans, mobile BLE scanner apps, or protocol-analysis tools.
+Ear Tag TX Lab is the safe transmit-oriented lab mode for KoalaByte Blue. It uses the Nordic nRF52840 Dongle / PCA10059 to advertise a clearly named, synthetic BLE service-data payload that can be observed by KoalaByte Blue passive scans, mobile BLE scanner apps, or protocol-analysis tools.
 
 It is for owned-device signal-integrity observation and workflow validation. It does not replay captured packets, captured identifiers, preambles, access addresses, PDUs, or raw radio buffers.
 
 ## Firmware path
 
 ```text
-firmware/nrf52840-dk-lab-peripheral/
+firmware/nrf52840-dongle-ear-tag-tx-lab/
 ```
 
 Important files:
 
 ```text
-firmware/nrf52840-dk-lab-peripheral/src/main.c
-firmware/nrf52840-dk-lab-peripheral/prj.conf
-firmware/nrf52840-dk-lab-peripheral/README.md
+firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c
+firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf
+firmware/nrf52840-dongle-ear-tag-tx-lab/README.md
 ```
 
 ## Advertisement name
@@ -42,15 +42,28 @@ The sequence counter updates every 5 seconds. This gives passive observers a har
 
 ## Build and flash
 
+Build:
+
 ```bash
-bash scripts/flash_nrf52840_dk_lab.sh
+bash scripts/build_nrf52840_dongle_lab.sh
+```
+
+Create DFU package:
+
+```bash
+bash scripts/flash_nrf52840_dongle_lab_dfu.sh
+```
+
+Flash after putting the Dongle into bootloader mode and identifying the DFU port:
+
+```bash
+NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_nrf52840_dongle_lab_dfu.sh
 ```
 
 Manual build:
 
 ```bash
-west build -b nrf52840dk_nrf52840 firmware/nrf52840-dk-lab-peripheral -d build/nrf52840-dk-lab-peripheral
-west flash -d build/nrf52840-dk-lab-peripheral
+west build -b nrf52840dongle_nrf52840 firmware/nrf52840-dongle-ear-tag-tx-lab -d build/nrf52840-dongle-lab
 ```
 
 ## Pi-side plan artifact
