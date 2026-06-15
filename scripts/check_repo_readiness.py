@@ -82,7 +82,7 @@ REQUIRED_TEXT = {
     "docs/EAR_TAG_TX_LAB_REVA15.md": ["KoalaByte Lab", "KBTX", "does not replay captured packets"],
     "docs/KOALA_KONNECT_REVA20.md": ["Koala Konnect", "hci_usb", "koala-konnect-nrf52840-dongle-dfu.zip"],
     "docs/ORDERABLE_PARTS_LIST.md": ["Seloky USB-C PD Trigger Board", "12V", "Do not connect 12V directly to the Pi"],
-    "docs/POWER_UPDATE_REVA2.md": ["Seloky USB-C PD/QC 12V trigger board", "Replaces the prior Adafruit HUSB238 reference", "Verify 12V output"],
+    "docs/POWER_UPDATE_REVA2.md": ["Seloky USB-C PD/QC 12V trigger board", "Replaces the prior USB-C PD breakout reference", "Verify 12V output"],
     "docs/PRODUCTION_FILES.md": ["production/RevA17-dongle-only/", "BOM_RevA17_DongleOnly.csv", "No custom PCB"],
     "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv": ["Seloky USB-C PD Trigger Board Module", "12 V PD-QC trigger"],
     "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md": ["Seloky", "12 V", "5 V buck converter"],
@@ -132,6 +132,12 @@ FORBIDDEN_TEXT = [
     "firmware/nrf52840-dk-lab-peripheral",
     "production/RevA1-nrf52840-dongle",
     "production/RevA11-no-nrf-no-generic-lcd",
+    "HUSB238",
+    "USB Type C Power Delivery Dummy Breakout",
+    "Adafruit Product ID 5807",
+    "EarTag-TX-Lab",
+    "Ear Tag TX Lab",
+    "USB-C PD charging module",
 ]
 
 
