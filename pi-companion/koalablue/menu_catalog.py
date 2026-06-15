@@ -19,7 +19,7 @@ FUNCTION_MENU_ITEMS: List[dict[str, object]] = [
     {"label": "Koala Kry", "command": "koala_kry", "description": "Replay captured metadata offline into the report/XP pipeline"},
     {"label": "Koala Kry RF Review", "command": "koala_kry_transmit_review", "description": "Write blocked RF transmit review manifest; no RF is sent"},
     {"label": "Ear Tag", "command": "ear_tag", "description": "Named lab BLE beacon"},
-    {"label": "Ear Tag TX Lab", "command": "ear_tag_tx_lab", "description": "Synthetic owned-device BLE advertisement for signal-integrity observation"},
+    {"label": "KoalaByte Lab", "command": "ear_tag_tx_lab", "description": "Synthetic owned-device BLE advertisement for signal-integrity observation"},
     {"label": "Gumleaf Gear Check", "command": "koala_bluez_inventory", "description": "Inventory installed BlueZ helpers under KoalaByte themed names"},
     {"label": "Eucalyptus Bus Scout", "command": "koala_bluez_status", "description": "Collect local adapter, controller, rfkill, and optional D-Bus status"},
     {"label": "Dropbear Discovery Sweep", "command": "koala_bluez_scan", "description": "Run bounded Bluetooth discovery and save redacted results by default"},
