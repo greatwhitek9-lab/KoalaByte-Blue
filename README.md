@@ -1,6 +1,6 @@
 # KoalaByte Blue / killerkoala AI Companion Firmware RevA17
 
-ESP32-S3 DualEye firmware, Raspberry Pi companion software, nRF Connect SDK / Zephyr firmware for the Nordic nRF52840 DK and nRF52840 Dongle, RevA6 six-button front-panel GPIO support, RevA8 **eucalyptus** passive BLE scanner/logger naming, RevA13 animated boot splash support, RevA14 jungle/eucalyptus menu styling, RevA15 Ear Tag TX Lab, RevA16 **Koala BlueZ Tools**, and RevA17 **killerkoala companion vocabulary** for the **KoalaByte Blue Pi3B+ stacked research device**.
+ESP32-S3 DualEye firmware, Raspberry Pi companion software, nRF Connect SDK / Zephyr firmware for the Nordic nRF52840 Dongle, RevA6 six-button front-panel GPIO support, RevA8 **eucalyptus** passive BLE scanner/logger naming, RevA13 animated boot splash support, RevA14 jungle/eucalyptus menu styling, RevA15 Ear Tag TX Lab, RevA16 **Koala BlueZ Tools**, and RevA17 **killerkoala companion vocabulary** for the **KoalaByte Blue Pi3B+ stacked research device**.
 
 ## Hardware profile
 
@@ -10,13 +10,7 @@ Production compact BLE board:
 Nordic nRF52840 Dongle / PCA10059 / NRF52840-DONGLE
 ```
 
-Optional development/debug board:
-
-```text
-Nordic nRF52840 DK / PCA10056
-```
-
-Use nRF Connect SDK / Zephyr for both nRF52840 firmware targets. The DK uses a J-Link/west flash workflow; the Dongle uses its USB bootloader/DFU workflow.
+The nRF52840 DK/PCA10056 has been removed from the retained production and firmware build path. The only Nordic BLE target retained in this repo is the nRF52840 Dongle.
 
 ## Ready-to-flash check
 
@@ -30,7 +24,7 @@ Expected result:
 
 ```text
 KoalaByte Blue repo readiness check passed.
-Ready-to-flash file wiring is present for ESP32, nRF52840 DK/Zephyr, nRF52840 Dongle/DFU, and Pi companion.
+Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, and Pi companion.
 ```
 
 The older `scripts/check_boot_animation_config.py` remains as a compatibility wrapper, but new workflows should use `scripts/check_repo_readiness.py`.
@@ -56,13 +50,7 @@ Legend = 250+ XP
 
 See [`docs/KILLERKOALA_VOCABULARY_REVA17.md`](docs/KILLERKOALA_VOCABULARY_REVA17.md).
 
-## nRF Connect SDK / Zephyr firmware builds
-
-DK build:
-
-```bash
-bash scripts/build_nrf52840_dk_lab.sh
-```
+## nRF Connect SDK / Zephyr firmware build
 
 Dongle build:
 
@@ -70,7 +58,7 @@ Dongle build:
 bash scripts/build_nrf52840_dongle_lab.sh
 ```
 
-Build all available firmware targets:
+Build all retained firmware targets:
 
 ```bash
 bash scripts/build_firmware_all.sh
@@ -106,15 +94,15 @@ See [`docs/KOALA_BLUEZ_TOOLS_REVA16.md`](docs/KOALA_BLUEZ_TOOLS_REVA16.md).
 
 ## RevA15 Ear Tag TX Lab
 
-Ear Tag TX Lab is the safe transmit-oriented lab mode. It advertises a clearly named, synthetic BLE service-data pattern from the nRF52840 DK or nRF52840 Dongle for owned-device signal-integrity observation.
+Ear Tag TX Lab is the safe transmit-oriented lab mode. It advertises a clearly named, synthetic BLE service-data pattern from the nRF52840 Dongle for owned-device signal-integrity observation.
 
 ```text
 EarTag-TX-Lab
 ```
 
 ```bash
-bash scripts/flash_nrf52840_dk_lab.sh
 bash scripts/build_nrf52840_dongle_lab.sh
+bash scripts/flash_nrf52840_dongle_lab_dfu.sh
 PYTHONPATH=pi-companion python3 scripts/run_ear_tag_tx_lab.py
 ```
 
@@ -155,17 +143,16 @@ See [`docs/BOOT_ANIMATION_REVA13.md`](docs/BOOT_ANIMATION_REVA13.md).
 ```text
 pi-companion/koalablue/killerkoala_vocabulary.py
 pi-companion/koalablue/bluez_tools.py
-pi-companion/koalablue/koala_kry.py
+pi-companion/koalblue/koala_kry.py
 pi-companion/koalablue/ear_tag_tx_lab.py
 pi-companion/koalablue/menu_catalog.py
 pi-companion/koalablue/menu_theme.py
 pi-companion/koalablue/boot_animation.py
-firmware/nrf52840-dk-lab-peripheral/src/main.c
+firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c
 firmware/esp32-dualeye/src/boot_animation.cpp
 firmware/esp32-dualeye/src/menu_theme.cpp
 scripts/check_repo_readiness.py
 scripts/run_killerkoala_voice.py
-scripts/build_nrf52840_dk_lab.sh
 scripts/build_nrf52840_dongle_lab.sh
 scripts/flash_nrf52840_dongle_lab_dfu.sh
 scripts/build_firmware_all.sh
@@ -182,9 +169,8 @@ scripts/run_boot_splash.py
 python3 scripts/check_repo_readiness.py
 bash scripts/flash_esp32.sh
 bash scripts/install_pi.sh
-bash scripts/build_nrf52840_dk_lab.sh
 bash scripts/build_nrf52840_dongle_lab.sh
-bash scripts/flash_nrf52840_dk_lab.sh
+bash scripts/flash_nrf52840_dongle_lab_dfu.sh
 ```
 
 ## Main Pi commands
