@@ -1,0 +1,29 @@
+Category,Required,Qty,Component,Model_or_Spec,Function,Est_Unit_Low_USD,Est_Unit_High_USD,Est_Ext_Low_USD,Est_Ext_High_USD,Notes
+Core compute,Required,1,Raspberry Pi 3 Model B+,RPI3-MODBP / Pi 3B+,Main Linux companion computer; onboard Bluetooth/BLE used for eucalyptus/Koala Kapture/Urban Poaching,35,60,35,60,nRF52840 removed from RevA11; Pi onboard BLE is the required Bluetooth interface.
+Storage,Required,1,microSD card,"128GB UHS-I A1/A2, name-brand","OS, logs, captures, replay datasets, reports",10,20,10,20,Use reliable card; 64GB minimum acceptable.
+Display / face,Required,1,ESP32-S3 DualEye LCD module,ESP32-S3-DualEye-LCD-1.28,"Koala eye displays, face animations, wake/display microcontroller path",22,40,22,40,This is the only display module in RevA11; generic LCD removed.
+Audio,Required,1,Mini speaker,"8 ohm, 3W, 36-40 mm",KillerKoala voice/status sounds,4,10,4,10,Match case grill diameter.
+Audio,Required,1,I2S class-D amplifier,MAX98357A breakout or equivalent,Drives speaker from Pi/ESP audio path,5,12,5,12,Use short speaker wiring and strain relief.
+Audio,Optional,1,USB microphone,Compact USB mic module,Fallback wake-word microphone if ESP32 mic path is not used,6,15,6,15,Optional; ESP32-S3 module mic is preferred where available.
+Controls,Required,6,Tactile push buttons,"6 x 6 mm momentary, Adafruit PID 367 or equivalent",Front-panel six-button menu navigation,0.13,0.5,0.78,3.0,"Button 1 menu, 2 back/left, 3 select/hold shutdown, 4 right/forward, 5 up, 6 down."
+Controls,Required,1,Power switch,Panel mount SPST/SPDT slide or rocker,Main power disconnect,2,8,2,8,Mount in case wall with clear ON/OFF position.
+Touch input,Optional,1,USB HID capacitive touch input layer,"Compatible USB touch overlay/controller, no LCD",Enables touch scrolling and long-press select without adding generic LCD,10,25,10,25,Optional. RevA11 removes generic LCD; software touch support remains available for compatible touch input hardware.
+Power,Required,1,USB-C PD trigger board,"HUSB238, ZY12PDN, or fixed 9V/12V PD trigger",Negotiates higher-voltage input for 5V buck rail,5,15,5,15,Set to 9V/12V before feeding buck converter.
+Power,Required,1,5V buck converter,"5V 5A step-down regulator, Pololu D24V50F5 or equivalent","Stable 5V rail for Pi, ESP32, audio, USB hub",10,25,10,25,Do not feed 5V into a step-down regulator expecting headroom.
+Power,Required,1,5V rail fuse,3A-5A inline fuse or polyfuse,Over-current protection,1,5,1,5,Place near 5V output distribution.
+Power,Required,1,Bulk capacitor,"470uF-1000uF, >=10V electrolytic",Reduces 5V rail dips,1,4,1,4,Place near Pi/USB distribution.
+Power,Required,1,Portable USB-C power bank,"20,000mAh PD-capable, 30W+ recommended",Battery supply,30,70,30,70,Must support requested PD voltage/current.
+USB / wiring,Required,1,Short USB hub,Compact USB 2.0/3.0 hub,Internal expansion for mic/touch/adapter if needed,8,20,8,20,Use powered hub if peripherals are unstable.
+USB / wiring,Required,1,USB-A to micro-USB cable,Short 5V power/data cable,Pi power input or internal power route,3,8,3,8,Use high-current cable.
+USB / wiring,Required,1,USB-A to USB-C cable,Short cable,ESP32-S3 connection/power,3,8,3,8,Keep serviceable for flashing.
+USB / wiring,Required,1,Dupont/JST wire kit,22-28 AWG stranded hookup wires,"Buttons, power switch, internal wiring",8,18,8,18,Use color-coded wiring harness.
+USB / wiring,Required,1,JST connector assortment,JST-XH/PH or similar,Serviceable internal connections,5,12,5,12,Label harnesses.
+Thermal,Required,1,Raspberry Pi heatsink set,Pi 3B+ aluminum/copper heatsinks,Thermal stability,3,8,3,8,Use case vents.
+Thermal,Optional,1,Micro blower/fan,5V low-profile fan,Extra cooling in sealed builds,4,12,4,12,Optional; include vent path if used.
+Mechanical,Required,1,3D printed enclosure set,"PETG/ABS: body, lid, koala ears, front panel, speaker grill",Printable case with front buttons and top antenna cutouts/plugs,15,45,15,45,No generic LCD opening in RevA11; include eye module mounts.
+Mechanical,Required,1,M2.5 standoff/fastener kit,M2.5 nylon/brass,Mount Pi and small boards,6,12,6,12,Use threadlocker only where appropriate.
+Mechanical,Required,1,M3 screw kit,M3 screws/inserts,Case assembly,5,12,5,12,Heat-set inserts recommended for serviceability.
+Mechanical,Required,1,Heat-shrink tubing kit,Assorted diameters,Wire insulation/strain relief,5,12,5,12,Protect soldered joints.
+Mechanical,Required,1,Adhesive mounting tape,3M VHB or foam tape,Mount light components and cable guides,4,10,4,10,Do not rely on tape for heavy boards.
+Antenna ports,Optional,2,SMA/RP-SMA blanking cap or printed plug,Fits top antenna cutouts,Closes unused top antenna cutouts in no-nRF RevA11 build,1,4,2,8,Required only if case includes antenna holes and no antenna hardware is installed.
+Labels,Optional,1,Wire labels / printed labels,Heat-shrink labels or sticker set,Assembly traceability,2,8,2,8,Recommended for production-ready wiring.
