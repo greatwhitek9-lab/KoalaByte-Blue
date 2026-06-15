@@ -1,8 +1,10 @@
-# RevA9 Ear Tag Lab Beacon Skill
+# RevA15 Ear Tag / Ear Tag TX Lab Beacon Skill
 
 ## Purpose
 
-RevA9 renames the safe lab BLE beacon skill to **Ear Tag**. It is designed for owned-device testing and advertises a clearly labeled lab BLE name that KoalaByte Blue can detect, log, and report during authorized lab work.
+The safe lab BLE beacon skill is named **Ear Tag**. It is designed for owned-device testing and advertises a clearly labeled lab BLE name that KoalaByte Blue can detect, log, and report during authorized lab work.
+
+RevA15 adds **Ear Tag TX Lab**, a synthetic owned-device advertisement pattern for signal-integrity observation. It does not replay captured packets or captured identifiers.
 
 This is useful for:
 
@@ -10,20 +12,31 @@ This is useful for:
 - Testing local mobile BLE scanner apps.
 - Validating reports and lab workflows.
 - Demonstrating how named BLE advertisements appear in the KoalaByte Blue UI.
+- Observing synthetic sequence counters and RSSI trends in an owned lab setting.
 
 ## Behavior
 
-The **Ear Tag** lab beacon advertises a configurable name such as:
+The current lab firmware advertises as:
 
 ```text
-EarTag-Lab
+EarTag-TX-Lab
 ```
 
-The name can be changed at build time. Use a name that clearly identifies the device as your own lab beacon.
+It includes a synthetic 128-bit service-data field containing:
+
+```text
+KBTX magic bytes
+format version
+static pattern bytes
+sequence counter
+simple XOR check byte
+```
+
+The sequence counter updates every 5 seconds. Use a name that clearly identifies the device as your own lab beacon.
 
 ## Safety boundary
 
-This skill is limited to clearly labeled lab-device advertising and a read-only status characteristic.
+This skill is limited to clearly labeled lab-device advertising, synthetic service data, and a read-only status characteristic.
 
 ## Configure the lab beacon name
 
@@ -36,19 +49,25 @@ firmware/nrf52840-dk-lab-peripheral/prj.conf
 Set:
 
 ```text
-CONFIG_BT_DEVICE_NAME="EarTag-Lab"
+CONFIG_BT_DEVICE_NAME="EarTag-TX-Lab"
 ```
 
 Or use the helper:
 
 ```bash
-python3 scripts/set_lab_ble_name.py EarTag-Lab
+python3 scripts/set_lab_ble_name.py EarTag-TX-Lab
 ```
 
 ## Flash
 
 ```bash
 bash scripts/flash_nrf52840_dk_lab.sh
+```
+
+## Generate a Pi-side Ear Tag TX Lab plan
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_ear_tag_tx_lab.py
 ```
 
 ## Test
