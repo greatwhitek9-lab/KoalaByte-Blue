@@ -1,10 +1,43 @@
-# KoalaByte Blue / killerkoala AI Companion Firmware RevA21 + RevA23 InnoMaker CAN Update
+# KoalaByte Blue / killerkoala AI Companion Firmware RevA23
 
 ESP32-S3 DualEye firmware, Raspberry Pi companion software, and nRF Connect SDK / Zephyr firmware for the Nordic nRF52840 Dongle/PCA10059 production target.
 
-RevA21 keeps the build **dongle-only**, adds **Koala Mode Switcher**, keeps **KoalaByte Lab** as the default dongle firmware profile, preserves **Koala Konnect** as the optional USB HCI adapter profile, and updates the power path to the **Seloky USB-C PD/QC 12 V trigger board**.
+RevA23 keeps the build **dongle-only**, keeps **KoalaByte Lab** as the default nRF52840 Dongle firmware profile, preserves **Koala Konnect** as the optional USB HCI adapter profile, keeps the **Seloky USB-C PD/QC 12 V trigger board** power path, and adds the **InnoMaker USB to CAN Converter kit** for the optional Koala Kan Kommander path.
 
-RevA23 adds the user-specified **InnoMaker USB to CAN Converter kit** for the optional **Koala Kan Kommander** path. This replaces the earlier generic/circular CAN panel-port visual with an internal or side/rear service-bay adapter mount.
+## Fast flash path
+
+Run the repo readiness check:
+
+```bash
+python3 scripts/check_repo_readiness.py
+```
+
+Flash/install the default component set:
+
+```bash
+bash scripts/flash_all_components.sh --all
+```
+
+Common variants:
+
+```bash
+# Pi companion only
+bash scripts/flash_all_components.sh --pi
+
+# ESP32 only, with explicit upload port and no serial monitor
+NO_MONITOR=1 ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
+
+# nRF52840 Dongle KoalaByte Lab only
+NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
+
+# Build/package without uploading firmware
+bash scripts/flash_all_components.sh --all --build-only
+
+# Safe local smoke checks after selected actions
+bash scripts/flash_all_components.sh --all --smoke
+```
+
+The nRF52840 Dongle can run **KoalaByte Lab** or **Koala Konnect**, not both at once. If `NRF_DFU_PORT` is not set, the nRF helper creates the DFU ZIP but does not flash.
 
 ## Hardware profile
 
@@ -63,21 +96,6 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py status --inte
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py listen --interface can0 --duration 10
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py report --interface can0
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit-placeholder
-```
-
-## Ready-to-flash check
-
-Run the consolidated readiness check before flashing:
-
-```bash
-python3 scripts/check_repo_readiness.py
-```
-
-Expected result:
-
-```text
-KoalaByte Blue repo readiness check passed.
-Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, and Pi companion.
 ```
 
 ## RevA18 Outback BlueZ Module Deck
@@ -159,6 +177,7 @@ Dongle DFU package/flash helper:
 
 ```bash
 bash scripts/flash_nrf52840_dongle_lab_dfu.sh
+NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_nrf52840_dongle_lab_dfu.sh
 ```
 
 See [`docs/NRF52840_DONGLE_FLASHING.md`](docs/NRF52840_DONGLE_FLASHING.md).
@@ -167,6 +186,7 @@ See [`docs/NRF52840_DONGLE_FLASHING.md`](docs/NRF52840_DONGLE_FLASHING.md).
 
 ```bash
 bash scripts/flash_esp32.sh
+NO_MONITOR=1 ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_esp32.sh
 ```
 
 The ESP32 side retains the KoalaByte Blue animated boot splash and menu theme.
@@ -178,6 +198,7 @@ bash scripts/install_pi.sh
 PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
 PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status --xp 100
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
 ```
 
 ## Core paths
@@ -192,6 +213,7 @@ pi-companion/config.default.json
 firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c
 firmware/esp32-dualeye/src/main.cpp
 scripts/check_repo_readiness.py
+scripts/flash_all_components.sh
 scripts/run_koala_bluez.py
 scripts/run_koala_mode_switcher.py
 scripts/run_koala_kan_kommander.py
