@@ -51,6 +51,12 @@ Install desktop autostart on the Pi:
 bash scripts/install_boot_splash_autostart.sh
 ```
 
+Validate boot-animation firmware wiring:
+
+```bash
+python3 scripts/check_boot_animation_config.py
+```
+
 See [`docs/BOOT_ANIMATION_REVA13.md`](docs/BOOT_ANIMATION_REVA13.md).
 
 ## RevA8 eucalyptus always-on BLE scanner/logger
@@ -132,6 +138,12 @@ Quick ESP32 flash:
 bash scripts/flash_esp32.sh
 ```
 
+Quick Pi companion install:
+
+```bash
+bash scripts/install_pi.sh
+```
+
 The optional nRF52840 DK lab peripheral firmware is an nRF Connect SDK / Zephyr project at:
 
 ```text
@@ -149,6 +161,7 @@ bash scripts/flash_nrf52840_dk_lab.sh
 - ESP32-S3 DualEye firmware scaffold with USB serial JSON protocol.
 - RevA13 procedural ESP32 boot animation launched during firmware `setup()`.
 - RevA13 Pi companion fullscreen boot splash runner and desktop autostart installer.
+- RevA13 Pi companion installer and boot-animation configuration validation script.
 - Mic wake path enabled by default with wake word **killerkoala**.
 - Raspberry Pi companion dependency/config files.
 - `eucalyptus` always-on passive BLE capture configuration under `/blecaptures/`.
@@ -157,7 +170,7 @@ bash scripts/flash_nrf52840_dk_lab.sh
 - Shared full-function menu catalog for GPIO buttons, touch scrolling, and long-press selection.
 - Production BOM and safety-test CSV files.
 - Optional nRF52840 DK safe lab-peripheral firmware.
-- Flashing guides and production-file manifests.
+- Flashing guides, production-file manifests, and CI checks.
 
 ## Production package
 
@@ -176,12 +189,21 @@ Latest hardware/software additions:
 - `docs/EUCALYPTUS_ALWAYS_ON_BLE_REVA8.md`
 - `docs/MENU_SELECTION_REVA12.md`
 - `docs/BOOT_ANIMATION_REVA13.md`
+- `docs/FLASHING.md`
+- `docs/PRODUCTION_FILES.md`
 - `pi-companion/koalablue/menu_catalog.py`
 - `pi-companion/koalablue/boot_animation.py`
 - `firmware/esp32-dualeye/src/boot_animation.cpp`
+- `firmware/esp32-dualeye/include/boot_animation.h`
+- `firmware/esp32-dualeye/include/config.h`
+- `firmware/esp32-dualeye/platformio.ini`
+- `scripts/flash_esp32.sh`
+- `scripts/install_pi.sh`
 - `scripts/run_boot_splash.py`
 - `scripts/install_boot_splash_autostart.sh`
+- `scripts/check_boot_animation_config.py`
 - `scripts/set_lab_ble_name.py`
+- `.github/workflows/koalabyte-blue-ci.yml`
 - `production/RevA1-nrf52840-dongle/BOM_RevA5_Dongle_DK_Buttons.csv`
 - `production/RevA1-nrf52840-dongle/ASSEMBLY_AND_FLASHING_INSTRUCTIONS_RevA5_BUTTONS.md`
 
@@ -255,6 +277,15 @@ git clone https://github.com/greatwhitek9-lab/KoalaByte-Blue.git
 cd KoalaByte-Blue
 python3 -m pip install --user platformio
 bash scripts/flash_esp32.sh
+```
+
+## First Pi companion install
+
+```bash
+git clone https://github.com/greatwhitek9-lab/KoalaByte-Blue.git
+cd KoalaByte-Blue
+bash scripts/install_pi.sh
+PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
 ```
 
 ## First nRF52840 DK flash
