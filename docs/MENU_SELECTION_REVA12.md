@@ -74,7 +74,7 @@ Default menu entries:
 The `KillerKoala Voice` entry points to:
 
 ```text
-pi-companion/koalblue/killerkoala_vocabulary.py
+pi-companion/koalablue/killerkoala_vocabulary.py
 scripts/run_killerkoala_voice.py
 ```
 
