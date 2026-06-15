@@ -6,7 +6,7 @@
 
 In this mode, the Nordic nRF52840 USB Dongle is flashed as a USB HCI Bluetooth controller so a phone or computer can use it as an external Bluetooth adapter when the host operating system supports USB Bluetooth HCI devices.
 
-This is an alternate dongle firmware profile. It does not replace the default KoalaByte Blue Ear Tag TX Lab firmware.
+This is an alternate dongle firmware profile. It does not replace the default KoalaByte Blue KoalaByte Lab firmware.
 
 ## Hardware target
 
@@ -19,10 +19,10 @@ Board: nrf52840dongle_nrf52840
 
 | Mode | Firmware path/source | Purpose |
 |---|---|---|
-| Ear Tag TX Lab | `firmware/nrf52840-dongle-ear-tag-tx-lab/` | Synthetic owned-device BLE advertisement for KoalaByte Blue lab testing |
+| KoalaByte Lab | `firmware/nrf52840-dongle-ear-tag-tx-lab/` | Synthetic owned-device BLE advertisement for KoalaByte Blue lab testing |
 | Koala Konnect | Zephyr `samples/bluetooth/hci_usb` | USB HCI Bluetooth adapter mode for a phone or computer host |
 
-Only one firmware mode can be flashed to the dongle at a time. Reflash the dongle to switch modes.
+Only one firmware mode can be flashed to the dongle at a time. Use Koala Mode Switcher to select the mode through the dongle DFU flow.
 
 ## Build Koala Konnect
 
@@ -50,7 +50,7 @@ The script creates:
 build/nrf52840-dongle-koala-konnect/koala-konnect-nrf52840-dongle-dfu.zip
 ```
 
-## Flash Koala Konnect
+## Flash Koala Konnect directly
 
 Put the nRF52840 Dongle into bootloader mode, identify the DFU serial port, then run:
 
@@ -59,6 +59,18 @@ NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_nrf52840_dongle_koala_konnect_dfu.s
 ```
 
 Adjust the port for your OS.
+
+## Select Koala Konnect with Koala Mode Switcher
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py switch koala_konnect --dfu-port /dev/ttyACM0
+```
+
+Koala Mode Switcher stores the selected mode in:
+
+```text
+logs/dongle_mode_state.json
+```
 
 ## Use with Linux / Raspberry Pi / desktop computer
 
@@ -92,19 +104,25 @@ General requirements:
 
 Android compatibility varies by device and ROM. Stock phones may ignore external Bluetooth HCI adapters even when USB OTG works. Rooted or specialist builds are more likely to expose the adapter to the Bluetooth stack.
 
-## Return to Ear Tag TX Lab mode
+## Return to KoalaByte Lab mode
 
-To return the dongle to the default KoalaByte Blue lab beacon mode:
+To return the dongle to the default KoalaByte Blue lab beacon mode through Koala Mode Switcher:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py switch koalabyte_lab --dfu-port /dev/ttyACM0
+```
+
+Direct fallback:
 
 ```bash
 bash scripts/build_nrf52840_dongle_lab.sh
 NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_nrf52840_dongle_lab_dfu.sh
 ```
 
-Expected default advertisement after returning to Ear Tag TX Lab:
+Expected default advertisement after returning to KoalaByte Lab:
 
 ```text
-EarTag-TX-Lab
+KoalaByte Lab
 ```
 
 ## Safety and scope
