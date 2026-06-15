@@ -22,8 +22,8 @@ jobs:
       - name: Install PlatformIO
         run: python -m pip install --upgrade pip platformio
 
-      - name: Validate RevA16 wiring
-        run: python scripts/check_boot_animation_config.py
+      - name: Run repo readiness check
+        run: python scripts/check_repo_readiness.py
 
       - name: Build ESP32 firmware
         run: pio run -d firmware/esp32-dualeye
@@ -40,8 +40,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Validate RevA16 wiring
-        run: python scripts/check_boot_animation_config.py
+      - name: Run repo readiness check
+        run: python scripts/check_repo_readiness.py
 
       - name: Confirm nRF Zephyr app files
         run: |
@@ -72,5 +72,5 @@ jobs:
       - name: Compile Python modules and scripts
         run: python -m compileall pi-companion scripts
 
-      - name: Validate RevA16 wiring
-        run: python scripts/check_boot_animation_config.py
+      - name: Run repo readiness check
+        run: python scripts/check_repo_readiness.py
