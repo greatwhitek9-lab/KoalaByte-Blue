@@ -1,6 +1,6 @@
 # KoalaByte Blue / killerkoala AI Companion Firmware RevA15
 
-ESP32-S3 DualEye firmware, Raspberry Pi companion software, optional Nordic nRF52840 DK lab firmware, RevA6 six-button front-panel GPIO support, RevA8 **eucalyptus** passive BLE scanner/logger naming, RevA9 **Ear Tag** lab beacon naming, RevA13 animated boot splash support, RevA14 jungle/eucalyptus menu styling, and RevA15 Koala Kry safe review handling for the **KoalaByte Blue Pi3B+ stacked research device**.
+ESP32-S3 DualEye firmware, Raspberry Pi companion software, optional Nordic nRF52840 DK lab firmware, RevA6 six-button front-panel GPIO support, RevA8 **eucalyptus** passive BLE scanner/logger naming, RevA9 **Ear Tag** lab beacon naming, RevA13 animated boot splash support, RevA14 jungle/eucalyptus menu styling, and RevA15 Koala Kry safe review plus **Ear Tag TX Lab** synthetic BLE advertisement support for the **KoalaByte Blue Pi3B+ stacked research device**.
 
 ## Hardware profile
 
@@ -18,9 +18,33 @@ Nordic nRF52840 DK / PCA10056
 
 Use the DK for development and validation. Keep the Dongle in the final compact physical build.
 
+## RevA15 Ear Tag TX Lab
+
+Ear Tag TX Lab is the safe transmit-oriented lab mode. It advertises a clearly named, synthetic BLE service-data pattern from the nRF52840 DK for owned-device signal-integrity observation.
+
+It advertises as:
+
+```text
+EarTag-TX-Lab
+```
+
+Build and flash:
+
+```bash
+bash scripts/flash_nrf52840_dk_lab.sh
+```
+
+Generate the Pi-side plan artifact:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_ear_tag_tx_lab.py
+```
+
+See [`docs/EAR_TAG_TX_LAB_REVA15.md`](docs/EAR_TAG_TX_LAB_REVA15.md).
+
 ## RevA15 Koala Kry review boundary
 
-Koala Kry remains an offline captured-metadata replay simulator. It now includes a safe review-manifest path for lab requests that need documentation before any separate owned-device radio work.
+Koala Kry remains an offline captured-metadata replay simulator. It includes a safe review-manifest path for lab requests that need documentation before separate owned-device radio work.
 
 Review command:
 
@@ -34,7 +58,7 @@ That command writes:
 logs/koala_kry_replay/koala_kry_transmit_review_YYYYMMDD_HHMMSS.json
 ```
 
-The manifest keeps Koala Kry offline and points toward safe alternatives such as Ear Tag, vendor SDK examples, and fresh clearly named owned-device lab advertisements.
+The manifest keeps Koala Kry offline and points toward safe alternatives such as Ear Tag TX Lab and fresh clearly named owned-device lab advertisements.
 
 See [`docs/KOALA_KRY_REVA12.md`](docs/KOALA_KRY_REVA12.md).
 
@@ -66,12 +90,15 @@ See [`docs/BOOT_ANIMATION_REVA13.md`](docs/BOOT_ANIMATION_REVA13.md).
 
 ```text
 pi-companion/koalablue/koala_kry.py
-pi-companion/koalblue/menu_catalog.py
+pi-companion/koalablue/ear_tag_tx_lab.py
+pi-companion/koalablue/menu_catalog.py
 pi-companion/koalablue/menu_theme.py
 pi-companion/koalablue/boot_animation.py
+firmware/nrf52840-dk-lab-peripheral/src/main.c
 firmware/esp32-dualeye/src/boot_animation.cpp
 firmware/esp32-dualeye/src/menu_theme.cpp
 scripts/run_koala_kry.py
+scripts/run_ear_tag_tx_lab.py
 scripts/run_menu_screen.py
 scripts/run_boot_splash.py
 scripts/check_boot_animation_config.py
@@ -100,6 +127,7 @@ koala_kapture                Capture and archive BLE advertisement metadata
 koala_kry                    Replay captured metadata offline into the report/XP pipeline
 koala_kry_transmit_review    Write safe review manifest; no radio output
 ear_tag                      Safe named lab BLE beacon skill
+ear_tag_tx_lab               Synthetic owned-device BLE advertisement plan and firmware path
 urban_poaching               Authorized BLE RSSI lab game
 buttons                      Show/check GPIO front-panel button status
 level/status                 Show XP and rank
@@ -108,7 +136,7 @@ wake killerkoala             Test wake-word flow
 authorized_ble_inventory     Generate authorized BLE inventory artifact
 gatt_readiness_checklist     Generate owned-device GATT readiness checklist
 pairing_security_review      Generate pairing/access-control review notes
-lab_beacon_plan              Generate safe lab beacon/peripheral testing plan
+lab_beacon_plan              Generate safe BLE beacon/peripheral testing plan
 packet_capture_notes         Generate protocol-analysis notes for owned/lab traffic
 defensive_report             Generate defensive lab report template
 lab                          Password-gated Authorized Lab Use menu
@@ -132,4 +160,4 @@ Touch long press = select
 
 ## Safety boundary
 
-This package is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, and safe lab validation only. Koala Kry stays offline; use owned-device synthetic lab payloads for any separate radio-learning work.
+This package is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, and safe lab validation only. Koala Kry stays offline; Ear Tag TX Lab uses owned-device synthetic lab payloads.
