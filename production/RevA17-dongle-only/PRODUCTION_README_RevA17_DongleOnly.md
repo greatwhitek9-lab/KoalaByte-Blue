@@ -125,13 +125,30 @@ Expected output:
 
 ```text
 KoalaByte Blue repo readiness check passed.
-Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, and Pi companion.
+Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, and Koala Kan Kommander InnoMaker CAN support.
+```
+
+Primary all-component helper:
+
+```bash
+bash scripts/flash_all_components.sh --all
+```
+
+Useful alternatives:
+
+```bash
+bash scripts/flash_all_components.sh --pi
+NO_MONITOR=1 ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
+NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
+bash scripts/flash_all_components.sh --all --build-only
+bash scripts/flash_all_components.sh --all --smoke
 ```
 
 ## ESP32-S3 DualEye flashing
 
 ```bash
 bash scripts/flash_esp32.sh
+NO_MONITOR=1 ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_esp32.sh
 ```
 
 Expected behavior:
@@ -269,6 +286,7 @@ python3 scripts/test_gpio_buttons.py
 ## Validation checklist
 
 - [ ] `python3 scripts/check_repo_readiness.py` passes.
+- [ ] `bash scripts/flash_all_components.sh --check-only` passes.
 - [ ] `python -m compileall pi-companion scripts` passes.
 - [ ] Seloky trigger board output measures about 12 V before the buck converter.
 - [ ] 5 V rail measures 4.9 V to 5.1 V under normal load.
