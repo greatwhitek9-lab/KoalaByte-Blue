@@ -13,5 +13,24 @@
   "fixed_latitude": null,
   "fixed_longitude": null,
   "fixed_altitude_meters": null,
-  "fixed_accuracy_meters": 25.0
+  "fixed_accuracy_meters": 25.0,
+  "front_panel_buttons": {
+    "enabled": true,
+    "button_model": "Adafruit Tactile Button switch (6mm) x 20 pack, Product ID 367",
+    "wiring": "Each normally-open button shorts the assigned BCM GPIO to GND. Internal pull-up enabled in software.",
+    "pins_bcm": {
+      "back": 5,
+      "select": 6,
+      "next": 13,
+      "menu": 19
+    },
+    "physical_pins": {
+      "back": 29,
+      "select": 31,
+      "next": 33,
+      "menu": 35,
+      "ground_bus": "Pin 39 or any Pi GND"
+    },
+    "debounce_seconds": 0.05
+  }
 }
