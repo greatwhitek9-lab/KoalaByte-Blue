@@ -10,7 +10,7 @@ Retained BLE hardware:
 Nordic nRF52840 USB Dongle / PCA10059 / NRF52840-DONGLE
 ```
 
-The build is **dongle-only** and **no-custom-PCB**. It uses off-the-shelf modules, short USB/JST wiring, M2.5 standoffs, a protected 2S 18650 power layer, and optional 3D printed enclosure parts.
+The build is **dongle-only** and **no-custom-PCB**. It uses off-the-shelf modules, short USB/JST wiring, M2.5 standoffs, a protected 2S 18650 power layer, the Seloky USB-C PD/QC 12 V trigger board, a 5 V buck converter, and optional 3D printed enclosure parts.
 
 ## Architecture
 
@@ -19,7 +19,7 @@ Top antenna plate:      2x 2.4 GHz antennas
 Front/UI layer:         ESP32-S3 DualEye module, 2x round 1.28 in LCDs, mic path
 BLE layer:              Nordic nRF52840 USB Dongle / PCA10059
 Main computer layer:    Raspberry Pi 3 Model B+
-Power layer:            2x protected 18650 cells, BMS/protection, USB-C PD, 5 V 3 A buck
+Power layer:            2x protected 18650 cells, BMS/protection, Seloky USB-C PD/QC 12 V trigger, 5 V 3 A buck
 Controls:               Six-button front panel wired to Raspberry Pi GPIO
 Audio:                  8 ohm 2 W mini speaker
 Enclosure:              Optional 3D printed koala-ear case / stacked frame
@@ -33,7 +33,31 @@ Use only the current BOM:
 production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv
 ```
 
-The BOM includes the Raspberry Pi 3B+, ESP32-S3 DualEye, Nordic nRF52840 USB Dongle, six-button front panel, speaker, antennas, 2S protected 18650 power system, USB-C PD charging module, 5 V 3 A buck converter, cabling, fasteners, frame plates, and optional printed enclosure parts.
+The BOM includes the Raspberry Pi 3B+, ESP32-S3 DualEye, Nordic nRF52840 USB Dongle, six-button front panel, speaker, antennas, 2S protected 18650 power system, **Seloky USB-C PD Trigger Board Module PD/QC Decoy Fast Charge USB Type-C to 12V**, 5 V 3 A buck converter, cabling, fasteners, frame plates, and optional printed enclosure parts.
+
+## Power path
+
+The current USB-C power input part is:
+
+```text
+Seloky USB-C PD Trigger Board Module PD/QC Decoy Fast Charge USB Type-C to 12V
+```
+
+Recommended path:
+
+```text
+USB-C PD/QC charger capable of 12 V
+  -> Seloky USB-C PD/QC 12 V trigger board
+  -> 5 V 3 A buck converter
+  -> fused regulated 5 V rail
+  -> Raspberry Pi / ESP32-S3 DualEye / USB peripherals
+```
+
+Validation requirements:
+
+- Verify the Seloky trigger board outputs about 12 V with a multimeter before connecting the buck converter.
+- Do not connect the Seloky 12 V output directly to the Raspberry Pi or 5 V modules.
+- Verify the buck output is 4.9 V to 5.1 V under normal load before closing the case.
 
 ## Firmware and software paths
 
@@ -121,12 +145,6 @@ Flash after placing the Dongle in bootloader mode and identifying the DFU serial
 
 ```bash
 NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_nrf52840_dongle_lab_dfu.sh
-```
-
-Adjust the DFU serial port for your OS. The dongle workflow is documented in:
-
-```text
-docs/NRF52840_DONGLE_FLASHING.md
 ```
 
 Expected BLE advertisement name after the default lab firmware is flashed:
@@ -220,15 +238,15 @@ python3 scripts/test_gpio_buttons.py
 
 - [ ] `python3 scripts/check_repo_readiness.py` passes.
 - [ ] `python -m compileall pi-companion scripts` passes.
+- [ ] Seloky trigger board output measures about 12 V before the buck converter.
+- [ ] 5 V rail measures 4.9 V to 5.1 V under normal load.
 - [ ] ESP32 firmware builds with PlatformIO.
 - [ ] nRF52840 Dongle KoalaByte Lab firmware builds with nRF Connect SDK / Zephyr.
 - [ ] Optional Koala Konnect firmware builds when `BUILD_KOALA_KONNECT=1` or `scripts/build_koala_konnect.sh` is used.
 - [ ] Koala Mode Switcher `status` command writes `logs/dongle_mode_state.json`.
 - [ ] Koala Mode Switcher `prepare-all` creates both expected DFU ZIPs.
-- [ ] Dongle DFU package is generated.
 - [ ] Raspberry Pi companion installs with `scripts/install_pi.sh`.
 - [ ] Pi boots without undervoltage warning.
-- [ ] 5 V rail measures 4.9 V to 5.1 V under normal load.
 - [ ] nRF52840 Dongle enumerates over USB.
 - [ ] ESP32 DualEye boot animation and serial JSON are visible.
 - [ ] Koala BlueZ inventory/status commands run.
@@ -240,4 +258,4 @@ python3 scripts/test_gpio_buttons.py
 
 ## Safety boundary
 
-KoalaByte Blue is for lawful educational research, defensive testing, owned-device lab work, and authorized Bluetooth assessment only. Passive capture, local logging, synthetic owned-device lab advertising, Koala Mode Switcher DFU use, and Koala Konnect host-adapter use must remain scoped to environments where you have permission.
+KoalaByte Blue is for lawful educational research, defensive testing, owned-device lab work, and authorized Bluetooth assessment only. Passive capture, local logging, synthetic owned-device lab advertising, Koala Mode Switcher DFU use, Koala Konnect host-adapter use, and all Bluetooth activity must remain scoped to environments where you have permission.
