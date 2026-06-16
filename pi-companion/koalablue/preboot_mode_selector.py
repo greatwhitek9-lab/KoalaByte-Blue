@@ -10,7 +10,17 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
 
-from .koala_mode_switcher import DEFAULT_ACTIVE_MODE, DEFAULT_EVENT_LOG, DEFAULT_STATE_PATH, MODES, apply_mode, load_state, resolve_mode
+from .koala_mode_switcher import (
+    DEFAULT_ACTIVE_MODE,
+    DEFAULT_CACHE_PATH,
+    DEFAULT_EVENT_LOG,
+    DEFAULT_STATE_PATH,
+    MODES,
+    apply_mode,
+    cache_payload,
+    load_state,
+    resolve_mode,
+)
 
 DEFAULT_PREBOOT_STATE_PATH = Path("logs/preboot_mode_selection.json")
 DEFAULT_TIMEOUT_SECONDS = 8.0
@@ -108,13 +118,23 @@ def _prompt_line(timeout_seconds: float) -> Optional[str]:
     return sys.stdin.readline().strip()
 
 
-def render_prompt(default_mode: str, timeout_seconds: float) -> str:
+def _cache_label(mode_key: str, firmware_cache: Dict[str, Any]) -> str:
+    mode_status = firmware_cache.get("modes", {}).get(mode_key, {})
+    return "READY" if mode_status.get("flash_ready_from_cache") else "MISSING"
+
+
+def render_prompt(default_mode: str, timeout_seconds: float, firmware_cache: Optional[Dict[str, Any]] = None) -> str:
     default_choice = PREBOOT_CHOICES[default_mode]
+    cache = firmware_cache or cache_payload()
     lines = [
         "",
         "KoalaByte Blue Pre-Boot Dongle Mode Selector",
         "================================================",
         "Choose the nRF52840 Dongle profile before the normal KoalaByte Blue boot/menu flow.",
+        "",
+        "Firmware cache on this Raspberry Pi:",
+        f"   KoalaByte Blue Lab Mode: {_cache_label('koalabyte_lab', cache)}",
+        f"   Koala Konnect Mode:      {_cache_label('koala_konnect', cache)}",
         "",
         f"1) {PREBOOT_CHOICES['koalabyte_lab'].title}",
         f"   {PREBOOT_CHOICES['koalabyte_lab'].description}",
@@ -136,6 +156,7 @@ def select_mode(
     state_path: Path = DEFAULT_STATE_PATH,
     preboot_state_path: Path = DEFAULT_PREBOOT_STATE_PATH,
     event_log: Path = DEFAULT_EVENT_LOG,
+    cache_path: Path = DEFAULT_CACHE_PATH,
     dfu_port: str = "",
     force_flash: bool = False,
     no_apply: bool = False,
@@ -146,6 +167,7 @@ def select_mode(
     current_key = str(state_before.get("active_mode", DEFAULT_ACTIVE_MODE))
     if current_key not in PREBOOT_CHOICES:
         current_key = DEFAULT_ACTIVE_MODE
+    firmware_cache = cache_payload(cache_path=cache_path, state_path=state_path)
 
     if mode:
         selected_key = _resolve_selection(mode, default_key)
@@ -154,13 +176,15 @@ def select_mode(
         selected_key = default_key
         selection_source = "noninteractive_default"
     else:
-        sys.stdout.write(render_prompt(default_key, timeout_seconds))
+        sys.stdout.write(render_prompt(default_key, timeout_seconds, firmware_cache))
         sys.stdout.flush()
         raw = _prompt_line(timeout_seconds)
         selected_key = _resolve_selection(raw or "", default_key)
         selection_source = "timeout_default" if raw == "" else "interactive"
 
     selected_choice = PREBOOT_CHOICES[selected_key]
+    selected_cache_ready = bool(firmware_cache.get("modes", {}).get(selected_key, {}).get("flash_ready_from_cache"))
+    cache_next_step = "Firmware cache is ready for the selected mode." if selected_cache_ready else "Run: PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py prepare-cache"
     base_payload: Dict[str, Any] = {
         "action": "preboot-dongle-mode-select",
         "selected_mode": selected_key,
@@ -173,10 +197,14 @@ def select_mode(
         "dfu_port": dfu_port,
         "force_flash": force_flash,
         "no_apply": no_apply,
+        "firmware_cache": firmware_cache,
+        "selected_cache_ready": selected_cache_ready,
+        "cache_next_step": cache_next_step,
         "updated_at": time.time(),
         "preboot_state_path": str(preboot_state_path),
         "mode_switcher_state_path": str(state_path),
         "event_log": str(event_log),
+        "cache_path": str(cache_path),
         "boot_flow_note": "Run this selector before the KoalaByte Blue boot splash/menu process.",
         "safety": {
             "single_dongle_profile_installed_at_a_time": True,
@@ -203,20 +231,20 @@ def select_mode(
             "status": "selected_not_applied",
             "mode_switch_status": "dfu_not_run",
             "message": f"{selected_choice.title} was selected, but the nRF52840 Dongle was not flashed because no DFU port was provided.",
-            "next_step": f"Put the dongle in DFU bootloader mode and run: NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode {selected_key}",
+            "next_step": f"{cache_next_step} Then put the dongle in DFU bootloader mode and run: NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode {selected_key}",
         }
         _write_preboot_state(result, preboot_state_path)
         _append_preboot_event(result, event_log)
         return result
 
-    switch_result = apply_mode(selected_key, dfu_port.strip(), state_path, event_log)
+    switch_result = apply_mode(selected_key, dfu_port.strip(), state_path, event_log, cache_path)
     status = "success" if switch_result.get("status") == "success" else "error"
     result = {
         **base_payload,
         "status": status,
         "mode_switch_status": switch_result.get("status"),
         "message": switch_result.get("message", f"{selected_choice.title} switch attempted."),
-        "next_step": "Continue to KoalaByte Blue boot splash and main menu." if status == "success" else "Check DFU port, dongle bootloader state, and mode package logs before continuing.",
+        "next_step": "Continue to KoalaByte Blue boot splash and main menu." if status == "success" else "Check DFU port, dongle bootloader state, firmware cache, and mode package logs before continuing.",
         "switch_result": switch_result,
     }
     _write_preboot_state(result, preboot_state_path)
@@ -233,6 +261,7 @@ def run_cli(argv: Optional[Iterable[str]] = None) -> int:
     parser.add_argument("--state-path", default=str(DEFAULT_STATE_PATH), help="Koala Mode Switcher state JSON path")
     parser.add_argument("--preboot-state-path", default=str(DEFAULT_PREBOOT_STATE_PATH), help="Pre-boot selection state JSON path")
     parser.add_argument("--event-log", default=str(DEFAULT_EVENT_LOG), help="Mode/preboot event log path")
+    parser.add_argument("--cache-path", default=str(DEFAULT_CACHE_PATH), help="Offline firmware cache status JSON path")
     parser.add_argument("--force-flash", action="store_true", help="Flash selected mode even if it already appears active")
     parser.add_argument("--no-apply", action="store_true", help="Record selected mode but do not run DFU flash")
     parser.add_argument("--noninteractive", action="store_true", help="Do not prompt; use --mode or default")
@@ -246,6 +275,7 @@ def run_cli(argv: Optional[Iterable[str]] = None) -> int:
             state_path=Path(args.state_path),
             preboot_state_path=Path(args.preboot_state_path),
             event_log=Path(args.event_log),
+            cache_path=Path(args.cache_path),
             dfu_port=args.dfu_port,
             force_flash=args.force_flash,
             no_apply=args.no_apply,
