@@ -13,6 +13,10 @@ echo "  - KoalaByte Blue Lab Mode"
 echo "  - Koala Konnect Mode"
 echo
 
+echo "Checking first-boot WiFi/internet before SDK downloads..."
+CONNECT_WIFI_FIRST_BOOT="${CONNECT_WIFI_FIRST_BOOT:-auto}" STRICT_WIFI_FIRST_BOOT="${STRICT_WIFI_FIRST_BOOT:-0}" bash "${REPO_ROOT}/scripts/setup_wifi_first_boot.sh"
+echo
+
 echo "Checking/preparing west and nrfutil first..."
 STRICT_NRF_TOOLS="${STRICT_NRF_TOOLS:-1}" PYTHON_BIN="${PYTHON_BIN}" bash "${REPO_ROOT}/scripts/setup_nrf_tools.sh"
 echo
