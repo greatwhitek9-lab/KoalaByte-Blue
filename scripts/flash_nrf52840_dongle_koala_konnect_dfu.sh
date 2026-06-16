@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${REPO_ROOT}"
+
 BUILD_DIR="${BUILD_DIR:-build/nrf52840-dongle-koala-konnect}"
 DFU_PORT="${NRF_DFU_PORT:-}"
 PACKAGE="${PACKAGE:-${BUILD_DIR}/koala-konnect-nrf52840-dongle-dfu.zip}"
@@ -15,13 +18,7 @@ if [[ ! -f "$HEX" ]]; then
   exit 1
 fi
 
-if ! command -v nrfutil >/dev/null 2>&1; then
-  echo "nrfutil was not found." >&2
-  echo "Koala Konnect build artifact is ready at: $HEX" >&2
-  echo "Install Nordic nRF Util/nrfutil, put the dongle into bootloader mode, then package/flash via DFU." >&2
-  echo "See docs/KOALA_KONNECT_REVA20.md" >&2
-  exit 1
-fi
+STRICT_NRF_TOOLS="${STRICT_NRF_TOOLS:-1}" bash scripts/setup_nrf_tools.sh --nrfutil-only
 
 echo "Packaging Koala Konnect nRF52840 Dongle DFU zip"
 mkdir -p "$(dirname "$PACKAGE")"
