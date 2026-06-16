@@ -12,6 +12,8 @@ APT_PACKAGES=(
   python3-venv
   python3-pip
   python3-dev
+  python3-gpiozero
+  python3-lgpio
   build-essential
   pkg-config
   cmake
@@ -40,7 +42,6 @@ APT_PACKAGES=(
   sqlite3
   iproute2
   can-utils
-  python3-lgpio
   gpiod
   libgpiod2
 )
