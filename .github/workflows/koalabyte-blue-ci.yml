@@ -27,6 +27,7 @@ jobs:
           echo "HEAD=$(git rev-parse HEAD)"
           echo "readiness_sha=$(git rev-parse HEAD:scripts/check_repo_readiness.py)"
           echo "flash_all_sha=$(git rev-parse HEAD:scripts/flash_all_components.sh)"
+          echo "wifi_helper_sha=$(git rev-parse HEAD:scripts/setup_wifi_first_boot.sh)"
           echo "preboot_sha=$(git rev-parse HEAD:scripts/run_preboot_mode_select.py)"
           echo "cache_helper_sha=$(git rev-parse HEAD:scripts/prepare_dongle_firmware_cache.sh)"
           echo "nrf_tools_sha=$(git rev-parse HEAD:scripts/setup_nrf_tools.sh)"
@@ -45,6 +46,7 @@ jobs:
           bash -n scripts/install_pi.sh
           bash -n scripts/koalabyte_blue_boot.sh
           bash -n scripts/prepare_dongle_firmware_cache.sh
+          bash -n scripts/setup_wifi_first_boot.sh
           bash -n scripts/setup_nrf_tools.sh
           bash -n scripts/setup_nrf_connect_sdk_toolchain.sh
           bash -n scripts/setup_esp32_tools.sh
@@ -70,6 +72,7 @@ jobs:
           echo "HEAD=$(git rev-parse HEAD)"
           echo "readiness_sha=$(git rev-parse HEAD:scripts/check_repo_readiness.py)"
           echo "flash_all_sha=$(git rev-parse HEAD:scripts/flash_all_components.sh)"
+          echo "wifi_helper_sha=$(git rev-parse HEAD:scripts/setup_wifi_first_boot.sh)"
           echo "preboot_sha=$(git rev-parse HEAD:scripts/run_preboot_mode_select.py)"
           echo "cache_helper_sha=$(git rev-parse HEAD:scripts/prepare_dongle_firmware_cache.sh)"
           echo "nrf_tools_sha=$(git rev-parse HEAD:scripts/setup_nrf_tools.sh)"
@@ -88,6 +91,7 @@ jobs:
           test -f scripts/build_nrf52840_dongle_lab.sh
           test -f scripts/flash_nrf52840_dongle_lab_dfu.sh
           test -f scripts/flash_all_components.sh
+          test -f scripts/setup_wifi_first_boot.sh
           test -f scripts/setup_nrf_tools.sh
           test -f scripts/setup_nrf_connect_sdk_toolchain.sh
           test -f scripts/setup_esp32_tools.sh
@@ -100,6 +104,9 @@ jobs:
           grep -q 'find_package(Zephyr REQUIRED' firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt
           grep -q 'CONFIG_BT_DEVICE_NAME="KoalaByte Lab"' firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf
           grep -q 'bt_le_adv_start' firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c
+          grep -q 'setup_wifi_first_boot.sh' scripts/install_pi.sh
+          grep -q 'setup_wifi_first_boot.sh' scripts/flash_all_components.sh
+          grep -q 'setup_wifi_first_boot.sh' scripts/prepare_dongle_firmware_cache.sh
           grep -q 'setup_nrf_tools.sh --west-only' scripts/build_nrf52840_dongle_lab.sh
           grep -q 'setup_nrf_connect_sdk_toolchain.sh' scripts/build_nrf52840_dongle_lab.sh
           grep -q 'setup_nrf_tools.sh --nrfutil-only' scripts/flash_nrf52840_dongle_lab_dfu.sh
@@ -132,6 +139,7 @@ jobs:
           echo "HEAD=$(git rev-parse HEAD)"
           echo "readiness_sha=$(git rev-parse HEAD:scripts/check_repo_readiness.py)"
           echo "flash_all_sha=$(git rev-parse HEAD:scripts/flash_all_components.sh)"
+          echo "wifi_helper_sha=$(git rev-parse HEAD:scripts/setup_wifi_first_boot.sh)"
           echo "preboot_sha=$(git rev-parse HEAD:scripts/run_preboot_mode_select.py)"
           echo "cache_helper_sha=$(git rev-parse HEAD:scripts/prepare_dongle_firmware_cache.sh)"
           echo "nrf_tools_sha=$(git rev-parse HEAD:scripts/setup_nrf_tools.sh)"
@@ -144,6 +152,9 @@ jobs:
 
       - name: Run repo readiness check
         run: python scripts/check_repo_readiness.py
+
+      - name: Validate WiFi helper check-only mode
+        run: bash scripts/setup_wifi_first_boot.sh --check-only
 
       - name: Validate system package check-only mode
         run: bash scripts/setup_system_packages.sh --check-only
