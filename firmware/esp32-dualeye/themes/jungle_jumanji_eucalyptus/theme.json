@@ -2,11 +2,13 @@
   "theme_id": "jungle_jumanji_eucalyptus",
   "display_name": "Jungle / Jumanji Eucalyptus",
   "primary": true,
-  "description": "Primary KoalaByte Blue firmware theme with eucalyptus branch borders, bark/gold jungle title styling, blue KoalaByte Blue accent text, and purple/green glowing eyes.",
+  "status": "approved_visual_source_of_truth",
+  "description": "Primary KoalaByte Blue firmware theme with eucalyptus branch borders, bark/gold jungle title styling, blue KoalaByte Blue accent text, cleaned menu text boxes, and purple/green glowing eyes.",
   "visual_style": {
     "theme_family": "jungle_jumanji",
     "border_style": "leafy eucalyptus branches around text/menu items",
-    "title_style": "large chunky carved jungle lettering inspired by the KoalaByte Blue poster reference",
+    "title_style": "large chunky carved jungle lettering inspired by the approved KoalaByte Blue poster reference",
+    "menu_layout_rule": "All labels and descriptions must stay inside rounded text boxes; descriptions wrap inside the right-side description area with no overlap.",
     "font_family_preference": [
       "Impact",
       "Copperplate",
@@ -31,11 +33,20 @@
   },
   "assets": {
     "boot_splash_svg": "boot_splash.svg",
-    "background_svg": "menu_background.svg"
+    "background_svg": "menu_background.svg",
+    "approved_main_menu_preview_svg": "menu_preview_main.svg",
+    "approved_tools_menu_preview_svg": "menu_preview_tools.svg",
+    "approved_standard_settings_preview_svg": "standard_theme_settings_preview.svg"
+  },
+  "boot_splash": {
+    "title_position": "top",
+    "center_identity": "purple-left-eye and green-right-eye koala face",
+    "bottom_status_text": "JUNGLE-THEME BOOT • KILLERKOALA ONLINE"
   },
   "menu": {
     "border": "eucalyptus_branches",
     "selected_item_style": "leafy rounded textbox with cyber green edge glow",
+    "text_box_policy": "no overlapping words; all words must remain inside each row border",
     "standard_textbox_color_user_editable": true
   }
 }
