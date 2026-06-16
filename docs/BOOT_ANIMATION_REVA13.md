@@ -1,34 +1,59 @@
-# RevA13 KoalaByte Blue Boot Animation
+# RevA23 KoalaByte Blue Boot Animation and Firmware Themes
 
 ## What was added
 
-RevA13 adds a real animated boot splash path for KoalaByte Blue in two places:
+RevA23 adds a firmware-side theme system for KoalaByte Blue and makes the Jungle/Jumanji eucalyptus style the primary boot/menu theme.
 
-1. **ESP32-S3 DualEye firmware boot animation**
-   - `firmware/esp32-dualeye/src/boot_animation.cpp`
-   - `firmware/esp32-dualeye/include/boot_animation.h`
-   - called from `setup()` before button/BLE setup and before the JSON boot event is emitted.
-
-2. **Raspberry Pi companion fullscreen boot splash**
-   - `pi-companion/koalablue/boot_animation.py`
-   - `scripts/run_boot_splash.py`
-   - optional desktop autostart template at `pi-companion/autostart/koalabyte-blue-boot-splash.desktop`
-   - installer at `scripts/install_boot_splash_autostart.sh`
-
-Both versions use a dark KoalaByte Blue splash concept with:
+The theme drop zone is:
 
 ```text
-Purple left eye pulse
-Blue right eye pulse
-KoalaByte Blue title
-Blue rendered as true blue
-BOOTING... label
-Animated progress bar
+firmware/esp32-dualeye/themes/
 ```
+
+Current theme files:
+
+```text
+firmware/esp32-dualeye/themes/active_theme.h
+firmware/esp32-dualeye/themes/README.md
+firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/theme.json
+firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/boot_splash.svg
+firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/menu_background.svg
+firmware/esp32-dualeye/themes/standard/theme.json
+```
+
+## Primary theme
+
+The primary theme is:
+
+```text
+jungle_jumanji_eucalyptus
+```
+
+It uses:
+
+```text
+leafy eucalyptus branch borders
+bark/gold jungle-style KoalaByte title text
+blue BLUE title text
+purple left eye
+cyber green right eye
+black jungle background
+rounded dark text boxes with green edge glow
+```
+
+## Boot image direction
+
+The boot image uses the uploaded glowing-eye KoalaByte face as the visual reference and adds the words:
+
+```text
+KoalaByte Blue
+```
+
+The included SVG asset uses chunky jungle-style fallback lettering inspired by the poster reference. No third-party font file is bundled.
 
 ## ESP32 firmware behavior
 
-The firmware now runs:
+The firmware still runs:
 
 ```cpp
 setupDisplay();
@@ -37,28 +62,46 @@ runBootAnimation();
 
 inside `setup()` before normal runtime initialization.
 
-Feature toggles are in:
+The procedural ESP32 boot animation now reads compile-time color constants from:
+
+```text
+firmware/esp32-dualeye/themes/active_theme.h
+```
+
+The active theme is named in:
 
 ```text
 firmware/esp32-dualeye/include/config.h
 ```
 
-Relevant settings:
-
 ```cpp
-#define ENABLE_DISPLAY_BOOT_ANIMATION 1
-#define BOOT_ANIMATION_TOTAL_MS 2500
-#define BOOT_ANIMATION_FRAME_MS 50
-#define DISPLAY_ROTATION 0
+#define KOALABLUE_ACTIVE_THEME "jungle_jumanji_eucalyptus"
+#define KOALABLUE_THEMES_DIR "firmware/esp32-dualeye/themes"
 ```
 
-The firmware boot JSON also reports:
+## Standard editable theme
 
-```json
-"boot_animation": 1
+The standard editable theme lives at:
+
+```text
+firmware/esp32-dualeye/themes/standard/theme.json
 ```
 
-## ESP32 display dependency
+Users can change:
+
+```text
+background
+font_family
+textbox_color
+textbox_border
+text_color
+accent_color
+selected_item_color
+```
+
+For ESP32 firmware builds, `theme.json` is a source-of-truth manifest for future loaders and maker tooling. The active compile-time colors currently come from `active_theme.h` so the firmware remains simple and reliable on constrained hardware.
+
+## Display dependency
 
 The PlatformIO project includes:
 
@@ -77,9 +120,11 @@ python3 scripts/check_repo_readiness.py
 bash scripts/flash_esp32.sh
 ```
 
-The legacy `scripts/check_boot_animation_config.py` wrapper remains for older workflows, but new validation should use `scripts/check_repo_readiness.py`.
+The firmware boot JSON reports:
 
-The flash helper cleans, builds, uploads, prints expected boot-animation behavior, and opens the serial monitor at 115200 baud.
+```json
+"boot_animation": 1
+```
 
 ## Pi companion boot splash
 
@@ -113,8 +158,6 @@ This installs:
 ~/.config/autostart/koalabyte-blue-boot-splash.desktop
 ```
 
-The autostart path runs when the Pi desktop session starts. For an earlier pre-desktop boot splash, use a graphical boot service after the display stack and framebuffer are confirmed on the target OS image.
-
 ## CI validation
 
 The repository includes:
@@ -128,4 +171,4 @@ The workflow validates ready-to-flash repository wiring, compiles the Pi compani
 
 ## Notes
 
-This RevA13 implementation is procedural, not binary frame-based. That keeps the repo lightweight and easy to build. A later revision can replace the procedural drawing with RGB565 frame assets generated from the exact approved splash art.
+The ESP32 animation remains procedural instead of relying on large binary frame assets. That keeps the repo lightweight and easy to build. The SVG theme assets are included for theme previews, Pi-side loaders, documentation, and future conversion into RGB565 assets if needed.
