@@ -44,17 +44,24 @@ _TERMINAL_BRANCH = "🌿"
 
 
 def render_terminal_jungle_menu(menu: Any, theme: JungleMenuTheme = DEFAULT_JUNGLE_MENU_THEME) -> str:
-    """Render a terminal-safe preview of the jungle menu theme."""
+    """Render a terminal-safe preview of the grouped jungle menu theme."""
 
     visible = menu.visible_items()
     total = len(menu.items)
+    selected_group = getattr(menu, "selected_group", getattr(menu.selected_item, "group", "System / Companion"))
     width = 74
     top = f"{_TERMINAL_BRANCH}" + "═" * (width - 2) + f"{_TERMINAL_BRANCH}"
     title = f"  {theme.title}  "
     header = title.center(width)
-    sub = f"  JUNGLE MENU  ({menu.selected_index + 1}/{total})  ".center(width)
+    sub = f"  {selected_group.upper()}  ({menu.selected_index + 1}/{total})  ".center(width)
     lines = [top, header, sub, top]
+    previous_group: Optional[str] = None
     for absolute_index, item in visible:
+        group = getattr(item, "group", "System / Companion")
+        if group != previous_group:
+            group_label = f"  [{group}]  "
+            lines.append(group_label.center(width))
+            previous_group = group
         selected = absolute_index == menu.selected_index
         marker = "➤" if selected else " "
         left_leaf = "🌿" if selected else " "
@@ -93,7 +100,7 @@ def _pick_font(pygame: Any, family_csv: str, size: int, bold: bool = True):
 
 
 class JungleMenuRenderer:
-    """Pygame renderer for the KoalaByte Blue jungle-styled menu."""
+    """Pygame renderer for the KoalaByte Blue jungle-styled grouped menu."""
 
     def __init__(self, menu: Optional[Any] = None, theme: JungleMenuTheme = DEFAULT_JUNGLE_MENU_THEME, *, fullscreen: bool = True, width: int = 800, height: int = 480, fps: int = 30) -> None:
         if menu is None:
@@ -112,6 +119,7 @@ class JungleMenuRenderer:
         self.title_font = None
         self.item_font = None
         self.small_font = None
+        self.group_font = None
         self._touch_down_y: Optional[int] = None
         self._touch_down_at: Optional[float] = None
 
@@ -126,9 +134,10 @@ class JungleMenuRenderer:
         w, h = self.screen.get_size()
         self.title_font = _pick_font(pygame, self.theme.font_family, max(34, min(78, int(w * 0.073))), bold=True)
         self.item_font = _pick_font(pygame, self.theme.item_font_family, max(24, min(52, int(w * 0.046))), bold=True)
+        self.group_font = _pick_font(pygame, self.theme.item_font_family, max(18, min(30, int(w * 0.03))), bold=True)
         self.small_font = pygame.font.SysFont("dejavusans", max(14, min(22, int(w * 0.018))), bold=True)
         self.menu.touch_config.row_height_px = max(64, int(h * 0.13))
-        self.menu.visible_rows = max(3, min(6, int((h * 0.64) / self.menu.touch_config.row_height_px)))
+        self.menu.visible_rows = max(3, min(6, int((h * 0.60) / self.menu.touch_config.row_height_px)))
         self.menu._clamp_scroll_to_selection()
 
     def run(self) -> int:
@@ -194,6 +203,7 @@ class JungleMenuRenderer:
         screen.fill(self.theme.background)
         self._draw_leafy_border()
         self._draw_title()
+        self._draw_group_label()
         self._draw_items()
         self._draw_footer()
 
@@ -236,14 +246,22 @@ class JungleMenuRenderer:
         screen = self.screen
         assert screen is not None
         w, h = screen.get_size()
-        self._bubble_text(self.theme.title, w // 2, int(h * 0.13), self.title_font, self.theme.title_fill, self.theme.title_outline, outline_size=4)
+        self._bubble_text(self.theme.title, w // 2, int(h * 0.12), self.title_font, self.theme.title_fill, self.theme.title_outline, outline_size=4)
+
+    def _draw_group_label(self) -> None:
+        screen = self.screen
+        assert screen is not None
+        w, h = screen.get_size()
+        selected_group = getattr(self.menu, "selected_group", getattr(self.menu.selected_item, "group", "System / Companion"))
+        surf = self.group_font.render(selected_group.upper(), True, self.theme.leaf_glow)
+        screen.blit(surf, surf.get_rect(center=(w // 2, int(h * 0.205))))
 
     def _draw_items(self) -> None:
         pygame = self.pygame
         screen = self.screen
         assert screen is not None
         w, h = screen.get_size()
-        start_y = int(h * 0.25)
+        start_y = int(h * 0.27)
         row_h = self.menu.touch_config.row_height_px
         left = int(w * 0.12)
         right = int(w * 0.88)
