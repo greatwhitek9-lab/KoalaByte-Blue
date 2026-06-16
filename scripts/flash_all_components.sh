@@ -48,12 +48,17 @@ Environment:
   STRICT_ESP32_TOOLS      1 fails if PlatformIO is unavailable before ESP32 build/flash.
   INSTALL_NRF_TOOLS       auto/1/0. Default: auto. Attempts to install missing west/nrfutil when possible.
   STRICT_NRF_TOOLS        1 fails if west/nrfutil are unavailable before nRF build/flash.
+  INSTALL_NCS_TOOLCHAIN   auto/1/0. Default: auto. Downloads/updates full nRF Connect SDK/Zephyr toolchain.
+  STRICT_NCS_TOOLCHAIN    1 fails if the full NCS/Zephyr toolchain cannot be prepared.
+  NCS_WORKSPACE           Default: $HOME/ncs
+  NCS_REVISION            Default: v2.9.0
+  ZEPHYR_SDK_VERSION      Default: 0.17.0
   NRFUTIL_INSTALL_CMD     Optional custom nrfutil install command for scripts/setup_nrf_tools.sh.
   BUILD_KOALA_KONNECT=1 can still be used with scripts/build_firmware_all.sh for optional HCI builds.
 
 Notes:
   - The nRF52840 Dongle can run KoalaByte Lab or Koala Konnect, not both at the same time.
-  - System packages, PlatformIO, west, and nrfutil are checked/prepared before relevant flashing steps.
+  - System packages, PlatformIO, west, nrfutil, and the full NCS/Zephyr toolchain are checked/prepared before relevant flashing steps.
   - If NRF_DFU_PORT is unset, the nRF helper creates the DFU ZIP but does not flash.
   - Koala Kan Kommander remains gated for isolated bench CAN transmit; this script only writes a manifest/check artifact.
 EOF
@@ -129,6 +134,9 @@ setup_nrf_tools_for_selected_mode() {
   else
     STRICT_NRF_TOOLS="${STRICT_NRF_TOOLS:-1}" bash scripts/setup_nrf_tools.sh
   fi
+  echo
+  echo "== Full nRF Connect SDK / Zephyr toolchain setup =="
+  STRICT_NCS_TOOLCHAIN="${STRICT_NCS_TOOLCHAIN:-${STRICT_NRF_TOOLS:-1}}" INSTALL_NCS_TOOLCHAIN="${INSTALL_NCS_TOOLCHAIN:-auto}" bash scripts/setup_nrf_connect_sdk_toolchain.sh
 }
 
 echo "== KoalaByte Blue readiness check =="
