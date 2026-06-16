@@ -13,6 +13,10 @@ echo "  - KoalaByte Blue Lab Mode"
 echo "  - Koala Konnect Mode"
 echo
 
+echo "Checking/preparing west and nrfutil first..."
+STRICT_NRF_TOOLS="${STRICT_NRF_TOOLS:-1}" PYTHON_BIN="${PYTHON_BIN}" bash "${REPO_ROOT}/scripts/setup_nrf_tools.sh"
+echo
+
 "${PYTHON_BIN}" "${REPO_ROOT}/scripts/run_koala_mode_switcher.py" prepare-cache
 
 echo
