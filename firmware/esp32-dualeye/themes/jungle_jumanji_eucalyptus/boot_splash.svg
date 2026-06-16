@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="390" viewBox="0 0 640 390" role="img" aria-label="KoalaByte Blue jungle boot splash">
+  <defs>
+    <linearGradient id="bark" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#d9c08a"/>
+      <stop offset="0.45" stop-color="#8b6a3a"/>
+      <stop offset="1" stop-color="#f2d98a"/>
+    </linearGradient>
+    <filter id="jungleShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="3" flood-color="#000000" flood-opacity="0.9"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#84ff38" flood-opacity="0.55"/>
+    </filter>
+    <filter id="blueGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#00a8ff" flood-opacity="0.9"/>
+    </filter>
+    <radialGradient id="eyeGlowLeft" cx="35%" cy="44%" r="45%">
+      <stop offset="0" stop-color="#ffdcff"/>
+      <stop offset="0.45" stop-color="#e63cff"/>
+      <stop offset="1" stop-color="#11021c"/>
+    </radialGradient>
+    <radialGradient id="eyeGlowRight" cx="65%" cy="44%" r="45%">
+      <stop offset="0" stop-color="#edffd2"/>
+      <stop offset="0.45" stop-color="#84ff34"/>
+      <stop offset="1" stop-color="#071800"/>
+    </radialGradient>
+    <style>
+      .title-main { font-family: Impact, Copperplate, 'Rockwell Extra Bold', 'Arial Black', serif; font-weight: 900; letter-spacing: 4px; paint-order: stroke fill; stroke: #2b1a0a; stroke-width: 7px; filter: url(#jungleShadow); }
+      .title-blue { font-family: Impact, Copperplate, 'Rockwell Extra Bold', 'Arial Black', serif; font-weight: 900; letter-spacing: 8px; paint-order: stroke fill; stroke: #07152b; stroke-width: 7px; filter: url(#blueGlow); }
+      .leaf { fill: #79d443; stroke: #123c1a; stroke-width: 2; }
+      .branch { stroke: #6b4b25; stroke-width: 7; stroke-linecap: round; }
+    </style>
+  </defs>
+
+  <rect width="640" height="390" fill="#020403"/>
+  <path d="M0 0h640v390H0z" fill="#000"/>
+  <circle cx="210" cy="155" r="85" fill="url(#eyeGlowLeft)" opacity="0.55"/>
+  <circle cx="430" cy="155" r="85" fill="url(#eyeGlowRight)" opacity="0.55"/>
+  <path d="M121 104 C170 52, 263 39, 318 86 C373 39, 472 53, 519 105 C473 83, 420 94, 385 130 C359 105, 280 105, 253 130 C218 94, 166 83, 121 104Z" fill="#030506" stroke="#111820" stroke-width="4"/>
+  <ellipse cx="238" cy="165" rx="45" ry="62" fill="#07090c"/>
+  <ellipse cx="402" cy="165" rx="45" ry="62" fill="#07090c"/>
+  <path d="M185 122 L286 164" stroke="#020304" stroke-width="28" stroke-linecap="round"/>
+  <path d="M455 122 L354 164" stroke="#020304" stroke-width="28" stroke-linecap="round"/>
+  <circle cx="246" cy="172" r="29" fill="#e63cff" opacity="0.96"/>
+  <circle cx="394" cy="172" r="29" fill="#84ff34" opacity="0.96"/>
+  <circle cx="257" cy="159" r="6" fill="#fff" opacity="0.8"/>
+  <circle cx="405" cy="159" r="6" fill="#fff" opacity="0.8"/>
+  <path d="M318 170 C298 199, 301 247, 319 270 C338 247, 341 199, 318 170Z" fill="#4c5056" stroke="#9a9da4" stroke-width="4"/>
+  <path d="M284 288 C300 304, 338 304, 354 288" fill="none" stroke="#9498a6" stroke-width="7" stroke-linecap="round"/>
+
+  <path class="branch" d="M20 28 C90 18, 150 46, 214 18"/>
+  <path class="branch" d="M426 22 C490 52, 560 18, 620 34"/>
+  <ellipse class="leaf" cx="76" cy="26" rx="26" ry="10" transform="rotate(-22 76 26)"/>
+  <ellipse class="leaf" cx="134" cy="42" rx="24" ry="9" transform="rotate(28 134 42)"/>
+  <ellipse class="leaf" cx="512" cy="36" rx="26" ry="10" transform="rotate(-30 512 36)"/>
+  <ellipse class="leaf" cx="576" cy="28" rx="24" ry="9" transform="rotate(25 576 28)"/>
+
+  <text x="320" y="304" text-anchor="middle" class="title-main" font-size="56" fill="url(#bark)">KOALABYTE</text>
+  <text x="320" y="362" text-anchor="middle" class="title-blue" font-size="64" fill="#1d8cff">BLUE</text>
+</svg>
