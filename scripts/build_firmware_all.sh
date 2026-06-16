@@ -21,7 +21,12 @@ else
 fi
 
 echo "Checking/preparing west for nRF52840 Dongle Zephyr builds..."
-STRICT_NRF_TOOLS="${STRICT_TOOLS}" bash scripts/setup_nrf_tools.sh --west-only || true
+if ! STRICT_NRF_TOOLS="${STRICT_TOOLS}" bash scripts/setup_nrf_tools.sh --west-only; then
+  echo "west setup/check failed." >&2
+  if [[ "${STRICT_TOOLS}" == "1" ]]; then
+    exit 1
+  fi
+fi
 
 if command -v west >/dev/null 2>&1; then
   echo "Building nRF52840 Dongle KoalaByte Lab firmware..."
