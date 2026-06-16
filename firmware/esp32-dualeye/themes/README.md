@@ -33,6 +33,8 @@ The ESP32 boot animation reads that header at compile time.
 
 ## Approved visual source of truth
 
+This section is the approved visual source of truth for the current KoalaByte Blue firmware theme.
+
 The approved theme layout is represented by these assets:
 
 ```text
