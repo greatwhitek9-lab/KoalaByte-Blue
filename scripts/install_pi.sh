@@ -41,6 +41,13 @@ python "${REPO_ROOT}/scripts/check_repo_readiness.py"
 
 echo
 echo "Pi companion install complete."
+echo "Pre-boot dongle mode selector:"
+echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_preboot_mode_select.py"
+echo "  NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_preboot_mode_select.py --mode koala_konnect"
+echo
+echo "Normal boot wrapper with pre-boot selector, boot splash, and menu:"
+echo "  bash ${REPO_ROOT}/scripts/koalabyte_blue_boot.sh"
+echo
 echo "Boot splash test:"
 echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_boot_splash.py --windowed --duration 3"
 echo
