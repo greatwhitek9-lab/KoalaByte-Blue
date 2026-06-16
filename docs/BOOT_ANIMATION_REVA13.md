@@ -10,7 +10,7 @@ The theme drop zone is:
 firmware/esp32-dualeye/themes/
 ```
 
-Current theme files:
+Current approved theme files:
 
 ```text
 firmware/esp32-dualeye/themes/active_theme.h
@@ -18,6 +18,9 @@ firmware/esp32-dualeye/themes/README.md
 firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/theme.json
 firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/boot_splash.svg
 firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/menu_background.svg
+firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/menu_preview_main.svg
+firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/menu_preview_tools.svg
+firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/standard_theme_settings_preview.svg
 firmware/esp32-dualeye/themes/standard/theme.json
 ```
 
@@ -41,15 +44,45 @@ black jungle background
 rounded dark text boxes with green edge glow
 ```
 
-## Boot image direction
+## Approved boot image direction
 
-The boot image uses the uploaded glowing-eye KoalaByte face as the visual reference and adds the words:
+The approved boot splash now uses:
 
 ```text
-KoalaByte Blue
+KoalaByte Blue title at the top
+large glowing-eye koala identity centered below the title
+purple left eye and green right eye
+jungle/eucalyptus border
+bottom status: JUNGLE-THEME BOOT • KILLERKOALA ONLINE
+```
+
+The approved source asset is:
+
+```text
+firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/boot_splash.svg
 ```
 
 The included SVG asset uses chunky jungle-style fallback lettering inspired by the poster reference. No third-party font file is bundled.
+
+## Approved menu direction
+
+The approved menu previews are:
+
+```text
+firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/menu_preview_main.svg
+firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/menu_preview_tools.svg
+firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/standard_theme_settings_preview.svg
+```
+
+Menu layout rules:
+
+```text
+No overlapping words
+All labels and descriptions stay inside the rounded row borders
+Selected row uses a cyber-green glow
+Descriptions wrap in the right-side text area
+Bottom B1-B6 control strip stays inside its border
+```
 
 ## ESP32 firmware behavior
 
@@ -171,4 +204,4 @@ The workflow validates ready-to-flash repository wiring, compiles the Pi compani
 
 ## Notes
 
-The ESP32 animation remains procedural instead of relying on large binary frame assets. That keeps the repo lightweight and easy to build. The SVG theme assets are included for theme previews, Pi-side loaders, documentation, and future conversion into RGB565 assets if needed.
+The ESP32 animation remains procedural instead of relying on large binary frame assets. That keeps the repo lightweight and easy to build. The SVG theme assets are included as the approved visual source of truth for theme previews, Pi-side loaders, documentation, and future conversion into RGB565 assets if needed.
