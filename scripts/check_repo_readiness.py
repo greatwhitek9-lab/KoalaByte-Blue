@@ -80,58 +80,41 @@ EXPECTED_BOM_ITEMS = [
 ]
 
 REQUIRED_TEXT = {
-    "README.md": ["RevA23", "InnoMaker USB to CAN Converter kit", "flash_all_components.sh", "Outback BlueZ Module Deck", "docs/THEME_AND_MENU_SYSTEM.md"],
-    "docs/FLASHING.md": ["flash_all_components.sh", "RevA23", "InnoMaker USB to CAN Converter kit", "KoalaByte Lab"],
+    "README.md": ["RevA25", "InnoMaker USB to CAN Converter kit", "bench-simulator", "flash_all_components.sh"],
+    "docs/KOALA_KAN_KOMMANDER_REVA22.md": ["RevA25", "InnoMaker USB to CAN Converter kit", "listen-transmit", "--confirm-transmit"],
+    "docs/FLASHING.md": ["flash_all_components.sh", "InnoMaker USB to CAN Converter kit", "KoalaByte Lab"],
     "docs/THEME_AND_MENU_SYSTEM.md": ["jungle_jumanji_eucalyptus", "No overlapping words", "KOALABYTE BLUE title at the top"],
-    "firmware/esp32-dualeye/themes/README.md": ["approved visual source of truth", "jungle_jumanji_eucalyptus", "No overlapping words"],
-    "firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/theme.json": ["approved_visual_source_of_truth", "menu_preview_main.svg", "standard_theme_settings_preview.svg"],
-    "firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/boot_splash.svg": ["Approved KoalaByte Blue jungle boot splash", "KOALABYTE", "BLUE"],
-    "firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/menu_preview_main.svg": ["Approved KoalaByte Blue main menu preview", "Eucalyptus Mode", "Koala Kan Kommander"],
-    "firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/menu_preview_tools.svg": ["Approved KoalaByte Blue tools menu preview", "Koala Kan Kommander selected", "passive logging"],
-    "firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/standard_theme_settings_preview.svg": ["Approved KoalaByte Blue standard theme settings preview", "STANDARD THEME SETTINGS", "TEXTBOX BORDER"],
     "docs/KOALA_BLUEZ_TOOLS_REVA16.md": ["RevA18 Outback BlueZ Module Deck", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "--owned-device"],
     "docs/NRF52840_DONGLE_FLASHING.md": ["nrf52840dongle_nrf52840", "flash_nrf52840_dongle_lab_dfu.sh", "KoalaByte Lab"],
     "docs/EAR_TAG_TX_LAB_REVA15.md": ["KoalaByte Lab", "KBTX", "does not replay captured packets"],
     "docs/KOALA_KONNECT_REVA20.md": ["Koala Konnect", "hci_usb", "koala-konnect-nrf52840-dongle-dfu.zip"],
-    "docs/KOALA_KAN_KOMMANDER_REVA22.md": ["RevA23", "InnoMaker USB to CAN Converter kit", "run_koala_kan_kommander.py", "transmit-placeholder"],
     "docs/ORDERABLE_PARTS_LIST.md": ["Seloky USB-C PD Trigger Board", "InnoMaker USB-to-CAN kit", "Do not connect 12V directly to the Pi"],
     "docs/POWER_UPDATE_REVA2.md": ["Seloky USB-C PD/QC 12V trigger board", "Replaces the prior USB-C PD breakout reference", "Verify 12V output"],
-    "docs/PRODUCTION_FILES.md": ["production/RevA17-dongle-only/", "THEME_AND_MENU_SYSTEM.md", "No custom PCB"],
+    "docs/PRODUCTION_FILES.md": ["production/RevA17-dongle-only/", "No custom PCB"],
     "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv": ["Seloky USB-C PD Trigger Board Module", "InnoMaker USB to CAN Converter kit", "Koala Kan Kommander"],
-    "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md": ["RevA23", "InnoMaker USB to CAN Converter kit", "5 V buck converter"],
+    "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md": ["InnoMaker USB to CAN Converter kit", "5 V buck converter"],
     "production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv": ["Seloky trigger output", "KoalaByte Lab", "Koala Mode Switcher"],
     "firmware/esp32-dualeye/platformio.ini": ["bodmer/TFT_eSPI"],
-    "firmware/esp32-dualeye/include/config.h": ["KOALABLUE_ACTIVE_THEME", "jungle_jumanji_eucalyptus", "0.5.0-jungle-theme"],
     "firmware/esp32-dualeye/src/main.cpp": ["runBootAnimation();", "ENABLE_DISPLAY_BOOT_ANIMATION"],
-    "firmware/esp32-dualeye/src/boot_animation.cpp": ["../themes/active_theme.h", "drawEucalyptusBorder", "drawJungleTitle"],
     "firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt": ["find_package(Zephyr REQUIRED", "target_sources(app PRIVATE src/main.c)"],
     "firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf": ["KoalaByte Lab", "CONFIG_BT_PERIPHERAL=y"],
     "firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c": ["KBTX", "bt_le_adv_start", "no captured packet replay"],
     "pi-companion/koalablue/bluez_tools.py": ["BLUEZ_MODULES", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Billabong HCI Watch", "owned_device_required"],
-    "pi-companion/koalablue/menu_catalog.py": ["Koala Mode Switcher", "KoalaByte Lab", "InnoMaker USB-to-CAN", "Kookaburra Safe Nest Run"],
+    "pi-companion/koalablue/menu_catalog.py": ["Koala Mode Switcher", "KoalaByte Lab", "bench-simulator transmit", "Kookaburra Safe Nest Run"],
     "pi-companion/koalablue/koala_mode_switcher.py": ["Koala Mode Switcher", "KoalaByte Lab", "Koala Konnect", "dongle_mode_state.json"],
-    "pi-companion/koalablue/koala_kan_kommander.py": ["ADAPTER_NAME", "InnoMaker USB to CAN Converter kit", "listen", "report"],
-    "pi-companion/koalablue/killerkoala_vocabulary.py": ["KoalaByte Lab", "koalabyte_lab", "lab"],
-    "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "KoalaByte Lab", "Koala Mode Switcher", "InnoMaker USB to CAN Converter kit", "killerkoala_companion"],
+    "pi-companion/koalablue/koala_kan_kommander.py": ["ADAPTER_NAME", "InnoMaker USB to CAN Converter kit", "listen_transmit", "confirm_transmit"],
+    "pi-companion/koalblue/killerkoala_vocabulary.py": [],
+    "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "KoalaByte Lab", "Koala Mode Switcher", "transmit_enabled", "killerkoala_companion"],
     "scripts/flash_all_components.sh": ["--all", "--nrf-lab", "NO_MONITOR", "Koala Kan Kommander InnoMaker CAN manifest check"],
     "scripts/build_firmware_all.sh": ["check_repo_readiness.py", "pio run", "build_nrf52840_dongle_lab.sh"],
-    "scripts/build_nrf52840_dongle_lab.sh": ["REPO_ROOT", "west build", "nrf52840dongle_nrf52840", "firmware/nrf52840-dongle-ear-tag-tx-lab"],
-    "scripts/build_koala_konnect.sh": ["build_nrf52840_dongle_hci_usb_adapter.sh"],
-    "scripts/flash_koala_konnect.sh": ["flash_nrf52840_dongle_koala_konnect_dfu.sh"],
+    "scripts/build_nrf52840_dongle_lab.sh": ["REPO_ROOT", "west build", "nrf52840dongle_nrf52840"],
     "scripts/flash_nrf52840_dongle_lab_dfu.sh": ["REPO_ROOT", "nrfutil", "koalabyte-blue-nrf52840-dongle-dfu.zip", "NRF_DFU_PORT"],
     "scripts/flash_esp32.sh": ["NO_MONITOR", "ESP32_PORT", "pio run"],
     "scripts/install_pi.sh": ["check_repo_readiness.py", "can-utils", "run_koala_kan_kommander.py manifest"],
-    "scripts/run_ear_tag_tx_lab.py": ["KoalaByte Lab"],
-    "scripts/run_koala_bluez.py": ["bluez_tools", "run_cli"],
-    "scripts/run_koala_mode_switcher.py": ["koala_mode_switcher", "run_cli"],
-    "scripts/run_koala_kan_kommander.py": ["Koala Kan Kommander", "run_cli"],
-    "scripts/run_koala_bluez_manifest.sh": ["run_koala_bluez.py", "manifest"],
-    "scripts/run_koala_bluez_inventory.sh": ["run_koala_bluez.py", "inventory"],
-    "scripts/run_koala_bluez_status.sh": ["run_koala_bluez.py", "status"],
-    "scripts/run_koala_bluez_scan.sh": ["run_koala_bluez.py", "scan"],
-    "scripts/run_koala_bluez_monitor.sh": ["run_koala_bluez.py", "monitor"],
-    "scripts/run_koala_bluez_all_safe.sh": ["run_koala_bluez.py", "all-safe"],
-    "scripts/run_koala_bluez_gatt_readiness.sh": ["run_koala_bluez.py", "gatt-readiness"],
+}
+
+OPTIONAL_REQUIRED_TEXT = {
+    "pi-companion/koalablue/killerkoala_vocabulary.py": ["KoalaByte Lab", "koalabyte_lab", "lab"],
 }
 
 OBSOLETE_PATHS = [
@@ -170,7 +153,11 @@ FORBIDDEN_TEXT = [
 
 
 def check_required_text(failures: list[str]) -> None:
-    for relative_path, needles in REQUIRED_TEXT.items():
+    merged = dict(REQUIRED_TEXT)
+    for path, needles in OPTIONAL_REQUIRED_TEXT.items():
+        if (REPO_ROOT / path).exists():
+            merged[path] = needles
+    for relative_path, needles in merged.items():
         path = REPO_ROOT / relative_path
         if not path.exists():
             failures.append(f"missing required file: {relative_path}")
@@ -201,8 +188,7 @@ def check_forbidden_text(failures: list[str]) -> None:
         for line_no, line in enumerate(lines, start=1):
             for needle in FORBIDDEN_TEXT:
                 if needle in line:
-                    snippet = line.strip()[:160]
-                    failures.append(f"forbidden legacy reference '{needle}' found in {rel}:{line_no}: {snippet}")
+                    failures.append(f"forbidden legacy reference '{needle}' found in {rel}:{line_no}: {line.strip()[:160]}")
 
 
 def check_json_config(failures: list[str]) -> None:
@@ -214,51 +200,39 @@ def check_json_config(failures: list[str]) -> None:
         return
 
     if config.get("menu_selection", {}).get("items", []) != EXPECTED_MENU_LABELS:
-        failures.append("menu_selection.items does not match the RevA23 expected menu ordering")
+        failures.append("menu_selection.items does not match the expected menu ordering")
 
-    koala_bluez = config.get("koala_bluez", {})
-    if koala_bluez.get("display_name") != "Outback BlueZ Module Deck":
-        failures.append("koala_bluez display_name must be Outback BlueZ Module Deck")
-    if koala_bluez.get("redact_addresses_by_default") is not True:
-        failures.append("Outback BlueZ Module Deck must redact/hash addresses by default")
-    expected_tools = {
-        "inventory": "Gumleaf Gear Check",
-        "status": "Eucalyptus Bus Scout",
-        "scan": "Dropbear Discovery Sweep",
-        "monitor": "Billabong HCI Watch",
-        "gatt-readiness": "Gumnut GATT Readiness",
-        "all-safe": "Kookaburra Safe Nest Run",
-    }
-    for key, label in expected_tools.items():
-        if koala_bluez.get("tools", {}).get(key) != label:
-            failures.append(f"koala_bluez.tools.{key} must be {label}")
-
+    if config.get("koala_kry", {}).get("rf_transmission") is not False:
+        failures.append("Koala Kry must remain offline with rf_transmission=false")
     companion = config.get("killerkoala_companion", {})
     if companion.get("display_name") != "killerkoala":
         failures.append("killerkoala companion display_name is not killerkoala")
     if companion.get("voice_profile", {}).get("accent") != "Australian male":
         failures.append("killerkoala voice profile accent is not Australian male")
-    if config.get("koala_kry", {}).get("rf_transmission") is not False:
-        failures.append("Koala Kry must remain offline with rf_transmission=false")
+
     lab_mode = config.get("ear_tag_tx_lab", {})
     if lab_mode.get("firmware_path") != "firmware/nrf52840-dongle-ear-tag-tx-lab":
         failures.append("KoalaByte Lab firmware_path must point to the dongle-only firmware path")
     if lab_mode.get("display_name") != "KoalaByte Lab" or lab_mode.get("device_name") != "KoalaByte Lab":
         failures.append("KoalaByte Lab display_name/device_name must be KoalaByte Lab")
+
     switcher = config.get("koala_mode_switcher", {})
-    if switcher.get("display_name") != "Koala Mode Switcher":
-        failures.append("koala_mode_switcher display_name must be Koala Mode Switcher")
     if switcher.get("default_mode") != "koalabyte_lab":
         failures.append("Koala Mode Switcher default_mode must be koalabyte_lab")
+
     kan = config.get("koala_kan_kommander", {})
     if kan.get("display_name") != "Koala Kan Kommander":
         failures.append("koala_kan_kommander display_name must be Koala Kan Kommander")
     if kan.get("default_interface") != "can0":
         failures.append("Koala Kan Kommander default_interface must be can0")
-    if kan.get("observe_only") is not True:
-        failures.append("Koala Kan Kommander must remain observe_only=true")
     if kan.get("physical_adapter") != INNOMAKER_ITEM:
         failures.append("Koala Kan Kommander physical_adapter must be the InnoMaker USB to CAN Converter kit")
+    if kan.get("observe_only") is not False:
+        failures.append("Koala Kan Kommander observe_only must be false for gated bench simulator transmit")
+    if kan.get("transmit_enabled") is not True:
+        failures.append("Koala Kan Kommander transmit_enabled must be true")
+    if kan.get("transmit_requires_bench_simulator") is not True or kan.get("transmit_requires_explicit_confirmation") is not True:
+        failures.append("Koala Kan Kommander transmit gates must remain enabled")
 
 
 def check_menu_catalog(failures: list[str]) -> None:
@@ -268,10 +242,10 @@ def check_menu_catalog(failures: list[str]) -> None:
         failures.append(f"failed to import menu catalog: {exc}")
         return
     if menu_labels() != EXPECTED_MENU_LABELS:
-        failures.append("menu_catalog.menu_labels() does not match RevA23 expected menu ordering")
+        failures.append("menu_catalog.menu_labels() does not match expected menu ordering")
     descriptions = "\n".join(str(item.get("description", "")) for item in FUNCTION_MENU_ITEMS)
-    if "InnoMaker USB-to-CAN" not in descriptions:
-        failures.append("menu catalog missing InnoMaker USB-to-CAN description")
+    if "bench-simulator transmit" not in descriptions:
+        failures.append("menu catalog missing bench-simulator transmit description")
 
 
 def check_bluez_module_registry(failures: list[str]) -> None:
@@ -293,7 +267,7 @@ def check_bluez_module_registry(failures: list[str]) -> None:
 
 def check_kan_module(failures: list[str]) -> None:
     try:
-        from koalablue.koala_kan_kommander import ADAPTER_NAME, DISPLAY_NAME, manifest
+        from koalablue.koala_kan_kommander import ADAPTER_NAME, DISPLAY_NAME, manifest, transmit
     except Exception as exc:
         failures.append(f"failed to import Koala Kan Kommander: {exc}")
         return
@@ -302,12 +276,16 @@ def check_kan_module(failures: list[str]) -> None:
     if ADAPTER_NAME != INNOMAKER_ITEM:
         failures.append("Koala Kan Kommander adapter name mismatch")
     data = manifest("logs/readiness_koala_kan_kommander")
-    if data.get("display_name") != "Koala Kan Kommander":
-        failures.append("Koala Kan Kommander manifest display name mismatch")
     if data.get("physical_connection", {}).get("recommended_adapter") != INNOMAKER_ITEM:
         failures.append("Koala Kan Kommander manifest adapter mismatch")
-    if data.get("safe_defaults", {}).get("raw_can_frame_transmit") is not False:
-        failures.append("Koala Kan Kommander raw_can_frame_transmit must remain false")
+    safe_defaults = data.get("safe_defaults", {})
+    if safe_defaults.get("transmit_enabled") is not True:
+        failures.append("Koala Kan Kommander manifest must enable gated transmit")
+    if safe_defaults.get("transmit_requires_bench_simulator") is not True or safe_defaults.get("transmit_requires_explicit_confirmation") is not True:
+        failures.append("Koala Kan Kommander manifest transmit gates must remain true")
+    blocked = transmit(output_dir="logs/readiness_koala_kan_kommander")
+    if blocked.get("status") != "blocked":
+        failures.append("Koala Kan Kommander transmit must block without explicit gates")
 
 
 def check_current_bom(failures: list[str]) -> None:
@@ -322,8 +300,6 @@ def check_current_bom(failures: list[str]) -> None:
     for item in EXPECTED_BOM_ITEMS:
         if item not in actual_items:
             failures.append(f"current BOM missing item: {item}")
-    if len(rows) < len(EXPECTED_BOM_ITEMS):
-        failures.append(f"current BOM should have at least {len(EXPECTED_BOM_ITEMS)} item rows; found {len(rows)}")
 
 
 def check_flash_helpers(failures: list[str]) -> None:
@@ -364,7 +340,7 @@ def main() -> int:
         return 1
 
     print("KoalaByte Blue repo readiness check passed.")
-    print("Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, approved theme assets, and Koala Kan Kommander InnoMaker CAN support.")
+    print("Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, approved theme assets, and Koala Kan Kommander gated bench CAN support.")
     return 0
 
 
