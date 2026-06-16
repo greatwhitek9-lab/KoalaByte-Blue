@@ -68,7 +68,7 @@
   },
   "koala_kry": {
     "display_name": "Koala Kry",
-    "description": "Offline replay simulator for metadata captured by Koala Kapture. Captured Bluetooth/RF over-the-air replay is blocked; optional review manifests document safe lab next steps.",
+    "description": "Offline replay simulator for metadata captured by Koala Kapture. Captured Bluetooth/RF over-the-air replay is blocked; RF bench review manifests document isolation, authorization, monitoring, and safe next steps.",
     "enabled": true,
     "mode": "captured_metadata_replay",
     "input_dir": "/blecaptures/koala_kapture",
@@ -78,7 +78,7 @@
     "max_records": null,
     "xp_reward": 5,
     "rf_transmission": false,
-    "rf_transmit_request_policy": "blocked_review_manifest_only",
+    "rf_transmit_request_policy": "rf_bench_review_manifest_only_no_rf_sent",
     "allow_captured_signal_replay": false,
     "allow_synthetic_owned_lab_beacon_reference": true
   },
