@@ -3,6 +3,7 @@
 
 #include "boot_animation.h"
 #include "config.h"
+#include "../themes/active_theme.h"
 
 #if ENABLE_DISPLAY_BOOT_ANIMATION
 #include <TFT_eSPI.h>
@@ -25,6 +26,52 @@ static void glowCircle(int x, int y, int r, uint16_t core, uint16_t mid, uint16_
   tft.fillCircle(x + max(1, r / 3), y - max(1, r / 3), max(1, r / 5), TFT_WHITE);
 }
 
+static void drawLeaf(int x, int y, int w, int h, uint16_t fill, uint16_t edge, bool flip) {
+  int sx = flip ? -1 : 1;
+  tft.fillTriangle(x, y, x + sx * w, y - h / 2, x + sx * w, y + h / 2, fill);
+  tft.drawTriangle(x, y, x + sx * w, y - h / 2, x + sx * w, y + h / 2, edge);
+  tft.drawLine(x, y, x + sx * w, y, edge);
+}
+
+static void drawEucalyptusBorder(uint16_t branch, uint16_t leaf, uint16_t leafEdge) {
+  const int w = tft.width();
+  const int h = tft.height();
+  const int pad = max(5, min(w, h) / 45);
+  tft.drawRoundRect(pad, pad, w - pad * 2, h - pad * 2, 10, branch);
+  tft.drawRoundRect(pad + 3, pad + 3, w - (pad + 3) * 2, h - (pad + 3) * 2, 9, c565(36, 62, 31));
+
+  for (int i = 0; i < 5; ++i) {
+    int y = pad + 20 + i * max(16, h / 8);
+    drawLeaf(pad + 4, y, 18, 8, leaf, leafEdge, false);
+    drawLeaf(w - pad - 4, y + 8, 18, 8, leaf, leafEdge, true);
+  }
+}
+
+static void drawJungleTitle(int cx, int y, int base) {
+  const int textSize = (base >= 280) ? 2 : 1;
+  const uint16_t bark = c565(KOALA_THEME_TITLE_BARK_R, KOALA_THEME_TITLE_BARK_G, KOALA_THEME_TITLE_BARK_B);
+  const uint16_t barkEdge = c565(KOALA_THEME_TITLE_EDGE_R, KOALA_THEME_TITLE_EDGE_G, KOALA_THEME_TITLE_EDGE_B);
+  const uint16_t blue = c565(KOALA_THEME_BLUE_R, KOALA_THEME_BLUE_G, KOALA_THEME_BLUE_B);
+  const uint16_t blueEdge = c565(7, 18, 44);
+
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextSize(textSize);
+
+  // Heavy multi-pass title approximates the chunky jungle/Jumanji-style production lettering
+  // without bundling a third-party font file.
+  tft.setTextColor(barkEdge, KOALA_THEME_BACKGROUND_565);
+  tft.drawString("KoalaByte", cx - scaled(0.18f, base) + 2, y + 2);
+  tft.drawString("KoalaByte", cx - scaled(0.18f, base) - 2, y - 2);
+  tft.setTextColor(bark, KOALA_THEME_BACKGROUND_565);
+  tft.drawString("KoalaByte", cx - scaled(0.18f, base), y);
+
+  tft.setTextColor(blueEdge, KOALA_THEME_BACKGROUND_565);
+  tft.drawString("Blue", cx + scaled(0.24f, base) + 2, y + 2);
+  tft.drawString("Blue", cx + scaled(0.24f, base) - 2, y - 2);
+  tft.setTextColor(blue, KOALA_THEME_BACKGROUND_565);
+  tft.drawString("Blue", cx + scaled(0.24f, base), y);
+}
+
 static void drawSegmentedProgress(float progress) {
   const int w = tft.width();
   const int h = tft.height();
@@ -37,25 +84,25 @@ static void drawSegmentedProgress(float progress) {
   const int count = max(8, barW / (segmentW + segmentGap));
   const int lit = min(count, max(0, (int)(progress * (float)count)));
 
-  const uint16_t dim = c565(24, 26, 34);
-  const uint16_t magenta = c565(235, 70, 255);
-  const uint16_t blue = c565(65, 170, 255);
+  const uint16_t dim = c565(24, 32, 25);
+  const uint16_t magenta = c565(KOALA_THEME_LEFT_EYE_R, KOALA_THEME_LEFT_EYE_G, KOALA_THEME_LEFT_EYE_B);
+  const uint16_t green = c565(KOALA_THEME_RIGHT_EYE_R, KOALA_THEME_RIGHT_EYE_G, KOALA_THEME_RIGHT_EYE_B);
 
   tft.drawLine(x0 - 14, y0 + barH / 2, x0 - 4, y0 + barH / 2, magenta);
-  tft.drawLine(x0 + barW + 4, y0 + barH / 2, x0 + barW + 14, y0 + barH / 2, blue);
+  tft.drawLine(x0 + barW + 4, y0 + barH / 2, x0 + barW + 14, y0 + barH / 2, green);
 
   for (int i = 0; i < count; ++i) {
     int x = x0 + i * (segmentW + segmentGap);
     uint16_t color = dim;
     if (i < lit) {
-      color = (i < count / 2) ? magenta : blue;
+      color = (i < count / 2) ? magenta : green;
     }
     tft.fillRoundRect(x, y0, segmentW, barH, 2, color);
   }
 }
 
 static void drawBootFrame(float progress, float pulse) {
-  tft.fillScreen(TFT_BLACK);
+  tft.fillScreen(KOALA_THEME_BACKGROUND_565);
 
   const int w = tft.width();
   const int h = tft.height();
@@ -69,16 +116,21 @@ static void drawBootFrame(float progress, float pulse) {
   const int eyeDX = scaled(0.135f, base);
   const int eyeDY = -scaled(0.035f, base);
 
-  const uint16_t face = c565(7, 8, 12);
-  const uint16_t edge = c565(28, 31, 40);
+  const uint16_t face = c565(4, 6, 7);
+  const uint16_t edge = c565(28, 35, 29);
   const uint16_t nose = c565(52, 55, 62);
   const uint16_t noseEdge = c565(112, 116, 126);
   const uint16_t tooth = c565(190, 192, 205);
-  const uint16_t purple = c565(230, 60, 255);
+  const uint16_t purple = c565(KOALA_THEME_LEFT_EYE_R, KOALA_THEME_LEFT_EYE_G, KOALA_THEME_LEFT_EYE_B);
   const uint16_t purpleDim = c565(65, 12, 95);
-  const uint16_t blue = c565(60, 165, 255);
-  const uint16_t blueDim = c565(8, 45, 110);
-  const uint16_t textGray = c565(116, 118, 130);
+  const uint16_t green = c565(KOALA_THEME_RIGHT_EYE_R, KOALA_THEME_RIGHT_EYE_G, KOALA_THEME_RIGHT_EYE_B);
+  const uint16_t greenDim = c565(18, 70, 8);
+  const uint16_t textGray = c565(158, 164, 139);
+  const uint16_t branch = c565(KOALA_THEME_BRANCH_R, KOALA_THEME_BRANCH_G, KOALA_THEME_BRANCH_B);
+  const uint16_t leaf = c565(KOALA_THEME_LEAF_R, KOALA_THEME_LEAF_G, KOALA_THEME_LEAF_B);
+  const uint16_t leafEdge = c565(12, 54, 16);
+
+  drawEucalyptusBorder(branch, leaf, leafEdge);
 
   // Ears and face silhouette.
   tft.fillCircle(cx - scaled(0.31f, base), cy - scaled(0.22f, base), earR, face);
@@ -94,9 +146,9 @@ static void drawBootFrame(float progress, float pulse) {
   tft.drawLine(cx - scaled(0.20f, base), cy - scaled(0.11f, base), cx - scaled(0.04f, base), cy - scaled(0.015f, base), edge);
   tft.drawLine(cx + scaled(0.20f, base), cy - scaled(0.11f, base), cx + scaled(0.04f, base), cy - scaled(0.015f, base), edge);
 
-  // Pulsing eyes: left purple, right true blue.
+  // Pulsing eyes: left ultraviolet/purple, right cyber green.
   glowCircle(cx - eyeDX, cy + eyeDY, eyeR, c565(255, 226, 255), purple, purpleDim, pulse);
-  glowCircle(cx + eyeDX, cy + eyeDY, eyeR, c565(232, 246, 255), blue, blueDim, pulse);
+  glowCircle(cx + eyeDX, cy + eyeDY, eyeR, c565(236, 255, 210), green, greenDim, pulse);
 
   // Nose.
   const int noseW = scaled(0.15f, base);
@@ -110,27 +162,21 @@ static void drawBootFrame(float progress, float pulse) {
   tft.fillTriangle(cx + scaled(0.08f, base), mouthY, cx + scaled(0.03f, base), mouthY - scaled(0.035f, base), cx + scaled(0.01f, base), mouthY + scaled(0.045f, base), tooth);
   tft.drawLine(cx - scaled(0.05f, base), mouthY + scaled(0.055f, base), cx + scaled(0.05f, base), mouthY + scaled(0.055f, base), edge);
 
-  // Title.
   const int titleY = h - max(72, scaled(0.26f, h));
-  const int textSize = (base >= 280) ? 2 : 1;
-  tft.setTextDatum(MC_DATUM);
-  tft.setTextSize(textSize);
-  tft.setTextColor(purple, TFT_BLACK);
-  tft.drawString("KoalaByte", cx - scaled(0.18f, base), titleY);
-  tft.setTextColor(blue, TFT_BLACK);
-  tft.drawString("Blue", cx + scaled(0.24f, base), titleY);
+  drawJungleTitle(cx, titleY, base);
 
   drawSegmentedProgress(progress);
 
+  tft.setTextDatum(MC_DATUM);
   tft.setTextSize(1);
-  tft.setTextColor(textGray, TFT_BLACK);
-  tft.drawString("BOOTING...", cx, h - max(16, scaled(0.07f, h)));
+  tft.setTextColor(textGray, KOALA_THEME_BACKGROUND_565);
+  tft.drawString("JUNGLE THEME BOOT", cx, h - max(16, scaled(0.07f, h)));
 }
 
 void setupDisplay() {
   tft.init();
   tft.setRotation(DISPLAY_ROTATION);
-  tft.fillScreen(TFT_BLACK);
+  tft.fillScreen(KOALA_THEME_BACKGROUND_565);
 }
 
 void runBootAnimation() {
