@@ -64,7 +64,7 @@ Pi companion menu paths:
 ```text
 pi-companion/koalablue/menu_catalog.py
 pi-companion/koalablue/menu_ui.py
-pi-companion/koalblue/menu_theme.py
+pi-companion/koalablue/menu_theme.py
 pi-companion/koalablue/menu_screen.py
 scripts/run_menu_screen.py
 ```
