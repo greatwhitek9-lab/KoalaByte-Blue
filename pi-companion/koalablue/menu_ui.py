@@ -15,6 +15,7 @@ class MenuItem:
     command: str
     description: str = ""
     enabled: bool = True
+    group: str = "System / Companion"
 
 
 @dataclass
@@ -23,6 +24,7 @@ class MenuEvent:
     command: str
     selected_index: int
     selected_label: str
+    selected_group: str
     timestamp: float
 
 
@@ -53,8 +55,8 @@ class MenuSelectionScreen:
     - Touch long-press select.
 
     This class is display-backend agnostic. The ESP32-S3 display, terminal UI,
-    or Pi touchscreen process can all render the same state. The default text
-    rendering uses the RevA14 jungle/eucalyptus theme preview.
+    or Pi touchscreen process can all render the same grouped state. The default
+    text rendering uses the jungle/eucalyptus theme preview.
     """
 
     def __init__(
@@ -78,6 +80,10 @@ class MenuSelectionScreen:
     @property
     def selected_item(self) -> MenuItem:
         return self.items[self.selected_index]
+
+    @property
+    def selected_group(self) -> str:
+        return self.selected_item.group
 
     def register_handler(self, command: str, handler: Callable[[MenuItem], None]) -> None:
         self._handlers[command] = handler
@@ -170,8 +176,12 @@ class MenuSelectionScreen:
     def _render_plain_text(self) -> str:
         visible = self.visible_items()
         total = len(self.items)
-        lines = ["KoalaByte Blue", f"Main Menu ({self.selected_index + 1}/{total})", ""]
+        lines = ["KoalaByte Blue", f"{self.selected_group} ({self.selected_index + 1}/{total})", ""]
+        previous_group: Optional[str] = None
         for absolute_index, item in visible:
+            if item.group != previous_group:
+                lines.append(f"[{item.group}]")
+                previous_group = item.group
             prefix = ">" if absolute_index == self.selected_index else " "
             disabled = " [locked]" if not item.enabled else ""
             lines.append(f"{prefix} {absolute_index + 1:02d}. {item.label}{disabled}")
@@ -212,6 +222,7 @@ class MenuSelectionScreen:
             command=command,
             selected_index=self.selected_index,
             selected_label=self.selected_item.label,
+            selected_group=self.selected_group,
             timestamp=time.time(),
         )
         self._log_event(event)
