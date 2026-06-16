@@ -43,6 +43,14 @@ if ! STRICT_NRF_TOOLS="${STRICT_TOOLS}" bash scripts/setup_nrf_tools.sh --west-o
   fi
 fi
 
+echo "Checking/preparing full nRF Connect SDK / Zephyr toolchain..."
+if ! STRICT_NCS_TOOLCHAIN="${STRICT_TOOLS}" bash scripts/setup_nrf_connect_sdk_toolchain.sh; then
+  echo "Full NCS/Zephyr toolchain setup/check failed." >&2
+  if [[ "${STRICT_TOOLS}" == "1" ]]; then
+    exit 1
+  fi
+fi
+
 if command -v west >/dev/null 2>&1; then
   echo "Building nRF52840 Dongle KoalaByte Lab firmware..."
   bash scripts/build_nrf52840_dongle_lab.sh
@@ -62,7 +70,7 @@ fi
 
 if [[ "${BUILT_ANY}" == "0" ]]; then
   echo "No firmware was built because PlatformIO and west were not found." >&2
-  echo "Install PlatformIO for ESP32 and use scripts/setup_nrf_tools.sh for west/nrfutil." >&2
+  echo "Install PlatformIO for ESP32 and use scripts/setup_nrf_tools.sh plus scripts/setup_nrf_connect_sdk_toolchain.sh for nRF/Zephyr." >&2
   exit 1
 fi
 
