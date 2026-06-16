@@ -17,7 +17,7 @@ FUNCTION_MENU_ITEMS: List[dict[str, object]] = [
     {"label": "eucalyptus Upload Status", "command": "eucalyptus upload-status", "description": "Show WiGLE upload readiness/status"},
     {"label": "Koala Kapture", "command": "koala_kapture", "description": "Capture and archive BLE advertisement metadata"},
     {"label": "Koala Kry", "command": "koala_kry", "description": "Replay captured metadata offline into the report/XP pipeline"},
-    {"label": "Koala Kry RF Review", "command": "koala_kry_transmit_review", "description": "Write blocked RF transmit review manifest; no RF is sent"},
+    {"label": "Koala Kry RF Review", "command": "koala_kry_transmit_review", "description": "Write RF bench isolation, authorization, and test-plan manifest; no RF is sent by Koala Kry"},
     {"label": "Ear Tag", "command": "ear_tag", "description": "Named lab BLE beacon"},
     {"label": "KoalaByte Lab", "command": "ear_tag_tx_lab", "description": "Synthetic owned-device BLE advertisement for signal-integrity observation"},
     {"label": "Koala Mode Switcher", "command": "koala_mode_switcher", "description": "Build/package/select KoalaByte Lab or Koala Konnect for the nRF52840 Dongle"},
