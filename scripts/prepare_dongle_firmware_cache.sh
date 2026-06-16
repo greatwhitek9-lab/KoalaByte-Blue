@@ -17,6 +17,10 @@ echo "Checking/preparing west and nrfutil first..."
 STRICT_NRF_TOOLS="${STRICT_NRF_TOOLS:-1}" PYTHON_BIN="${PYTHON_BIN}" bash "${REPO_ROOT}/scripts/setup_nrf_tools.sh"
 echo
 
+echo "Checking/preparing full nRF Connect SDK / Zephyr toolchain..."
+STRICT_NCS_TOOLCHAIN="${STRICT_NCS_TOOLCHAIN:-1}" PYTHON_BIN="${PYTHON_BIN}" bash "${REPO_ROOT}/scripts/setup_nrf_connect_sdk_toolchain.sh"
+echo
+
 "${PYTHON_BIN}" "${REPO_ROOT}/scripts/run_koala_mode_switcher.py" prepare-cache
 
 echo
