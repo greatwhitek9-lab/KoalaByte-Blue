@@ -12,16 +12,6 @@
     <filter id="blueGlow" x="-30%" y="-30%" width="160%" height="160%">
       <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#00a8ff" flood-opacity="0.9"/>
     </filter>
-    <radialGradient id="eyeGlowLeft" cx="35%" cy="44%" r="45%">
-      <stop offset="0" stop-color="#ffdcff"/>
-      <stop offset="0.45" stop-color="#e63cff"/>
-      <stop offset="1" stop-color="#11021c"/>
-    </radialGradient>
-    <radialGradient id="eyeGlowRight" cx="65%" cy="44%" r="45%">
-      <stop offset="0" stop-color="#edffd2"/>
-      <stop offset="0.45" stop-color="#84ff34"/>
-      <stop offset="1" stop-color="#071800"/>
-    </radialGradient>
     <style>
       .title-main { font-family: Impact, Copperplate, 'Rockwell Extra Bold', 'Arial Black', serif; font-weight: 900; letter-spacing: 4px; paint-order: stroke fill; stroke: #2b1a0a; stroke-width: 7px; filter: url(#jungleShadow); }
       .title-blue { font-family: Impact, Copperplate, 'Rockwell Extra Bold', 'Arial Black', serif; font-weight: 900; letter-spacing: 8px; paint-order: stroke fill; stroke: #07152b; stroke-width: 7px; filter: url(#blueGlow); }
@@ -31,20 +21,8 @@
   </defs>
 
   <rect width="640" height="390" fill="#020403"/>
-  <path d="M0 0h640v390H0z" fill="#000"/>
-  <circle cx="210" cy="155" r="85" fill="url(#eyeGlowLeft)" opacity="0.55"/>
-  <circle cx="430" cy="155" r="85" fill="url(#eyeGlowRight)" opacity="0.55"/>
-  <path d="M121 104 C170 52, 263 39, 318 86 C373 39, 472 53, 519 105 C473 83, 420 94, 385 130 C359 105, 280 105, 253 130 C218 94, 166 83, 121 104Z" fill="#030506" stroke="#111820" stroke-width="4"/>
-  <ellipse cx="238" cy="165" rx="45" ry="62" fill="#07090c"/>
-  <ellipse cx="402" cy="165" rx="45" ry="62" fill="#07090c"/>
-  <path d="M185 122 L286 164" stroke="#020304" stroke-width="28" stroke-linecap="round"/>
-  <path d="M455 122 L354 164" stroke="#020304" stroke-width="28" stroke-linecap="round"/>
-  <circle cx="246" cy="172" r="29" fill="#e63cff" opacity="0.96"/>
-  <circle cx="394" cy="172" r="29" fill="#84ff34" opacity="0.96"/>
-  <circle cx="257" cy="159" r="6" fill="#fff" opacity="0.8"/>
-  <circle cx="405" cy="159" r="6" fill="#fff" opacity="0.8"/>
-  <path d="M318 170 C298 199, 301 247, 319 270 C338 247, 341 199, 318 170Z" fill="#4c5056" stroke="#9a9da4" stroke-width="4"/>
-  <path d="M284 288 C300 304, 338 304, 354 288" fill="none" stroke="#9498a6" stroke-width="7" stroke-linecap="round"/>
+  <image href="data:image/jpeg;base64,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" x="0" y="0" width="640" height="390" preserveAspectRatio="xMidYMid slice" opacity="0.98"/>
+  <rect width="640" height="390" fill="#000000" opacity="0.20"/>
 
   <path class="branch" d="M20 28 C90 18, 150 46, 214 18"/>
   <path class="branch" d="M426 22 C490 52, 560 18, 620 34"/>
