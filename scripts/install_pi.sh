@@ -4,6 +4,8 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV_DIR="${REPO_ROOT}/pi-companion/.venv"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+CONNECT_WIFI_FIRST_BOOT="${CONNECT_WIFI_FIRST_BOOT:-auto}"
+STRICT_WIFI_FIRST_BOOT="${STRICT_WIFI_FIRST_BOOT:-0}"
 PREPARE_DONGLE_CACHE="${PREPARE_DONGLE_CACHE:-auto}"
 STRICT_DONGLE_CACHE="${STRICT_DONGLE_CACHE:-0}"
 INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS:-auto}"
@@ -19,13 +21,22 @@ cd "${REPO_ROOT}"
 
 echo "KoalaByte Blue Pi companion installer"
 echo "Repository root: ${REPO_ROOT}"
-echo "System dependency helper covers BlueZ, SDL2, can-utils, iproute2, USB, build, and GPIO packages when apt is available."
+echo "System dependency helper covers WiFi, BlueZ, SDL2, can-utils, iproute2, USB, build, and GPIO packages when apt is available."
 echo
 
 if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
   echo "Python 3 is required but was not found." >&2
   exit 1
 fi
+
+echo "Checking first-boot WiFi/internet before downloads..."
+CONNECT_WIFI_FIRST_BOOT="${CONNECT_WIFI_FIRST_BOOT}" STRICT_WIFI_FIRST_BOOT="${STRICT_WIFI_FIRST_BOOT}" bash "${REPO_ROOT}/scripts/setup_wifi_first_boot.sh" || {
+  if [[ "${STRICT_WIFI_FIRST_BOOT}" == "1" ]]; then
+    echo "STRICT_WIFI_FIRST_BOOT=1 is set, failing install because WiFi/internet setup did not complete." >&2
+    exit 1
+  fi
+  echo "Continuing install because STRICT_WIFI_FIRST_BOOT is not enabled." >&2
+}
 
 echo "Checking/installing Raspberry Pi system packages..."
 INSTALL_SYSTEM_PACKAGES="${INSTALL_SYSTEM_PACKAGES}" STRICT_SYSTEM_PACKAGES="${STRICT_SYSTEM_PACKAGES}" bash "${REPO_ROOT}/scripts/setup_system_packages.sh" || {
@@ -121,6 +132,8 @@ esac
 
 echo
 echo "Pi companion install complete."
+echo "WiFi first-boot helper:"
+echo "  WIFI_INTERACTIVE=1 bash ${REPO_ROOT}/scripts/setup_wifi_first_boot.sh"
 echo "System dependency helper:"
 echo "  bash ${REPO_ROOT}/scripts/setup_system_packages.sh"
 echo "ESP32 PlatformIO helper:"
@@ -141,18 +154,3 @@ echo "  NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DI
 echo
 echo "Normal boot wrapper with pre-boot selector, boot splash, and menu:"
 echo "  bash ${REPO_ROOT}/scripts/koalabyte_blue_boot.sh"
-echo
-echo "Boot splash test:"
-echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_boot_splash.py --windowed --duration 3"
-echo
-echo "Jungle/eucalyptus graphical menu test:"
-echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_menu_screen.py --graphical --windowed"
-echo
-echo "Outback BlueZ module manifest test:"
-echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_koala_bluez.py manifest"
-echo
-echo "Koala Kan Kommander InnoMaker manifest test:"
-echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_koala_kan_kommander.py manifest"
-echo
-echo "All-component helper:"
-echo "  bash ${REPO_ROOT}/scripts/flash_all_components.sh --all"
