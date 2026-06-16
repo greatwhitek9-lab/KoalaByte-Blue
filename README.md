@@ -1,6 +1,6 @@
-# KoalaByte Blue / killerkoala AI Companion Firmware RevA23
+# KoalaByte Blue / killerkoala AI Companion Firmware RevA25
 
-KoalaByte Blue is the dongle-only Raspberry Pi 3B+ / ESP32-S3 DualEye / Nordic nRF52840 Dongle build for the killerkoala companion, safe BlueZ helper deck, KoalaByte Lab dongle firmware, Koala Konnect, and optional Koala Kan Kommander CAN observation path.
+KoalaByte Blue is the dongle-only Raspberry Pi 3B+ / ESP32-S3 DualEye / Nordic nRF52840 Dongle build for the killerkoala companion, safe BlueZ helper deck, KoalaByte Lab dongle firmware, Koala Konnect, and optional Koala Kan Kommander CAN bench path.
 
 ## Start here
 
@@ -51,7 +51,7 @@ Raspberry Pi 3B+ USB host
   -> short internal USB data cable
   -> InnoMaker USB to CAN Converter kit
   -> adapter-side CAN_H / CAN_L / GND / optional SHIELD
-  -> authorized bench harness or owned-device test network
+  -> isolated CAN bench simulator or owned bench harness
 ```
 
 Do not wire CAN_H or CAN_L directly to Raspberry Pi GPIO. Do not connect the Seloky 12 V output directly to the Pi.
@@ -97,7 +97,7 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py switch koala_
 
 ### Koala Kan Kommander
 
-Koala Kan Kommander uses the InnoMaker USB to CAN Converter kit and remains passive by default. The transmit placeholder is intentionally blocked.
+Koala Kan Kommander uses the InnoMaker USB to CAN Converter kit. RevA25 supports bounded CAN listen and gated transmit for a completely isolated bench simulator. Transmit requires both `--bench-simulator` and `--confirm-transmit`.
 
 ```bash
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
@@ -105,8 +105,13 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py inventory
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py status --interface can0
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py listen --interface can0 --duration 10
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py report --interface can0
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py generate-payloads --interface can0 --payload-profile all --base-id 0x600 --sequence-count 8 --tag KOALAKAN
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit --interface can0 --bench-simulator --confirm-transmit --payload-profile heartbeat --base-id 0x600 --sequence-count 3
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py listen-transmit --interface can0 --bench-simulator --confirm-transmit --can-id 0x600 --data "4B 42 01 00" --duration 10
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit-placeholder
 ```
+
+`transmit-placeholder` remains blocked as a legacy safety artifact. Use `transmit` or `listen-transmit` only on an isolated bench simulator or owned bench harness.
 
 ### Outback BlueZ Module Deck
 
@@ -191,4 +196,4 @@ scripts/flash_all_components.sh
 
 ## Safety boundary
 
-KoalaByte Blue is for lawful educational research, defensive testing, owned-device lab work, and authorized Bluetooth/CAN assessment only. Passive capture, local logging, synthetic owned-device lab advertising, Koala Konnect host-adapter use, and Koala Kan Kommander observe-only CAN workflows must remain scoped to environments where you have permission.
+KoalaByte Blue is for lawful educational research, defensive testing, owned-device lab work, and authorized Bluetooth/CAN assessment only. Passive capture, local logging, synthetic owned-device lab advertising, Koala Konnect host-adapter use, and Koala Kan Kommander listen/transmit workflows must remain scoped to environments where you have permission. CAN transmit is for completely isolated bench simulators or owned bench harnesses only and requires explicit transmit confirmation flags.
