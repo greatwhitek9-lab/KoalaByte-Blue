@@ -53,7 +53,7 @@ KoalaByte Blue title at the top
 large glowing-eye koala identity centered below the title
 purple left eye and green right eye
 jungle/eucalyptus border
-bottom status: JUNGLE-THEME BOOT • KILLERKOALA ONLINE
+bottom status: KILLERKOALA ONLINE
 ```
 
 The approved source asset is:
