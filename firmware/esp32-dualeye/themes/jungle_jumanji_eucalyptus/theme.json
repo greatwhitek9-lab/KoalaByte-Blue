@@ -1,0 +1,41 @@
+{
+  "theme_id": "jungle_jumanji_eucalyptus",
+  "display_name": "Jungle / Jumanji Eucalyptus",
+  "primary": true,
+  "description": "Primary KoalaByte Blue firmware theme with eucalyptus branch borders, bark/gold jungle title styling, blue KoalaByte Blue accent text, and purple/green glowing eyes.",
+  "visual_style": {
+    "theme_family": "jungle_jumanji",
+    "border_style": "leafy eucalyptus branches around text/menu items",
+    "title_style": "large chunky carved jungle lettering inspired by the KoalaByte Blue poster reference",
+    "font_family_preference": [
+      "Impact",
+      "Copperplate",
+      "Rockwell Extra Bold",
+      "Arial Black",
+      "serif"
+    ],
+    "font_license_note": "No third-party font file is bundled. Use licensed fonts only in private/custom builds."
+  },
+  "colors": {
+    "background": "#000000",
+    "textbox_color": "#0C160E",
+    "textbox_border": "#6ECA4E",
+    "text_color": "#E8F2D4",
+    "title_bark": "#CCA85C",
+    "title_edge": "#2D1B0A",
+    "blue_accent": "#1C8AFF",
+    "left_eye": "#E63CFF",
+    "right_eye": "#84FF34",
+    "branch": "#624622",
+    "leaf": "#6ECA4E"
+  },
+  "assets": {
+    "boot_splash_svg": "boot_splash.svg",
+    "background_svg": "menu_background.svg"
+  },
+  "menu": {
+    "border": "eucalyptus_branches",
+    "selected_item_style": "leafy rounded textbox with cyber green edge glow",
+    "standard_textbox_color_user_editable": true
+  }
+}
