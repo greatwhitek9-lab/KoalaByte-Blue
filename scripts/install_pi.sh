@@ -7,6 +7,8 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 PREPARE_DONGLE_CACHE="${PREPARE_DONGLE_CACHE:-auto}"
 STRICT_DONGLE_CACHE="${STRICT_DONGLE_CACHE:-0}"
 INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS:-auto}"
+INSTALL_NCS_TOOLCHAIN="${INSTALL_NCS_TOOLCHAIN:-auto}"
+STRICT_NCS_TOOLCHAIN="${STRICT_NCS_TOOLCHAIN:-${STRICT_DONGLE_CACHE}}"
 INSTALL_SYSTEM_PACKAGES="${INSTALL_SYSTEM_PACKAGES:-auto}"
 STRICT_SYSTEM_PACKAGES="${STRICT_SYSTEM_PACKAGES:-0}"
 INSTALL_ESP32_TOOLS="${INSTALL_ESP32_TOOLS:-auto}"
@@ -78,6 +80,16 @@ STRICT_NRF_TOOLS="${STRICT_DONGLE_CACHE}" INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS
 }
 
 echo
+echo "Checking/preparing full nRF Connect SDK / Zephyr toolchain..."
+INSTALL_NCS_TOOLCHAIN="${INSTALL_NCS_TOOLCHAIN}" STRICT_NCS_TOOLCHAIN="${STRICT_NCS_TOOLCHAIN}" PYTHON_BIN="${VENV_DIR}/bin/python" bash "${REPO_ROOT}/scripts/setup_nrf_connect_sdk_toolchain.sh" || {
+  if [[ "${STRICT_NCS_TOOLCHAIN}" == "1" ]]; then
+    echo "STRICT_NCS_TOOLCHAIN=1 is set, failing install because full NCS/Zephyr toolchain setup did not complete." >&2
+    exit 1
+  fi
+  echo "Continuing install because STRICT_NCS_TOOLCHAIN is not enabled." >&2
+}
+
+echo
 echo "Preparing offline nRF52840 Dongle firmware cache policy: PREPARE_DONGLE_CACHE=${PREPARE_DONGLE_CACHE}, STRICT_DONGLE_CACHE=${STRICT_DONGLE_CACHE}"
 case "${PREPARE_DONGLE_CACHE}" in
   0|false|False|no|NO|skip|SKIP)
@@ -92,6 +104,7 @@ case "${PREPARE_DONGLE_CACHE}" in
       echo "west and/or nrfutil not found, so both DFU ZIPs cannot be prepared automatically on this install run." >&2
       echo "Run the setup helper and cache helper after installing tools:" >&2
       echo "  bash ${REPO_ROOT}/scripts/setup_nrf_tools.sh" >&2
+      echo "  bash ${REPO_ROOT}/scripts/setup_nrf_connect_sdk_toolchain.sh" >&2
       echo "  bash ${REPO_ROOT}/scripts/prepare_dongle_firmware_cache.sh" >&2
       PYTHONPATH="${REPO_ROOT}/pi-companion" python "${REPO_ROOT}/scripts/run_koala_mode_switcher.py" cache-status || true
       if [[ "${STRICT_DONGLE_CACHE}" == "1" ]]; then
@@ -114,6 +127,9 @@ echo "ESP32 PlatformIO helper:"
 echo "  bash ${REPO_ROOT}/scripts/setup_esp32_tools.sh"
 echo "west/nrfutil setup helper:"
 echo "  bash ${REPO_ROOT}/scripts/setup_nrf_tools.sh"
+echo "Full nRF Connect SDK / Zephyr toolchain helper:"
+echo "  bash ${REPO_ROOT}/scripts/setup_nrf_connect_sdk_toolchain.sh"
+echo "  source ${REPO_ROOT}/logs/nrf_connect_sdk_env.sh"
 echo "Offline nRF52840 Dongle firmware cache:"
 echo "  bash ${REPO_ROOT}/scripts/prepare_dongle_firmware_cache.sh"
 echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_koala_mode_switcher.py cache-status"
@@ -135,17 +151,8 @@ echo
 echo "Outback BlueZ module manifest test:"
 echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_koala_bluez.py manifest"
 echo
-echo "Gumleaf Gear Check inventory test:"
-echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_koala_bluez.py inventory"
-echo
 echo "Koala Kan Kommander InnoMaker manifest test:"
 echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_koala_kan_kommander.py manifest"
 echo
-echo "killerkoala voice preview:"
-echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_killerkoala_voice.py status --xp 100"
-echo
 echo "All-component helper:"
 echo "  bash ${REPO_ROOT}/scripts/flash_all_components.sh --all"
-echo
-echo "Terminal menu validation:"
-echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_menu_screen.py"
