@@ -20,7 +20,22 @@ The selector is a Pi-side startup step. It does not change the Raspberry Pi boot
 
 The Raspberry Pi can store both nRF52840 Dongle DFU packages locally so a second computer is not needed for normal mode switching.
 
-Prepare both cached firmwares:
+During Pi installation, `scripts/install_pi.sh` now tries to prepare both DFU ZIPs automatically when both `west` and `nrfutil` are available. It writes/updates cache status even when the tools are missing.
+
+Install-time controls:
+
+```bash
+# Default behavior: try when west+nrfutil exist; otherwise warn and continue
+bash scripts/install_pi.sh
+
+# Force install to fail unless both DFU ZIPs are prepared
+STRICT_DONGLE_CACHE=1 bash scripts/install_pi.sh
+
+# Skip cache preparation during install
+PREPARE_DONGLE_CACHE=0 bash scripts/install_pi.sh
+```
+
+Prepare both cached firmwares manually:
 
 ```bash
 bash scripts/prepare_dongle_firmware_cache.sh
