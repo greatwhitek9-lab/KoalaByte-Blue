@@ -51,7 +51,7 @@ The ESP32 boot animation remains procedural for low memory use, but it should vi
 The approved menu layout uses:
 
 ```text
-no overlapping words
+No overlapping words
 all labels and descriptions inside their rounded row borders
 selected row with cyber-green glow
 descriptions wrapped in the right-side description area
