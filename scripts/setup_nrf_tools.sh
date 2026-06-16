@@ -5,6 +5,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS:-auto}"
 STRICT_NRF_TOOLS="${STRICT_NRF_TOOLS:-0}"
+SETUP_NCS_TOOLCHAIN="${SETUP_NCS_TOOLCHAIN:-0}"
 NEED_WEST=1
 NEED_NRFUTIL=1
 CHECK_ONLY=0
@@ -18,17 +19,22 @@ Usage:
   STRICT_NRF_TOOLS=1 bash scripts/setup_nrf_tools.sh
   bash scripts/setup_nrf_tools.sh --west-only
   bash scripts/setup_nrf_tools.sh --nrfutil-only
+  bash scripts/setup_nrf_tools.sh --full-toolchain
   bash scripts/setup_nrf_tools.sh --check-only
 
 Environment:
   PYTHON_BIN           Python executable used for pip installs. Default: python3
   INSTALL_NRF_TOOLS    auto/1/0. Default: auto. When enabled, attempts pip install for missing tools.
   STRICT_NRF_TOOLS     1 fails if required tools are still missing after setup. Default: 0
+  SETUP_NCS_TOOLCHAIN  1 also runs scripts/setup_nrf_connect_sdk_toolchain.sh.
   NRFUTIL_INSTALL_CMD  Optional custom command to install nrfutil if pip install is not desired.
 
 Tools checked:
   west                 Zephyr/nRF Connect SDK build tool
   nrfutil              Nordic DFU package/USB serial flashing tool
+
+Full toolchain helper:
+  scripts/setup_nrf_connect_sdk_toolchain.sh
 EOF
 }
 
@@ -40,6 +46,11 @@ while [[ $# -gt 0 ]]; do
       ;;
     --nrfutil-only)
       NEED_WEST=0
+      NEED_NRFUTIL=1
+      ;;
+    --full-toolchain)
+      SETUP_NCS_TOOLCHAIN=1
+      NEED_WEST=1
       NEED_NRFUTIL=1
       ;;
     --check-only)
@@ -103,7 +114,7 @@ failures=()
 
 echo "== KoalaByte Blue nRF tool setup =="
 echo "Repository root: ${REPO_ROOT}"
-echo "INSTALL_NRF_TOOLS=${INSTALL_NRF_TOOLS} STRICT_NRF_TOOLS=${STRICT_NRF_TOOLS}"
+echo "INSTALL_NRF_TOOLS=${INSTALL_NRF_TOOLS} STRICT_NRF_TOOLS=${STRICT_NRF_TOOLS} SETUP_NCS_TOOLCHAIN=${SETUP_NCS_TOOLCHAIN}"
 
 if [[ "${NEED_WEST}" == "1" ]]; then
   if ! have_tool west && [[ "${CHECK_ONLY}" != "1" ]] && install_enabled; then
@@ -138,6 +149,12 @@ if (( ${#failures[@]} > 0 )); then
   if strict_enabled; then
     exit 1
   fi
+fi
+
+if [[ "${SETUP_NCS_TOOLCHAIN}" == "1" && "${CHECK_ONLY}" != "1" ]]; then
+  echo
+  echo "== Full nRF Connect SDK / Zephyr toolchain setup =="
+  STRICT_NCS_TOOLCHAIN="${STRICT_NRF_TOOLS}" PYTHON_BIN="${PYTHON_BIN}" bash "${REPO_ROOT}/scripts/setup_nrf_connect_sdk_toolchain.sh"
 fi
 
 echo "nRF tool setup/check complete."
