@@ -10,6 +10,18 @@ Run the readiness check:
 python3 scripts/check_repo_readiness.py
 ```
 
+Install the Pi companion. During install, the script now tries to prepare both nRF52840 Dongle DFU ZIPs on the Pi when `west` and `nrfutil` are available:
+
+```bash
+bash scripts/install_pi.sh
+```
+
+Force install to fail if both cached DFU ZIPs cannot be prepared:
+
+```bash
+STRICT_DONGLE_CACHE=1 bash scripts/install_pi.sh
+```
+
 Install/flash the default component set:
 
 ```bash
@@ -58,7 +70,7 @@ Do not wire CAN_H or CAN_L directly to Raspberry Pi GPIO. Do not connect the Sel
 
 ## Pre-boot dongle mode selector
 
-The Pi companion now includes a pre-boot selector that can run before the normal KoalaByte Blue boot splash and main menu.
+The Pi companion includes a pre-boot selector that can run before the normal KoalaByte Blue boot splash and main menu.
 
 Choices:
 
@@ -68,6 +80,21 @@ Choices:
 
 2) Koala Konnect Mode
    Alternate USB HCI adapter profile for phone/computer host use.
+```
+
+The Pi can store both DFU packages locally:
+
+```text
+build/nrf52840-dongle-lab/koalabyte-blue-nrf52840-dongle-dfu.zip
+build/nrf52840-dongle-koala-konnect/koala-konnect-nrf52840-dongle-dfu.zip
+logs/dongle_firmware_cache.json
+```
+
+Prepare or refresh the offline cache manually:
+
+```bash
+bash scripts/prepare_dongle_firmware_cache.sh
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py cache-status
 ```
 
 Interactive selector:
@@ -110,6 +137,13 @@ pre-boot mode selector -> KoalaByte Blue boot splash -> grouped main menu
 bash scripts/install_pi.sh
 ```
 
+Install-time cache controls:
+
+```bash
+STRICT_DONGLE_CACHE=1 bash scripts/install_pi.sh
+PREPARE_DONGLE_CACHE=0 bash scripts/install_pi.sh
+```
+
 ### ESP32-S3 DualEye firmware
 
 ```bash
@@ -136,7 +170,8 @@ koala_konnect   Koala Konnect USB HCI external Bluetooth adapter mode
 
 ```bash
 PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py status
-PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py prepare-all
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py prepare-cache
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py cache-status
 PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py switch koalabyte_lab --dfu-port /dev/ttyACM0
 PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py switch koala_konnect --dfu-port /dev/ttyACM0
 ```
@@ -235,6 +270,7 @@ docs/PREBOOT_MODE_SELECTOR.md
 
 ```text
 pi-companion/koalablue/bluez_tools.py
+pi-companion/koalblue/killerkoala_vocabulary.py
 pi-companion/koalablue/killerkoala_vocabulary.py
 pi-companion/koalablue/menu_catalog.py
 pi-companion/koalablue/koala_mode_switcher.py
@@ -244,6 +280,7 @@ pi-companion/config.default.json
 firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c
 firmware/esp32-dualeye/src/main.cpp
 firmware/esp32-dualeye/src/boot_animation.cpp
+scripts/prepare_dongle_firmware_cache.sh
 scripts/run_preboot_mode_select.py
 scripts/koalabyte_blue_boot.sh
 scripts/check_repo_readiness.py
