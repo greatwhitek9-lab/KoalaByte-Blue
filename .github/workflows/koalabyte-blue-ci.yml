@@ -30,6 +30,7 @@ jobs:
           echo "preboot_sha=$(git rev-parse HEAD:scripts/run_preboot_mode_select.py)"
           echo "cache_helper_sha=$(git rev-parse HEAD:scripts/prepare_dongle_firmware_cache.sh)"
           echo "nrf_tools_sha=$(git rev-parse HEAD:scripts/setup_nrf_tools.sh)"
+          echo "ncs_toolchain_sha=$(git rev-parse HEAD:scripts/setup_nrf_connect_sdk_toolchain.sh)"
           echo "esp32_tools_sha=$(git rev-parse HEAD:scripts/setup_esp32_tools.sh)"
           echo "system_packages_sha=$(git rev-parse HEAD:scripts/setup_system_packages.sh)"
 
@@ -45,6 +46,7 @@ jobs:
           bash -n scripts/koalabyte_blue_boot.sh
           bash -n scripts/prepare_dongle_firmware_cache.sh
           bash -n scripts/setup_nrf_tools.sh
+          bash -n scripts/setup_nrf_connect_sdk_toolchain.sh
           bash -n scripts/setup_esp32_tools.sh
           bash -n scripts/setup_system_packages.sh
 
@@ -71,6 +73,7 @@ jobs:
           echo "preboot_sha=$(git rev-parse HEAD:scripts/run_preboot_mode_select.py)"
           echo "cache_helper_sha=$(git rev-parse HEAD:scripts/prepare_dongle_firmware_cache.sh)"
           echo "nrf_tools_sha=$(git rev-parse HEAD:scripts/setup_nrf_tools.sh)"
+          echo "ncs_toolchain_sha=$(git rev-parse HEAD:scripts/setup_nrf_connect_sdk_toolchain.sh)"
           echo "esp32_tools_sha=$(git rev-parse HEAD:scripts/setup_esp32_tools.sh)"
           echo "system_packages_sha=$(git rev-parse HEAD:scripts/setup_system_packages.sh)"
 
@@ -86,6 +89,7 @@ jobs:
           test -f scripts/flash_nrf52840_dongle_lab_dfu.sh
           test -f scripts/flash_all_components.sh
           test -f scripts/setup_nrf_tools.sh
+          test -f scripts/setup_nrf_connect_sdk_toolchain.sh
           test -f scripts/setup_esp32_tools.sh
           test -f scripts/setup_system_packages.sh
           test -f scripts/run_preboot_mode_select.py
@@ -97,8 +101,10 @@ jobs:
           grep -q 'CONFIG_BT_DEVICE_NAME="KoalaByte Lab"' firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf
           grep -q 'bt_le_adv_start' firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c
           grep -q 'setup_nrf_tools.sh --west-only' scripts/build_nrf52840_dongle_lab.sh
+          grep -q 'setup_nrf_connect_sdk_toolchain.sh' scripts/build_nrf52840_dongle_lab.sh
           grep -q 'setup_nrf_tools.sh --nrfutil-only' scripts/flash_nrf52840_dongle_lab_dfu.sh
           grep -q 'setup_nrf_tools.sh' scripts/flash_all_components.sh
+          grep -q 'setup_nrf_connect_sdk_toolchain.sh' scripts/flash_all_components.sh
           grep -q 'setup_esp32_tools.sh' scripts/flash_esp32.sh
           grep -q 'setup_system_packages.sh' scripts/install_pi.sh
           grep -q 'koala_konnect' pi-companion/koalablue/preboot_mode_selector.py
@@ -129,6 +135,7 @@ jobs:
           echo "preboot_sha=$(git rev-parse HEAD:scripts/run_preboot_mode_select.py)"
           echo "cache_helper_sha=$(git rev-parse HEAD:scripts/prepare_dongle_firmware_cache.sh)"
           echo "nrf_tools_sha=$(git rev-parse HEAD:scripts/setup_nrf_tools.sh)"
+          echo "ncs_toolchain_sha=$(git rev-parse HEAD:scripts/setup_nrf_connect_sdk_toolchain.sh)"
           echo "esp32_tools_sha=$(git rev-parse HEAD:scripts/setup_esp32_tools.sh)"
           echo "system_packages_sha=$(git rev-parse HEAD:scripts/setup_system_packages.sh)"
 
@@ -146,6 +153,9 @@ jobs:
 
       - name: Validate nRF tool setup check-only mode
         run: bash scripts/setup_nrf_tools.sh --check-only
+
+      - name: Validate NCS toolchain check-only mode
+        run: bash scripts/setup_nrf_connect_sdk_toolchain.sh --check-only
 
       - name: Validate pre-boot selector noninteractive mode
         run: PYTHONPATH=pi-companion python scripts/run_preboot_mode_select.py --noninteractive --no-apply
