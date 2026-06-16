@@ -16,6 +16,43 @@ Available choices:
 
 The selector is a Pi-side startup step. It does not change the Raspberry Pi bootloader. It runs before the KoalaByte Blue boot splash/menu flow and calls Koala Mode Switcher when a DFU port is available.
 
+## Offline firmware cache on the Pi
+
+The Raspberry Pi can store both nRF52840 Dongle DFU packages locally so a second computer is not needed for normal mode switching.
+
+Prepare both cached firmwares:
+
+```bash
+bash scripts/prepare_dongle_firmware_cache.sh
+```
+
+Equivalent Python command:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py prepare-cache
+```
+
+Check cache status without rebuilding:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py cache-status
+```
+
+Cache status file:
+
+```text
+logs/dongle_firmware_cache.json
+```
+
+Cached DFU ZIPs:
+
+```text
+build/nrf52840-dongle-lab/koalabyte-blue-nrf52840-dongle-dfu.zip
+build/nrf52840-dongle-koala-konnect/koala-konnect-nrf52840-dongle-dfu.zip
+```
+
+When those ZIPs exist, the pre-boot selector shows each mode as `READY`. When one is missing, it shows `MISSING` and tells you to run the cache preparation command.
+
 ## Runner
 
 Interactive pre-boot selector:
@@ -42,6 +79,8 @@ Choose and flash when the nRF52840 Dongle is in DFU bootloader mode:
 NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koalabyte_lab
 NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koala_konnect
 ```
+
+If a cached DFU ZIP is available, the selector flashes that saved package directly from the Pi. If the selected cache is missing, the switcher falls back to the packaging script when possible and tells you what failed if required build/package tools are unavailable.
 
 ## Full boot wrapper
 
@@ -90,11 +129,12 @@ logs/preboot_mode_selection.json
 
 but it does not claim the physical dongle was switched.
 
-Koala Mode Switcher state continues to live at:
+Koala Mode Switcher state and cache files live at:
 
 ```text
 logs/dongle_mode_state.json
 logs/dongle_mode_events.jsonl
+logs/dongle_firmware_cache.json
 ```
 
 ## Safety and scope
