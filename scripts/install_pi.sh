@@ -148,6 +148,9 @@ echo "  bash ${REPO_ROOT}/scripts/prepare_dongle_firmware_cache.sh"
 echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_koala_mode_switcher.py cache-status"
 echo "  cache file: ${REPO_ROOT}/logs/dongle_firmware_cache.json"
 echo
+echo "Koala Kan Kommander InnoMaker manifest test:"
+echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_koala_kan_kommander.py manifest"
+echo
 echo "Pre-boot dongle mode selector:"
 echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_preboot_mode_select.py"
 echo "  NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_preboot_mode_select.py --mode koala_konnect"
