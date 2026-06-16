@@ -1,13 +1,15 @@
-# KoalaByte Blue Flashing and Installation Guide - RevA23
+# KoalaByte Blue Flashing and Installation Guide - RevA25
 
 This repo keeps the current dongle-only, no-custom-PCB KoalaByte Blue software set:
 
 1. **ESP32-S3 DualEye firmware** under `firmware/esp32-dualeye/`.
 2. **Raspberry Pi 3B+ companion tools** under `pi-companion/` and `scripts/`.
 3. **nRF Connect SDK / Zephyr firmware for the Nordic nRF52840 Dongle KoalaByte Lab profile** under `firmware/nrf52840-dongle-ear-tag-tx-lab/`.
-4. **Optional Koala Kan Kommander InnoMaker CAN support** through the Pi companion. This is not a flashed firmware target; it is a passive SocketCAN status/listen/report plug-in.
+4. **Koala Konnect** as an alternate nRF52840 Dongle USB HCI adapter profile.
+5. **Pre-Boot Dongle Mode Selector** to choose KoalaByte Blue Lab Mode or Koala Konnect Mode before the normal boot splash/menu flow.
+6. **Koala Kan Kommander InnoMaker CAN support** through the Pi companion.
 
-Safety boundary: this code is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, synthetic owned-device lab advertising, scoped CAN observation, and safe lab validation only. Koala Kry remains offline metadata replay only. Koala Kan Kommander does not transmit raw CAN frames.
+Safety boundary: this code is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, synthetic owned-device lab advertising, scoped CAN observation, completely isolated CAN bench simulator testing, and safe lab validation only. Koala Kry remains offline metadata replay/RF bench review only. Koala Kan Kommander transmit requires both `--bench-simulator` and `--confirm-transmit`.
 
 ---
 
@@ -19,13 +21,6 @@ From the repo root, run the readiness check first:
 python3 scripts/check_repo_readiness.py
 ```
 
-Expected result:
-
-```text
-KoalaByte Blue repo readiness check passed.
-Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, and Koala Kan Kommander InnoMaker CAN support.
-```
-
 Run the all-component helper:
 
 ```bash
@@ -35,23 +30,63 @@ bash scripts/flash_all_components.sh --all
 Useful variants:
 
 ```bash
-# Install/update only the Raspberry Pi companion
 bash scripts/flash_all_components.sh --pi
-
-# Flash only the ESP32-S3 DualEye; optional port override
 ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
-
-# Build/package/flash the nRF52840 Dongle KoalaByte Lab profile
 NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
-
-# Build only without uploading firmware
 bash scripts/flash_all_components.sh --all --build-only
-
-# Run local safe smoke checks after install/flash actions
 bash scripts/flash_all_components.sh --all --smoke
 ```
 
 The helper runs the repo readiness check, installs the Pi companion when requested, flashes ESP32 when requested, builds/packages/flashes the nRF52840 Dongle when requested, and writes a Koala Kan Kommander InnoMaker manifest check. If `NRF_DFU_PORT` is not set, the nRF helper creates the DFU ZIP but does not flash.
+
+---
+
+## Pre-boot Lab/Konnect selector
+
+The pre-boot selector runs before the normal KoalaByte Blue boot splash and grouped main menu. It lets the operator choose:
+
+```text
+1) KoalaByte Blue Lab Mode
+2) Koala Konnect Mode
+```
+
+Interactive selector:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py
+```
+
+Direct mode selection:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koalabyte_lab
+PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koala_konnect
+```
+
+Switch the physical nRF52840 Dongle when it is in DFU bootloader mode:
+
+```bash
+NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koalabyte_lab
+NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koala_konnect
+```
+
+Normal Pi-side startup wrapper:
+
+```bash
+bash scripts/koalabyte_blue_boot.sh
+```
+
+Wrapper order:
+
+```text
+pre-boot mode selector -> KoalaByte Blue boot splash -> grouped main menu
+```
+
+Notes:
+
+- The selector does not change the Raspberry Pi bootloader.
+- The nRF52840 Dongle can hold only one active profile at a time.
+- If no `NRF_DFU_PORT` is available, the selector records the requested mode in `logs/preboot_mode_selection.json` but does not claim the physical dongle was switched.
 
 ---
 
@@ -75,6 +110,7 @@ bash scripts/install_pi.sh
 Safe local tests:
 
 ```bash
+PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --noninteractive --no-apply
 PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
 PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
 PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py manifest
@@ -182,7 +218,7 @@ BUILD_KOALA_KONNECT=1 bash scripts/build_firmware_all.sh
 
 ---
 
-## RevA23 InnoMaker USB-to-CAN support
+## RevA25 InnoMaker USB-to-CAN listen and transmit support
 
 Koala Kan Kommander uses the optional **InnoMaker USB to CAN Converter kit**.
 
@@ -193,7 +229,7 @@ Raspberry Pi 3B+ USB host
   -> short internal USB data cable
   -> InnoMaker USB to CAN Converter kit
   -> adapter-side CAN_H / CAN_L / GND / optional SHIELD
-  -> authorized bench harness or owned-device test network
+  -> isolated CAN bench simulator or owned bench harness
 ```
 
 Do not use the earlier circular CAN panel-port concept. Mount the adapter internally or in a rectangular side/rear service bay with strain relief. Do not wire CAN_H or CAN_L directly to Raspberry Pi GPIO.
@@ -207,7 +243,7 @@ sudo ip link set can0 up type can bitrate 500000
 ip -details -statistics link show can0
 ```
 
-Passive plug-in checks:
+Listen/report checks:
 
 ```bash
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
@@ -215,10 +251,22 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py inventory
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py status --interface can0
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py listen --interface can0 --duration 10
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py report --interface can0
-PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit-placeholder
 ```
 
-`transmit-placeholder` writes a blocked-action artifact. It does not transmit CAN frames.
+Generate synthetic payloads without transmitting:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py generate-payloads --interface can0 --payload-profile all --base-id 0x600 --sequence-count 8 --tag KOALAKAN
+```
+
+Transmit to an isolated bench simulator:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit --interface can0 --bench-simulator --confirm-transmit --payload-profile heartbeat --base-id 0x600 --sequence-count 3
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py listen-transmit --interface can0 --bench-simulator --confirm-transmit --can-id 0x600 --data "4B 42 01 00" --duration 10
+```
+
+`transmit-placeholder` remains a blocked legacy artifact and never sends frames.
 
 ---
 
@@ -248,6 +296,7 @@ The Outback BlueZ Module Deck hashes/redacts Bluetooth addresses by default unle
 ```bash
 python3 scripts/check_repo_readiness.py
 bash scripts/install_pi.sh
+PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --noninteractive --no-apply
 bash scripts/build_firmware_all.sh
 NO_MONITOR=1 bash scripts/flash_esp32.sh
 bash scripts/build_nrf52840_dongle_lab.sh
@@ -256,12 +305,16 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py manifest
 PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py inventory
 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status --xp 100
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit --interface can0 --bench-simulator --confirm-transmit --can-id 0x600 --data "4B 42 01 00"
 ```
 
 Expected behavior:
 
 - Repo readiness check passes before flashing.
+- Pre-boot selector can choose KoalaByte Blue Lab Mode or Koala Konnect Mode.
 - ESP32 shows the KoalaByte Blue boot splash before normal runtime.
 - ESP32 serial JSON includes `"boot_animation":1`.
-- nRF52840 Dongle advertises as `KoalaByte Lab` with synthetic service data after DFU flashing.
-- Pi companion boot splash, menu, BlueZ wrappers, killerkoala preview, and Koala Kan Kommander manifest checks run without missing-file errors.
+- nRF52840 Dongle advertises as `KoalaByte Lab` when Lab mode is flashed.
+- Koala Konnect exposes the alternate USB HCI adapter profile when Konnect mode is flashed.
+- Pi companion boot splash, grouped menu, BlueZ wrappers, killerkoala preview, and Koala Kan Kommander manifest checks run without missing-file errors.
+- CAN transmit sends only when `--bench-simulator` and `--confirm-transmit` are both present.
