@@ -17,10 +17,11 @@ if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
 fi
 
 if command -v apt-get >/dev/null 2>&1; then
-  echo "Recommended Raspberry Pi OS packages for graphical UI, Outback BlueZ, and optional InnoMaker SocketCAN checks:"
+  echo "Recommended Raspberry Pi OS packages for graphical UI, Outback BlueZ, optional InnoMaker SocketCAN checks, and dongle mode flashing:"
   echo "  sudo apt update"
   echo "  sudo apt install -y libsdl2-2.0-0 bluetooth bluez rfkill sqlite3 iproute2 can-utils"
   echo "Optional BlueZ helpers may be present on some images: btmgmt btmon hciconfig hcitool sdptool rfcomm l2ping gatttool busctl"
+  echo "Install Nordic nrfutil separately if you want this Pi to flash the nRF52840 Dongle from cached DFU ZIPs."
   echo
 fi
 
@@ -41,6 +42,10 @@ python "${REPO_ROOT}/scripts/check_repo_readiness.py"
 
 echo
 echo "Pi companion install complete."
+echo "Prepare offline nRF52840 Dongle firmware cache on this Pi:"
+echo "  bash ${REPO_ROOT}/scripts/prepare_dongle_firmware_cache.sh"
+echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_koala_mode_switcher.py cache-status"
+echo
 echo "Pre-boot dongle mode selector:"
 echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_preboot_mode_select.py"
 echo "  NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_preboot_mode_select.py --mode koala_konnect"
