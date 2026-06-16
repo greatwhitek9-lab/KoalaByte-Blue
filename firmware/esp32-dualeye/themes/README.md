@@ -31,6 +31,36 @@ firmware/esp32-dualeye/themes/active_theme.h
 
 The ESP32 boot animation reads that header at compile time.
 
+## Approved visual source of truth
+
+The approved theme layout is represented by these assets:
+
+```text
+firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/boot_splash.svg
+firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/menu_preview_main.svg
+firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/menu_preview_tools.svg
+firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/standard_theme_settings_preview.svg
+```
+
+Approved boot splash requirements:
+
+```text
+KoalaByte Blue title at the top
+purple left eye / green right eye koala identity centered
+jungle eucalyptus border
+bottom boot status text kept clear and readable
+```
+
+Approved menu layout requirements:
+
+```text
+No overlapping words
+All labels and descriptions stay inside rounded row borders
+Selected row uses cyber-green glow
+Descriptions wrap in the right-side text area
+Eucalyptus branches/leaves frame the menu
+```
+
 ## Standard editable theme
 
 The standard editable theme lives in:
@@ -45,6 +75,7 @@ Users can change:
 background
 font_family
 textbox_color
+textbox_border
 text_color
 accent_color
 selected_item_color
