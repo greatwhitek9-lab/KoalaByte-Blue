@@ -1,10 +1,12 @@
-# RevA23 Koala Kan Kommander - InnoMaker USB-to-CAN Update
+# RevA23/RevA24 Koala Kan Kommander - InnoMaker USB-to-CAN Update
 
 ## Purpose
 
 Koala Kan Kommander adds an optional physical CAN observation path for KoalaByte Blue using the user-specified **InnoMaker USB to CAN Converter kit** as the USB-to-CAN adapter.
 
 It is designed for authorized bench, training, and owned-device CAN observation. The production plug-in is passive by default and does not implement raw CAN frame transmission.
+
+RevA24 adds a **synthetic payload generator** for parser, display, logging, and isolated bench-harness validation. The generator writes transmit-compatible JSON artifacts and SocketCAN preview lines, but it does not send frames itself.
 
 ## Physical device option
 
@@ -57,6 +59,7 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py inventory
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py status --interface can0
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py listen --interface can0 --duration 10
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py report --interface can0
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py generate-payloads --interface can0 --payload-profile all --base-id 0x600 --sequence-count 8 --tag KOALAKAN
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit-placeholder
 ```
 
@@ -64,12 +67,44 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit-plac
 
 | Action | Behavior |
 |---|---|
-| `manifest` | Writes the plug-in manifest with the InnoMaker adapter path. |
+| `manifest` | Writes the plug-in manifest with the InnoMaker adapter path and payload schema metadata. |
 | `inventory` | Detects SocketCAN interfaces under `/sys/class/net`. |
 | `status` | Saves `ip -details -statistics link show <interface>` output. |
 | `listen` | Performs a bounded passive raw-socket CAN listen and saves JSON artifacts. |
-| `report` | Writes a Markdown report with inventory/status artifact links. |
-| `transmit-placeholder` | transmits a payload or script. CAN frame is sent. |
+| `report` | Writes a Markdown report with inventory/status/payload artifact links. |
+| `generate-payloads` | Generates bench-only synthetic payload JSON using the `koala-kan-payload-batch-v1` schema. No frames are transmitted. |
+| `transmit-placeholder` | Writes a blocked transmit manifest. Raw CAN transmission remains intentionally disabled in production. |
+
+## Payload generator
+
+The generator creates synthetic frames for authorized bench harnesses, CAN simulators, parser validation, display checks, and logging tests. It reserves four standard 11-bit lab IDs starting from `--base-id`.
+
+Default profiles:
+
+| Profile | Purpose | Default ID offset |
+|---|---|---|
+| `heartbeat` | KoalaByte heartbeat pattern for UI/logging validation. | `base + 0` |
+| `counter` | Monotonic counter and inverse byte pattern for parser checks. | `base + 1` |
+| `walking-bit` | Walking bit pattern for bitfield display validation. | `base + 2` |
+| `ascii-tag` | One padded ASCII label frame, default `KOALAKAN`. | `base + 3` |
+| `all` | Emits the full synthetic batch. | `base + 0..3` |
+
+Generated artifacts include:
+
+```text
+schema_version
+interface_hint
+frames[].can_id_hex
+frames[].dlc
+frames[].data_hex
+frames[].is_extended
+frames[].is_remote_request
+frames[].repeat_ms
+socketcan_preview_lines
+transmit_function_contract
+```
+
+The `socketcan_preview_lines` are formatted for human review and downstream bench tooling. They are not executed by the plug-in.
 
 ## Optional Pi setup
 
@@ -86,4 +121,6 @@ Use the bitrate required by your authorized bench harness or owned-device test n
 
 ## Safety boundary
 
-Koala Kan Kommander is for authorized CAN observation and bench validation only. The production plug-in does not transmit raw CAN frames. Vehicle networks, industrial controllers, batteries, and embedded control networks must be treated as high-risk systems; observe only unless you fully own the test harness and have documented scope.
+Koala Kan Kommander is for authorized CAN observation and bench validation only. The production plug-in does not transmit raw CAN frames.
+
+The payload generator deliberately excludes UDS diagnostic services, OBD requests, DTC operations, ECU reset/security-access frames, OEM arbitration IDs, captured traffic replay, and actuator-oriented payloads. Do not use this on vehicles, battery systems, industrial controllers, or any embedded control network unless the network is an isolated owned lab harness with documented authorization and safe operating conditions.
