@@ -20,6 +20,9 @@ else
   fi
 fi
 
+echo "Checking/preparing west for nRF52840 Dongle Zephyr builds..."
+STRICT_NRF_TOOLS="${STRICT_TOOLS}" bash scripts/setup_nrf_tools.sh --west-only || true
+
 if command -v west >/dev/null 2>&1; then
   echo "Building nRF52840 Dongle KoalaByte Lab firmware..."
   bash scripts/build_nrf52840_dongle_lab.sh
@@ -39,7 +42,7 @@ fi
 
 if [[ "${BUILT_ANY}" == "0" ]]; then
   echo "No firmware was built because PlatformIO and west were not found." >&2
-  echo "Install PlatformIO for ESP32 and nRF Connect SDK/west for the nRF52840 Dongle." >&2
+  echo "Install PlatformIO for ESP32 and use scripts/setup_nrf_tools.sh for west/nrfutil." >&2
   exit 1
 fi
 
