@@ -71,5 +71,5 @@ if [[ "${NO_MONITOR}" == "1" ]]; then
 fi
 
 echo
- echo "Opening serial monitor at 115200 baud. Press Ctrl+C to exit."
+echo "Opening serial monitor at 115200 baud. Press Ctrl+C to exit."
 pio device monitor -b 115200 "${MONITOR_ARGS[@]}"
