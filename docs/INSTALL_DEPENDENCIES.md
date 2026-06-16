@@ -82,7 +82,7 @@ bash scripts/flash_esp32.sh
 
 ## nRF52840 / Zephyr / Nordic DFU dependencies
 
-Helper:
+Basic helper:
 
 ```bash
 bash scripts/setup_nrf_tools.sh
@@ -103,6 +103,54 @@ nrfutil   Nordic DFU package and USB serial flashing tool
 
 Build-only nRF flows need `west`. DFU package/flash/cache flows need both `west` and `nrfutil`.
 
+## Full nRF Connect SDK / Zephyr toolchain
+
+Full helper:
+
+```bash
+bash scripts/setup_nrf_connect_sdk_toolchain.sh
+```
+
+Strict mode:
+
+```bash
+STRICT_NCS_TOOLCHAIN=1 bash scripts/setup_nrf_connect_sdk_toolchain.sh
+```
+
+Validate a real KoalaByte Lab Zephyr build after setup:
+
+```bash
+VALIDATE_BUILD=1 STRICT_NCS_TOOLCHAIN=1 bash scripts/setup_nrf_connect_sdk_toolchain.sh
+```
+
+Defaults:
+
+```text
+NCS_WORKSPACE=$HOME/ncs
+NCS_REVISION=v2.9.0
+ZEPHYR_SDK_VERSION=0.17.0
+ZEPHYR_SDK_INSTALL_DIR=$HOME/zephyr-sdk-0.17.0
+```
+
+The helper prepares:
+
+```text
+nRF Connect SDK west workspace
+Zephyr checkout
+NCS Python virtual environment
+Zephyr and nRF Python requirements
+Zephyr SDK ARM toolchain when available for the host architecture
+source-able environment file: logs/nrf_connect_sdk_env.sh
+status file: logs/nrf_connect_sdk_status.json
+```
+
+Manual build environment:
+
+```bash
+source logs/nrf_connect_sdk_env.sh
+west build -b nrf52840dongle_nrf52840 firmware/nrf52840-dongle-ear-tag-tx-lab -d build/nrf52840-dongle-lab
+```
+
 ## Install flow integration
 
 `install_pi.sh` now runs dependency setup in this order:
@@ -114,13 +162,14 @@ Build-only nRF flows need `west`. DFU package/flash/cache flows need both `west`
 4. setup_esp32_tools.sh
 5. repo readiness check
 6. setup_nrf_tools.sh
-7. prepare cached nRF52840 DFU ZIPs when tools are available
+7. setup_nrf_connect_sdk_toolchain.sh
+8. prepare cached nRF52840 DFU ZIPs when tools are available
 ```
 
 Strong install path:
 
 ```bash
-STRICT_SYSTEM_PACKAGES=1 STRICT_ESP32_TOOLS=1 STRICT_DONGLE_CACHE=1 bash scripts/install_pi.sh
+STRICT_SYSTEM_PACKAGES=1 STRICT_ESP32_TOOLS=1 STRICT_DONGLE_CACHE=1 STRICT_NCS_TOOLCHAIN=1 bash scripts/install_pi.sh
 ```
 
 ## All-component flash flow integration
@@ -131,6 +180,7 @@ STRICT_SYSTEM_PACKAGES=1 STRICT_ESP32_TOOLS=1 STRICT_DONGLE_CACHE=1 bash scripts
 System package helper -> Pi/ESP32/nRF/CAN selections
 PlatformIO helper -> ESP32 selections
 west/nrfutil helper -> nRF selections
+full NCS/Zephyr helper -> nRF selections
 ```
 
 Full run:
@@ -142,7 +192,7 @@ bash scripts/flash_all_components.sh --all
 Strict full run:
 
 ```bash
-STRICT_SYSTEM_PACKAGES=1 STRICT_ESP32_TOOLS=1 STRICT_NRF_TOOLS=1 bash scripts/flash_all_components.sh --all
+STRICT_SYSTEM_PACKAGES=1 STRICT_ESP32_TOOLS=1 STRICT_NRF_TOOLS=1 STRICT_NCS_TOOLCHAIN=1 bash scripts/flash_all_components.sh --all
 ```
 
 ## Offline dongle firmware cache
@@ -153,7 +203,7 @@ Prepare both cached nRF52840 DFU ZIPs on the Pi:
 bash scripts/prepare_dongle_firmware_cache.sh
 ```
 
-That helper now checks/prepares `west` and `nrfutil` first, then builds/packages:
+That helper now checks/prepares `west`, `nrfutil`, and the full nRF Connect SDK/Zephyr toolchain first, then builds/packages:
 
 ```text
 build/nrf52840-dongle-lab/koalabyte-blue-nrf52840-dongle-dfu.zip
