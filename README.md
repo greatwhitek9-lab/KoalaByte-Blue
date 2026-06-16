@@ -56,6 +56,52 @@ Raspberry Pi 3B+ USB host
 
 Do not wire CAN_H or CAN_L directly to Raspberry Pi GPIO. Do not connect the Seloky 12 V output directly to the Pi.
 
+## Pre-boot dongle mode selector
+
+The Pi companion now includes a pre-boot selector that can run before the normal KoalaByte Blue boot splash and main menu.
+
+Choices:
+
+```text
+1) KoalaByte Blue Lab Mode
+   Default production/lab profile. The dongle advertises as KoalaByte Lab.
+
+2) Koala Konnect Mode
+   Alternate USB HCI adapter profile for phone/computer host use.
+```
+
+Interactive selector:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py
+```
+
+Direct mode selection:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koalabyte_lab
+PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koala_konnect
+```
+
+Switch the physical nRF52840 Dongle when it is in DFU bootloader mode:
+
+```bash
+NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koalabyte_lab
+NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koala_konnect
+```
+
+Normal Pi-side boot wrapper:
+
+```bash
+bash scripts/koalabyte_blue_boot.sh
+```
+
+That wrapper runs:
+
+```text
+pre-boot mode selector -> KoalaByte Blue boot splash -> grouped main menu
+```
+
 ## Main operations
 
 ### Pi companion install
@@ -82,7 +128,7 @@ NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_nrf52840_dongle_lab_dfu.sh
 The nRF52840 Dongle can run one profile at a time:
 
 ```text
-koalabyte_lab   KoalaByte Lab synthetic owned-device BLE lab advertisement
+koalabyte_lab   KoalaByte Blue Lab Mode / KoalaByte Lab BLE advertisement
 koala_konnect   Koala Konnect USB HCI external Bluetooth adapter mode
 ```
 
@@ -159,6 +205,12 @@ Theme/menu guide:
 docs/THEME_AND_MENU_SYSTEM.md
 ```
 
+Pre-boot selector guide:
+
+```text
+docs/PREBOOT_MODE_SELECTOR.md
+```
+
 Run previews:
 
 ```bash
@@ -176,6 +228,7 @@ docs/PRODUCTION_FILES.md
 docs/FLASHING.md
 docs/ORDERABLE_PARTS_LIST.md
 docs/THEME_AND_MENU_SYSTEM.md
+docs/PREBOOT_MODE_SELECTOR.md
 ```
 
 ## Core paths
@@ -185,11 +238,14 @@ pi-companion/koalablue/bluez_tools.py
 pi-companion/koalablue/killerkoala_vocabulary.py
 pi-companion/koalablue/menu_catalog.py
 pi-companion/koalablue/koala_mode_switcher.py
+pi-companion/koalablue/preboot_mode_selector.py
 pi-companion/koalablue/koala_kan_kommander.py
 pi-companion/config.default.json
 firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c
 firmware/esp32-dualeye/src/main.cpp
 firmware/esp32-dualeye/src/boot_animation.cpp
+scripts/run_preboot_mode_select.py
+scripts/koalabyte_blue_boot.sh
 scripts/check_repo_readiness.py
 scripts/flash_all_components.sh
 ```
