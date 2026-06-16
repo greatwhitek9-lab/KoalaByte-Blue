@@ -18,13 +18,7 @@ if [[ ! -f "${HEX}" ]]; then
   exit 1
 fi
 
-if ! command -v nrfutil >/dev/null 2>&1; then
-  echo "nrfutil was not found." >&2
-  echo "KoalaByte Lab build artifact is ready at: ${HEX}" >&2
-  echo "Install Nordic nRF Util/nrfutil, put the dongle into bootloader mode, then package/flash via DFU." >&2
-  echo "See docs/NRF52840_DONGLE_FLASHING.md" >&2
-  exit 1
-fi
+STRICT_NRF_TOOLS="${STRICT_NRF_TOOLS:-1}" bash scripts/setup_nrf_tools.sh --nrfutil-only
 
 echo "Packaging KoalaByte Lab nRF52840 Dongle DFU zip"
 mkdir -p "$(dirname "${PACKAGE}")"
