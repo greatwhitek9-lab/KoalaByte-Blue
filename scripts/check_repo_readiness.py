@@ -80,8 +80,15 @@ EXPECTED_BOM_ITEMS = [
 ]
 
 REQUIRED_TEXT = {
-    "README.md": ["RevA23", "InnoMaker USB to CAN Converter kit", "flash_all_components.sh", "Outback BlueZ Module Deck"],
+    "README.md": ["RevA23", "InnoMaker USB to CAN Converter kit", "flash_all_components.sh", "Outback BlueZ Module Deck", "docs/THEME_AND_MENU_SYSTEM.md"],
     "docs/FLASHING.md": ["flash_all_components.sh", "RevA23", "InnoMaker USB to CAN Converter kit", "KoalaByte Lab"],
+    "docs/THEME_AND_MENU_SYSTEM.md": ["jungle_jumanji_eucalyptus", "No overlapping words", "KOALABYTE BLUE title at the top"],
+    "firmware/esp32-dualeye/themes/README.md": ["approved visual source of truth", "jungle_jumanji_eucalyptus", "No overlapping words"],
+    "firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/theme.json": ["approved_visual_source_of_truth", "menu_preview_main.svg", "standard_theme_settings_preview.svg"],
+    "firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/boot_splash.svg": ["Approved KoalaByte Blue jungle boot splash", "KOALABYTE", "BLUE"],
+    "firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/menu_preview_main.svg": ["Approved KoalaByte Blue main menu preview", "Eucalyptus Mode", "Koala Kan Kommander"],
+    "firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/menu_preview_tools.svg": ["Approved KoalaByte Blue tools menu preview", "Koala Kan Kommander selected", "passive logging"],
+    "firmware/esp32-dualeye/themes/jungle_jumanji_eucalyptus/standard_theme_settings_preview.svg": ["Approved KoalaByte Blue standard theme settings preview", "STANDARD THEME SETTINGS", "TEXTBOX BORDER"],
     "docs/KOALA_BLUEZ_TOOLS_REVA16.md": ["RevA18 Outback BlueZ Module Deck", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "--owned-device"],
     "docs/NRF52840_DONGLE_FLASHING.md": ["nrf52840dongle_nrf52840", "flash_nrf52840_dongle_lab_dfu.sh", "KoalaByte Lab"],
     "docs/EAR_TAG_TX_LAB_REVA15.md": ["KoalaByte Lab", "KBTX", "does not replay captured packets"],
@@ -89,12 +96,14 @@ REQUIRED_TEXT = {
     "docs/KOALA_KAN_KOMMANDER_REVA22.md": ["RevA23", "InnoMaker USB to CAN Converter kit", "run_koala_kan_kommander.py", "transmit-placeholder"],
     "docs/ORDERABLE_PARTS_LIST.md": ["Seloky USB-C PD Trigger Board", "InnoMaker USB-to-CAN kit", "Do not connect 12V directly to the Pi"],
     "docs/POWER_UPDATE_REVA2.md": ["Seloky USB-C PD/QC 12V trigger board", "Replaces the prior USB-C PD breakout reference", "Verify 12V output"],
-    "docs/PRODUCTION_FILES.md": ["production/RevA17-dongle-only/", "InnoMaker USB-to-CAN", "No custom PCB"],
+    "docs/PRODUCTION_FILES.md": ["production/RevA17-dongle-only/", "THEME_AND_MENU_SYSTEM.md", "No custom PCB"],
     "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv": ["Seloky USB-C PD Trigger Board Module", "InnoMaker USB to CAN Converter kit", "Koala Kan Kommander"],
     "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md": ["RevA23", "InnoMaker USB to CAN Converter kit", "5 V buck converter"],
     "production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv": ["Seloky trigger output", "KoalaByte Lab", "Koala Mode Switcher"],
     "firmware/esp32-dualeye/platformio.ini": ["bodmer/TFT_eSPI"],
+    "firmware/esp32-dualeye/include/config.h": ["KOALABLUE_ACTIVE_THEME", "jungle_jumanji_eucalyptus", "0.5.0-jungle-theme"],
     "firmware/esp32-dualeye/src/main.cpp": ["runBootAnimation();", "ENABLE_DISPLAY_BOOT_ANIMATION"],
+    "firmware/esp32-dualeye/src/boot_animation.cpp": ["../themes/active_theme.h", "drawEucalyptusBorder", "drawJungleTitle"],
     "firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt": ["find_package(Zephyr REQUIRED", "target_sources(app PRIVATE src/main.c)"],
     "firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf": ["KoalaByte Lab", "CONFIG_BT_PERIPHERAL=y"],
     "firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c": ["KBTX", "bt_le_adv_start", "no captured packet replay"],
@@ -117,6 +126,10 @@ REQUIRED_TEXT = {
     "scripts/run_koala_mode_switcher.py": ["koala_mode_switcher", "run_cli"],
     "scripts/run_koala_kan_kommander.py": ["Koala Kan Kommander", "run_cli"],
     "scripts/run_koala_bluez_manifest.sh": ["run_koala_bluez.py", "manifest"],
+    "scripts/run_koala_bluez_inventory.sh": ["run_koala_bluez.py", "inventory"],
+    "scripts/run_koala_bluez_status.sh": ["run_koala_bluez.py", "status"],
+    "scripts/run_koala_bluez_scan.sh": ["run_koala_bluez.py", "scan"],
+    "scripts/run_koala_bluez_monitor.sh": ["run_koala_bluez.py", "monitor"],
     "scripts/run_koala_bluez_all_safe.sh": ["run_koala_bluez.py", "all-safe"],
     "scripts/run_koala_bluez_gatt_readiness.sh": ["run_koala_bluez.py", "gatt-readiness"],
 }
@@ -124,6 +137,9 @@ REQUIRED_TEXT = {
 OBSOLETE_PATHS = [
     "docs/NRF52840_DK_FLASHING.md",
     "docs/NRF52840_DK_OPTION_REVA4.md",
+    "docs/BOOT_ANIMATION_REVA13.md",
+    "docs/MENU_THEME_REVA14.md",
+    "docs/MENU_SELECTION_REVA12.md",
     "firmware/nrf52840-dk-lab-peripheral/CMakeLists.txt",
     "firmware/nrf52840-dk-lab-peripheral/prj.conf",
     "firmware/nrf52840-dk-lab-peripheral/src/main.c",
@@ -348,7 +364,7 @@ def main() -> int:
         return 1
 
     print("KoalaByte Blue repo readiness check passed.")
-    print("Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, and Koala Kan Kommander InnoMaker CAN support.")
+    print("Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, approved theme assets, and Koala Kan Kommander InnoMaker CAN support.")
     return 0
 
 
