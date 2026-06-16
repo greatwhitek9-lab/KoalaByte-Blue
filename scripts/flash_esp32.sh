@@ -8,13 +8,10 @@ ESP32_PORT="${ESP32_PORT:-}"
 NO_MONITOR="${NO_MONITOR:-0}"
 NO_CLEAN="${NO_CLEAN:-0}"
 
-cd "${FW_DIR}"
+cd "${REPO_ROOT}"
+STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-1}" bash scripts/setup_esp32_tools.sh
 
-if ! command -v pio >/dev/null 2>&1; then
-  echo "PlatformIO is not installed." >&2
-  echo "Install it with: python3 -m pip install --user platformio" >&2
-  exit 1
-fi
+cd "${FW_DIR}"
 
 PIO_COMMON_ARGS=()
 if [[ -n "${PIO_ENV}" ]]; then
@@ -74,5 +71,5 @@ if [[ "${NO_MONITOR}" == "1" ]]; then
 fi
 
 echo
-echo "Opening serial monitor at 115200 baud. Press Ctrl+C to exit."
+ echo "Opening serial monitor at 115200 baud. Press Ctrl+C to exit."
 pio device monitor -b 115200 "${MONITOR_ARGS[@]}"
