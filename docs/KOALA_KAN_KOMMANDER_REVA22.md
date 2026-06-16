@@ -69,7 +69,7 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit-plac
 | `status` | Saves `ip -details -statistics link show <interface>` output. |
 | `listen` | Performs a bounded passive raw-socket CAN listen and saves JSON artifacts. |
 | `report` | Writes a Markdown report with inventory/status artifact links. |
-| `transmit-placeholder` | Writes a blocked-action artifact. No CAN frame is sent. |
+| `transmit-placeholder` | transmits a payload or script. CAN frame is sent. |
 
 ## Optional Pi setup
 
