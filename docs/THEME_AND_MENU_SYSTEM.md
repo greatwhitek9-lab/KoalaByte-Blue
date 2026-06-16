@@ -2,7 +2,7 @@
 
 ## Current status
 
-This is the current RevA23 theme/menu guide. It replaces the older separate RevA12/RevA13/RevA14 menu-theme and boot-animation notes.
+This is the current RevA25 theme/menu guide. It replaces the older separate menu-theme and boot-animation notes.
 
 Current approved theme:
 
@@ -46,6 +46,25 @@ firmware/esp32-dualeye/themes/active_theme.h
 
 The ESP32 boot animation remains procedural for low memory use, but it should visually follow the approved SVG asset.
 
+## Four menu groups
+
+The Pi companion menu is now rendered as four production-facing groups:
+
+```text
+Bluetooth Tools
+CAN Bench Tools
+Reports & Reviews
+System / Companion
+```
+
+The command keys remain stable for scripts and CI. The menu catalog adds group metadata and the UI sorts the rendered menu by group.
+
+Source-of-truth path:
+
+```text
+pi-companion/koalablue/menu_catalog.py
+```
+
 ## Menu rules
 
 The approved menu layout uses:
@@ -54,7 +73,8 @@ The approved menu layout uses:
 No overlapping words
 all labels and descriptions inside their rounded row borders
 selected row with cyber-green glow
-descriptions wrapped in the right-side description area
+current group shown in the header area
+section headers shown in terminal preview
 B1-B6 footer strip inside its border
 leafy eucalyptus border around the menu
 ```
