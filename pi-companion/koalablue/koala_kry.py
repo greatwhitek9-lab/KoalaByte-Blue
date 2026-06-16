@@ -15,7 +15,8 @@ class KoalaKryConfig:
     Koala Kry replays metadata captured by Koala Kapture into local output files
     and console events. It does not transmit BLE advertisements, RF packets, or
     radio noise. It is intended for UI, parser, report, eucalyptus, Urban
-    Poaching, and XP-system testing.
+    Poaching, and XP-system testing. The RF review action writes bench-isolation
+    and authorization notes only.
     """
 
     input_path: Optional[str] = None
@@ -73,6 +74,8 @@ class KoalaKryTransmitReview:
     owned_device_ack: bool
     allowed_next_steps: List[str]
     blocked_actions: List[str]
+    required_lab_controls: List[str]
+    review_notes: List[str]
 
 
 def _load_jsonl(path: Path) -> List[Dict[str, Any]]:
@@ -168,7 +171,7 @@ class KoalaKryReplay:
                 requested_at=started,
                 stamp=stamp,
             )
-            rf_transmit_status = "blocked_review_written" if self.config.request_rf_transmit else "review_written"
+            rf_transmit_status = "rf_bench_review_written_no_rf_sent"
 
         replayed = 0
         previous_ts: Optional[float] = None
@@ -208,7 +211,7 @@ class KoalaKryReplay:
             "replayed_records": replayed,
             "output_jsonl_path": str(output_jsonl),
             "xp_reward": self.config.xp_reward,
-            "safety_scope": "offline metadata replay only; over-the-air captured-signal replay is not implemented",
+            "safety_scope": "offline metadata replay and RF bench review only; over-the-air captured-signal replay is not implemented",
         }
         summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
         return KoalaKryReplayResult(
@@ -227,28 +230,42 @@ class KoalaKryReplay:
 
     def _write_transmit_review(self, *, input_path: Path, records: List[Dict[str, Any]], requested_at: float, stamp: str) -> Path:
         review = KoalaKryTransmitReview(
-            action="Koala Kry RF transmit request review",
-            status="blocked_no_over_the_air_replay",
+            action="Koala Kry RF bench review",
+            status="rf_bench_review_written_no_rf_sent",
             requested_at=requested_at,
             input_path=str(input_path),
             records_reviewed=len(records),
             rf_transmission=False,
-            policy="Captured Bluetooth/RF signal replay is not implemented. Koala Kry remains offline metadata replay only.",
+            policy="Koala Kry writes an RF bench isolation and authorization review only. It does not transmit RF, replay captured signals, rebroadcast identifiers, or generate radio noise.",
             lab_setting_ack=self.config.lab_setting_ack,
             owned_device_ack=self.config.owned_device_ack,
             allowed_next_steps=[
                 "Use Koala Kry offline replay for UI, parser, report, XP, and workflow testing.",
-                "Use Ear Tag or vendor SDK examples for owned-device synthetic BLE lab advertisements.",
-                "Create a fresh, clearly named lab advertisement payload instead of replaying a captured signal.",
+                "Document RF bench setup, shielding, attenuation, dummy-load use, frequency range, duration, and monitoring plan before any separate test-equipment work.",
+                "Use certified RF test equipment, vendor SDK examples, or a shielded bench fixture only within a legally compliant isolated test setup.",
+                "Create fresh, clearly named synthetic lab payloads instead of replaying captured signals or identifiers.",
                 "Keep WiGLE/upload and BLE observation features passive unless credentials and location are intentionally configured.",
             ],
             blocked_actions=[
                 "Over-the-air replay of captured Bluetooth/RF signals.",
                 "Rebroadcasting captured device identifiers or payloads.",
-                "Any transmit behavior that could impersonate, disrupt, or confuse nearby devices.",
+                "Any transmit behavior intended to interfere with, jam, degrade, impersonate, disrupt, or confuse nearby devices.",
+                "Any RF operation outside a documented isolated bench setup.",
+            ],
+            required_lab_controls=[
+                "Written scope for the lab session and devices under test.",
+                "Shielded enclosure, dummy load, or equivalent containment appropriate for the equipment being used outside Koala Kry.",
+                "Power, frequency, duration, and antenna/attenuator settings documented before testing.",
+                "Spectrum or channel monitoring plan documented before testing.",
+                "Stop condition documented before testing.",
+            ],
+            review_notes=[
+                "This artifact is a preflight review and audit trail, not an RF transmitter.",
+                "Captured metadata remains local and is not converted into an over-the-air signal by Koala Kry.",
+                "Use separate compliant RF lab equipment for any lawful signal-generation work.",
             ],
         )
-        path = self.output_dir / f"koala_kry_transmit_review_{stamp}.json"
+        path = self.output_dir / f"koala_kry_rf_bench_review_{stamp}.json"
         path.write_text(json.dumps(asdict(review), indent=2, sort_keys=True), encoding="utf-8")
         return path
 
@@ -256,16 +273,16 @@ class KoalaKryReplay:
 def run_cli() -> int:
     import argparse
 
-    parser = argparse.ArgumentParser(description="Koala Kry offline captured BLE metadata replay")
+    parser = argparse.ArgumentParser(description="Koala Kry offline captured BLE metadata replay and RF bench review")
     parser.add_argument("--input", dest="input_path", default=None, help="Capture file to replay: jsonl, json, or csv")
     parser.add_argument("--input-dir", default="/blecaptures/koala_kapture", help="Directory used when --input is omitted")
     parser.add_argument("--output-dir", default="logs/koala_kry_replay")
     parser.add_argument("--speed", type=float, default=1.0, help="Replay speed multiplier")
     parser.add_argument("--max-records", type=int, default=None)
-    parser.add_argument("--request-rf-transmit", action="store_true", help="Write a blocked transmit-review manifest; no RF is sent")
+    parser.add_argument("--request-rf-transmit", action="store_true", help="Write an RF bench review manifest; Koala Kry does not send RF")
     parser.add_argument("--lab-setting", action="store_true", help="Acknowledge this is an owned/authorized lab setting for the review manifest")
     parser.add_argument("--owned-device", action="store_true", help="Acknowledge reviewed captures are from owned/scope-approved devices")
-    parser.add_argument("--write-transmit-review", action="store_true", help="Write a safe transmit-review manifest without requesting RF transmit")
+    parser.add_argument("--write-transmit-review", action="store_true", help="Write an RF bench review manifest without requesting RF transmit")
     args = parser.parse_args()
 
     config = KoalaKryConfig(
@@ -282,7 +299,7 @@ def run_cli() -> int:
     result = KoalaKryReplay(config).replay()
     print(json.dumps(asdict(result), indent=2, sort_keys=True))
     if args.request_rf_transmit:
-        print("Koala Kry blocked RF transmit/replay and wrote a review manifest instead.")
+        print("Koala Kry wrote an RF bench review manifest. No RF was sent by Koala Kry.")
     return 0
 
 
