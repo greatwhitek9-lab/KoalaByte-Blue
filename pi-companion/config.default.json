@@ -6,6 +6,7 @@
     "metadata_replay": "Koala Kry",
     "bluez_module_deck": "Outback BlueZ Module Deck",
     "dongle_mode_switcher": "Koala Mode Switcher",
+    "pre_boot_mode_selector": "Pre-Boot Dongle Mode Selector",
     "kan_plugin": "Koala Kan Kommander"
   },
   "killerkoala_companion": {
@@ -134,6 +135,20 @@
     "event_log": "logs/dongle_mode_events.jsonl",
     "modes": {"koalabyte_lab": "KoalaByte Lab", "koala_konnect": "Koala Konnect"}
   },
+  "pre_boot_mode_selector": {
+    "display_name": "Pre-Boot Dongle Mode Selector",
+    "description": "Optional startup selector shown before the KoalaByte Blue boot splash/menu so the operator can choose KoalaByte Blue Lab Mode or Koala Konnect Mode.",
+    "enabled": true,
+    "default_mode": "current",
+    "timeout_seconds": 8,
+    "state_path": "logs/preboot_mode_selection.json",
+    "event_log": "logs/dongle_mode_events.jsonl",
+    "dfu_port_env": "NRF_DFU_PORT",
+    "requires_dfu_port_for_physical_switch": true,
+    "modes": {"koalabyte_lab": "KoalaByte Blue Lab Mode", "koala_konnect": "Koala Konnect Mode"},
+    "normal_boot_wrapper": "scripts/koalabyte_blue_boot.sh",
+    "manual_runner": "scripts/run_preboot_mode_select.py"
+  },
   "koala_kan_kommander": {
     "display_name": "Koala Kan Kommander",
     "description": "Optional InnoMaker USB-to-CAN adapter status, bounded listen, gated bench-simulator transmit, and report plug-in.",
@@ -169,6 +184,7 @@
       "fullscreen_default": true
     },
     "touch": {"enabled": true, "row_height_px": 64, "long_press_seconds": 0.75, "scroll_threshold_px": 18},
+    "groups": ["Bluetooth Tools", "CAN Bench Tools", "Reports & Reviews", "System / Companion"],
     "items": ["Scan", "Summary", "Show Devices", "eucalyptus Status", "eucalyptus Start", "eucalyptus Stop", "eucalyptus Restart", "eucalyptus Upload Status", "Koala Kapture", "Koala Kry", "Koala Kry RF Review", "Ear Tag", "KoalaByte Lab", "Koala Mode Switcher", "Koala Kan Kommander", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Dropbear Discovery Sweep", "Billabong HCI Watch", "Kookaburra Safe Nest Run", "KillerKoala Voice", "Urban Poaching", "Buttons", "Level / Status", "Report", "Wake killerkoala", "Authorized BLE Inventory", "GATT Readiness Checklist", "Pairing Security Review", "Lab Beacon Plan", "Packet Capture Notes", "Defensive Lab Report", "Restricted Placeholder", "Settings", "Lab", "Shutdown", "Quit"]
   },
   "capture_dir": "/blecaptures",
@@ -189,7 +205,7 @@
   "front_panel_buttons": {
     "enabled": true,
     "layout": "six buttons numbered left-to-right across the front panel",
-    "button_model": "Adafruit Tactile Button switch (6mm) x 20 pack, Product ID 367",
+    "button_model": "Adafruit Tactile Button switch (6mm) x 20 pack PID 367",
     "wiring": "Each normally-open button shorts the assigned BCM GPIO to GND. Internal pull-up enabled in software.",
     "hold_seconds": 3.0,
     "buttons": {
