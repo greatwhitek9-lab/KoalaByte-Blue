@@ -321,12 +321,16 @@ def apply_mode(mode_name: str, dfu_port: str, state_path: Path = DEFAULT_STATE_P
     if not dfu_port.strip():
         return finish("switch", mode, "blocked", "DFU port required. Use --dfu-port /dev/ttyACM0 or NRF_DFU_PORT.", [], error="missing DFU port", state_path=state_path, event_log=event_log, cache_path=cache_path)
     root = repo_root()
+    setup_step = run_step(["bash", "scripts/setup_nrf_tools.sh", "--nrfutil-only"], root=root, env_extra={"STRICT_NRF_TOOLS": "1"})
+    if setup_step.returncode != 0:
+        return finish("switch", mode, "error", f"{mode.title} DFU switch failed before flashing because nrfutil setup/check failed.", [setup_step], error=setup_step.stderr or setup_step.stdout, state_path=state_path, event_log=event_log, cache_path=cache_path)
     step, used_cache = _flash_step(mode, dfu_port.strip(), root)
+    steps = [setup_step, step]
     if step.returncode != 0:
         cache_hint = "Cached DFU ZIP was attempted." if used_cache else "Cached DFU ZIP was missing, so the package script was attempted."
-        return finish("switch", mode, "error", f"{mode.title} DFU switch failed. {cache_hint}", [step], error=step.stderr or step.stdout, state_path=state_path, event_log=event_log, cache_path=cache_path)
+        return finish("switch", mode, "error", f"{mode.title} DFU switch failed. {cache_hint}", steps, error=step.stderr or step.stdout, state_path=state_path, event_log=event_log, cache_path=cache_path)
     message = f"{mode.title} is now selected from the Raspberry Pi firmware cache. {mode.host_note}" if used_cache else f"{mode.title} is now selected after packaging on the Raspberry Pi. {mode.host_note}"
-    result = finish("switch", mode, "success", message, [step], active_mode=mode.key, state_path=state_path, event_log=event_log, cache_path=cache_path)
+    result = finish("switch", mode, "success", message, steps, active_mode=mode.key, state_path=state_path, event_log=event_log, cache_path=cache_path)
     result["used_firmware_cache"] = used_cache
     result["firmware_cache"] = write_firmware_cache("switch", cache_path, state_path, event_log)
     write_state(result, state_path)
