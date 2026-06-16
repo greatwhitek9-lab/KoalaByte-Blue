@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${REPO_ROOT}"
+
 APP_DIR="${APP_DIR:-samples/bluetooth/hci_usb}"
 BUILD_DIR="${BUILD_DIR:-build/nrf52840-dongle-koala-konnect}"
 BOARD="${BOARD:-nrf52840dongle_nrf52840}"
 
-if ! command -v west >/dev/null 2>&1; then
-  echo "west was not found. Install Nordic nRF Connect SDK / Zephyr first." >&2
-  echo "See docs/KOALA_KONNECT_REVA20.md" >&2
-  exit 1
-fi
+STRICT_NRF_TOOLS="${STRICT_NRF_TOOLS:-1}" bash scripts/setup_nrf_tools.sh --west-only
 
 echo "Building Koala Konnect for KoalaByte Blue nRF52840 Dongle"
 echo "Mode: Koala Konnect external Bluetooth adapter"
