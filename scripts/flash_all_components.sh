@@ -40,16 +40,20 @@ Modes:
   -h, --help       Show this help
 
 Environment:
-  ESP32_PORT          Optional PlatformIO upload/monitor port, for example /dev/ttyUSB0 or COM5
-  NRF_DFU_PORT       Optional nRF52840 Dongle bootloader serial port, for example /dev/ttyACM0 or COM7
-  INSTALL_NRF_TOOLS  auto/1/0. Default: auto. Attempts to install missing west/nrfutil when possible.
-  STRICT_NRF_TOOLS   1 fails if west/nrfutil are unavailable before nRF build/flash.
-  NRFUTIL_INSTALL_CMD Optional custom nrfutil install command for scripts/setup_nrf_tools.sh.
+  ESP32_PORT              Optional PlatformIO upload/monitor port, for example /dev/ttyUSB0 or COM5
+  NRF_DFU_PORT           Optional nRF52840 Dongle bootloader serial port, for example /dev/ttyACM0 or COM7
+  INSTALL_SYSTEM_PACKAGES auto/1/0. Default: auto. Attempts apt install on Raspberry Pi OS.
+  STRICT_SYSTEM_PACKAGES  1 fails if system packages cannot be checked/installed.
+  INSTALL_ESP32_TOOLS     auto/1/0. Default: auto. Attempts to install missing PlatformIO.
+  STRICT_ESP32_TOOLS      1 fails if PlatformIO is unavailable before ESP32 build/flash.
+  INSTALL_NRF_TOOLS       auto/1/0. Default: auto. Attempts to install missing west/nrfutil when possible.
+  STRICT_NRF_TOOLS        1 fails if west/nrfutil are unavailable before nRF build/flash.
+  NRFUTIL_INSTALL_CMD     Optional custom nrfutil install command for scripts/setup_nrf_tools.sh.
   BUILD_KOALA_KONNECT=1 can still be used with scripts/build_firmware_all.sh for optional HCI builds.
 
 Notes:
   - The nRF52840 Dongle can run KoalaByte Lab or Koala Konnect, not both at the same time.
-  - west and nrfutil are checked/prepared before nRF flashing.
+  - System packages, PlatformIO, west, and nrfutil are checked/prepared before relevant flashing steps.
   - If NRF_DFU_PORT is unset, the nRF helper creates the DFU ZIP but does not flash.
   - Koala Kan Kommander remains gated for isolated bench CAN transmit; this script only writes a manifest/check artifact.
 EOF
@@ -96,6 +100,24 @@ if [[ "${RUN_NRF_LAB}" == "1" && "${RUN_NRF_KONNECT}" == "1" && "${BUILD_ONLY}" 
   exit 2
 fi
 
+setup_system_packages_for_selected_mode() {
+  if [[ "${RUN_PI}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
+    return 0
+  fi
+  echo
+  echo "== Raspberry Pi/system package dependency setup =="
+  STRICT_SYSTEM_PACKAGES="${STRICT_SYSTEM_PACKAGES:-0}" bash scripts/setup_system_packages.sh
+}
+
+setup_esp32_tools_for_selected_mode() {
+  if [[ "${RUN_ESP32}" != "1" ]]; then
+    return 0
+  fi
+  echo
+  echo "== PlatformIO setup for ESP32-S3 DualEye workflow =="
+  STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-1}" bash scripts/setup_esp32_tools.sh
+}
+
 setup_nrf_tools_for_selected_mode() {
   if [[ "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" ]]; then
     return 0
@@ -117,22 +139,21 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
   exit 0
 fi
 
+setup_system_packages_for_selected_mode
+
 if [[ "${RUN_PI}" == "1" ]]; then
   echo
   echo "== Installing/updating Raspberry Pi companion =="
   bash scripts/install_pi.sh
 fi
 
+setup_esp32_tools_for_selected_mode
 setup_nrf_tools_for_selected_mode
 
 if [[ "${RUN_ESP32}" == "1" ]]; then
   echo
   echo "== ESP32-S3 DualEye firmware =="
   if [[ "${BUILD_ONLY}" == "1" ]]; then
-    if ! command -v pio >/dev/null 2>&1; then
-      echo "PlatformIO is required for ESP32 build-only mode." >&2
-      exit 1
-    fi
     pio run -d firmware/esp32-dualeye
   else
     if [[ "${NO_MONITOR_DEFAULT}" == "1" ]]; then
