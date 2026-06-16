@@ -35,6 +35,13 @@ APT_PACKAGES=(
   libusb-1.0-0
   libusb-1.0-0-dev
   libsdl2-2.0-0
+  network-manager
+  wpasupplicant
+  wireless-tools
+  iw
+  dhcpcd-base
+  dnsutils
+  iputils-ping
   bluetooth
   bluez
   bluez-tools
@@ -62,8 +69,8 @@ Environment:
 
 Packages covered:
   Python venv/pip/dev headers, build tools, PlatformIO/USB runtime dependencies,
-  nRF/Zephyr helper build tools, BlueZ tools, CAN tools, SDL2 runtime, SQLite,
-  USB utilities, and Raspberry Pi GPIO support.
+  nRF/Zephyr helper build tools, WiFi/NetworkManager/wpa_supplicant, BlueZ tools,
+  CAN tools, SDL2 runtime, SQLite, USB utilities, and Raspberry Pi GPIO support.
 EOF
 }
 
