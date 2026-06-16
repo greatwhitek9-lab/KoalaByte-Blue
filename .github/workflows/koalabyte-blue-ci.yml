@@ -30,6 +30,8 @@ jobs:
           echo "preboot_sha=$(git rev-parse HEAD:scripts/run_preboot_mode_select.py)"
           echo "cache_helper_sha=$(git rev-parse HEAD:scripts/prepare_dongle_firmware_cache.sh)"
           echo "nrf_tools_sha=$(git rev-parse HEAD:scripts/setup_nrf_tools.sh)"
+          echo "esp32_tools_sha=$(git rev-parse HEAD:scripts/setup_esp32_tools.sh)"
+          echo "system_packages_sha=$(git rev-parse HEAD:scripts/setup_system_packages.sh)"
 
       - name: Run repo readiness check
         run: python scripts/check_repo_readiness.py
@@ -43,6 +45,8 @@ jobs:
           bash -n scripts/koalabyte_blue_boot.sh
           bash -n scripts/prepare_dongle_firmware_cache.sh
           bash -n scripts/setup_nrf_tools.sh
+          bash -n scripts/setup_esp32_tools.sh
+          bash -n scripts/setup_system_packages.sh
 
       - name: Build ESP32 firmware
         run: pio run -d firmware/esp32-dualeye
@@ -67,6 +71,8 @@ jobs:
           echo "preboot_sha=$(git rev-parse HEAD:scripts/run_preboot_mode_select.py)"
           echo "cache_helper_sha=$(git rev-parse HEAD:scripts/prepare_dongle_firmware_cache.sh)"
           echo "nrf_tools_sha=$(git rev-parse HEAD:scripts/setup_nrf_tools.sh)"
+          echo "esp32_tools_sha=$(git rev-parse HEAD:scripts/setup_esp32_tools.sh)"
+          echo "system_packages_sha=$(git rev-parse HEAD:scripts/setup_system_packages.sh)"
 
       - name: Run repo readiness check
         run: python scripts/check_repo_readiness.py
@@ -80,9 +86,12 @@ jobs:
           test -f scripts/flash_nrf52840_dongle_lab_dfu.sh
           test -f scripts/flash_all_components.sh
           test -f scripts/setup_nrf_tools.sh
+          test -f scripts/setup_esp32_tools.sh
+          test -f scripts/setup_system_packages.sh
           test -f scripts/run_preboot_mode_select.py
           test -f scripts/koalabyte_blue_boot.sh
           test -f scripts/prepare_dongle_firmware_cache.sh
+          test -f docs/INSTALL_DEPENDENCIES.md
           test -f pi-companion/koalablue/preboot_mode_selector.py
           grep -q 'find_package(Zephyr REQUIRED' firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt
           grep -q 'CONFIG_BT_DEVICE_NAME="KoalaByte Lab"' firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf
@@ -90,6 +99,8 @@ jobs:
           grep -q 'setup_nrf_tools.sh --west-only' scripts/build_nrf52840_dongle_lab.sh
           grep -q 'setup_nrf_tools.sh --nrfutil-only' scripts/flash_nrf52840_dongle_lab_dfu.sh
           grep -q 'setup_nrf_tools.sh' scripts/flash_all_components.sh
+          grep -q 'setup_esp32_tools.sh' scripts/flash_esp32.sh
+          grep -q 'setup_system_packages.sh' scripts/install_pi.sh
           grep -q 'koala_konnect' pi-companion/koalablue/preboot_mode_selector.py
           grep -q 'prepare-cache' pi-companion/koalablue/koala_mode_switcher.py
 
@@ -118,12 +129,20 @@ jobs:
           echo "preboot_sha=$(git rev-parse HEAD:scripts/run_preboot_mode_select.py)"
           echo "cache_helper_sha=$(git rev-parse HEAD:scripts/prepare_dongle_firmware_cache.sh)"
           echo "nrf_tools_sha=$(git rev-parse HEAD:scripts/setup_nrf_tools.sh)"
+          echo "esp32_tools_sha=$(git rev-parse HEAD:scripts/setup_esp32_tools.sh)"
+          echo "system_packages_sha=$(git rev-parse HEAD:scripts/setup_system_packages.sh)"
 
       - name: Compile Python modules and scripts
         run: python -m compileall pi-companion scripts
 
       - name: Run repo readiness check
         run: python scripts/check_repo_readiness.py
+
+      - name: Validate system package check-only mode
+        run: bash scripts/setup_system_packages.sh --check-only
+
+      - name: Validate ESP32 tool setup check-only mode
+        run: bash scripts/setup_esp32_tools.sh --check-only
 
       - name: Validate nRF tool setup check-only mode
         run: bash scripts/setup_nrf_tools.sh --check-only
