@@ -28,6 +28,7 @@ jobs:
           echo "readiness_sha=$(git rev-parse HEAD:scripts/check_repo_readiness.py)"
           echo "flash_all_sha=$(git rev-parse HEAD:scripts/flash_all_components.sh)"
           echo "preboot_sha=$(git rev-parse HEAD:scripts/run_preboot_mode_select.py)"
+          echo "cache_helper_sha=$(git rev-parse HEAD:scripts/prepare_dongle_firmware_cache.sh)"
 
       - name: Run repo readiness check
         run: python scripts/check_repo_readiness.py
@@ -39,6 +40,7 @@ jobs:
           bash -n scripts/build_firmware_all.sh
           bash -n scripts/install_pi.sh
           bash -n scripts/koalabyte_blue_boot.sh
+          bash -n scripts/prepare_dongle_firmware_cache.sh
 
       - name: Build ESP32 firmware
         run: pio run -d firmware/esp32-dualeye
@@ -61,6 +63,7 @@ jobs:
           echo "readiness_sha=$(git rev-parse HEAD:scripts/check_repo_readiness.py)"
           echo "flash_all_sha=$(git rev-parse HEAD:scripts/flash_all_components.sh)"
           echo "preboot_sha=$(git rev-parse HEAD:scripts/run_preboot_mode_select.py)"
+          echo "cache_helper_sha=$(git rev-parse HEAD:scripts/prepare_dongle_firmware_cache.sh)"
 
       - name: Run repo readiness check
         run: python scripts/check_repo_readiness.py
@@ -75,6 +78,7 @@ jobs:
           test -f scripts/flash_all_components.sh
           test -f scripts/run_preboot_mode_select.py
           test -f scripts/koalabyte_blue_boot.sh
+          test -f scripts/prepare_dongle_firmware_cache.sh
           test -f pi-companion/koalablue/preboot_mode_selector.py
           grep -q 'find_package(Zephyr REQUIRED' firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt
           grep -q 'CONFIG_BT_DEVICE_NAME="KoalaByte Lab"' firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf
@@ -83,6 +87,7 @@ jobs:
           grep -q 'NRF_DFU_PORT' scripts/flash_nrf52840_dongle_lab_dfu.sh
           grep -q -- '--nrf-lab' scripts/flash_all_components.sh
           grep -q 'koala_konnect' pi-companion/koalablue/preboot_mode_selector.py
+          grep -q 'prepare-cache' pi-companion/koalablue/koala_mode_switcher.py
 
   pi-companion-python-check:
     name: Check Pi companion Python
@@ -107,6 +112,7 @@ jobs:
           echo "readiness_sha=$(git rev-parse HEAD:scripts/check_repo_readiness.py)"
           echo "flash_all_sha=$(git rev-parse HEAD:scripts/flash_all_components.sh)"
           echo "preboot_sha=$(git rev-parse HEAD:scripts/run_preboot_mode_select.py)"
+          echo "cache_helper_sha=$(git rev-parse HEAD:scripts/prepare_dongle_firmware_cache.sh)"
 
       - name: Compile Python modules and scripts
         run: python -m compileall pi-companion scripts
@@ -116,6 +122,9 @@ jobs:
 
       - name: Validate pre-boot selector noninteractive mode
         run: PYTHONPATH=pi-companion python scripts/run_preboot_mode_select.py --noninteractive --no-apply
+
+      - name: Validate cache status command
+        run: PYTHONPATH=pi-companion python scripts/run_koala_mode_switcher.py cache-status
 
       - name: Validate all-component helper check-only mode
         run: bash scripts/flash_all_components.sh --check-only
