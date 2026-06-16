@@ -16,6 +16,7 @@ cd "${REPO_ROOT}"
 
 echo "KoalaByte Blue Pi companion installer"
 echo "Repository root: ${REPO_ROOT}"
+echo "System dependency helper covers BlueZ, SDL2, can-utils, iproute2, USB, build, and GPIO packages when apt is available."
 echo
 
 if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
