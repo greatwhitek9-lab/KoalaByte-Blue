@@ -136,7 +136,7 @@
   },
   "koala_kan_kommander": {
     "display_name": "Koala Kan Kommander",
-    "description": "Optional InnoMaker USB-to-CAN adapter status, passive listen, and report plug-in.",
+    "description": "Optional InnoMaker USB-to-CAN adapter status, bounded listen, gated bench-simulator transmit, and report plug-in.",
     "enabled": true,
     "mode": "innomaker_socketcan_usb_plugin",
     "default_interface": "can0",
@@ -146,7 +146,13 @@
     "physical_adapter": "InnoMaker USB to CAN Converter kit",
     "mounting": "internal or rectangular side/rear service bay; no circular CAN panel port",
     "connector_lines": ["CAN_H", "CAN_L", "GND", "optional SHIELD"],
-    "observe_only": true
+    "observe_only": false,
+    "transmit_enabled": true,
+    "transmit_mode": "isolated_bench_simulator_only",
+    "transmit_requires_bench_simulator": true,
+    "transmit_requires_explicit_confirmation": true,
+    "allowed_lab_id_range": "0x600-0x67F",
+    "max_transmit_frames": 64
   },
   "menu_selection": {
     "enabled": true,
