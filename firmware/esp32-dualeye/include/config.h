@@ -1,12 +1,16 @@
 #pragma once
 
-// killerkoala ESP32-S3 DualEye config RevA13
+// killerkoala ESP32-S3 DualEye config RevA23
 // Confirm exact DualEye audio/display pins against your board revision before relying on hardware wake-word capture or display output.
 
-#define KOALABLUE_FW_VERSION "0.4.0-killerkoala-bootanim"
+#define KOALABLUE_FW_VERSION "0.5.0-jungle-theme"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define SERIAL_BAUD 115200
+
+// Active firmware theme package.
+#define KOALABLUE_ACTIVE_THEME "jungle_jumanji_eucalyptus"
+#define KOALABLUE_THEMES_DIR "firmware/esp32-dualeye/themes"
 
 // Feature toggles.
 // Mic wake is enabled by default for the killerkoala build. If audio pins are not configured,
