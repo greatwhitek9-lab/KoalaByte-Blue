@@ -21,6 +21,8 @@ KoalaByte Blue all-component flash/install helper
 Usage:
   bash scripts/flash_all_components.sh --all
   bash scripts/flash_all_components.sh --pi --esp32 --nrf-lab
+  WIFI_INTERACTIVE=1 bash scripts/flash_all_components.sh --all
+  WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword" bash scripts/flash_all_components.sh --all
   NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
   ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
 
@@ -40,6 +42,10 @@ Modes:
   -h, --help       Show this help
 
 Environment:
+  WIFI_SSID               Optional WiFi SSID used before download/install steps.
+  WIFI_PASSWORD           Optional WiFi password. Never printed by the WiFi helper.
+  WIFI_INTERACTIVE        1 prompts for SSID/password during first startup.
+  STRICT_WIFI_FIRST_BOOT  1 fails if WiFi/internet cannot be verified before downloads.
   ESP32_PORT              Optional PlatformIO upload/monitor port, for example /dev/ttyUSB0 or COM5
   NRF_DFU_PORT           Optional nRF52840 Dongle bootloader serial port, for example /dev/ttyACM0 or COM7
   INSTALL_SYSTEM_PACKAGES auto/1/0. Default: auto. Attempts apt install on Raspberry Pi OS.
@@ -58,6 +64,7 @@ Environment:
 
 Notes:
   - The nRF52840 Dongle can run KoalaByte Lab or Koala Konnect, not both at the same time.
+  - WiFi/internet can be configured first so the Pi can download SDK/toolchain dependencies.
   - System packages, PlatformIO, west, nrfutil, and the full NCS/Zephyr toolchain are checked/prepared before relevant flashing steps.
   - If NRF_DFU_PORT is unset, the nRF helper creates the DFU ZIP but does not flash.
   - Koala Kan Kommander remains gated for isolated bench CAN transmit; this script only writes a manifest/check artifact.
@@ -105,6 +112,15 @@ if [[ "${RUN_NRF_LAB}" == "1" && "${RUN_NRF_KONNECT}" == "1" && "${BUILD_ONLY}" 
   exit 2
 fi
 
+setup_wifi_for_selected_mode() {
+  if [[ "${RUN_PI}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
+    return 0
+  fi
+  echo
+  echo "== First-startup WiFi/internet setup =="
+  CONNECT_WIFI_FIRST_BOOT="${CONNECT_WIFI_FIRST_BOOT:-auto}" STRICT_WIFI_FIRST_BOOT="${STRICT_WIFI_FIRST_BOOT:-0}" bash scripts/setup_wifi_first_boot.sh
+}
+
 setup_system_packages_for_selected_mode() {
   if [[ "${RUN_PI}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
     return 0
@@ -147,6 +163,7 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
   exit 0
 fi
 
+setup_wifi_for_selected_mode
 setup_system_packages_for_selected_mode
 
 if [[ "${RUN_PI}" == "1" ]]; then
