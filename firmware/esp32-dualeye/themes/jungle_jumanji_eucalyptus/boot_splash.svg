@@ -1,36 +1,71 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="640" height="390" viewBox="0 0 640 390" role="img" aria-label="KoalaByte Blue jungle boot splash">
+<svg xmlns="http://www.w3.org/2000/svg" width="1672" height="941" viewBox="0 0 1672 941" role="img" aria-label="Approved KoalaByte Blue jungle boot splash">
   <defs>
     <linearGradient id="bark" x1="0" x2="1" y1="0" y2="1">
-      <stop offset="0" stop-color="#d9c08a"/>
-      <stop offset="0.45" stop-color="#8b6a3a"/>
-      <stop offset="1" stop-color="#f2d98a"/>
+      <stop offset="0" stop-color="#f2d98a"/>
+      <stop offset="0.45" stop-color="#9b7442"/>
+      <stop offset="1" stop-color="#d9c08a"/>
     </linearGradient>
-    <filter id="jungleShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="5" stdDeviation="3" flood-color="#000000" flood-opacity="0.9"/>
-      <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#84ff38" flood-opacity="0.55"/>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="7" stdDeviation="4" flood-color="#000" flood-opacity="0.95"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#84ff34" flood-opacity="0.45"/>
     </filter>
     <filter id="blueGlow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#00a8ff" flood-opacity="0.9"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#1c8aff" flood-opacity="0.9"/>
     </filter>
+    <radialGradient id="leftEye" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ffe5ff"/>
+      <stop offset="0.45" stop-color="#e63cff"/>
+      <stop offset="1" stop-color="#24002e"/>
+    </radialGradient>
+    <radialGradient id="rightEye" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#f1ffd6"/>
+      <stop offset="0.45" stop-color="#84ff34"/>
+      <stop offset="1" stop-color="#061b00"/>
+    </radialGradient>
     <style>
-      .title-main { font-family: Impact, Copperplate, 'Rockwell Extra Bold', 'Arial Black', serif; font-weight: 900; letter-spacing: 4px; paint-order: stroke fill; stroke: #2b1a0a; stroke-width: 7px; filter: url(#jungleShadow); }
-      .title-blue { font-family: Impact, Copperplate, 'Rockwell Extra Bold', 'Arial Black', serif; font-weight: 900; letter-spacing: 8px; paint-order: stroke fill; stroke: #07152b; stroke-width: 7px; filter: url(#blueGlow); }
-      .leaf { fill: #79d443; stroke: #123c1a; stroke-width: 2; }
-      .branch { stroke: #6b4b25; stroke-width: 7; stroke-linecap: round; }
+      .stone-title { font-family: Impact, Copperplate, 'Rockwell Extra Bold', 'Arial Black', serif; font-weight: 900; letter-spacing: 8px; paint-order: stroke fill; stroke: #2b1a0a; stroke-width: 12px; filter: url(#shadow); }
+      .blue-title { font-family: Impact, Copperplate, 'Rockwell Extra Bold', 'Arial Black', serif; font-weight: 900; letter-spacing: 14px; paint-order: stroke fill; stroke: #07152b; stroke-width: 12px; filter: url(#blueGlow); }
+      .branch { stroke: #6b4b25; stroke-width: 8; stroke-linecap: round; fill: none; }
+      .leaf { fill: #315f32; stroke: #82c75e; stroke-width: 2; opacity: 0.95; }
+      .subtitle { font-family: 'Arial Black', Impact, sans-serif; font-weight: 900; letter-spacing: 7px; fill: #e8f2d4; }
     </style>
   </defs>
 
-  <rect width="640" height="390" fill="#020403"/>
-  <image href="data:image/jpeg;base64,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" x="0" y="0" width="640" height="390" preserveAspectRatio="xMidYMid slice" opacity="0.98"/>
-  <rect width="640" height="390" fill="#000000" opacity="0.20"/>
+  <rect width="1672" height="941" fill="#000"/>
+  <rect x="24" y="24" width="1624" height="893" rx="22" fill="#020403" stroke="#6b4b25" stroke-width="5"/>
+  <rect x="34" y="34" width="1604" height="873" rx="18" fill="none" stroke="#346b2f" stroke-width="2"/>
 
-  <path class="branch" d="M20 28 C90 18, 150 46, 214 18"/>
-  <path class="branch" d="M426 22 C490 52, 560 18, 620 34"/>
-  <ellipse class="leaf" cx="76" cy="26" rx="26" ry="10" transform="rotate(-22 76 26)"/>
-  <ellipse class="leaf" cx="134" cy="42" rx="24" ry="9" transform="rotate(28 134 42)"/>
-  <ellipse class="leaf" cx="512" cy="36" rx="26" ry="10" transform="rotate(-30 512 36)"/>
-  <ellipse class="leaf" cx="576" cy="28" rx="24" ry="9" transform="rotate(25 576 28)"/>
+  <g opacity="0.95">
+    <path class="branch" d="M35 160 C170 70 310 110 440 54"/>
+    <path class="branch" d="M1637 160 C1490 70 1350 110 1230 54"/>
+    <path class="branch" d="M85 320 C180 260 250 285 340 240"/>
+    <path class="branch" d="M1587 320 C1488 260 1420 285 1330 240"/>
+    <ellipse class="leaf" cx="95" cy="91" rx="62" ry="17" transform="rotate(-30 95 91)"/>
+    <ellipse class="leaf" cx="150" cy="170" rx="70" ry="18" transform="rotate(35 150 170)"/>
+    <ellipse class="leaf" cx="1510" cy="91" rx="62" ry="17" transform="rotate(30 1510 91)"/>
+    <ellipse class="leaf" cx="1450" cy="170" rx="70" ry="18" transform="rotate(-35 1450 170)"/>
+    <ellipse class="leaf" cx="145" cy="720" rx="76" ry="20" transform="rotate(-18 145 720)"/>
+    <ellipse class="leaf" cx="1510" cy="720" rx="76" ry="20" transform="rotate(18 1510 720)"/>
+  </g>
 
-  <text x="320" y="304" text-anchor="middle" class="title-main" font-size="56" fill="url(#bark)">KOALABYTE</text>
-  <text x="320" y="362" text-anchor="middle" class="title-blue" font-size="64" fill="#1d8cff">BLUE</text>
+  <text x="836" y="178" text-anchor="middle" class="stone-title" font-size="160" fill="url(#bark)">KOALABYTE</text>
+  <text x="836" y="350" text-anchor="middle" class="blue-title" font-size="170" fill="#1c8aff">BLUE</text>
+
+  <g transform="translate(0,40)">
+    <circle cx="836" cy="572" r="265" fill="#010203" opacity="0.95"/>
+    <circle cx="610" cy="505" r="150" fill="#030405" opacity="0.96"/>
+    <circle cx="1062" cy="505" r="150" fill="#030405" opacity="0.96"/>
+    <path d="M470 440 C610 330 745 380 836 455 C927 380 1070 330 1205 440 C1085 400 1002 420 940 515 C890 485 782 485 732 515 C670 420 590 400 470 440Z" fill="#040506"/>
+    <path d="M662 484 L774 555" stroke="#000" stroke-width="48" stroke-linecap="round"/>
+    <path d="M1010 484 L898 555" stroke="#000" stroke-width="48" stroke-linecap="round"/>
+    <circle cx="698" cy="572" r="55" fill="url(#leftEye)"/>
+    <circle cx="974" cy="572" r="55" fill="url(#rightEye)"/>
+    <circle cx="722" cy="545" r="9" fill="#fff" opacity="0.75"/>
+    <circle cx="997" cy="545" r="9" fill="#fff" opacity="0.75"/>
+    <path d="M836 570 C800 630 802 718 838 766 C878 718 878 630 836 570Z" fill="#3d4046" stroke="#9b9da5" stroke-width="6"/>
+    <path d="M760 795 C796 833 878 833 914 795" fill="none" stroke="#a5a9b2" stroke-width="9" stroke-linecap="round"/>
+    <path d="M780 805 L812 850 L833 810 L854 850 L892 805" fill="#bfc3cf" opacity="0.85"/>
+  </g>
+
+  <text x="836" y="900" text-anchor="middle" class="subtitle" font-size="34">JUNGLE-THEME BOOT • KILLERKOALA ONLINE</text>
 </svg>
