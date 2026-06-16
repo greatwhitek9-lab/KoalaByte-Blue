@@ -37,7 +37,48 @@ bash scripts/flash_all_components.sh --all --build-only
 bash scripts/flash_all_components.sh --all --smoke
 ```
 
-The helper runs the repo readiness check, installs the Pi companion when requested, flashes ESP32 when requested, builds/packages/flashes the nRF52840 Dongle when requested, and writes a Koala Kan Kommander InnoMaker manifest check. If `NRF_DFU_PORT` is not set, the nRF helper creates the DFU ZIP but does not flash.
+The helper runs the repo readiness check, installs the Pi companion when requested, checks/prepares `west` and `nrfutil` before nRF workflows, flashes ESP32 when requested, builds/packages/flashes the nRF52840 Dongle when requested, and writes a Koala Kan Kommander InnoMaker manifest check. If `NRF_DFU_PORT` is not set, the nRF helper creates the DFU ZIP but does not flash.
+
+---
+
+## west and nrfutil setup
+
+The nRF52840 Dongle build/flash path now includes a tool setup helper:
+
+```bash
+bash scripts/setup_nrf_tools.sh
+```
+
+It checks:
+
+```text
+west      Zephyr/nRF Connect SDK build tool
+nrfutil   Nordic DFU package/USB serial flashing tool
+```
+
+Strict check:
+
+```bash
+STRICT_NRF_TOOLS=1 bash scripts/setup_nrf_tools.sh
+```
+
+Check only, without trying to install anything:
+
+```bash
+bash scripts/setup_nrf_tools.sh --check-only
+```
+
+Build-only nRF flows require `west`; package/flash/cache flows require both `west` and `nrfutil`. The helper is called automatically by:
+
+```text
+scripts/install_pi.sh
+scripts/flash_all_components.sh
+scripts/prepare_dongle_firmware_cache.sh
+scripts/build_nrf52840_dongle_lab.sh
+scripts/build_nrf52840_dongle_hci_usb_adapter.sh
+scripts/flash_nrf52840_dongle_lab_dfu.sh
+scripts/flash_nrf52840_dongle_koala_konnect_dfu.sh
+```
 
 ---
 
@@ -110,6 +151,7 @@ bash scripts/install_pi.sh
 Safe local tests:
 
 ```bash
+bash scripts/setup_nrf_tools.sh --check-only
 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --noninteractive --no-apply
 PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
 PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
@@ -296,6 +338,7 @@ The Outback BlueZ Module Deck hashes/redacts Bluetooth addresses by default unle
 ```bash
 python3 scripts/check_repo_readiness.py
 bash scripts/install_pi.sh
+bash scripts/setup_nrf_tools.sh --check-only
 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --noninteractive --no-apply
 bash scripts/build_firmware_all.sh
 NO_MONITOR=1 bash scripts/flash_esp32.sh
@@ -311,6 +354,7 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit --in
 Expected behavior:
 
 - Repo readiness check passes before flashing.
+- `west` and `nrfutil` are checked by the flashing/install helpers before nRF build/package/flash actions.
 - Pre-boot selector can choose KoalaByte Blue Lab Mode or Koala Konnect Mode.
 - ESP32 shows the KoalaByte Blue boot splash before normal runtime.
 - ESP32 serial JSON includes `"boot_animation":1`.
