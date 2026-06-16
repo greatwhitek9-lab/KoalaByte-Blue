@@ -6,6 +6,7 @@ VENV_DIR="${REPO_ROOT}/pi-companion/.venv"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 PREPARE_DONGLE_CACHE="${PREPARE_DONGLE_CACHE:-auto}"
 STRICT_DONGLE_CACHE="${STRICT_DONGLE_CACHE:-0}"
+INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS:-auto}"
 
 cd "${REPO_ROOT}"
 
@@ -23,7 +24,7 @@ if command -v apt-get >/dev/null 2>&1; then
   echo "  sudo apt update"
   echo "  sudo apt install -y libsdl2-2.0-0 bluetooth bluez rfkill sqlite3 iproute2 can-utils"
   echo "Optional BlueZ helpers may be present on some images: btmgmt btmon hciconfig hcitool sdptool rfcomm l2ping gatttool busctl"
-  echo "Install Nordic nrfutil and nRF Connect SDK/west if you want install_pi.sh to build and cache both nRF52840 Dongle DFU ZIPs during install."
+  echo "west and nrfutil are checked by scripts/setup_nrf_tools.sh during install and nRF flashing."
   echo
 fi
 
@@ -43,6 +44,16 @@ echo "Running repo readiness check..."
 python "${REPO_ROOT}/scripts/check_repo_readiness.py"
 
 echo
+echo "Checking/preparing west and nrfutil for nRF52840 flashing..."
+STRICT_NRF_TOOLS="${STRICT_DONGLE_CACHE}" INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS}" PYTHON_BIN="${VENV_DIR}/bin/python" bash "${REPO_ROOT}/scripts/setup_nrf_tools.sh" || {
+  if [[ "${STRICT_DONGLE_CACHE}" == "1" ]]; then
+    echo "STRICT_DONGLE_CACHE=1 is set, failing install because west/nrfutil setup did not complete." >&2
+    exit 1
+  fi
+  echo "Continuing install because STRICT_DONGLE_CACHE is not enabled." >&2
+}
+
+echo
 echo "Preparing offline nRF52840 Dongle firmware cache policy: PREPARE_DONGLE_CACHE=${PREPARE_DONGLE_CACHE}, STRICT_DONGLE_CACHE=${STRICT_DONGLE_CACHE}"
 case "${PREPARE_DONGLE_CACHE}" in
   0|false|False|no|NO|skip|SKIP)
@@ -55,7 +66,8 @@ case "${PREPARE_DONGLE_CACHE}" in
       PYTHON_BIN="${VENV_DIR}/bin/python" PYTHONPATH="${REPO_ROOT}/pi-companion" bash "${REPO_ROOT}/scripts/prepare_dongle_firmware_cache.sh"
     else
       echo "west and/or nrfutil not found, so both DFU ZIPs cannot be prepared automatically on this install run." >&2
-      echo "Install nRF Connect SDK/west and Nordic nrfutil, then run:" >&2
+      echo "Run the setup helper and cache helper after installing tools:" >&2
+      echo "  bash ${REPO_ROOT}/scripts/setup_nrf_tools.sh" >&2
       echo "  bash ${REPO_ROOT}/scripts/prepare_dongle_firmware_cache.sh" >&2
       PYTHONPATH="${REPO_ROOT}/pi-companion" python "${REPO_ROOT}/scripts/run_koala_mode_switcher.py" cache-status || true
       if [[ "${STRICT_DONGLE_CACHE}" == "1" ]]; then
@@ -72,6 +84,8 @@ esac
 
 echo
 echo "Pi companion install complete."
+echo "west/nrfutil setup helper:"
+echo "  bash ${REPO_ROOT}/scripts/setup_nrf_tools.sh"
 echo "Offline nRF52840 Dongle firmware cache:"
 echo "  bash ${REPO_ROOT}/scripts/prepare_dongle_firmware_cache.sh"
 echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_koala_mode_switcher.py cache-status"
