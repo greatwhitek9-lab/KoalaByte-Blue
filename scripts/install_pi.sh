@@ -7,6 +7,10 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 PREPARE_DONGLE_CACHE="${PREPARE_DONGLE_CACHE:-auto}"
 STRICT_DONGLE_CACHE="${STRICT_DONGLE_CACHE:-0}"
 INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS:-auto}"
+INSTALL_SYSTEM_PACKAGES="${INSTALL_SYSTEM_PACKAGES:-auto}"
+STRICT_SYSTEM_PACKAGES="${STRICT_SYSTEM_PACKAGES:-0}"
+INSTALL_ESP32_TOOLS="${INSTALL_ESP32_TOOLS:-auto}"
+STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-0}"
 
 cd "${REPO_ROOT}"
 
@@ -19,14 +23,14 @@ if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
   exit 1
 fi
 
-if command -v apt-get >/dev/null 2>&1; then
-  echo "Recommended Raspberry Pi OS packages for graphical UI, Outback BlueZ, optional InnoMaker SocketCAN checks, and dongle mode flashing:"
-  echo "  sudo apt update"
-  echo "  sudo apt install -y libsdl2-2.0-0 bluetooth bluez rfkill sqlite3 iproute2 can-utils"
-  echo "Optional BlueZ helpers may be present on some images: btmgmt btmon hciconfig hcitool sdptool rfcomm l2ping gatttool busctl"
-  echo "west and nrfutil are checked by scripts/setup_nrf_tools.sh during install and nRF flashing."
-  echo
-fi
+echo "Checking/installing Raspberry Pi system packages..."
+INSTALL_SYSTEM_PACKAGES="${INSTALL_SYSTEM_PACKAGES}" STRICT_SYSTEM_PACKAGES="${STRICT_SYSTEM_PACKAGES}" bash "${REPO_ROOT}/scripts/setup_system_packages.sh" || {
+  if [[ "${STRICT_SYSTEM_PACKAGES}" == "1" ]]; then
+    echo "STRICT_SYSTEM_PACKAGES=1 is set, failing install because system package setup did not complete." >&2
+    exit 1
+  fi
+  echo "Continuing install because STRICT_SYSTEM_PACKAGES is not enabled." >&2
+}
 
 echo "Creating/updating virtual environment: ${VENV_DIR}"
 "${PYTHON_BIN}" -m venv "${VENV_DIR}"
@@ -34,6 +38,16 @@ source "${VENV_DIR}/bin/activate"
 
 python -m pip install --upgrade pip wheel setuptools
 python -m pip install -r "${REPO_ROOT}/pi-companion/requirements.txt"
+
+echo
+echo "Checking/preparing ESP32 PlatformIO tools..."
+STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS}" INSTALL_ESP32_TOOLS="${INSTALL_ESP32_TOOLS}" PYTHON_BIN="${VENV_DIR}/bin/python" bash "${REPO_ROOT}/scripts/setup_esp32_tools.sh" || {
+  if [[ "${STRICT_ESP32_TOOLS}" == "1" ]]; then
+    echo "STRICT_ESP32_TOOLS=1 is set, failing install because PlatformIO setup did not complete." >&2
+    exit 1
+  fi
+  echo "Continuing install because STRICT_ESP32_TOOLS is not enabled." >&2
+}
 
 echo
 echo "Running Python compile check..."
@@ -84,6 +98,10 @@ esac
 
 echo
 echo "Pi companion install complete."
+echo "System dependency helper:"
+echo "  bash ${REPO_ROOT}/scripts/setup_system_packages.sh"
+echo "ESP32 PlatformIO helper:"
+echo "  bash ${REPO_ROOT}/scripts/setup_esp32_tools.sh"
 echo "west/nrfutil setup helper:"
 echo "  bash ${REPO_ROOT}/scripts/setup_nrf_tools.sh"
 echo "Offline nRF52840 Dongle firmware cache:"
