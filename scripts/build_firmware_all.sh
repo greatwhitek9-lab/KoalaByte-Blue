@@ -9,6 +9,21 @@ BUILT_ANY=0
 
 python3 scripts/check_repo_readiness.py
 
+echo "Checking/installing system package dependencies when available..."
+STRICT_SYSTEM_PACKAGES="${STRICT_TOOLS}" bash scripts/setup_system_packages.sh || {
+  if [[ "${STRICT_TOOLS}" == "1" ]]; then
+    exit 1
+  fi
+}
+
+echo "Checking/preparing PlatformIO for ESP32 build..."
+if ! STRICT_ESP32_TOOLS="${STRICT_TOOLS}" bash scripts/setup_esp32_tools.sh; then
+  echo "PlatformIO setup/check failed." >&2
+  if [[ "${STRICT_TOOLS}" == "1" ]]; then
+    exit 1
+  fi
+fi
+
 if command -v pio >/dev/null 2>&1; then
   echo "Building ESP32-S3 DualEye firmware..."
   pio run -d firmware/esp32-dualeye
