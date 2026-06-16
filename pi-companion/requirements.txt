@@ -6,5 +6,4 @@ fastapi>=0.111.0
 uvicorn>=0.30.0
 requests>=2.32.0
 gpiozero>=2.0.1
-lgpio>=0.2.2.0
 pygame>=2.5.2
