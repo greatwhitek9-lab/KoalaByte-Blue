@@ -11,6 +11,7 @@ INSTALL_SYSTEM_PACKAGES="${INSTALL_SYSTEM_PACKAGES:-auto}"
 STRICT_SYSTEM_PACKAGES="${STRICT_SYSTEM_PACKAGES:-0}"
 INSTALL_ESP32_TOOLS="${INSTALL_ESP32_TOOLS:-auto}"
 STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-0}"
+VENV_SYSTEM_SITE_PACKAGES="${VENV_SYSTEM_SITE_PACKAGES:-1}"
 
 cd "${REPO_ROOT}"
 
@@ -34,7 +35,15 @@ INSTALL_SYSTEM_PACKAGES="${INSTALL_SYSTEM_PACKAGES}" STRICT_SYSTEM_PACKAGES="${S
 }
 
 echo "Creating/updating virtual environment: ${VENV_DIR}"
-"${PYTHON_BIN}" -m venv "${VENV_DIR}"
+if [[ -f "${VENV_DIR}/pyvenv.cfg" && "${VENV_SYSTEM_SITE_PACKAGES}" == "1" ]] && ! grep -qi '^include-system-site-packages = true' "${VENV_DIR}/pyvenv.cfg"; then
+  echo "Existing venv was not created with system site packages; recreating it so Pi GPIO apt packages are visible."
+  rm -rf "${VENV_DIR}"
+fi
+if [[ "${VENV_SYSTEM_SITE_PACKAGES}" == "1" ]]; then
+  "${PYTHON_BIN}" -m venv --system-site-packages "${VENV_DIR}"
+else
+  "${PYTHON_BIN}" -m venv "${VENV_DIR}"
+fi
 source "${VENV_DIR}/bin/activate"
 
 python -m pip install --upgrade pip wheel setuptools
