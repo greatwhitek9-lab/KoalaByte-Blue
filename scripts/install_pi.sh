@@ -52,7 +52,7 @@ case "${PREPARE_DONGLE_CACHE}" in
   auto|AUTO|1|true|True|yes|YES)
     if command -v west >/dev/null 2>&1 && command -v nrfutil >/dev/null 2>&1; then
       echo "west and nrfutil detected. Building and caching both dongle DFU ZIPs now."
-      PYTHONPATH="${REPO_ROOT}/pi-companion" bash "${REPO_ROOT}/scripts/prepare_dongle_firmware_cache.sh"
+      PYTHON_BIN="${VENV_DIR}/bin/python" PYTHONPATH="${REPO_ROOT}/pi-companion" bash "${REPO_ROOT}/scripts/prepare_dongle_firmware_cache.sh"
     else
       echo "west and/or nrfutil not found, so both DFU ZIPs cannot be prepared automatically on this install run." >&2
       echo "Install nRF Connect SDK/west and Nordic nrfutil, then run:" >&2
