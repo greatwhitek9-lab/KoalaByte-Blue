@@ -4,15 +4,81 @@ KoalaByte Blue is the dongle-only Raspberry Pi 3B+ / ESP32-S3 DualEye / Nordic n
 
 ## Start here
 
+### First-time Raspberry Pi base OS install
+
+On a blank microSD card, install a normal Raspberry Pi operating system first. KoalaByte Blue does not replace the Pi operating system; the KoalaByte scripts install the companion software, firmware tools, SDK/toolchain, cached DFU packages, boot splash, menu, and mode selector after the Pi can boot Linux.
+
+Recommended base OS:
+
+```text
+Raspberry Pi OS Lite 64-bit
+```
+
+Recommended Raspberry Pi Imager options before first boot:
+
+```text
+Enable SSH
+Set username and password
+Set WiFi SSID/password if available
+Set WiFi country, locale, and timezone
+```
+
+First boot flow:
+
+```text
+1. Flash Raspberry Pi OS Lite 64-bit to the microSD card.
+2. Boot the Raspberry Pi and log in locally or over SSH.
+3. Make sure the Pi has internet access by Ethernet, preconfigured WiFi, or the first-boot WiFi helper.
+4. Clone or copy this KoalaByte-Blue repo onto the Pi.
+5. Run scripts/install_pi.sh from the repo root.
+6. Prepare the cached nRF52840 Dongle DFU ZIPs.
+7. Use the Pi as the flashing computer for the ESP32-S3 DualEye and nRF52840 Dongle.
+```
+
+Minimal first-boot commands after Pi OS is running:
+
+```bash
+sudo apt update
+sudo apt install -y git
+
+git clone https://github.com/greatwhitek9-lab/KoalaByte-Blue.git
+cd KoalaByte-Blue
+```
+
+If the repo is private, clone with your GitHub SSH key or authenticated token.
+
 Run the readiness check:
 
 ```bash
 python3 scripts/check_repo_readiness.py
 ```
 
-Install the Pi companion. During install, the script now tries to prepare both nRF52840 Dongle DFU ZIPs on the Pi when `west` and `nrfutil` are available:
+Install the Pi companion. During install, the script checks first-boot WiFi/internet, installs system packages, creates the Python environment, prepares ESP32 tools, prepares west/nrfutil, prepares the full nRF Connect SDK/Zephyr toolchain, and tries to prepare both nRF52840 Dongle DFU ZIPs on the Pi when the required tools are available:
 
 ```bash
+bash scripts/install_pi.sh
+```
+
+Strong first install with strict checks:
+
+```bash
+STRICT_WIFI_FIRST_BOOT=1 \
+STRICT_SYSTEM_PACKAGES=1 \
+STRICT_ESP32_TOOLS=1 \
+STRICT_DONGLE_CACHE=1 \
+STRICT_NCS_TOOLCHAIN=1 \
+bash scripts/install_pi.sh
+```
+
+If WiFi was not configured in Raspberry Pi Imager, allow the installer to prompt for WiFi before SDK downloads:
+
+```bash
+WIFI_INTERACTIVE=1 \
+STRICT_WIFI_FIRST_BOOT=1 \
+STRICT_SYSTEM_PACKAGES=1 \
+STRICT_ESP32_TOOLS=1 \
+STRICT_DONGLE_CACHE=1 \
+STRICT_NCS_TOOLCHAIN=1 \
 bash scripts/install_pi.sh
 ```
 
@@ -20,6 +86,12 @@ Force install to fail if both cached DFU ZIPs cannot be prepared:
 
 ```bash
 STRICT_DONGLE_CACHE=1 bash scripts/install_pi.sh
+```
+
+Prepare or refresh both cached nRF52840 Dongle firmware packages:
+
+```bash
+bash scripts/prepare_dongle_firmware_cache.sh
 ```
 
 Install/flash the default component set:
@@ -216,7 +288,7 @@ bash scripts/run_koala_bluez_inventory.sh
 bash scripts/run_koala_bluez_status.sh
 bash scripts/run_koala_bluez_scan.sh --duration 15
 bash scripts/run_koala_bluez_monitor.sh --duration 20
-bash scripts/run_koala_bluez_all_safe.sh --duration 15
+bash scripts/run_koala_bluez_all_safe.sh
 bash scripts/run_koala_bluez_gatt_readiness.sh --target AA:BB:CC:DD:EE:FF --owned-device
 ```
 
@@ -280,6 +352,12 @@ pi-companion/config.default.json
 firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c
 firmware/esp32-dualeye/src/main.cpp
 firmware/esp32-dualeye/src/boot_animation.cpp
+scripts/setup_wifi_first_boot.sh
+scripts/setup_system_packages.sh
+scripts/setup_esp32_tools.sh
+scripts/setup_nrf_tools.sh
+scripts/setup_nrf_connect_sdk_toolchain.sh
+scripts/setup_local_ncs.sh
 scripts/prepare_dongle_firmware_cache.sh
 scripts/run_preboot_mode_select.py
 scripts/koalabyte_blue_boot.sh
