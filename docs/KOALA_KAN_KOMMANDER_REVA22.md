@@ -1,12 +1,12 @@
-# RevA23/RevA24 Koala Kan Kommander - InnoMaker USB-to-CAN Update
+# RevA23/RevA25 Koala Kan Kommander - InnoMaker USB-to-CAN Update
 
 ## Purpose
 
-Koala Kan Kommander adds an optional physical CAN observation path for KoalaByte Blue using the user-specified **InnoMaker USB to CAN Converter kit** as the USB-to-CAN adapter.
+Koala Kan Kommander adds an optional physical CAN bench path for KoalaByte Blue using the user-specified **InnoMaker USB to CAN Converter kit** as the USB-to-CAN adapter.
 
-It is designed for authorized bench, training, and owned-device CAN observation. The production plug-in is passive by default and does not implement raw CAN frame transmission.
+It is designed for authorized bench, training, owned-device CAN observation, and completely isolated bench simulator testing. RevA25 changes the module from passive-only observation to **bounded listen plus gated transmit**. Transmit requires an isolated bench simulator and explicit operator confirmation flags.
 
-RevA24 adds a **synthetic payload generator** for parser, display, logging, and isolated bench-harness validation. The generator writes transmit-compatible JSON artifacts and SocketCAN preview lines, but it does not send frames itself.
+RevA24 added a **synthetic payload generator** for parser, display, logging, and isolated bench-harness validation. RevA25 can send those synthetic payloads through SocketCAN when the bench simulator gates are present.
 
 ## Physical device option
 
@@ -17,7 +17,7 @@ Raspberry Pi 3B+ USB host
   -> short internal USB cable
   -> InnoMaker USB to CAN Converter kit
   -> adapter-side CAN_H / CAN_L / GND / optional SHIELD
-  -> authorized bench harness or owned-device test network
+  -> isolated CAN bench simulator or owned bench harness
 ```
 
 Do not wire CAN_H or CAN_L directly to Raspberry Pi GPIO. Use the InnoMaker adapter as the CAN controller/transceiver path.
@@ -60,6 +60,8 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py status --inte
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py listen --interface can0 --duration 10
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py report --interface can0
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py generate-payloads --interface can0 --payload-profile all --base-id 0x600 --sequence-count 8 --tag KOALAKAN
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit --interface can0 --bench-simulator --confirm-transmit --payload-profile heartbeat --base-id 0x600 --sequence-count 3
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py listen-transmit --interface can0 --bench-simulator --confirm-transmit --can-id 0x600 --data "4B 42 01 00" --duration 10
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit-placeholder
 ```
 
@@ -67,15 +69,17 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit-plac
 
 | Action | Behavior |
 |---|---|
-| `manifest` | Writes the plug-in manifest with the InnoMaker adapter path and payload schema metadata. |
+| `manifest` | Writes the plug-in manifest with the InnoMaker adapter path, payload schema metadata, and RevA25 transmit gates. |
 | `inventory` | Detects SocketCAN interfaces under `/sys/class/net`. |
 | `status` | Saves `ip -details -statistics link show <interface>` output. |
-| `listen` | Performs a bounded passive raw-socket CAN listen and saves JSON artifacts. |
+| `listen` | Performs a bounded raw-socket CAN listen and saves JSON artifacts. |
+| `transmit` | Sends synthetic lab-range CAN frames only when `--bench-simulator` and `--confirm-transmit` are both present. |
+| `listen-transmit` | Sends the gated transmit batch and then performs a bounded listen, writing a combined artifact. |
 | `report` | Writes a Markdown report with inventory/status/payload artifact links. |
-| `generate-payloads` | Generates bench-only synthetic payload JSON using the `koala-kan-payload-batch-v1` schema. No frames are transmitted. |
-| `transmit-placeholder` | Writes a blocked transmit manifest. Raw CAN transmission remains intentionally disabled in production. |
+| `generate-payloads` | Generates bench-only synthetic payload JSON using the `koala-kan-payload-batch-v1` schema. |
+| `transmit-placeholder` | Legacy blocked placeholder. It never sends frames; use `transmit` or `listen-transmit` with the required gates. |
 
-## Payload generator
+## Payload generator and transmit limits
 
 The generator creates synthetic frames for authorized bench harnesses, CAN simulators, parser validation, display checks, and logging tests. It reserves four standard 11-bit lab IDs starting from `--base-id`.
 
@@ -89,22 +93,39 @@ Default profiles:
 | `ascii-tag` | One padded ASCII label frame, default `KOALAKAN`. | `base + 3` |
 | `all` | Emits the full synthetic batch. | `base + 0..3` |
 
-Generated artifacts include:
+RevA25 transmit constraints:
 
-```text
-schema_version
-interface_hint
-frames[].can_id_hex
-frames[].dlc
-frames[].data_hex
-frames[].is_extended
-frames[].is_remote_request
-frames[].repeat_ms
-socketcan_preview_lines
-transmit_function_contract
+- Requires `--bench-simulator` and `--confirm-transmit`.
+- Uses standard 11-bit CAN frames only.
+- Allows only the lab-range ID window `0x600-0x67F`.
+- Caps generated and transmitted batches at 64 frames.
+- Logs every requested and sent frame to JSON artifacts.
+- Keeps `transmit-placeholder` blocked for backward-compatible safety checks.
+
+Manual single-frame example:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit \
+  --interface can0 \
+  --bench-simulator \
+  --confirm-transmit \
+  --can-id 0x600 \
+  --data "4B 42 01 00" \
+  --count 3 \
+  --inter-frame-ms 100
 ```
 
-The `socketcan_preview_lines` are formatted for human review and downstream bench tooling. They are not executed by the plug-in.
+Generated profile transmit example:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit \
+  --interface can0 \
+  --bench-simulator \
+  --confirm-transmit \
+  --payload-profile all \
+  --base-id 0x600 \
+  --sequence-count 4
+```
 
 ## Optional Pi setup
 
@@ -117,10 +138,10 @@ sudo ip link set can0 up type can bitrate 500000
 ip -details -statistics link show can0
 ```
 
-Use the bitrate required by your authorized bench harness or owned-device test network.
+Use the bitrate required by your isolated bench simulator or owned bench harness.
 
 ## Safety boundary
 
-Koala Kan Kommander is for authorized CAN observation and bench validation only. The production plug-in does not transmit raw CAN frames.
+Koala Kan Kommander is for authorized CAN observation and completely isolated bench simulator validation only. RevA25 can transmit synthetic lab-range CAN frames only after explicit bench confirmation flags.
 
-The payload generator deliberately excludes UDS diagnostic services, OBD requests, DTC operations, ECU reset/security-access frames, OEM arbitration IDs, captured traffic replay, and actuator-oriented payloads. Do not use this on vehicles, battery systems, industrial controllers, or any embedded control network unless the network is an isolated owned lab harness with documented authorization and safe operating conditions.
+The payload generator and transmit path deliberately exclude UDS diagnostic services, OBD requests, DTC operations, ECU reset/security-access frames, OEM arbitration IDs, captured traffic replay, and actuator-oriented payloads. Do not use this on vehicles, battery systems, industrial controllers, or any embedded control network unless the network is an isolated owned lab harness with documented authorization and safe operating conditions.
