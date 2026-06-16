@@ -8,11 +8,7 @@ APP_DIR="firmware/nrf52840-dongle-ear-tag-tx-lab"
 BUILD_DIR="${BUILD_DIR:-build/nrf52840-dongle-lab}"
 BOARD="${BOARD:-nrf52840dongle_nrf52840}"
 
-if ! command -v west >/dev/null 2>&1; then
-  echo "west was not found. Install Nordic nRF Connect SDK first." >&2
-  echo "See docs/NRF52840_DONGLE_FLASHING.md" >&2
-  exit 1
-fi
+STRICT_NRF_TOOLS="${STRICT_NRF_TOOLS:-1}" bash scripts/setup_nrf_tools.sh --west-only
 
 if [[ ! -f "${APP_DIR}/CMakeLists.txt" || ! -f "${APP_DIR}/prj.conf" || ! -f "${APP_DIR}/src/main.c" ]]; then
   echo "Missing nRF52840 Dongle KoalaByte Lab source files under ${APP_DIR}." >&2
