@@ -15,6 +15,8 @@ INSTALL_SYSTEM_PACKAGES="${INSTALL_SYSTEM_PACKAGES:-auto}"
 STRICT_SYSTEM_PACKAGES="${STRICT_SYSTEM_PACKAGES:-0}"
 INSTALL_ESP32_TOOLS="${INSTALL_ESP32_TOOLS:-auto}"
 STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-0}"
+INSTALL_THATS_NOT_A_KNIFE_SERVICE="${INSTALL_THATS_NOT_A_KNIFE_SERVICE:-auto}"
+STRICT_THATS_NOT_A_KNIFE_SERVICE="${STRICT_THATS_NOT_A_KNIFE_SERVICE:-0}"
 VENV_SYSTEM_SITE_PACKAGES="${VENV_SYSTEM_SITE_PACKAGES:-1}"
 
 cd "${REPO_ROOT}"
@@ -131,6 +133,27 @@ case "${PREPARE_DONGLE_CACHE}" in
 esac
 
 echo
+echo "Installing/enabling that’s not a knife local guard service: INSTALL_THATS_NOT_A_KNIFE_SERVICE=${INSTALL_THATS_NOT_A_KNIFE_SERVICE}"
+case "${INSTALL_THATS_NOT_A_KNIFE_SERVICE}" in
+  0|false|False|no|NO|skip|SKIP)
+    echo "Skipping that’s not a knife service install by request."
+    ;;
+  auto|AUTO|1|true|True|yes|YES)
+    PYTHON_BIN="${VENV_DIR}/bin/python" STRICT_THATS_NOT_A_KNIFE_SERVICE="${STRICT_THATS_NOT_A_KNIFE_SERVICE}" bash "${REPO_ROOT}/scripts/install_thats_not_a_knife_service.sh" || {
+      if [[ "${STRICT_THATS_NOT_A_KNIFE_SERVICE}" == "1" ]]; then
+        echo "STRICT_THATS_NOT_A_KNIFE_SERVICE=1 is set, failing install because the local guard service did not install." >&2
+        exit 1
+      fi
+      echo "Continuing install because STRICT_THATS_NOT_A_KNIFE_SERVICE is not enabled." >&2
+    }
+    ;;
+  *)
+    echo "Unknown INSTALL_THATS_NOT_A_KNIFE_SERVICE value: ${INSTALL_THATS_NOT_A_KNIFE_SERVICE}. Use auto, 1, or 0." >&2
+    exit 1
+    ;;
+esac
+
+echo
 echo "Pi companion install complete."
 echo "WiFi first-boot helper:"
 echo "  WIFI_INTERACTIVE=1 bash ${REPO_ROOT}/scripts/setup_wifi_first_boot.sh"
@@ -150,6 +173,11 @@ echo "  cache file: ${REPO_ROOT}/logs/dongle_firmware_cache.json"
 echo
 echo "Koala Kan Kommander InnoMaker manifest test:"
 echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_koala_kan_kommander.py manifest"
+echo
+echo "that’s not a knife local guard service:"
+echo "  bash ${REPO_ROOT}/scripts/install_thats_not_a_knife_service.sh"
+echo "  systemctl status koalabyte-thats-not-a-knife.service"
+echo "  journalctl -u koalabyte-thats-not-a-knife.service -f"
 echo
 echo "Pre-boot dongle mode selector:"
 echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_preboot_mode_select.py"
