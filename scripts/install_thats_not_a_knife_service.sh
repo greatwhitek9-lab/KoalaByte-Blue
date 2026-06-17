@@ -35,6 +35,12 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
 fi
 
 TMP_UNIT="$(mktemp)"
+SERVICE_USER="${SERVICE_USER}" \
+REPO_ROOT="${REPO_ROOT}" \
+PYTHON_BIN="${PYTHON_BIN}" \
+INTERVAL_SECONDS="${INTERVAL_SECONDS}" \
+THRESHOLD="${THRESHOLD}" \
+XP_COOLDOWN_SECONDS="${XP_COOLDOWN_SECONDS}" \
 python3 - "${UNIT_TEMPLATE}" "${TMP_UNIT}" <<'PY'
 from pathlib import Path
 import os
