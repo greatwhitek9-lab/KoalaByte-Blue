@@ -4,7 +4,7 @@ import math
 import os
 import time
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple
+from typing import Any, Iterable, Optional, Tuple
 
 Color = Tuple[int, int, int]
 
@@ -75,6 +75,31 @@ def render_terminal_jungle_menu(menu: Any, theme: JungleMenuTheme = DEFAULT_JUNG
     lines.append(top)
     lines.append("Buttons: B1 menu | B2 prev/back | B3 select/hold shutdown | B4 next | B5 up | B6 down")
     lines.append("Touch: drag/scroll through eucalyptus branches | long press to select")
+    return "\n".join(lines)
+
+
+def render_terminal_eucalyptus_card(title: str, rows: Iterable[str], subtitle: str = "THAT’S NOT A KNIFE", theme: JungleMenuTheme = DEFAULT_JUNGLE_MENU_THEME) -> str:
+    """Render a terminal-safe eucalyptus wrapped status card using the menu theme.
+
+    This keeps action/status screens visually aligned with the same font family
+    metadata and eucalyptus branch border used by the main KoalaByte Blue menu.
+    """
+
+    width = 74
+    top = f"{_TERMINAL_BRANCH}" + "═" * (width - 2) + f"{_TERMINAL_BRANCH}"
+    lines = [top]
+    lines.append(f"  {theme.title}  ".center(width))
+    lines.append(f"  {subtitle.upper()}  ".center(width))
+    lines.append(f"  font: {theme.item_font_family} | border: {theme.border_style}  ".center(width))
+    lines.append(top)
+    lines.append(f"🌿 {title[:68]:<68} 🌿")
+    for row in rows:
+        text = str(row)
+        while len(text) > 68:
+            lines.append(f"  {text[:68]:<70}")
+            text = text[68:]
+        lines.append(f"  {text:<70}")
+    lines.append(top)
     return "\n".join(lines)
 
 
