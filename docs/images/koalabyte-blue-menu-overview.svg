@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+  <title id="title">KoalaByte Blue main menu overview</title>
+  <desc id="desc">Jungle eucalyptus themed KoalaByte Blue main menu showing grouped safe lab actions.</desc>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="70%">
+      <stop offset="0" stop-color="#0b3327"/>
+      <stop offset="0.55" stop-color="#041713"/>
+      <stop offset="1" stop-color="#010807"/>
+    </radialGradient>
+    <linearGradient id="panel" x1="0" x2="1">
+      <stop offset="0" stop-color="#071f19"/>
+      <stop offset="1" stop-color="#0e3c2d"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style>
+      .title{font-family:Cooper Black,Arial Rounded MT Bold,DejaVu Sans,sans-serif;font-size:76px;font-weight:900;fill:#9bd968;stroke:#1f4c2a;stroke-width:3px;letter-spacing:1px}
+      .header{font-family:Cooper Black,Arial Rounded MT Bold,DejaVu Sans,sans-serif;font-size:34px;font-weight:900;fill:#ffd866;letter-spacing:3px}
+      .group{font-family:Cooper Black,Arial Rounded MT Bold,DejaVu Sans,sans-serif;font-size:26px;font-weight:900;fill:#a6e98e;letter-spacing:1px}
+      .item{font-family:DejaVu Sans Mono,monospace;font-size:23px;font-weight:800;fill:#d9f5a2}
+      .small{font-family:DejaVu Sans Mono,monospace;font-size:19px;font-weight:700;fill:#9ce484}
+      .muted{fill:#88bf78}
+      .leaf{fill:#58b76d;stroke:#b8ff9b;stroke-width:1.5}
+      .branch{fill:none;stroke:#9a6b36;stroke-width:15;stroke-linecap:round}
+      .twig{fill:none;stroke:#d2a35e;stroke-width:3;stroke-linecap:round}
+    </style>
+  </defs>
+  <rect width="1200" height="760" rx="34" fill="url(#bg)"/>
+  <path class="branch" d="M72 688 C28 520 44 262 121 63"/>
+  <path class="branch" d="M1128 688 C1172 520 1156 262 1079 63"/>
+  <path class="twig" d="M78 185 C140 150 174 134 228 88"/>
+  <path class="twig" d="M1124 204 C1055 162 1024 128 960 82"/>
+  <g opacity="0.95">
+    <ellipse class="leaf" cx="105" cy="135" rx="16" ry="39" transform="rotate(-35 105 135)"/><ellipse class="leaf" cx="159" cy="115" rx="15" ry="34" transform="rotate(45 159 115)"/><ellipse class="leaf" cx="82" cy="280" rx="15" ry="38" transform="rotate(28 82 280)"/><ellipse class="leaf" cx="114" cy="422" rx="14" ry="35" transform="rotate(-42 114 422)"/><ellipse class="leaf" cx="96" cy="610" rx="18" ry="42" transform="rotate(52 96 610)"/>
+    <ellipse class="leaf" cx="1095" cy="135" rx="16" ry="39" transform="rotate(35 1095 135)"/><ellipse class="leaf" cx="1041" cy="115" rx="15" ry="34" transform="rotate(-45 1041 115)"/><ellipse class="leaf" cx="1118" cy="280" rx="15" ry="38" transform="rotate(-28 1118 280)"/><ellipse class="leaf" cx="1086" cy="422" rx="14" ry="35" transform="rotate(42 1086 422)"/><ellipse class="leaf" cx="1104" cy="610" rx="18" ry="42" transform="rotate(-52 1104 610)"/>
+  </g>
+  <text x="600" y="88" text-anchor="middle" class="title">KoalaByte Blue</text>
+  <text x="600" y="138" text-anchor="middle" class="header">MAIN MENU</text>
+  <rect x="190" y="165" width="820" height="505" rx="30" fill="rgba(4,22,18,0.82)" stroke="#d5a94f" stroke-width="4"/>
+  <rect x="232" y="201" width="736" height="64" rx="22" fill="#123f25" stroke="#e6dc58" stroke-width="4" filter="url(#glow)"/>
+  <text x="600" y="243" text-anchor="middle" class="group">Bluetooth Tools</text>
+  <text x="252" y="304" class="item">01 Scan</text>
+  <text x="252" y="344" class="item">02 eucalyptus Status</text>
+  <text x="252" y="384" class="item">03 Koala Kapture</text>
+  <text x="252" y="424" class="item">04 Dropbear Discovery Sweep</text>
+  <text x="252" y="464" class="item">05 Billabong HCI Watch</text>
+  <text x="252" y="504" class="item">06 that’s not a knife</text>
+  <text x="655" y="304" class="item">Reports &amp; Reviews</text>
+  <text x="655" y="344" class="small">Authorized BLE Inventory</text>
+  <text x="655" y="384" class="small">Pairing Security Review</text>
+  <text x="655" y="424" class="small">Defensive Lab Report</text>
+  <text x="655" y="478" class="item">System / Companion</text>
+  <text x="655" y="518" class="small">Koala Mode Switcher</text>
+  <text x="655" y="558" class="small">KillerKoala Voice</text>
+  <text x="655" y="598" class="small">Settings / Lab / Shutdown</text>
+  <rect x="230" y="612" width="740" height="42" rx="18" fill="#09251c" stroke="#78c96e" stroke-width="2"/>
+  <text x="600" y="640" text-anchor="middle" class="small">B1 menu   B2 back   B3 select   B4 next   B5 up   B6 down</text>
+</svg>
