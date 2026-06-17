@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Iterable, List
 
-from koalablue.ble_defense_guard import DEFAULT_OUTPUT_DIR, DEFAULT_STATE_PATH, DEFAULT_XP_PATH, run_guard_once
+from koalablue.ble_defense_guard import DEFAULT_BLOCK_PATH, DEFAULT_OUTPUT_DIR, DEFAULT_STATE_PATH, DEFAULT_XP_PATH, run_guard_once
 
 
 DEFAULT_LOG_GLOBS = [
@@ -50,12 +50,12 @@ def _collect_lines(patterns: Iterable[str], max_lines_per_file: int) -> List[str
     return lines
 
 
-def _recent_guard_active(state_path: Path, cooldown_seconds: int) -> bool:
+def _recent_successful_block(state_path: Path, cooldown_seconds: int) -> bool:
     if cooldown_seconds <= 0 or not state_path.exists():
         return False
     try:
         state = json.loads(state_path.read_text(encoding="utf-8"))
-        if not bool(state.get("local_guard_enabled")):
+        if not bool(state.get("defensive_block_successful")):
             return False
         updated_at = float(state.get("updated_at", 0.0))
         return (time.time() - updated_at) < cooldown_seconds
@@ -69,12 +69,13 @@ def run_loop(args: argparse.Namespace) -> int:
     interval = max(2.0, float(args.interval))
     while True:
         lines = _collect_lines(patterns, args.max_lines_per_file)
-        award_xp = not args.no_award_xp and not _recent_guard_active(state_path, args.xp_cooldown)
+        award_xp = not args.no_award_xp and not _recent_successful_block(state_path, args.xp_cooldown)
         result = run_guard_once(
             metrics={},
             log_lines=lines,
             output_dir=args.output_dir,
             state_path=state_path,
+            block_path=args.block_path,
             xp_path=args.xp_path,
             threshold=args.threshold,
             award_xp=award_xp,
@@ -84,8 +85,10 @@ def run_loop(args: argparse.Namespace) -> int:
             "status": result.status,
             "pressure_score": result.pressure_score,
             "local_guard_enabled": result.local_guard_enabled,
-            "xp_reward": result.xp_reward if award_xp else 0,
+            "defensive_block_successful": result.defensive_block_successful,
+            "xp_reward": result.xp_reward,
             "guard_state": result.artifacts.get("guard_state"),
+            "workflow_block": result.artifacts.get("workflow_block"),
         }, sort_keys=True), flush=True)
         if args.once:
             return 0
@@ -96,10 +99,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Keep the KoalaByte Blue 'that’s not a knife' BLE guard running")
     parser.add_argument("--interval", type=float, default=10.0, help="Seconds between guard passes")
     parser.add_argument("--threshold", type=int, default=5, help="Guard activation score")
-    parser.add_argument("--xp-cooldown", type=int, default=300, help="Minimum seconds between XP awards while guard remains active")
+    parser.add_argument("--xp-cooldown", type=int, default=300, help="Minimum seconds between XP awards after a successful defensive block")
     parser.add_argument("--max-lines-per-file", type=int, default=500)
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--state-path", default=str(DEFAULT_STATE_PATH))
+    parser.add_argument("--block-path", default=str(DEFAULT_BLOCK_PATH))
     parser.add_argument("--xp-path", default=str(DEFAULT_XP_PATH))
     parser.add_argument("--log-glob", action="append", default=None, help="Log file or glob to inspect; may be supplied more than once")
     parser.add_argument("--no-award-xp", action="store_true")
