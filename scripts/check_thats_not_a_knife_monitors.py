@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke checks for the KoalaByte Blue 'that’s not a knife' monitor toggles."""
+"""Smoke checks for the KoalaByte Blue 'that’s not a knife' monitor toggles and theme."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ from koalablue.ble_defense_guard import (  # noqa: E402
     run_guard_once,
     set_monitor_enabled,
 )
+from koalablue.menu_theme import DEFAULT_JUNGLE_MENU_THEME, render_terminal_eucalyptus_card  # noqa: E402
 
 EXPECTED = {"dos_pressure", "bluesnarfing", "bluebugging", "mitm_guard"}
 
@@ -38,6 +39,18 @@ def main() -> int:
         if monitor_id not in settings.get("monitors", {}):
             print(f"Missing monitor setting: {monitor_id}", file=sys.stderr)
             return 1
+
+    theme_card = render_terminal_eucalyptus_card(
+        "Monitor theme smoke check",
+        ["dos_pressure", "bluesnarfing", "bluebugging", "mitm_guard"],
+        subtitle="that’s not a knife",
+    )
+    if "🌿" not in theme_card or DEFAULT_JUNGLE_MENU_THEME.border_style != "eucalyptus_branches":
+        print("that’s not a knife monitor theme is missing the eucalyptus branch frame", file=sys.stderr)
+        return 1
+    if "cooperblack,arialroundedmsbold,dejavusans" not in theme_card:
+        print("that’s not a knife monitor theme is missing the shared menu font metadata", file=sys.stderr)
+        return 1
 
     set_monitor_enabled("bluesnarfing", False, settings_path)
     disabled = run_guard_once(
@@ -71,7 +84,7 @@ def main() -> int:
         print("XP changed during award_xp=False smoke check", file=sys.stderr)
         return 1
 
-    print("that’s not a knife monitor toggle smoke check passed.")
+    print("that’s not a knife monitor toggle and theme smoke check passed.")
     return 0
 
 
