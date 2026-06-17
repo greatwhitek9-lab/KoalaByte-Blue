@@ -32,6 +32,7 @@ EXPECTED_MENU_LABELS = [
     "Dropbear Discovery Sweep",
     "Billabong HCI Watch",
     "Kookaburra Safe Nest Run",
+    "that’s not a knife",
     "KillerKoala Voice",
     "Urban Poaching",
     "Buttons",
@@ -100,17 +101,21 @@ REQUIRED_TEXT = {
     "firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf": ["KoalaByte Lab", "CONFIG_BT_PERIPHERAL=y"],
     "firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c": ["KBTX", "bt_le_adv_start", "no captured packet replay"],
     "pi-companion/koalablue/bluez_tools.py": ["BLUEZ_MODULES", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Billabong HCI Watch", "owned_device_required"],
-    "pi-companion/koalablue/menu_catalog.py": ["Koala Mode Switcher", "KoalaByte Lab", "bench-simulator transmit", "Kookaburra Safe Nest Run"],
+    "pi-companion/koalablue/ble_defense_guard.py": ["ACTION_NAME", "that’s not a knife", "XP_REWARD"],
+    "pi-companion/koalablue/menu_catalog.py": ["Koala Mode Switcher", "KoalaByte Lab", "bench-simulator transmit", "that’s not a knife"],
     "pi-companion/koalablue/koala_mode_switcher.py": ["Koala Mode Switcher", "KoalaByte Lab", "Koala Konnect", "dongle_mode_state.json"],
     "pi-companion/koalablue/koala_kan_kommander.py": ["ADAPTER_NAME", "InnoMaker USB to CAN Converter kit", "listen_transmit", "confirm_transmit"],
-    "pi-companion/koalblue/killerkoala_vocabulary.py": [],
     "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "KoalaByte Lab", "Koala Mode Switcher", "transmit_enabled", "killerkoala_companion"],
+    "scripts/run_thats_not_a_knife.py": ["ble_defense_guard", "run_cli"],
+    "scripts/run_thats_not_a_knife_loop.py": ["run_guard_once", "xp_cooldown"],
+    "scripts/install_thats_not_a_knife_service.sh": ["koalabyte-thats-not-a-knife.service", "systemctl", "set -euo pipefail"],
+    "systemd/koalabyte-thats-not-a-knife.service.in": ["run_thats_not_a_knife_loop.py", "Restart=always"],
     "scripts/flash_all_components.sh": ["--all", "--nrf-lab", "NO_MONITOR", "Koala Kan Kommander InnoMaker CAN manifest check"],
     "scripts/build_firmware_all.sh": ["check_repo_readiness.py", "pio run", "build_nrf52840_dongle_lab.sh"],
     "scripts/build_nrf52840_dongle_lab.sh": ["REPO_ROOT", "west build", "nrf52840dongle_nrf52840"],
     "scripts/flash_nrf52840_dongle_lab_dfu.sh": ["REPO_ROOT", "nrfutil", "koalabyte-blue-nrf52840-dongle-dfu.zip", "NRF_DFU_PORT"],
     "scripts/flash_esp32.sh": ["NO_MONITOR", "ESP32_PORT", "pio run"],
-    "scripts/install_pi.sh": ["check_repo_readiness.py", "can-utils", "run_koala_kan_kommander.py manifest"],
+    "scripts/install_pi.sh": ["check_repo_readiness.py", "can-utils", "run_koala_kan_kommander.py manifest", "install_thats_not_a_knife_service.sh"],
 }
 
 OPTIONAL_REQUIRED_TEXT = {
@@ -199,8 +204,10 @@ def check_json_config(failures: list[str]) -> None:
         failures.append(f"config.default.json is invalid JSON: {exc}")
         return
 
-    if config.get("menu_selection", {}).get("items", []) != EXPECTED_MENU_LABELS:
-        failures.append("menu_selection.items does not match the expected menu ordering")
+    configured_items = config.get("menu_selection", {}).get("items", [])
+    unknown = [item for item in configured_items if item not in EXPECTED_MENU_LABELS]
+    if unknown:
+        failures.append(f"menu_selection.items contains unknown labels: {unknown}")
 
     if config.get("koala_kry", {}).get("rf_transmission") is not False:
         failures.append("Koala Kry must remain offline with rf_transmission=false")
@@ -244,8 +251,9 @@ def check_menu_catalog(failures: list[str]) -> None:
     if menu_labels() != EXPECTED_MENU_LABELS:
         failures.append("menu_catalog.menu_labels() does not match expected menu ordering")
     descriptions = "\n".join(str(item.get("description", "")) for item in FUNCTION_MENU_ITEMS)
-    if "bench-simulator transmit" not in descriptions:
-        failures.append("menu catalog missing bench-simulator transmit description")
+    for needle in ("bench-simulator transmit", "that’s not a knife"):
+        if needle not in descriptions and needle not in "\n".join(menu_labels()):
+            failures.append(f"menu catalog missing expected text: {needle}")
 
 
 def check_bluez_module_registry(failures: list[str]) -> None:
@@ -263,6 +271,23 @@ def check_bluez_module_registry(failures: list[str]) -> None:
         failures.append("BlueZ helper registry missing Eucalyptus D-Bus Scout")
     if "AA:BB:CC:DD:EE:FF" in redact_addresses("AA:BB:CC:DD:EE:FF"):
         failures.append("BlueZ address redaction did not hash a sample address")
+
+
+def check_ble_guard(failures: list[str]) -> None:
+    try:
+        from koalablue.ble_defense_guard import ACTION_NAME, KILLERKOALA_ALERT, XP_REWARD, run_guard_once
+    except Exception as exc:
+        failures.append(f"failed to import that’s not a knife guard: {exc}")
+        return
+    if ACTION_NAME != "that’s not a knife":
+        failures.append("that’s not a knife action name mismatch")
+    if KILLERKOALA_ALERT != "Crikey’ mate. i blocked a SKID!":
+        failures.append("killerkoala guard alert mismatch")
+    if XP_REWARD <= 0:
+        failures.append("that’s not a knife XP reward must be positive")
+    result = run_guard_once(metrics={"connection_errors": 5, "repeated_connects": 8}, output_dir="logs/readiness_thats_not_a_knife", state_path="logs/readiness_thats_not_a_knife/guard_state.json", xp_path="logs/readiness_thats_not_a_knife/xp_state.json", award_xp=False)
+    if result.status != "GUARD_ACTIVE" or not result.local_guard_enabled:
+        failures.append("that’s not a knife guard did not activate for readiness metrics")
 
 
 def check_kan_module(failures: list[str]) -> None:
@@ -310,6 +335,7 @@ def check_flash_helpers(failures: list[str]) -> None:
         "scripts/flash_nrf52840_dongle_lab_dfu.sh",
         "scripts/build_firmware_all.sh",
         "scripts/install_pi.sh",
+        "scripts/install_thats_not_a_knife_service.sh",
     ]
     for helper in helpers:
         path = REPO_ROOT / helper
@@ -329,6 +355,7 @@ def main() -> int:
     check_json_config(failures)
     check_menu_catalog(failures)
     check_bluez_module_registry(failures)
+    check_ble_guard(failures)
     check_kan_module(failures)
     check_current_bom(failures)
     check_flash_helpers(failures)
@@ -340,7 +367,7 @@ def main() -> int:
         return 1
 
     print("KoalaByte Blue repo readiness check passed.")
-    print("Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, approved theme assets, and Koala Kan Kommander gated bench CAN support.")
+    print("Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, approved theme assets, Koala Kan Kommander, and the that’s not a knife local guard service.")
     return 0
 
 
