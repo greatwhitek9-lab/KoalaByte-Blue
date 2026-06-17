@@ -15,6 +15,7 @@ XP_REWARD = 20
 DEFAULT_OUTPUT_DIR = Path("logs/thats_not_a_knife")
 DEFAULT_XP_PATH = Path("logs/killerkoala/xp_state.json")
 DEFAULT_STATE_PATH = Path("logs/thats_not_a_knife/guard_state.json")
+DEFAULT_BLOCK_PATH = Path("logs/thats_not_a_knife/ble_workflow_block.json")
 
 
 @dataclass
@@ -31,6 +32,7 @@ class GuardResult:
     status: str
     always_on: bool
     local_guard_enabled: bool
+    defensive_block_successful: bool
     companion_alert: str
     started_at: float
     ended_at: float
@@ -121,11 +123,34 @@ def _signals_from_lines(lines: Iterable[str]) -> List[GuardSignal]:
     return signals
 
 
+def _write_block_state(block_path: Path, active: bool, pressure_score: int, threshold: int, timestamp: float) -> bool:
+    payload = {
+        "action_id": ACTION_ID,
+        "action_name": ACTION_NAME,
+        "block_active": active,
+        "blocked_local_workflows": [
+            "scan",
+            "koala_kapture",
+            "koala_bluez_scan",
+            "koala_bluez_monitor",
+            "urban_poaching",
+        ] if active else [],
+        "block_scope": "local KoalaByte Blue BLE workflows",
+        "pressure_score": pressure_score,
+        "threshold": threshold,
+        "updated_at": timestamp,
+        "operator_note": "Review guard logs before re-enabling local BLE workflows." if active else "Local BLE workflow block is not active.",
+    }
+    _write_json(block_path, payload)
+    return block_path.exists()
+
+
 def run_guard_once(
     metrics: Optional[dict] = None,
     log_lines: Optional[Iterable[str]] = None,
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     state_path: str | Path = DEFAULT_STATE_PATH,
+    block_path: str | Path = DEFAULT_BLOCK_PATH,
     xp_path: str | Path = DEFAULT_XP_PATH,
     threshold: int = 5,
     award_xp: bool = True,
@@ -133,42 +158,59 @@ def run_guard_once(
     started = time.time()
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
+    state_path = Path(state_path)
+    block_path = Path(block_path)
     signals = _signals_from_metrics(metrics or {}) + _signals_from_lines(log_lines or [])
     pressure_score = sum(signal.weight for signal in signals)
     local_guard_enabled = pressure_score >= threshold
-    status = "GUARD_ACTIVE" if local_guard_enabled else "MONITORING"
-
-    xp_before = int(_load_xp(Path(xp_path)).get("xp", 0))
-    xp_after = xp_before
-    xp_reward = XP_REWARD if local_guard_enabled else 0
-    if local_guard_enabled and award_xp:
-        xp_before, xp_after = _award_xp(Path(xp_path), xp_reward)
+    defensive_block_successful = False
+    block_error: Optional[str] = None
 
     ended = time.time()
     summary_path = output_path / f"thats_not_a_knife_{int(started)}.json"
     alert_path = output_path / "killerkoala_alert.txt"
-    state = {
-        "action_id": ACTION_ID,
-        "action_name": ACTION_NAME,
-        "always_on": True,
-        "local_guard_enabled": local_guard_enabled,
-        "status": status,
-        "pressure_score": pressure_score,
-        "threshold": threshold,
-        "updated_at": ended,
-        "companion_alert": KILLERKOALA_ALERT if local_guard_enabled else "killerkoala is watching the BLE canopy.",
-        "recommended_operator_action": "Pause active BLE workflows and review logs before re-enabling local Bluetooth actions." if local_guard_enabled else "Continue monitoring.",
-    }
-    _write_json(Path(state_path), state)
-    alert_path.write_text(state["companion_alert"] + "\n", encoding="utf-8")
+    companion_alert = KILLERKOALA_ALERT if local_guard_enabled else "killerkoala is watching the BLE canopy."
 
+    try:
+        defensive_block_successful = _write_block_state(block_path, local_guard_enabled, pressure_score, threshold, ended) if local_guard_enabled else _write_block_state(block_path, False, pressure_score, threshold, ended)
+        if not local_guard_enabled:
+            defensive_block_successful = False
+        state = {
+            "action_id": ACTION_ID,
+            "action_name": ACTION_NAME,
+            "always_on": True,
+            "local_guard_enabled": local_guard_enabled,
+            "defensive_block_successful": defensive_block_successful,
+            "status": "BLOCKED" if defensive_block_successful else ("BLOCK_FAILED" if local_guard_enabled else "MONITORING"),
+            "pressure_score": pressure_score,
+            "threshold": threshold,
+            "updated_at": ended,
+            "companion_alert": companion_alert,
+            "recommended_operator_action": "Pause active BLE workflows and review logs before re-enabling local Bluetooth actions." if defensive_block_successful else "Continue monitoring.",
+        }
+        _write_json(state_path, state)
+        alert_path.write_text(companion_alert + "\n", encoding="utf-8")
+    except Exception as exc:
+        defensive_block_successful = False
+        block_error = str(exc)
+        companion_alert = "killerkoala saw pressure but could not activate the local block. Check permissions and storage."
+
+    xp_state = _load_xp(Path(xp_path))
+    xp_before = int(xp_state.get("xp", 0))
+    xp_after = xp_before
+    xp_reward = XP_REWARD if defensive_block_successful and award_xp else 0
+    if xp_reward:
+        xp_before, xp_after = _award_xp(Path(xp_path), xp_reward)
+
+    status = "BLOCKED" if defensive_block_successful else ("BLOCK_FAILED" if local_guard_enabled else "MONITORING")
     result = GuardResult(
         action_id=ACTION_ID,
         action_name=ACTION_NAME,
         status=status,
         always_on=True,
         local_guard_enabled=local_guard_enabled,
-        companion_alert=state["companion_alert"],
+        defensive_block_successful=defensive_block_successful,
+        companion_alert=companion_alert,
         started_at=started,
         ended_at=ended,
         pressure_score=pressure_score,
@@ -176,7 +218,7 @@ def run_guard_once(
         xp_before=xp_before,
         xp_after=xp_after,
         signals=signals,
-        artifacts={"summary": str(summary_path), "guard_state": str(state_path), "killerkoala_alert": str(alert_path)},
+        artifacts={"summary": str(summary_path), "guard_state": str(state_path), "workflow_block": str(block_path), "killerkoala_alert": str(alert_path)},
         safety={
             "authorized_lab_use_only": True,
             "local_guard_state_only": True,
@@ -184,9 +226,9 @@ def run_guard_once(
             "spoofing": False,
             "packet_replay": False,
             "offensive_frames_sent": False,
-            "xp_awarded_on_guard_activation_only": True,
+            "xp_awarded_only_after_defensive_block_success": True,
         },
-        details={"threshold": threshold, "signal_count": len(signals)},
+        details={"threshold": threshold, "signal_count": len(signals), "block_error": block_error},
     )
     _write_json(summary_path, asdict(result))
     return result
@@ -199,6 +241,7 @@ def run_cli() -> int:
     parser.add_argument("--threshold", type=int, default=5)
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--state-path", default=str(DEFAULT_STATE_PATH))
+    parser.add_argument("--block-path", default=str(DEFAULT_BLOCK_PATH))
     parser.add_argument("--xp-path", default=str(DEFAULT_XP_PATH))
     parser.add_argument("--no-award-xp", action="store_true")
     args = parser.parse_args()
@@ -210,7 +253,7 @@ def run_cli() -> int:
         if path.exists():
             lines = path.read_text(encoding="utf-8", errors="replace").splitlines()[-500:]
 
-    result = run_guard_once(metrics=metrics, log_lines=lines, output_dir=args.output_dir, state_path=args.state_path, xp_path=args.xp_path, threshold=args.threshold, award_xp=not args.no_award_xp)
+    result = run_guard_once(metrics=metrics, log_lines=lines, output_dir=args.output_dir, state_path=args.state_path, block_path=args.block_path, xp_path=args.xp_path, threshold=args.threshold, award_xp=not args.no_award_xp)
     print(json.dumps(asdict(result), indent=2, sort_keys=True))
     return 0
 
