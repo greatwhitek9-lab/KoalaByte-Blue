@@ -101,13 +101,13 @@ REQUIRED_TEXT = {
     "firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf": ["KoalaByte Lab", "CONFIG_BT_PERIPHERAL=y"],
     "firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c": ["KBTX", "bt_le_adv_start", "no captured packet replay"],
     "pi-companion/koalablue/bluez_tools.py": ["BLUEZ_MODULES", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Billabong HCI Watch", "owned_device_required"],
-    "pi-companion/koalablue/ble_defense_guard.py": ["ACTION_NAME", "that’s not a knife", "XP_REWARD"],
+    "pi-companion/koalablue/ble_defense_guard.py": ["ACTION_NAME", "that’s not a knife", "XP_REWARD", "defensive_block_successful"],
     "pi-companion/koalablue/menu_catalog.py": ["Koala Mode Switcher", "KoalaByte Lab", "bench-simulator transmit", "that’s not a knife"],
     "pi-companion/koalablue/koala_mode_switcher.py": ["Koala Mode Switcher", "KoalaByte Lab", "Koala Konnect", "dongle_mode_state.json"],
     "pi-companion/koalablue/koala_kan_kommander.py": ["ADAPTER_NAME", "InnoMaker USB to CAN Converter kit", "listen_transmit", "confirm_transmit"],
     "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "KoalaByte Lab", "Koala Mode Switcher", "transmit_enabled", "killerkoala_companion"],
     "scripts/run_thats_not_a_knife.py": ["ble_defense_guard", "run_cli"],
-    "scripts/run_thats_not_a_knife_loop.py": ["run_guard_once", "xp_cooldown"],
+    "scripts/run_thats_not_a_knife_loop.py": ["run_guard_once", "xp_cooldown", "defensive_block_successful"],
     "scripts/install_thats_not_a_knife_service.sh": ["koalabyte-thats-not-a-knife.service", "systemctl", "set -euo pipefail"],
     "systemd/koalabyte-thats-not-a-knife.service.in": ["run_thats_not_a_knife_loop.py", "Restart=always"],
     "scripts/flash_all_components.sh": ["--all", "--nrf-lab", "NO_MONITOR", "Koala Kan Kommander InnoMaker CAN manifest check"],
@@ -285,9 +285,14 @@ def check_ble_guard(failures: list[str]) -> None:
         failures.append("killerkoala guard alert mismatch")
     if XP_REWARD <= 0:
         failures.append("that’s not a knife XP reward must be positive")
-    result = run_guard_once(metrics={"connection_errors": 5, "repeated_connects": 8}, output_dir="logs/readiness_thats_not_a_knife", state_path="logs/readiness_thats_not_a_knife/guard_state.json", xp_path="logs/readiness_thats_not_a_knife/xp_state.json", award_xp=False)
-    if result.status != "GUARD_ACTIVE" or not result.local_guard_enabled:
-        failures.append("that’s not a knife guard did not activate for readiness metrics")
+    inactive = run_guard_once(metrics={}, output_dir="logs/readiness_thats_not_a_knife", state_path="logs/readiness_thats_not_a_knife/guard_state.json", block_path="logs/readiness_thats_not_a_knife/block_state.json", xp_path="logs/readiness_thats_not_a_knife/xp_state.json", award_xp=True)
+    if inactive.xp_reward != 0 or inactive.xp_after != inactive.xp_before:
+        failures.append("that’s not a knife must not award XP while only monitoring")
+    active = run_guard_once(metrics={"connection_errors": 5, "repeated_connects": 8}, output_dir="logs/readiness_thats_not_a_knife", state_path="logs/readiness_thats_not_a_knife/guard_state.json", block_path="logs/readiness_thats_not_a_knife/block_state.json", xp_path="logs/readiness_thats_not_a_knife/xp_state.json", award_xp=False)
+    if active.status != "BLOCKED" or not active.defensive_block_successful:
+        failures.append("that’s not a knife guard did not complete a defensive block for readiness metrics")
+    if active.xp_reward != 0 or active.xp_after != active.xp_before:
+        failures.append("that’s not a knife must not award XP when XP awards are disabled")
 
 
 def check_kan_module(failures: list[str]) -> None:
