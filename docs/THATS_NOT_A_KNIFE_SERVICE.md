@@ -1,12 +1,14 @@
 # that’s not a knife local guard service
 
-`that’s not a knife` is the KoalaByte Blue always-on BLE pressure guard. It runs as a small Pi-side loop, reviews recent KoalaByte/host Bluetooth logs, writes a local guard state file, and lets killerkoala react when the guard activates.
+`that’s not a knife` is the KoalaByte Blue always-on BLE defensive monitor suite. It runs as a small Pi-side loop, reviews recent KoalaByte/host Bluetooth logs, writes local guard state, and lets killerkoala react when a local defensive block succeeds.
 
 ## What it does
 
 - Runs continuously through systemd.
 - Reads recent local log files and KoalaByte Blue JSON artifacts.
-- Scores defensive pressure signals such as repeated connection errors, controller resource pressure, and adapter reset patterns.
+- Monitors BLE DoS pressure, bluesnarfing / blue snarfing risk, bluebugging risk, and pairing/MITM-risk patterns.
+- Lets each monitor be turned on or off individually.
+- Writes monitor settings to `logs/thats_not_a_knife/monitor_settings.json`.
 - Writes state to `logs/thats_not_a_knife/guard_state.json`.
 - Writes the local workflow block artifact to `logs/thats_not_a_knife/ble_workflow_block.json`.
 - Writes the local killerkoala alert text to `logs/thats_not_a_knife/killerkoala_alert.txt`.
@@ -19,11 +21,52 @@ The local alert line is:
 Crikey’ mate. i blocked a SKID!
 ```
 
+## Individual monitors
+
+Default monitor IDs:
+
+| Monitor ID | Default | Purpose |
+|---|---:|---|
+| `dos_pressure` | On | Repeated connection/controller pressure patterns. |
+| `bluesnarfing` | On | Suspicious local object, phonebook, contact-card, or file-pull access patterns. |
+| `bluebugging` | On | Suspicious local RFCOMM, AT-command, handsfree, call-control, or serial-control patterns. |
+| `mitm_guard` | On | Suspicious pairing, authorization, key-change, weak-pairing, or authentication-failure patterns. |
+
+Aliases accepted by the CLI include `dos`, `ble_dos`, `bluesnarf`, `blue_snarfing`, `blue-snarfing`, `bluesnarffing`, `mitm`, and `man-in-the-middle`.
+
+## Turn monitors on or off
+
+Show current settings:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife.py status
+```
+
+Disable one monitor:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife.py disable bluesnarfing
+```
+
+Enable one monitor:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife.py enable bluesnarfing
+```
+
+Change one monitor threshold:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife.py threshold mitm_guard 5
+```
+
+The always-on service reads the same `monitor_settings.json`, so changes take effect on the next service loop pass.
+
 ## XP rule
 
 killerkoala earns XP only when all of these are true:
 
-1. The guard score reaches the configured threshold.
+1. At least one enabled monitor reaches its configured threshold.
 2. The local workflow block artifact is written successfully.
 3. XP awards are enabled for that guard pass.
 4. The XP cooldown has expired.
