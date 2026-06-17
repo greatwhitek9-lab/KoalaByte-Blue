@@ -8,14 +8,27 @@
 - Reads recent local log files and KoalaByte Blue JSON artifacts.
 - Scores defensive pressure signals such as repeated connection errors, controller resource pressure, and adapter reset patterns.
 - Writes state to `logs/thats_not_a_knife/guard_state.json`.
+- Writes the local workflow block artifact to `logs/thats_not_a_knife/ble_workflow_block.json`.
 - Writes the local killerkoala alert text to `logs/thats_not_a_knife/killerkoala_alert.txt`.
-- Awards killerkoala XP when the guard activates, with a cooldown so XP is not farmed repeatedly from the same condition.
+- Awards killerkoala XP **only after a successful defensive block**. Monitoring, detection, and failed block attempts award `0 XP`.
+- Uses a cooldown after successful blocks so XP is not farmed repeatedly from the same condition.
 
 The local alert line is:
 
 ```text
 Crikey’ mate. i blocked a SKID!
 ```
+
+## XP rule
+
+killerkoala earns XP only when all of these are true:
+
+1. The guard score reaches the configured threshold.
+2. The local workflow block artifact is written successfully.
+3. XP awards are enabled for that guard pass.
+4. The XP cooldown has expired.
+
+If the guard is only monitoring, or if a defensive condition is detected but the local block cannot be written, killerkoala earns no XP.
 
 ## Safety boundary
 
