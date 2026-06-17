@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Continuously run the KoalaByte Blue local BLE defense guard."""
+"""Continuously run the KoalaByte Blue local BLE defense guard suite."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Iterable, List
 
-from koalablue.ble_defense_guard import DEFAULT_BLOCK_PATH, DEFAULT_OUTPUT_DIR, DEFAULT_STATE_PATH, DEFAULT_XP_PATH, run_guard_once
+from koalablue.ble_defense_guard import DEFAULT_BLOCK_PATH, DEFAULT_OUTPUT_DIR, DEFAULT_SETTINGS_PATH, DEFAULT_STATE_PATH, DEFAULT_XP_PATH, run_guard_once
 
 
 DEFAULT_LOG_GLOBS = [
@@ -76,6 +76,7 @@ def run_loop(args: argparse.Namespace) -> int:
             output_dir=args.output_dir,
             state_path=state_path,
             block_path=args.block_path,
+            settings_path=args.settings_path,
             xp_path=args.xp_path,
             threshold=args.threshold,
             award_xp=award_xp,
@@ -84,11 +85,15 @@ def run_loop(args: argparse.Namespace) -> int:
             "action": result.action_name,
             "status": result.status,
             "pressure_score": result.pressure_score,
+            "monitor_scores": result.monitor_scores,
+            "active_monitors": result.active_monitors,
+            "disabled_monitors": result.disabled_monitors,
             "local_guard_enabled": result.local_guard_enabled,
             "defensive_block_successful": result.defensive_block_successful,
             "xp_reward": result.xp_reward,
             "guard_state": result.artifacts.get("guard_state"),
             "workflow_block": result.artifacts.get("workflow_block"),
+            "monitor_settings": result.artifacts.get("monitor_settings"),
         }, sort_keys=True), flush=True)
         if args.once:
             return 0
@@ -96,14 +101,15 @@ def run_loop(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Keep the KoalaByte Blue 'that’s not a knife' BLE guard running")
+    parser = argparse.ArgumentParser(description="Keep the KoalaByte Blue 'that’s not a knife' BLE defensive monitor suite running")
     parser.add_argument("--interval", type=float, default=10.0, help="Seconds between guard passes")
-    parser.add_argument("--threshold", type=int, default=5, help="Guard activation score")
+    parser.add_argument("--threshold", type=int, default=5, help="Legacy fallback guard threshold recorded in artifacts")
     parser.add_argument("--xp-cooldown", type=int, default=300, help="Minimum seconds between XP awards after a successful defensive block")
     parser.add_argument("--max-lines-per-file", type=int, default=500)
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--state-path", default=str(DEFAULT_STATE_PATH))
     parser.add_argument("--block-path", default=str(DEFAULT_BLOCK_PATH))
+    parser.add_argument("--settings-path", default=str(DEFAULT_SETTINGS_PATH))
     parser.add_argument("--xp-path", default=str(DEFAULT_XP_PATH))
     parser.add_argument("--log-glob", action="append", default=None, help="Log file or glob to inspect; may be supplied more than once")
     parser.add_argument("--no-award-xp", action="store_true")
