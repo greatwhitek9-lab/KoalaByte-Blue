@@ -8,6 +8,7 @@
 - Reads recent local log files and KoalaByte Blue JSON artifacts.
 - Monitors BLE DoS pressure, bluesnarfing / blue snarfing risk, bluebugging risk, and pairing/MITM-risk patterns.
 - Lets each monitor be turned on or off individually.
+- Uses the same KoalaByte Blue jungle/eucalyptus menu styling for the monitor status and toggle screens.
 - Writes monitor settings to `logs/thats_not_a_knife/monitor_settings.json`.
 - Writes state to `logs/thats_not_a_knife/guard_state.json`.
 - Writes the local workflow block artifact to `logs/thats_not_a_knife/ble_workflow_block.json`.
@@ -19,6 +20,21 @@ The local alert line is:
 
 ```text
 Crikey’ mate. i blocked a SKID!
+```
+
+## Theme and menu style
+
+The monitor status, enable/disable, threshold, and one-shot guard screens use the shared KoalaByte Blue theme renderer:
+
+- Font family metadata: `cooperblack,arialroundedmsbold,dejavusans`
+- Border style: `eucalyptus_branches`
+- Terminal-safe eucalyptus frame: `🌿════════...════════🌿`
+
+Use `--json` when raw machine-readable output is needed instead of the themed card.
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife.py status
+PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife.py status --json
 ```
 
 ## Individual monitors
