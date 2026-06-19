@@ -25,6 +25,7 @@ CONFIRM_PHRASE = "ERASE-KOALABYTE-SD"
 DEFAULT_LABEL = "KOALABYTE"
 SUPPORTED_FILESYSTEMS = {"fat32", "exfat"}
 LOG_DIR = Path("logs/sd_card_formatter")
+REMOVABLE_TRANSPORTS = {"usb", "sd"}
 
 
 @dataclass
@@ -73,6 +74,9 @@ class BlockDevice:
 
     def partition_paths(self) -> list[str]:
         return [child.path for child in self.children if child.path]
+
+    def looks_removable(self) -> bool:
+        return self.removable or self.hotplug or self.tran in REMOVABLE_TRANSPORTS
 
 
 @dataclass
@@ -182,6 +186,7 @@ def _build_commands(device_path: str, filesystem: str, label: str, *, unmount: b
             ["sudo", "parted", "-s", device_path, "mklabel", "msdos"],
             ["sudo", "parted", "-s", device_path, "mkpart", "primary", filesystem if filesystem == "fat32" else "fat32", "1MiB", "100%"],
             ["sudo", "partprobe", device_path],
+            ["sudo", "udevadm", "settle"],
         ]
     )
     if filesystem == "fat32":
@@ -198,6 +203,7 @@ def make_format_plan(
     filesystem: str = "fat32",
     label: str = DEFAULT_LABEL,
     unmount: bool = False,
+    allow_non_removable: bool = False,
 ) -> FormatResult:
     filesystem = _validate_filesystem(filesystem)
     label = _validate_label(label)
@@ -210,12 +216,14 @@ def make_format_plan(
         "requires_explicit_device": True,
         "requires_confirmation_phrase": CONFIRM_PHRASE,
         "refuses_live_root_device": True,
+        "refuses_non_removable_by_default": True,
         "root_source": root_source,
         "detected_mountpoints": mounts,
         "device_type": device.device_type,
         "transport": device.tran,
         "hotplug": device.hotplug,
         "removable": device.removable,
+        "looks_removable": device.looks_removable(),
         "model": device.model,
     }
 
@@ -225,6 +233,8 @@ def make_format_plan(
         raise RuntimeError(f"refusing non-disk device type: {device.device_type}")
     if _device_is_parent_of_root(device_path, root_source):
         raise RuntimeError(f"refusing to format the live root/boot device: {device_path}")
+    if not device.looks_removable() and not allow_non_removable:
+        raise RuntimeError("target does not look removable; rerun only with --allow-non-removable after physically verifying the disk")
     if mounts and not unmount:
         raise RuntimeError(f"device has mounted partitions {mounts}; rerun with --unmount after confirming it is not the live Pi SD card")
 
@@ -248,9 +258,16 @@ def format_sd_card(
     label: str = DEFAULT_LABEL,
     confirm: str = "",
     unmount: bool = False,
+    allow_non_removable: bool = False,
     dry_run: bool = True,
 ) -> FormatResult:
-    plan = make_format_plan(device_path, filesystem=filesystem, label=label, unmount=unmount)
+    plan = make_format_plan(
+        device_path,
+        filesystem=filesystem,
+        label=label,
+        unmount=unmount,
+        allow_non_removable=allow_non_removable,
+    )
     plan.dry_run = dry_run
     if dry_run:
         return plan
@@ -263,6 +280,7 @@ def format_sd_card(
     _require_tool("wipefs")
     _require_tool("parted")
     _require_tool("partprobe")
+    _require_tool("udevadm")
     if plan.filesystem == "fat32":
         _require_tool("mkfs.vfat")
     else:
@@ -301,7 +319,7 @@ def _print_devices(devices: Iterable[BlockDevice], *, as_json: bool = False) -> 
     print("KoalaByte Blue SD Card Formatter - detected block devices")
     print("Use a secondary/removable SD card in a USB reader. Do not format the live Pi boot card.")
     for device in devices:
-        removable = "removable" if device.removable or device.hotplug or device.tran in {"usb", "sd"} else "internal/unknown"
+        removable = "removable" if device.looks_removable() else "internal/unknown"
         mounts = ",".join(device.all_mountpoints()) or "-"
         print(f"- {device.path:12} {device.size:>8} {device.device_type:>5} {removable:>16} model={device.model or '-'} mounts={mounts}")
 
@@ -332,6 +350,7 @@ def run_cli(argv: Optional[list[str]] = None) -> int:
     plan_parser.add_argument("--fs", default="fat32", choices=sorted(SUPPORTED_FILESYSTEMS), help="Filesystem to create")
     plan_parser.add_argument("--label", default=DEFAULT_LABEL, help="Volume label")
     plan_parser.add_argument("--unmount", action="store_true", help="Allow mounted partitions to be unmounted during the real format")
+    plan_parser.add_argument("--allow-non-removable", action="store_true", help="Permit a disk that does not report itself as removable after manual verification")
     plan_parser.add_argument("--json", action="store_true", help="Print JSON")
 
     fmt_parser = sub.add_parser("format", help="Erase and format an SD card after explicit confirmation")
@@ -339,6 +358,7 @@ def run_cli(argv: Optional[list[str]] = None) -> int:
     fmt_parser.add_argument("--fs", default="fat32", choices=sorted(SUPPORTED_FILESYSTEMS), help="Filesystem to create")
     fmt_parser.add_argument("--label", default=DEFAULT_LABEL, help="Volume label")
     fmt_parser.add_argument("--unmount", action="store_true", help="Unmount mounted partitions before formatting")
+    fmt_parser.add_argument("--allow-non-removable", action="store_true", help="Permit a disk that does not report itself as removable after manual verification")
     fmt_parser.add_argument("--confirm", default="", help=f"Required exact phrase: {CONFIRM_PHRASE}")
     fmt_parser.add_argument("--json", action="store_true", help="Print JSON")
 
@@ -349,7 +369,13 @@ def run_cli(argv: Optional[list[str]] = None) -> int:
             _print_devices(list_block_devices(), as_json=getattr(args, "json", False))
             return 0
         if command == "plan":
-            result = make_format_plan(args.device, filesystem=args.fs, label=args.label, unmount=args.unmount)
+            result = make_format_plan(
+                args.device,
+                filesystem=args.fs,
+                label=args.label,
+                unmount=args.unmount,
+                allow_non_removable=args.allow_non_removable,
+            )
             _print_result(result, as_json=args.json)
             return 0
         if command == "format":
@@ -359,6 +385,7 @@ def run_cli(argv: Optional[list[str]] = None) -> int:
                 label=args.label,
                 confirm=args.confirm,
                 unmount=args.unmount,
+                allow_non_removable=args.allow_non_removable,
                 dry_run=False,
             )
             _print_result(result, as_json=args.json)
