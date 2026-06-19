@@ -9,6 +9,7 @@ It is intentionally conservative:
 - It refuses partition paths such as `/dev/sda1`.
 - It refuses the live root / boot device.
 - It refuses mounted target partitions unless `--unmount` is supplied.
+- It refuses disks that do not look removable unless `--allow-non-removable` is supplied after manual verification.
 - It defaults to dry-run planning.
 - Actual formatting requires the exact phrase `ERASE-KOALABYTE-SD`.
 
@@ -38,6 +39,16 @@ For exFAT:
 
 ```bash
 PYTHONPATH=pi-companion python3 scripts/run_sd_card_formatter.py plan --device /dev/sda --fs exfat --label KOALABYTE
+```
+
+If a known-good USB SD reader does not report itself as removable, use this only after physically checking the card and device path:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_sd_card_formatter.py plan \
+  --device /dev/sda \
+  --fs fat32 \
+  --label KOALABYTE \
+  --allow-non-removable
 ```
 
 ## Format after verifying the target
@@ -81,6 +92,7 @@ The utility uses common Linux disk tools:
 - `wipefs`
 - `parted`
 - `partprobe`
+- `udevadm`
 - `mkfs.vfat` for FAT32
 - `mkfs.exfat` for exFAT
 
