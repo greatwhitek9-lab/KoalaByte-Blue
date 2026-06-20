@@ -1,8 +1,12 @@
-# Camera Awareness Logger
+# Boomerang Camera Awareness Logger
 
-The Camera Awareness Logger is a KoalaByte Blue public-awareness utility for documenting cameras that the operator personally observes or learns about from public sources.
+**Boomerang** is the KoalaByte Blue camera-awareness action. A boomerang is an Aussie throwing tool that comes back to you; this action does the same with field notes by bringing manually recorded camera details back as organized local IDs, reports, and exports.
+
+Boomerang is a public-awareness utility for documenting cameras that the operator personally observes or learns about from public sources.
 
 It is intentionally **manual/public-observation only**.
+
+When selected from the KoalaByte menu, Boomerang stays open until the operator chooses `quit`, `q`, `back`, or `menu`.
 
 ## What it does
 
@@ -16,7 +20,7 @@ The logger stores rich, non-network identity details so manually found cameras a
 - Public agency or public source URL
 - Visible pole, mount, or asset markings
 - Visible make/model, if known from the housing/signage/public source
-- Camera type label such as `unknown camera`, `traffic camera`, or `ALPR-style camera`
+- Camera type label such as `unknown camera`, `traffic camera`, or `roadside camera`
 - Mounting description and facing direction
 - Local photo reference
 - Notes
@@ -24,7 +28,7 @@ The logger stores rich, non-network identity details so manually found cameras a
 
 ## What it does not do
 
-This tool does **not** detect, scan, probe, fingerprint, or track cameras electronically.
+This tool does **not** electronically detect, scan, probe, fingerprint, or track cameras.
 
 It does not collect:
 
@@ -36,11 +40,21 @@ It does not collect:
 - Probe responses
 - Wardriving scan results
 - Network scan output
-- Avoidance/evasion routing data
+- Route-planning data
 
-The program rejects MAC-like values, IP addresses, and notes that mention network/RF/evasion identifiers.
+The program rejects MAC-like values, IP addresses, and notes that mention network or RF identifiers.
+
+## Menu appearance
+
+Boomerang is a normal KoalaByte Blue menu item. It uses the same grouped menu system as the other actions, so it appears with the same eucalyptus border, jungle/Jumanji-style rounded system font choices, selected-item glow, green/yellow jungle colors, and touch/button navigation.
 
 ## Commands
+
+Run Boomerang directly:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_boomerang.py
+```
 
 Show schema and safety scope:
 
@@ -53,7 +67,7 @@ Add a manual observation:
 ```bash
 PYTHONPATH=pi-companion python3 scripts/run_camera_awareness_logger.py add \
   --label "Main St pole camera" \
-  --type "ALPR-style camera" \
+  --type "roadside camera" \
   --location "Main St / 1st Ave" \
   --confidence medium \
   --public-agency "Example City public works" \
@@ -102,4 +116,4 @@ Use fields that come from lawful personal observation or public records:
 | `visible-make-model` | Housing/signage/public-source make/model only |
 | `photo-reference` | Local file reference without face/license-plate details |
 
-Do not use this logger for covert camera discovery, real-time avoidance, network targeting, RF targeting, or device exploitation.
+Keep this logger limited to lawful public-awareness documentation and local record keeping.
