@@ -55,6 +55,14 @@ APT_PACKAGES=(
   can-utils
   gpiod
   libgpiod2
+  espeak-ng
+  espeak
+  alsa-utils
+  libasound2
+  libasound2-plugins
+  pulseaudio-utils
+  portaudio19-dev
+  python3-pyaudio
 )
 
 usage() {
@@ -74,8 +82,13 @@ Environment:
 Packages covered:
   Python venv/pip/dev headers, build tools, PlatformIO/USB runtime dependencies,
   nRF/Zephyr helper build tools, WiFi/NetworkManager/wpa_supplicant, BlueZ tools,
-  SD card formatter tools, CAN tools, SDL2 runtime, SQLite, USB utilities, and
-  Raspberry Pi GPIO support.
+  SD card formatter tools, CAN tools, SDL2 runtime, SQLite, USB utilities,
+  Raspberry Pi GPIO support, and AI voice/TTS audio support.
+
+AI voice/TTS packages:
+  espeak-ng, espeak, ALSA utilities/plugins, PulseAudio CLI utilities,
+  PortAudio dev files, and python3-pyaudio. macOS 'say' is not installed here;
+  it remains an automatic fallback only on systems where Apple already provides it.
 EOF
 }
 
@@ -156,3 +169,17 @@ echo "Installing/checking Raspberry Pi system packages..."
 "${apt_runner[@]}" install -y "${APT_PACKAGES[@]}"
 
 echo "System package setup complete."
+echo "AI voice/TTS check:"
+if command -v espeak-ng >/dev/null 2>&1; then
+  echo "  espeak-ng: $(command -v espeak-ng)"
+elif command -v espeak >/dev/null 2>&1; then
+  echo "  espeak: $(command -v espeak)"
+else
+  echo "  warning: no espeak-ng/espeak command found after install attempt" >&2
+  if strict_enabled; then
+    exit 1
+  fi
+fi
+if command -v aplay >/dev/null 2>&1; then
+  echo "  ALSA aplay: $(command -v aplay)"
+fi
