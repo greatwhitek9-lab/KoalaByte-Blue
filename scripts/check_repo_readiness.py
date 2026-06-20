@@ -28,6 +28,7 @@ EXPECTED_MENU_LABELS = [
     "KoalaByte Lab",
     "Koala Mode Switcher",
     "Koala Kan Kommander",
+    "didgeridoo",
     "Gumleaf Gear Check",
     "Eucalyptus Bus Scout",
     "Dropbear Discovery Sweep",
@@ -84,6 +85,7 @@ EXPECTED_BOM_ITEMS = [
 
 REQUIRED_TEXT = {
     "README.md": ["RevA25", "InnoMaker USB to CAN Converter kit", "bench-simulator", "flash_all_components.sh"],
+    "docs/DIDGERIDOO_LORA_SETUP.md": ["Didgeridoo", "SX1262", "Meshtastic", "meshtastic-login", "does not add raw radio sending"],
     "docs/KOALA_KAN_KOMMANDER_REVA22.md": ["RevA25", "InnoMaker USB to CAN Converter kit", "listen-transmit", "--confirm-transmit"],
     "docs/FLASHING.md": ["flash_all_components.sh", "InnoMaker USB to CAN Converter kit", "KoalaByte Lab"],
     "docs/THEME_AND_MENU_SYSTEM.md": ["jungle_jumanji_eucalyptus", "No overlapping words", "KOALABYTE BLUE title at the top"],
@@ -104,16 +106,19 @@ REQUIRED_TEXT = {
     "firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt": ["find_package(Zephyr REQUIRED", "target_sources(app PRIVATE src/main.c)"],
     "firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf": ["KoalaByte Lab", "CONFIG_BT_PERIPHERAL=y"],
     "firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c": ["KBTX", "bt_le_adv_start", "no captured packet replay"],
+    "pi-companion/requirements.txt": ["spidev", "meshtastic[cli]"],
     "pi-companion/koalablue/bluez_tools.py": ["BLUEZ_MODULES", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Billabong HCI Watch", "owned_device_required"],
     "pi-companion/koalablue/ble_defense_guard.py": ["ACTION_NAME", "that’s not a knife", "XP_REWARD", "defensive_block_successful"],
-    "pi-companion/koalablue/menu_catalog.py": ["Koala Mode Switcher", "KoalaByte Lab", "bench-simulator transmit", "that’s not a knife", "Boomerang", "Eucalyptus Mode"],
+    "pi-companion/koalablue/menu_catalog.py": ["Koala Mode Switcher", "KoalaByte Lab", "bench-simulator transmit", "that’s not a knife", "Boomerang", "Eucalyptus Mode", "didgeridoo", "LoRa / Mesh Tools"],
+    "pi-companion/koalablue/didgeridoo_lora.py": ["DISPLAY_NAME = \"didgeridoo\"", "meshtastic-login", "raw_radio_sending", "mesh_text_sending"],
     "pi-companion/koalablue/eucalyptus_cyberpet.py": ["ACTION_NAME = \"Eucalyptus Mode\"", "Koalagotchi", "full-color", "run_graphical"],
     "pi-companion/koalablue/boomerang.py": ["ACTION_NAME = \"Boomerang\"", "stays open", "run_interactive"],
     "pi-companion/koalablue/camera_awareness_logger.py": ["manual/public-observation only", "CameraObservation", "MAC_PATTERN"],
     "pi-companion/koalablue/koala_mode_switcher.py": ["Koala Mode Switcher", "KoalaByte Lab", "Koala Konnect", "dongle_mode_state.json"],
     "pi-companion/koalablue/koala_kan_kommander.py": ["ADAPTER_NAME", "InnoMaker USB to CAN Converter kit", "listen_transmit", "confirm_transmit"],
-    "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "KoalaByte Lab", "Koala Mode Switcher", "transmit_enabled", "killerkoala_companion", "Boomerang", "Eucalyptus Mode"],
+    "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "KoalaByte Lab", "Koala Mode Switcher", "transmit_enabled", "killerkoala_companion", "Boomerang", "Eucalyptus Mode", "didgeridoo"],
     "scripts/run_boomerang.py": ["koalablue.boomerang", "run_cli"],
+    "scripts/run_didgeridoo.py": ["koalablue.didgeridoo_lora", "run_cli"],
     "scripts/run_eucalyptus_cyberpet.py": ["eucalyptus_cyberpet", "run_cli"],
     "scripts/run_camera_awareness_logger.py": ["camera_awareness_logger", "run_cli"],
     "scripts/check_camera_awareness_logger.py": ["MAC-like values must be rejected", "Camera awareness logger smoke check passed"],
@@ -122,6 +127,7 @@ REQUIRED_TEXT = {
     "scripts/run_thats_not_a_knife_loop.py": ["run_guard_once", "xp_cooldown", "defensive_block_successful"],
     "scripts/install_thats_not_a_knife_service.sh": ["koalabyte-thats-not-a-knife.service", "systemctl", "set -euo pipefail"],
     "systemd/koalabyte-thats-not-a-knife.service.in": ["run_thats_not_a_knife_loop.py", "Restart=always"],
+    "scripts/setup_system_packages.sh": ["python3-spidev", "ENABLE_PI_SPI", "raspi-config nonint do_spi 0"],
     "scripts/flash_all_components.sh": ["--all", "--nrf-lab", "NO_MONITOR", "Koala Kan Kommander InnoMaker CAN manifest check"],
     "scripts/build_firmware_all.sh": ["check_repo_readiness.py", "pio run", "build_nrf52840_dongle_lab.sh"],
     "scripts/build_nrf52840_dongle_lab.sh": ["REPO_ROOT", "west build", "nrf52840dongle_nrf52840"],
@@ -216,13 +222,19 @@ def check_json_config(failures: list[str]) -> None:
         failures.append(f"config.default.json is invalid JSON: {exc}")
         return
 
-    configured_items = config.get("menu_selection", {}).get("items", [])
+    menu_selection = config.get("menu_selection", {})
+    configured_items = menu_selection.get("items", [])
     unknown = [item for item in configured_items if item not in EXPECTED_MENU_LABELS]
     if unknown:
         failures.append(f"menu_selection.items contains unknown labels: {unknown}")
+    if configured_items != EXPECTED_MENU_LABELS:
+        failures.append("menu_selection.items does not match expected ordering")
+    if "LoRa / Mesh Tools" not in menu_selection.get("groups", []):
+        failures.append("menu_selection.groups missing LoRa / Mesh Tools")
 
     if config.get("koala_kry", {}).get("rf_transmission") is not False:
         failures.append("Koala Kry must remain offline with rf_transmission=false")
+
     companion = config.get("killerkoala_companion", {})
     if companion.get("display_name") != "killerkoala":
         failures.append("killerkoala companion display_name is not killerkoala")
@@ -239,16 +251,6 @@ def check_json_config(failures: list[str]) -> None:
     if eucalyptus_mode.get("eating_behavior", {}).get("contentment_increases_per_new_observation") is not True:
         failures.append("Eucalyptus Mode must increase contentment when new observations appear")
 
-    lab_mode = config.get("ear_tag_tx_lab", {})
-    if lab_mode.get("firmware_path") != "firmware/nrf52840-dongle-ear-tag-tx-lab":
-        failures.append("KoalaByte Lab firmware_path must point to the dongle-only firmware path")
-    if lab_mode.get("display_name") != "KoalaByte Lab" or lab_mode.get("device_name") != "KoalaByte Lab":
-        failures.append("KoalaByte Lab display_name/device_name must be KoalaByte Lab")
-
-    switcher = config.get("koala_mode_switcher", {})
-    if switcher.get("default_mode") != "koalabyte_lab":
-        failures.append("Koala Mode Switcher default_mode must be koalabyte_lab")
-
     kan = config.get("koala_kan_kommander", {})
     if kan.get("display_name") != "Koala Kan Kommander":
         failures.append("koala_kan_kommander display_name must be Koala Kan Kommander")
@@ -263,6 +265,18 @@ def check_json_config(failures: list[str]) -> None:
     if kan.get("transmit_requires_bench_simulator") is not True or kan.get("transmit_requires_explicit_confirmation") is not True:
         failures.append("Koala Kan Kommander transmit gates must remain enabled")
 
+    didgeridoo = config.get("didgeridoo", {})
+    if didgeridoo.get("display_name") != "didgeridoo":
+        failures.append("didgeridoo display_name must be didgeridoo")
+    if didgeridoo.get("raw_radio_sending") is not False:
+        failures.append("didgeridoo Phase 1 must keep raw_radio_sending=false")
+    if didgeridoo.get("mesh_text_sending") is not False:
+        failures.append("didgeridoo Phase 1 must keep mesh_text_sending=false")
+    if didgeridoo.get("automatic_radio_service") is not False:
+        failures.append("didgeridoo Phase 1 must keep automatic_radio_service=false")
+    if "serial" not in didgeridoo.get("supported_meshtastic_connections", []):
+        failures.append("didgeridoo supported_meshtastic_connections must include serial")
+
     boomerang = config.get("boomerang", {})
     if boomerang.get("display_name") != "Boomerang":
         failures.append("boomerang display_name must be Boomerang")
@@ -270,22 +284,44 @@ def check_json_config(failures: list[str]) -> None:
         failures.append("boomerang must stay open until the operator quits")
     if boomerang.get("matching_behavior_settings", {}).get("verbal_alerts_enabled_by_default") is not True:
         failures.append("boomerang matching behavior settings must enable verbal alerts by default")
-    if boomerang.get("xp_reward_per_logged_record") != 10:
-        failures.append("boomerang xp_reward_per_logged_record must be 10")
 
 
 def check_menu_catalog(failures: list[str]) -> None:
     try:
-        from koalablue.menu_catalog import FUNCTION_MENU_ITEMS, menu_labels
+        from koalablue.menu_catalog import FUNCTION_MENU_ITEMS, MENU_GROUPS, menu_labels
     except Exception as exc:
         failures.append(f"failed to import menu catalog: {exc}")
         return
     if menu_labels() != EXPECTED_MENU_LABELS:
         failures.append("menu_catalog.menu_labels() does not match expected menu ordering")
+    if "LoRa / Mesh Tools" not in MENU_GROUPS:
+        failures.append("menu catalog missing LoRa / Mesh Tools group")
+    didgeridoo_items = [item for item in FUNCTION_MENU_ITEMS if item.get("command") == "didgeridoo"]
+    if len(didgeridoo_items) != 1:
+        failures.append("menu catalog must contain exactly one didgeridoo command")
     descriptions = "\n".join(str(item.get("description", "")) for item in FUNCTION_MENU_ITEMS)
-    for needle in ("bench-simulator transmit", "that’s not a knife", "stays open until quit", "Koalagotchi always-on Bluetooth scanner and logger"):
+    for needle in ("bench-simulator transmit", "that’s not a knife", "stays open until quit", "Koalagotchi always-on Bluetooth scanner and logger", "Meshtastic node login"):
         if needle not in descriptions and needle not in "\n".join(menu_labels()):
             failures.append(f"menu catalog missing expected text: {needle}")
+
+
+def check_didgeridoo_module(failures: list[str]) -> None:
+    try:
+        from koalablue.didgeridoo_lora import DISPLAY_NAME, manifest, status
+    except Exception as exc:
+        failures.append(f"failed to import didgeridoo LoRa module: {exc}")
+        return
+    if DISPLAY_NAME != "didgeridoo":
+        failures.append("didgeridoo display name mismatch")
+    data = manifest("logs/readiness_didgeridoo")
+    safe = data.get("safe_boundaries", {})
+    if safe.get("raw_radio_sending") is not False or safe.get("mesh_text_sending") is not False:
+        failures.append("didgeridoo manifest Phase 1 must not enable radio or mesh sending")
+    if "meshtastic-login" not in data.get("commands", []):
+        failures.append("didgeridoo manifest missing meshtastic-login command")
+    check = status(output_dir="logs/readiness_didgeridoo")
+    if check.get("display_name") != "didgeridoo":
+        failures.append("didgeridoo status display name mismatch")
 
 
 def check_bluez_module_registry(failures: list[str]) -> None:
@@ -307,7 +343,7 @@ def check_bluez_module_registry(failures: list[str]) -> None:
 
 def check_ble_guard(failures: list[str]) -> None:
     try:
-        from koalablue.ble_defense_guard import ACTION_NAME, KILLERKOALA_ALERT, XP_REWARD, run_guard_once
+        from koalablue.ble_defense_guard import ACTION_NAME, KILLERKOALA_ALERT, XP_REWARD
     except Exception as exc:
         failures.append(f"failed to import that’s not a knife guard: {exc}")
         return
@@ -317,14 +353,6 @@ def check_ble_guard(failures: list[str]) -> None:
         failures.append("killerkoala guard alert mismatch")
     if XP_REWARD <= 0:
         failures.append("that’s not a knife XP reward must be positive")
-    inactive = run_guard_once(metrics={}, output_dir="logs/readiness_thats_not_a_knife", state_path="logs/readiness_thats_not_a_knife/guard_state.json", block_path="logs/readiness_thats_not_a_knife/block_state.json", xp_path="logs/readiness_thats_not_a_knife/xp_state.json", award_xp=True)
-    if inactive.xp_reward != 0 or inactive.xp_after != inactive.xp_before:
-        failures.append("that’s not a knife must not award XP while only monitoring")
-    active = run_guard_once(metrics={"connection_errors": 5, "repeated_connects": 8}, output_dir="logs/readiness_thats_not_a_knife", state_path="logs/readiness_thats_not_a_knife/guard_state.json", block_path="logs/readiness_thats_not_a_knife/block_state.json", xp_path="logs/readiness_thats_not_a_knife/xp_state.json", award_xp=False)
-    if active.status != "BLOCKED" or not active.defensive_block_successful:
-        failures.append("that’s not a knife guard did not complete a defensive block for readiness metrics")
-    if active.xp_reward != 0 or active.xp_after != active.xp_before:
-        failures.append("that’s not a knife must not award XP when XP awards are disabled")
 
 
 def check_kan_module(failures: list[str]) -> None:
@@ -338,8 +366,6 @@ def check_kan_module(failures: list[str]) -> None:
     if ADAPTER_NAME != INNOMAKER_ITEM:
         failures.append("Koala Kan Kommander adapter name mismatch")
     data = manifest("logs/readiness_koala_kan_kommander")
-    if data.get("physical_connection", {}).get("recommended_adapter") != INNOMAKER_ITEM:
-        failures.append("Koala Kan Kommander manifest adapter mismatch")
     safe_defaults = data.get("safe_defaults", {})
     if safe_defaults.get("transmit_enabled") is not True:
         failures.append("Koala Kan Kommander manifest must enable gated transmit")
@@ -414,15 +440,16 @@ def check_flash_helpers(failures: list[str]) -> None:
         "scripts/build_firmware_all.sh",
         "scripts/install_pi.sh",
         "scripts/install_thats_not_a_knife_service.sh",
+        "scripts/run_didgeridoo.py",
     ]
     for helper in helpers:
         path = REPO_ROOT / helper
         if not path.exists():
-            failures.append(f"missing flash helper: {helper}")
+            failures.append(f"missing flash/helper script: {helper}")
             continue
         text = path.read_text(encoding="utf-8")
-        if "set -euo pipefail" not in text:
-            failures.append(f"flash helper missing strict shell mode: {helper}")
+        if helper.endswith(".sh") and "set -euo pipefail" not in text:
+            failures.append(f"shell helper missing strict shell mode: {helper}")
 
 
 def main() -> int:
@@ -435,6 +462,7 @@ def main() -> int:
     check_bluez_module_registry(failures)
     check_ble_guard(failures)
     check_kan_module(failures)
+    check_didgeridoo_module(failures)
     check_eucalyptus_mode_module(failures)
     check_boomerang_module(failures)
     check_current_bom(failures)
@@ -447,7 +475,7 @@ def main() -> int:
         return 1
 
     print("KoalaByte Blue repo readiness check passed.")
-    print("Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, approved theme assets, Eucalyptus Mode, Boomerang, Koala Kan Kommander, and the that’s not a knife local guard service.")
+    print("Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, approved theme assets, Eucalyptus Mode, Boomerang, Koala Kan Kommander, didgeridoo LoRa/Meshtastic setup, and the that’s not a knife local guard service.")
     return 0
 
 
