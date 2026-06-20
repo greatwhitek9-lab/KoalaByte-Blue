@@ -45,7 +45,7 @@ FUNCTION_MENU_ITEMS: List[dict[str, object]] = [
     {"group": "System / Companion", "label": "Buttons", "command": "buttons", "description": "Show/check GPIO front-panel button status"},
     {"group": "System / Companion", "label": "Level / Status", "command": "level/status", "description": "Show XP and rank"},
     {"group": "Reports & Reviews", "label": "Report", "command": "report", "description": "Write a Markdown session report"},
-    {"group": "Reports & Reviews", "label": "Boomerang", "command": "boomerang", "description": "Manual camera-awareness logbook: records public/visible camera details, assigns local IDs, exports reports, and stays open until quit"},
+    {"group": "Reports & Reviews", "label": "Boomerang", "command": "boomerang", "description": "Manual camera-awareness logbook: records public/visible camera details, awards killerkoala XP per saved camera record, exports reports, and stays open until quit"},
     {"group": "System / Companion", "label": "Wake killerkoala", "command": "wake killerkoala", "description": "Test wake-word flow"},
     {"group": "Reports & Reviews", "label": "Authorized BLE Inventory", "command": "authorized_ble_inventory", "description": "Create a lab inventory from passive BLE observations"},
     {"group": "Reports & Reviews", "label": "GATT Readiness Checklist", "command": "gatt_readiness_checklist", "description": "Generate a pre-test checklist for owned-device GATT review"},
