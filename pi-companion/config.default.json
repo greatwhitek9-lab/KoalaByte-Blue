@@ -213,27 +213,22 @@
   },
   "didgeridoo": {
     "display_name": "didgeridoo",
-    "description": "SX1262 LoRa setup, SPI readiness, and Meshtastic node login/profile/status checks. Phase 1 does not send raw LoRa or mesh text.",
+    "description": "Heltec Wireless Tracker V2 USB-C Meshtastic LoRa/GNSS setup, serial/BLE/TCP login profile, and node status checks. Phase 1 does not send raw LoRa or mesh text.",
     "enabled": true,
-    "mode": "sx1262_lora_meshtastic_setup_status_only",
+    "mode": "heltec_wireless_tracker_v2_meshtastic_gnss_setup_status_only",
     "runner": "scripts/run_didgeridoo.py",
     "output_dir": "logs/didgeridoo",
     "profile_path": "logs/didgeridoo/meshtastic_login.json",
-    "spi_device": "/dev/spidev0.0",
+    "primary_node": "Heltec Wireless Tracker V2",
     "default_meshtastic_port": "/dev/ttyUSB0",
     "supported_meshtastic_connections": ["serial", "tcp", "ble"],
+    "lora_chipset": "SX1262",
+    "gnss_chipset": "UC6580",
+    "gnss_supported_systems": ["GPS", "GLONASS", "BDS", "Galileo", "NAVIC", "QZSS"],
     "raw_radio_sending": false,
     "mesh_text_sending": false,
     "automatic_radio_service": false,
-    "pin_map": {
-      "sck": {"gpio": 11, "physical_pin": 23},
-      "miso": {"gpio": 9, "physical_pin": 21},
-      "mosi": {"gpio": 10, "physical_pin": 19},
-      "cs": {"gpio": 8, "physical_pin": 24},
-      "reset": {"gpio": 22, "physical_pin": 15},
-      "busy": {"gpio": 24, "physical_pin": 18},
-      "dio1": {"gpio": 25, "physical_pin": 22}
-    }
+    "optional_legacy_spi_device": "/dev/spidev0.0"
   },
   "menu_selection": {
     "enabled": true,
