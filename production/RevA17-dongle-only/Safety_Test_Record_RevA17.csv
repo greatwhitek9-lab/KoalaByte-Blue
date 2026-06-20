@@ -6,6 +6,7 @@ All-component helper check-only mode passes,,,,,
 BMS P+ and P- output polarity verified,,,,,
 5 A fuse installed close to BMS P+,,,,,
 Main switch verified after fuse before buck VIN+,,,,,
+Seloky trigger output before buck converter,,,,,Optional bench/service input only; not primary battery path and not a battery charger
 Buck converter output before load,,,,,Target 5.1 V
 5 V rail before load,,,,,Target 4.9 V to 5.1 V
 5 V rail under normal load,,,,,Target 4.9 V to 5.1 V with Pi and modules connected
