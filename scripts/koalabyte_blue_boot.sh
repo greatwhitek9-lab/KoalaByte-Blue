@@ -8,6 +8,7 @@ PREBOOT_TIMEOUT="${PREBOOT_TIMEOUT:-8}"
 PREBOOT_DEFAULT_MODE="${PREBOOT_DEFAULT_MODE:-current}"
 PREBOOT_MODE="${PREBOOT_MODE:-}"
 PREBOOT_NO_APPLY="${PREBOOT_NO_APPLY:-0}"
+KILLERKOALA_BOOT_WELCOME="${KILLERKOALA_BOOT_WELCOME:-1}"
 BOOT_SPLASH="${BOOT_SPLASH:-1}"
 MENU_GRAPHICAL="${MENU_GRAPHICAL:-1}"
 MENU_WINDOWED="${MENU_WINDOWED:-0}"
@@ -35,6 +36,11 @@ if [[ "${PREBOOT_SELECTOR}" == "1" ]]; then
     PREBOOT_ARGS+=(--no-apply)
   fi
   "${PYTHON_BIN}" "${PREBOOT_ARGS[@]}"
+fi
+
+if [[ "${KILLERKOALA_BOOT_WELCOME}" == "1" ]]; then
+  echo "== KillerKoala mode-aware boot welcome =="
+  "${PYTHON_BIN}" "${REPO_ROOT}/scripts/run_killerkoala_boot_welcome.py"
 fi
 
 if [[ "${BOOT_SPLASH}" == "1" ]]; then
