@@ -27,7 +27,7 @@ FUNCTION_MENU_ITEMS: List[dict[str, object]] = [
     {"group": "Bluetooth Tools", "label": "eucalyptus Stop", "command": "eucalyptus stop", "description": "Stop always-on passive BLE logging"},
     {"group": "Bluetooth Tools", "label": "eucalyptus Restart", "command": "eucalyptus restart", "description": "Restart always-on passive BLE logging"},
     {"group": "Bluetooth Tools", "label": "eucalyptus Upload Status", "command": "eucalyptus upload-status", "description": "Show WiGLE upload readiness/status"},
-    {"group": "Bluetooth Tools", "label": "Eucalyptus Mode", "command": "eucalyptus_mode", "description": "Koalagotchi BLE canopy screen: KillerKoala eats passive Bluetooth eucalyptus leaves, shows contentment, and keeps the scanner/log view open until quit"},
+    {"group": "Bluetooth Tools", "label": "Eucalyptus Mode", "command": "eucalyptus_mode", "description": "Koalagotchi always-on Bluetooth scanner and logger: BLE canopy screen where KillerKoala eats passive Bluetooth eucalyptus leaves, shows contentment, and keeps the scanner/log view open until quit"},
     {"group": "Bluetooth Tools", "label": "Koala Kapture", "command": "koala_kapture", "description": "Capture and archive BLE advertisement metadata"},
     {"group": "Bluetooth Tools", "label": "Koala Kry", "command": "koala_kry", "description": "Replay captured metadata offline into the report/XP pipeline"},
     {"group": "Reports & Reviews", "label": "Koala Kry RF Review", "command": "koala_kry_transmit_review", "description": "Write RF bench isolation, authorization, and test-plan manifest; no RF is sent by Koala Kry"},
