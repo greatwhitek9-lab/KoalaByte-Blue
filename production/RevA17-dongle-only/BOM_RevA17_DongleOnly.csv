@@ -8,8 +8,8 @@ ESP32-S3 DualEye module,1,Dual-eye UI / microphone / display front-end,Power fro
 Adafruit tactile button switch 6mm pack PID 367,1 pack / 6 used,Six-button front-panel controls,Signal wiring only; GPIO to button and other side to GND; do not connect to battery positive or 5 V
 KoalaByte Blue front button bezel 6x6mm RevA6,1,3D printed front button bezel,Aligns six front buttons in the enclosure
 Protected 18650 Li-ion cell,2,2S battery pack cells,Use matched protected cells from reputable source; inspect wraps and polarity before install
-2x18650 series holder,1,Mechanical holder for 2S battery pack,Use correct series polarity and strain relief; holder alone does not replace a BMS unless it includes true 2S protection
-2S Li-ion BMS / protection board,1,Primary battery protection for 2x18650 series pack,Wire B- B1/BM B+ and P-/P+ exactly; verify before connecting electronics
+2x18650 holder with protection / BMS,1,Protected 2S battery holder or holder plus separate 2S BMS,Use correct series polarity and true 2S protection; holder alone does not replace a BMS unless it includes true 2S protection
+2S Li-ion BMS / protection board,1,Primary battery protection for 2x18650 series pack when not built into holder,Wire B- B1/BM B+ and P-/P+ exactly; verify before connecting electronics
 Inline ATC/ATO fuse holder,1,Main battery positive fuse holder,Install close to BMS P+; 18-20 AWG leads preferred
 5 A blade fuse,1,Main battery fuse,Start with 5 A for bring-up; replace only after fault inspection
 Inline rated power switch,1,Main on/off control,Route after fuse and before buck converter VIN+; use DC current-rated switch and strain relief
