@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Eucalyptus KillerKoala cyber-pet screen.
+"""Eucalyptus Mode Koalagotchi screen.
 
-This is a Tamagotchi/Pwnagotchi-style visual companion for Eucalyptus mode.
-It does not scan, connect, pair, probe, or disrupt. It only reads local passive
-Eucalyptus/BLE capture logs and turns observation activity into a safe visual
-status loop.
+Eucalyptus Mode is a Koalagotchi-style always-on Bluetooth scanner/logger
+companion screen. It does not start pairing, connection, probing, disruption,
+or access workflows. It reads local passive Eucalyptus Bluetooth/BLE capture
+logs and turns observation activity into KillerKoala movement, eating,
+contentment, and idle grumbling.
 """
 
 from __future__ import annotations
@@ -22,11 +23,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable, Optional
 
-ACTION_NAME = "Eucalyptus CyberPet"
-DESCRIPTION = "Always-on Eucalyptus mode cyber-pet screen for passive Bluetooth/BLE observation logs."
+ACTION_NAME = "Eucalyptus Mode"
+DESCRIPTION = "Koalagotchi always-on Bluetooth scanner and logger screen for passive Eucalyptus observations."
 DEFAULT_CAPTURE_DIRS = [Path("/blecaptures"), Path("logs/eucalyptus"), Path("logs/koala_bluez"), Path("/blecaptures/koala_kapture")]
-DEFAULT_STATE_PATH = Path("logs/eucalyptus_cyberpet/state.json")
-DEFAULT_EVENT_LOG = Path("logs/eucalyptus_cyberpet/events.jsonl")
+DEFAULT_STATE_PATH = Path("logs/eucalyptus_mode/state.json")
+DEFAULT_EVENT_LOG = Path("logs/eucalyptus_mode/events.jsonl")
 DEFAULT_IDLE_SECONDS = 180.0
 DEFAULT_TICK_SECONDS = 1.0
 MAX_CONTENTMENT = 100
@@ -96,9 +97,7 @@ def _count_file(path: Path) -> int:
         if suffix == ".csv":
             with path.open("r", encoding="utf-8", errors="ignore", newline="") as handle:
                 rows = list(csv.reader(handle))
-            if not rows:
-                return 0
-            return max(0, len(rows) - 1)
+            return max(0, len(rows) - 1) if rows else 0
         if suffix in {".log", ".txt", ".ndjson"}:
             return sum(1 for line in path.read_text(encoding="utf-8", errors="ignore").splitlines() if line.strip())
     except Exception:
@@ -131,28 +130,12 @@ def read_eucalyptus_stats(capture_dirs: Iterable[Path] = DEFAULT_CAPTURE_DIRS) -
             newest = max(newest, path.stat().st_mtime)
         except OSError:
             pass
-    return EucalyptusStats(
-        observation_count=total,
-        newest_mtime=newest,
-        files_seen=files,
-        source_dirs=[str(path) for path in dirs],
-    )
+    return EucalyptusStats(total, newest, files, [str(path) for path in dirs])
 
 
 def _default_state(stats: EucalyptusStats) -> CyberPetState:
     now = time.time()
-    last_data = stats.newest_mtime or now
-    return CyberPetState(
-        contentment=50,
-        total_observations_seen=stats.observation_count,
-        last_observation_count=stats.observation_count,
-        last_new_data_time=last_data,
-        direction=1,
-        position=0,
-        mood="scouting",
-        boomerang_throws=0,
-        updated_at=now,
-    )
+    return CyberPetState(50, stats.observation_count, stats.observation_count, stats.newest_mtime or now, 1, 0, "scouting", 0, now)
 
 
 def load_state(path: Path, stats: EucalyptusStats) -> CyberPetState:
@@ -220,16 +203,14 @@ def update_pet_state(
 ) -> tuple[CyberPetState, int, bool, str]:
     now = time.time()
     delta = max(0, stats.observation_count - state.last_observation_count)
-    has_new_data = delta > 0
     idle_for = now - (state.last_new_data_time or now)
-    should_grumble = False
-
     contentment = state.contentment
     mood = state.mood
     boomerang_throws = state.boomerang_throws
     last_new_data_time = state.last_new_data_time
+    should_grumble = False
 
-    if has_new_data:
+    if delta > 0:
         contentment = min(MAX_CONTENTMENT, contentment + min(20, 4 + delta * 3))
         mood = "eating eucalyptus Bluetooth leaves"
         last_new_data_time = now
@@ -252,22 +233,18 @@ def update_pet_state(
         next_pos = 0
         direction = 1
 
-    return (
-        CyberPetState(
-            contentment=contentment,
-            total_observations_seen=max(state.total_observations_seen, stats.observation_count),
-            last_observation_count=stats.observation_count,
-            last_new_data_time=last_new_data_time,
-            direction=direction,
-            position=next_pos,
-            mood=mood,
-            boomerang_throws=boomerang_throws,
-            updated_at=now,
-        ),
-        delta,
-        should_grumble,
-        mood,
+    next_state = CyberPetState(
+        contentment=contentment,
+        total_observations_seen=max(state.total_observations_seen, stats.observation_count),
+        last_observation_count=stats.observation_count,
+        last_new_data_time=last_new_data_time,
+        direction=direction,
+        position=next_pos,
+        mood=mood,
+        boomerang_throws=boomerang_throws,
+        updated_at=now,
     )
+    return next_state, delta, should_grumble, mood
 
 
 def _bar(value: int, width: int = 24) -> str:
@@ -289,7 +266,7 @@ def render_tamagotchi_screen(state: CyberPetState, stats: EucalyptusStats, *, de
         "Oi! Three minutes dry. Chuckin' the boomerang, mate." if state.mood == "cranky boomerang toss" else
         "Patrolling the branch for passive BLE leaves."
     )
-    title = "EUCALYPTUS CYBERPET // ALWAYS-ON BLE"
+    title = "EUCALYPTUS MODE // KOALAGOTCHI ALWAYS-ON BLUETOOTH"
     border = "╔" + "═" * (width - 2) + "╗"
     footer = "╚" + "═" * (width - 2) + "╝"
     lines = [
@@ -306,7 +283,7 @@ def render_tamagotchi_screen(state: CyberPetState, stats: EucalyptusStats, *, de
         "║" + f"Mood: {state.mood}".ljust(width - 2) + "║",
         "║" + f"KillerKoala says: {speech}"[: width - 2].ljust(width - 2) + "║",
         "╠" + "═" * (width - 2) + "╣",
-        "║" + "Safety: passive Eucalyptus log watcher only; no pairing/probing/disruption.".ljust(width - 2) + "║",
+        "║" + "Safety: Eucalyptus passive Bluetooth scanner/logger status only.".ljust(width - 2) + "║",
         "║" + "Press q then Enter to quit back to the KoalaByte menu.".ljust(width - 2) + "║",
         footer,
     ]
@@ -341,7 +318,7 @@ def run_interactive(
 ) -> int:
     stats = read_eucalyptus_stats(capture_dirs)
     state = load_state(state_path, stats)
-    print("KillerKoala Eucalyptus CyberPet is online. Watching passive BLE logs only.")
+    print("KillerKoala Eucalyptus Mode is online. Watching passive Bluetooth logs only.")
     while True:
         stats = read_eucalyptus_stats(capture_dirs)
         state, delta, should_grumble, mood = update_pet_state(state, stats, idle_seconds=idle_seconds, branch_width=max(40, _screen_width() - 8))
@@ -355,7 +332,7 @@ def run_interactive(
             "mood": mood,
             "boomerang_throws": state.boomerang_throws,
             "timestamp": state.updated_at,
-            "safety": "passive log watcher only; no Bluetooth scanning is started by this screen",
+            "safety": "passive Eucalyptus Bluetooth log watcher; no pairing, probing, disruption, or access workflow",
         }, event_log)
         if delta > 0:
             speak_line("Nom nom. KillerKoala is eating Bluetooth eucalyptus data, mate.")
@@ -376,8 +353,8 @@ def run_interactive(
 
 
 def run_cli(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Eucalyptus KillerKoala Tamagotchi/Pwnagotchi-style passive BLE cyberpet screen")
-    parser.add_argument("--capture-dir", action="append", default=[], help="Directory to watch for passive Eucalyptus BLE logs. May be repeated.")
+    parser = argparse.ArgumentParser(description="Eucalyptus Mode: Koalagotchi always-on Bluetooth scanner and logger screen")
+    parser.add_argument("--capture-dir", action="append", default=[], help="Directory to watch for passive Eucalyptus Bluetooth logs. May be repeated.")
     parser.add_argument("--idle-seconds", type=float, default=DEFAULT_IDLE_SECONDS, help="Seconds without new observations before contentment drops and boomerang grumbles begin.")
     parser.add_argument("--tick-seconds", type=float, default=DEFAULT_TICK_SECONDS, help="Screen refresh interval.")
     parser.add_argument("--once", action="store_true", help="Render one frame and exit; used by smoke checks.")
