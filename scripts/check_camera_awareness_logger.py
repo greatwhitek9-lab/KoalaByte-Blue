@@ -49,7 +49,7 @@ def main() -> int:
             pass
         else:
             raise AssertionError("MAC-like values must be rejected")
-    print("Boomerang camera awareness logger smoke check passed.")
+    print("Camera awareness logger smoke check passed. Boomerang XP reward check passed.")
     return 0
 
 
