@@ -68,6 +68,7 @@ Notes:
   - WiFi/internet can be configured first so the Pi can download SDK/toolchain dependencies.
   - System packages, PlatformIO, west, nrfutil, and the full NCS/Zephyr toolchain are checked/prepared before relevant flashing steps.
   - Pi system package setup also installs AI voice/TTS dependencies: espeak-ng, espeak, ALSA tools, PulseAudio CLI utilities, PortAudio, and python3-pyaudio.
+  - KillerKoala boot welcome speech runs after the mode selector and before the splash/menu unless KILLERKOALA_BOOT_WELCOME=0.
   - macOS say is an optional fallback on Apple systems; Raspberry Pi OS uses espeak-ng/espeak.
   - If NRF_DFU_PORT is unset, the nRF helper creates the DFU ZIP but does not flash.
   - Koala Kan Kommander remains gated for isolated bench CAN transmit; this script only writes a manifest/check artifact.
@@ -227,6 +228,8 @@ if [[ "${RUN_SMOKE}" == "1" ]]; then
   PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py inventory
   PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status --xp 100
   PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
+  PYTHONPATH=pi-companion python3 scripts/check_killerkoala_boot_welcome.py
+  KOALABYTE_TTS=0 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_boot_welcome.py --mode koalabyte_lab --no-tts >/dev/null
   PYTHONPATH=pi-companion python3 scripts/run_boomerang.py <<< $'quit' >/dev/null || true
 fi
 
