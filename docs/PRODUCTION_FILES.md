@@ -1,6 +1,6 @@
 # Production Files
 
-This repository keeps one current no-custom-PCB production package for the KoalaByte Blue stacked Raspberry Pi 3B+ device using the Nordic nRF52840 USB Dongle / PCA10059, optional InnoMaker USB-to-CAN, and optional Heltec Wireless Tracker V2 USB-C LoRa/GNSS node for Didgeridoo.
+This repository keeps one current no-custom-PCB production package for the KoalaByte Blue stacked Raspberry Pi 3B+ device using the Nordic nRF52840 USB Dongle / PCA10059, optional InnoMaker USB-to-CAN, optional Heltec Wireless Tracker V2 USB-C LoRa/GNSS node for Didgeridoo, and an experimental Heltec Mesh Node T114 V2 alternate nRF52840 target.
 
 ## Current dongle-only package
 
@@ -10,8 +10,8 @@ production/RevA17-dongle-only/
 
 Current production references:
 
-- `production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv` - current complete dongle-only BOM using a 2x18650 2S battery pack, 2S BMS, 5 A fuse, switch, 5 V buck converter, regulated 5 V rails, optional InnoMaker USB-to-CAN kit for Koala Kan Kommander, and optional Heltec Wireless Tracker V2 USB-C LoRa/GNSS node hardware for Didgeridoo.
-- `production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md` - current production, assembly, validation, RevA23 InnoMaker CAN guide, and RevA25 Heltec Wireless Tracker V2 GNSS update.
+- `production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv` - current complete dongle-only BOM using a 2x18650 2S battery pack, 2S BMS, 5 A fuse, switch, 5 V buck converter, regulated 5 V rails, optional InnoMaker USB-to-CAN kit for Koala Kan Kommander, optional Heltec Wireless Tracker V2 USB-C LoRa/GNSS node hardware for Didgeridoo, and optional T114 validation hardware.
+- `production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md` - current production, assembly, validation, RevA23 InnoMaker CAN guide, RevA25 Heltec Wireless Tracker V2 GNSS update, and opt-in T114 alternate target rule.
 - `production/RevA17-dongle-only/BATTERY_POWER_2S_18650.md` - current battery-power production guide for the 2x18650 series pack, 2S BMS, fuse, switch, 5 V buck, and rails.
 - `production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv` - safety, bring-up, and functional test record template.
 
@@ -22,6 +22,7 @@ Current production references:
 - `docs/ORDERABLE_PARTS_LIST.md` - current orderable hardware list.
 - `docs/PRODUCTION_FILES.md` - this current production index.
 - `docs/DIDGERIDOO_LORA_SETUP.md` - Didgeridoo software/setup guide for the Heltec Wireless Tracker V2 USB-C Meshtastic LoRa/GNSS node; detailed case-hole and enclosure geometry remains in the production package.
+- `docs/NRF52840_T114_ALT_TARGET.md` - opt-in Heltec Mesh Node T114 V2 alternate nRF52840 target guide; not a production replacement for the Nordic dongle yet.
 - `docs/THEME_AND_MENU_SYSTEM.md` - consolidated current RevA23 theme, boot-splash, and menu guide.
 - `docs/POWER_UPDATE_REVA2.md` - legacy Seloky trigger and 5 V buck validation guide; use the RevA17 battery guide for the current battery-powered production path.
 - `docs/NRF52840_DONGLE_FLASHING.md` - nRF52840 Dongle / PCA10059 Zephyr build and DFU guide.
@@ -34,14 +35,16 @@ Current production references:
 
 - `firmware/esp32-dualeye/` - ESP32-S3 DualEye firmware, boot animation, and theme assets.
 - `firmware/esp32-dualeye/themes/` - active theme and approved SVG visual source-of-truth assets.
-- `firmware/nrf52840-dongle-ear-tag-tx-lab/` - nRF52840 Dongle KoalaByte Lab Zephyr app.
+- `firmware/nrf52840-dongle-ear-tag-tx-lab/` - nRF52840 Dongle KoalaByte Lab Zephyr app. This remains the default nRF production firmware source.
 - `pi-companion/` - Raspberry Pi companion app, menu, theme, and helper modules.
 - `scripts/check_repo_readiness.py` - current ready-to-run repository validation check.
-- `scripts/flash_all_components.sh` - one-command Pi install, ESP32 flash, nRF52840 Dongle build/DFU, InnoMaker CAN manifest helper, and Didgeridoo dependency setup.
-- `scripts/build_firmware_all.sh` - all-firmware build helper.
+- `scripts/flash_all_components.sh` - one-command Pi install, ESP32 flash, nRF52840 Dongle build/DFU, InnoMaker CAN manifest helper, Didgeridoo dependency setup, and opt-in T114 alternate build path.
+- `scripts/build_firmware_all.sh` - all-firmware build helper with optional `BUILD_T114_LAB=1` support.
 - `scripts/flash_esp32.sh` - ESP32 build/upload helper.
 - `scripts/build_nrf52840_dongle_lab.sh` - KoalaByte Lab dongle build helper.
 - `scripts/flash_nrf52840_dongle_lab_dfu.sh` - KoalaByte Lab dongle DFU helper.
+- `scripts/build_nrf52840_t114_lab.sh` - experimental T114 alternate nRF52840 target build helper.
+- `scripts/flash_nrf52840_t114_lab.sh` - experimental T114 alternate nRF52840 flash wrapper requiring a confirmed flash command.
 - `scripts/build_koala_konnect.sh` - Koala Konnect build wrapper.
 - `scripts/flash_koala_konnect.sh` - Koala Konnect DFU wrapper.
 - `scripts/install_pi.sh` - Pi companion dependency installer.
@@ -51,7 +54,19 @@ Current production references:
 - `scripts/run_didgeridoo.py` - Didgeridoo Wireless Tracker V2 Meshtastic/GNSS setup/status runner.
 - `.github/workflows/koalabyte-blue-ci.yml` - CI workflow using the readiness check.
 
-No custom PCB is required. The build uses commercially available development boards/modules, USB cabling, standoffs, a protected 2S battery/power system, optional InnoMaker USB-to-CAN accessory hardware, optional Heltec Wireless Tracker V2 USB-C LoRa/GNSS node hardware, approved firmware theme assets, and an open-frame stacked layout.
+No custom PCB is required. The build uses commercially available development boards/modules, USB cabling, standoffs, a protected 2S battery/power system, optional InnoMaker USB-to-CAN accessory hardware, optional Heltec Wireless Tracker V2 USB-C LoRa/GNSS node hardware, optional T114 nRF52840 validation hardware, approved firmware theme assets, and an open-frame stacked layout.
+
+## T114 alternate target rule
+
+The Heltec Mesh Node T114 V2 style board may be tested as an alternate nRF52840 target, but it is not the production replacement for the Nordic nRF52840 USB Dongle yet.
+
+Rules:
+
+1. Keep the Nordic nRF52840 Dongle / PCA10059 build path as the production default.
+2. Use the T114 path only with `--nrf-t114-lab`, `BUILD_T114_LAB=1`, or the dedicated T114 scripts.
+3. Confirm the exact Zephyr board target before running the T114 build.
+4. Confirm the exact T114 bootloader/flash command before flashing.
+5. Do not remove the dongle production files until the T114 target builds, flashes, enumerates, and passes KoalaByte Lab BLE behavior checks.
 
 ## RevA25 Heltec Wireless Tracker V2 / Didgeridoo mechanical antenna and GNSS rule
 
@@ -72,7 +87,7 @@ The current Koala Kan Kommander physical option is the InnoMaker USB to CAN Conv
 
 ## Battery power mechanical rule
 
-The current production path is battery powered. Leave internal clearance for two 18650 cells, 2S BMS/protection board, inline 5 A fuse, main switch, 5 V buck converter, +5 V rail, GND rail, optional Heltec Wireless Tracker V2 USB-C node, and strain relief. Do not route raw 2S battery voltage to Pi GPIO, ESP32 GPIO, button wiring, USB devices, CAN wiring, or the Meshtastic/GNSS node.
+The current production path is battery powered. Leave internal clearance for two 18650 cells, 2S BMS/protection board, inline 5 A fuse, main switch, 5 V buck converter, +5 V rail, GND rail, optional Heltec Wireless Tracker V2 USB-C node, optional T114 validation board, and strain relief. Do not route raw 2S battery voltage to Pi GPIO, ESP32 GPIO, button wiring, USB devices, CAN wiring, or the Meshtastic/GNSS/T114 node.
 
 ## Cleanup rule
 
@@ -88,6 +103,7 @@ The repository is considered current only when:
 4. The nRF52840 Dongle Zephyr project wiring and DFU helpers are present.
 5. Optional Koala Kan Kommander files remain present and passive by default.
 6. Optional Didgeridoo files remain setup/status/profile only by default.
-7. `scripts/flash_all_components.sh --all` is documented as the primary all-component helper.
-8. The battery-powered RevA17 production guide and BOM remain aligned.
-9. Removed legacy production packages and legacy theme docs are not reintroduced.
+7. Optional T114 files remain opt-in and do not replace the Nordic dongle default.
+8. `scripts/flash_all_components.sh --all` is documented as the primary all-component helper.
+9. The battery-powered RevA17 production guide and BOM remain aligned.
+10. Removed legacy production packages and legacy theme docs are not reintroduced.
