@@ -40,8 +40,8 @@ DEFAULT_XP_PATH = Path("logs/killerkoala/xp_state.json")
 DEFAULT_ALERT_LOG = Path("logs/killerkoala/boomerang_alerts.jsonl")
 
 KILLERKOALA_BOOMERANG_ALERTS = {
-    "boomerang_start": "Boomerang is live, mate. Camera awareness logbook is open. Notes only, no dodgy scanning.",
-    "camera_found": "Camera found and logged, mate. Boomerang tagged it clean.",
+    "boomerang_start": "BOOMerang!",
+    "camera_found": "Crikey, mate — Camera found and logged. Boomerang tagged that cheeky lens clean.",
     "xp_gain": "killerkoala gained XP. Another notch in the gumtree.",
 }
 
