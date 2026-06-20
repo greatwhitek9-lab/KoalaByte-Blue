@@ -5,6 +5,7 @@ import json
 import tempfile
 from pathlib import Path
 
+from koalablue.boomerang import ACTION_NAME, XP_REWARD_PER_LOG, award_boomerang_xp
 from koalablue.camera_awareness_logger import (
     append_observation,
     create_observation,
@@ -17,6 +18,7 @@ from koalablue.camera_awareness_logger import (
 def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
+        xp_path = root / "xp_state.json"
         obs = create_observation(
             label="Test public camera",
             camera_type="unknown camera",
@@ -26,6 +28,13 @@ def main() -> int:
             notes="Manual public observation only; no electronic probing performed.",
         )
         append_observation(obs, root)
+        before, after, rank = award_boomerang_xp(xp_path=xp_path)
+        assert before == 0
+        assert after == XP_REWARD_PER_LOG
+        assert rank == "Noob"
+        xp_state = json.loads(xp_path.read_text(encoding="utf-8"))
+        assert xp_state["last_module"] == ACTION_NAME
+        assert xp_state["boomerang_logs"] == 1
         rows = load_observations(root)
         assert len(rows) == 1
         assert rows[0].local_asset_id.startswith("cam-")
@@ -40,7 +49,7 @@ def main() -> int:
             pass
         else:
             raise AssertionError("MAC-like values must be rejected")
-    print("Camera awareness logger smoke check passed.")
+    print("Boomerang camera awareness logger smoke check passed.")
     return 0
 
 
