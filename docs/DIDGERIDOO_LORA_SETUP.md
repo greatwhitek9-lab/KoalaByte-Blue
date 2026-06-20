@@ -1,13 +1,13 @@
 # Didgeridoo LoRa / Meshtastic Node Setup — Phase 1
 
-Didgeridoo is the KoalaByte Blue setup layer for a **USB-C Meshtastic LoRa node board**. This replaces the earlier direct bare-SPI SX1262-first layout.
+Didgeridoo is the KoalaByte Blue setup layer for a **USB-C Meshtastic LoRa node board**, with the current target being a Heltec-style Meshtastic board that has both a LoRa antenna connection and a separate 2.4 GHz antenna connection.
 
 The preferred KoalaByte Blue wiring is now:
 
 ```text
 Raspberry Pi 3B+ USB-A port
    → short USB-A to USB-C data cable
-   → Meshtastic LoRa node board USB-C port
+   → Heltec / Meshtastic LoRa node board USB-C port
 ```
 
 The six KoalaByte Blue front buttons stay on the 40-pin GPIO ribbon/breakout. The Meshtastic LoRa board does **not** need Raspberry Pi GPIO pins when it is used over USB serial, TCP, or BLE through the official Meshtastic CLI.
@@ -28,32 +28,46 @@ No channel URL, PSK, password, private key, or QR-code secret is stored by this 
 
 ## Hardware target
 
-- Board: USB-C Meshtastic LoRa node board
+- Board: USB-C Heltec / Meshtastic LoRa node board
 - Host: Raspberry Pi 3B+
 - Connection: USB-A to USB-C **data** cable
 - Pi GPIO usage: none for LoRa/Meshtastic node mode
-- LoRa antenna: board-matched LoRa antenna connected to the Meshtastic node's LoRa antenna connector
+- Heltec LoRa antenna: board-matched LoRa antenna connected to the Heltec node's LoRa antenna connector
+- Heltec 2.4 GHz antenna: 2.4 GHz Wi-Fi/Bluetooth antenna connected to the Heltec board's 2.4 GHz antenna connector, if fitted
 - ESP32-S3 antenna: separate 2.4 GHz antenna connected to the ESP32-S3 DualEye IPEX1/U.FL path
 
-## KoalaByte Blue antenna plan
+## KoalaByte Blue antenna and case-hole plan
 
-KoalaByte Blue should now use two different external antennas:
+KoalaByte Blue now needs **three antenna openings** instead of two:
 
-| Case antenna position | Connects to | Antenna type | Notes |
+| Case opening | Connects to | Antenna type | Notes |
 |---|---|---|---|
-| Antenna 1 | USB-C Meshtastic LoRa node board | LoRa antenna matched to the board frequency, such as 433 MHz, 868 MHz, or 915 MHz | Do not use a 2.4 GHz Wi-Fi/BLE antenna here. Match the node's region/frequency. |
-| Antenna 2 | ESP32-S3 DualEye IPEX1/U.FL connector | 2.4 GHz Wi-Fi/Bluetooth antenna | Use SMA/RP-SMA bulkhead to IPEX1/U.FL pigtail as appropriate. |
+| 2.4 GHz antenna hole 1 | Heltec / Meshtastic board 2.4 GHz antenna connector | 2.4 GHz Wi-Fi/Bluetooth antenna | Use the correct SMA/RP-SMA bulkhead and IPEX1/U.FL pigtail for the Heltec board's 2.4 GHz connector. |
+| 2.4 GHz antenna hole 2 | ESP32-S3 DualEye IPEX1/U.FL connector | 2.4 GHz Wi-Fi/Bluetooth antenna | This stays dedicated to the ESP32-S3 DualEye. |
+| Smaller LoRa antenna hole 3 | Heltec / Meshtastic board LoRa antenna connector | Frequency-matched LoRa antenna, such as 433 MHz, 868 MHz, or 915 MHz depending on the board and region | This should be a separate smaller case opening for the LoRa antenna or LoRa bulkhead/pigtail. |
 
-Do **not** connect the LoRa antenna to the ESP32-S3.
-Do **not** connect the ESP32-S3 2.4 GHz antenna to the LoRa/Meshtastic board.
+Do **not** connect a 2.4 GHz antenna to the LoRa antenna connector.
+Do **not** connect the LoRa antenna to either 2.4 GHz antenna connector.
+Do **not** share one antenna between the Heltec 2.4 GHz connector and the ESP32-S3 DualEye.
 Do **not** power or use the LoRa node without its correct LoRa antenna attached.
+
+Recommended case placement:
+
+```text
+Top / rear case area
+   ├── 2.4 GHz antenna opening: Heltec Wi-Fi/BLE antenna
+   ├── 2.4 GHz antenna opening: ESP32-S3 DualEye Wi-Fi/BLE antenna
+   └── smaller LoRa opening: Heltec LoRa antenna
+```
+
+Keep the LoRa antenna path physically separated from the two 2.4 GHz pigtails where practical. Do not route antenna coax directly across the buck converter, 18650 battery wiring, fan motor, speaker magnet, or USB cable bundle.
 
 ## USB wiring
 
 ```text
 Raspberry Pi 3B+ USB-A
    → short USB-A to USB-C data cable
-   → USB-C Meshtastic LoRa node
+   → USB-C Heltec / Meshtastic LoRa node
 ```
 
 After plugging it in, check:
@@ -156,7 +170,7 @@ The Meshtastic phone app and KoalaByte Blue both talk to the Meshtastic node. Th
 Typical workflow:
 
 1. Pair/configure the Meshtastic node with the phone app over Bluetooth.
-2. Confirm the node's region/frequency and antenna are correct.
+2. Confirm the node's region/frequency and all antennas are correct.
 3. Disconnect or close the phone app if the node supports only one active client connection.
 4. Connect KoalaByte Blue to the node by USB serial, TCP, or BLE using Didgeridoo.
 
@@ -188,7 +202,8 @@ Included:
 - Local Meshtastic connection profile / login helper
 - Meshtastic node info checks
 - USB-C Meshtastic node wiring guidance
-- Two-antenna KoalaByte Blue routing plan
+- Three-antenna KoalaByte Blue routing plan
+- Third smaller case opening for the LoRa antenna
 
 Not included yet:
 
