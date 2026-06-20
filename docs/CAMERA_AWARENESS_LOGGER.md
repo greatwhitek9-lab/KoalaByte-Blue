@@ -22,7 +22,7 @@ The default lines are:
 
 ```text
 boomerang_start: BOOMerang!
-camera_found: Camera found and logged, mate. Boomerang tagged it clean.
+camera_found: Crikey, mate — Camera found and logged. Boomerang tagged that cheeky lens clean.
 xp_gain: killerkoala gained XP. Another notch in the gumtree.
 ```
 
