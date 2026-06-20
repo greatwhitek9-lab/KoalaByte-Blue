@@ -12,9 +12,18 @@ BOOT_SPLASH="${BOOT_SPLASH:-1}"
 MENU_GRAPHICAL="${MENU_GRAPHICAL:-1}"
 MENU_WINDOWED="${MENU_WINDOWED:-0}"
 BOOT_SPLASH_DURATION="${BOOT_SPLASH_DURATION:-3}"
+KOALABYTE_TTS="${KOALABYTE_TTS:-1}"
 
 cd "${REPO_ROOT}"
 export PYTHONPATH="${REPO_ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}"
+export KOALABYTE_TTS
+
+echo "== KillerKoala spoken alerts =="
+if [[ "${KOALABYTE_TTS}" == "1" ]]; then
+  echo "Spoken alerts are ON by default. Set KOALABYTE_TTS=0 to mute startup/menu speech."
+else
+  echo "Spoken alerts are muted by KOALABYTE_TTS=${KOALABYTE_TTS}."
+fi
 
 if [[ "${PREBOOT_SELECTOR}" == "1" ]]; then
   echo "== KoalaByte Blue pre-boot dongle mode selector =="
