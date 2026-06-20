@@ -4,7 +4,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INSTALL_SYSTEM_PACKAGES="${INSTALL_SYSTEM_PACKAGES:-auto}"
 STRICT_SYSTEM_PACKAGES="${STRICT_SYSTEM_PACKAGES:-0}"
-ENABLE_PI_SPI="${ENABLE_PI_SPI:-auto}"
+ENABLE_PI_SPI="${ENABLE_PI_SPI:-0}"
 CHECK_ONLY=0
 
 APT_PACKAGES=(
@@ -75,19 +75,20 @@ Usage:
   bash scripts/setup_system_packages.sh
   STRICT_SYSTEM_PACKAGES=1 bash scripts/setup_system_packages.sh
   INSTALL_SYSTEM_PACKAGES=0 bash scripts/setup_system_packages.sh
-  ENABLE_PI_SPI=0 bash scripts/setup_system_packages.sh
+  ENABLE_PI_SPI=1 bash scripts/setup_system_packages.sh
   bash scripts/setup_system_packages.sh --check-only
 
 Environment:
   INSTALL_SYSTEM_PACKAGES  auto/1/0. Default: auto. Attempts apt install on apt-based systems.
   STRICT_SYSTEM_PACKAGES   1 fails if packages cannot be checked/installed. Default: 0.
-  ENABLE_PI_SPI            auto/1/0. Default: auto. Enables Raspberry Pi SPI with raspi-config when available.
+  ENABLE_PI_SPI            1/0. Default: 0. Enables Raspberry Pi SPI with raspi-config only for optional direct bare-SX1262 lab work.
 
 Packages covered:
   Python venv/pip/dev headers, build tools, PlatformIO/USB runtime dependencies,
   nRF/Zephyr helper build tools, WiFi/NetworkManager/wpa_supplicant, BlueZ tools,
   SD card formatter tools, CAN tools, SDL2 runtime, SQLite, USB utilities,
-  Raspberry Pi GPIO/SPI support, Didgeridoo LoRa setup support, and AI voice/TTS audio support.
+  Raspberry Pi GPIO support, optional SPI package support, Didgeridoo USB Meshtastic node support,
+  and AI voice/TTS audio support.
 
 AI voice/TTS packages:
   espeak-ng, espeak, ALSA utilities/plugins, PulseAudio CLI utilities,
@@ -130,8 +131,8 @@ strict_enabled() {
 
 spi_enable_enabled() {
   case "${ENABLE_PI_SPI}" in
-    0|false|False|no|NO|skip|SKIP) return 1 ;;
-    *) return 0 ;;
+    1|true|True|yes|YES|auto|AUTO) return 0 ;;
+    *) return 1 ;;
   esac
 }
 
@@ -181,14 +182,14 @@ echo "Installing/checking Raspberry Pi system packages..."
 
 enable_pi_spi_if_possible() {
   if ! spi_enable_enabled; then
-    echo "Raspberry Pi SPI enablement disabled by ENABLE_PI_SPI=${ENABLE_PI_SPI}."
+    echo "Raspberry Pi SPI enablement skipped. USB-C Meshtastic node mode does not require GPIO/SPI. Set ENABLE_PI_SPI=1 only for optional direct bare-SX1262 lab work."
     return 0
   fi
   if ! command -v raspi-config >/dev/null 2>&1; then
-    echo "raspi-config not found; skipping automatic SPI enablement. Enable SPI manually if using Didgeridoo/SX1262." >&2
+    echo "raspi-config not found; skipping automatic SPI enablement. Enable SPI manually if using a direct bare-SX1262 board." >&2
     return 0
   fi
-  echo "Checking/enabling Raspberry Pi SPI interface for Didgeridoo SX1262 LoRa setup..."
+  echo "Checking/enabling Raspberry Pi SPI interface for optional direct SX1262 lab setup..."
   if [[ "${EUID}" -eq 0 ]]; then
     raspi-config nonint do_spi 0 || true
   elif command -v sudo >/dev/null 2>&1; then
@@ -215,8 +216,13 @@ fi
 if command -v aplay >/dev/null 2>&1; then
   echo "  ALSA aplay: $(command -v aplay)"
 fi
-if [[ -e /dev/spidev0.0 ]]; then
-  echo "  SPI: /dev/spidev0.0 present"
+if [[ -e /dev/ttyUSB0 || -e /dev/ttyACM0 ]]; then
+  echo "  Meshtastic USB serial candidate: present under /dev/ttyUSB* or /dev/ttyACM*"
 else
-  echo "  SPI: /dev/spidev0.0 not present yet; reboot after first enablement if Didgeridoo will use the SX1262 SPI board" >&2
+  echo "  Meshtastic USB serial candidate: not currently detected; plug in the USB-C node and run ls /dev/ttyUSB* /dev/ttyACM*" >&2
+fi
+if [[ -e /dev/spidev0.0 ]]; then
+  echo "  Optional SPI: /dev/spidev0.0 present"
+else
+  echo "  Optional SPI: /dev/spidev0.0 not present; OK for USB-C Meshtastic node mode" >&2
 fi
