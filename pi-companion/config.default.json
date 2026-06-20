@@ -1,6 +1,7 @@
 {
   "action_names": {
     "always_on_ble_scanner_logger": "eucalyptus",
+    "eucalyptus_mode": "Eucalyptus Mode",
     "ble_fox_hunt_game": "Urban Poaching",
     "metadata_capture": "Koala Kapture",
     "metadata_replay": "Koala Kry",
@@ -36,13 +37,42 @@
     "wigle_upload_enabled": false,
     "wigle_upload_interval_seconds": 1800
   },
+  "eucalyptus_mode": {
+    "display_name": "Eucalyptus Mode",
+    "description": "Koalagotchi always-on Bluetooth scanner and logger screen. KillerKoala walks a full-color branch, eats eucalyptus Bluetooth data, gains contentment from new passive observations, and grumbles after 3 minutes of no new devices.",
+    "enabled": true,
+    "mode": "koalagotchi_always_on_bluetooth_scanner_logger",
+    "data_source": "local passive Eucalyptus capture logs only",
+    "renderer": "koalablue.eucalyptus_cyberpet",
+    "runner": "scripts/run_eucalyptus_cyberpet.py",
+    "capture_dirs": ["/blecaptures", "logs/eucalyptus", "logs/koala_bluez", "/blecaptures/koala_kapture"],
+    "state_path": "logs/eucalyptus_mode/state.json",
+    "event_log": "logs/eucalyptus_mode/events.jsonl",
+    "full_color_graphics": true,
+    "quality_resolution": {"default_width": 800, "default_height": 480, "fullscreen_default": true, "fps": 30},
+    "branch_animation": {"enabled": true, "branch_spans_screen": true, "killerkoala_traverses_back_and_forth": true},
+    "eating_behavior": {"new_bluetooth_data_spawns_eucalyptus_leaves": true, "contentment_increases_per_new_observation": true, "max_contentment": 100},
+    "idle_behavior": {"idle_seconds_before_grumble": 180, "contentment_decreases_when_dormant": true, "throws_boomerang_when_dormant": true, "aussie_grumble_voice": true},
+    "safety_scope": "status visualization for passive Bluetooth logs; does not start pairing, probing, disruption, access, or offensive workflows"
+  },
   "boomerang": {
     "display_name": "Boomerang",
-    "description": "Manual camera-awareness logbook. Records public/visible camera details, assigns local IDs, exports reports, and stays open until the operator quits.",
+    "description": "Camera-awareness Koalagotchi-style logbook. Records public/visible camera details, assigns local IDs, exports reports, awards killerkoala XP, and stays open until the operator quits.",
     "enabled": true,
     "mode": "manual_public_camera_awareness_logbook",
+    "runner": "scripts/run_boomerang.py",
     "output_dir": "logs/camera_awareness",
+    "state_path": "logs/killerkoala/xp_state.json",
+    "alert_log": "logs/killerkoala/boomerang_alerts.jsonl",
     "interactive_stays_open_until_quit": true,
+    "xp_reward_per_logged_record": 10,
+    "full_color_graphics": false,
+    "matching_behavior_settings": {
+      "verbal_alerts_enabled_by_default": true,
+      "start_alert": "BOOMerang!",
+      "record_logged_alert": "Crikey, mate — Camera found and logged. Boomerang tagged that cheeky lens clean.",
+      "xp_gain_alert": "killerkoala gained XP. Another notch in the gumtree."
+    },
     "allowed_identity_fields": ["local observation ID", "local asset ID", "location text", "latitude", "longitude", "public agency", "public source URL", "visible markings", "pole or mount ID", "public asset tag", "visible make/model", "mounting description", "facing direction", "photo reference", "confidence", "notes"],
     "blocked_identity_fields": ["MAC address", "BSSID", "SSID", "IP address", "Bluetooth address", "RF fingerprint", "probe response", "network scan output", "avoidance routing"]
   },
@@ -196,7 +226,7 @@
     },
     "touch": {"enabled": true, "row_height_px": 64, "long_press_seconds": 0.75, "scroll_threshold_px": 18},
     "groups": ["Bluetooth Tools", "CAN Bench Tools", "Reports & Reviews", "System / Companion"],
-    "items": ["Scan", "Summary", "Show Devices", "eucalyptus Status", "eucalyptus Start", "eucalyptus Stop", "eucalyptus Restart", "eucalyptus Upload Status", "Koala Kapture", "Koala Kry", "Koala Kry RF Review", "Ear Tag", "KoalaByte Lab", "Koala Mode Switcher", "Koala Kan Kommander", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Dropbear Discovery Sweep", "Billabong HCI Watch", "Kookaburra Safe Nest Run", "that’s not a knife", "KillerKoala Voice", "Urban Poaching", "Buttons", "Level / Status", "Report", "Boomerang", "Wake killerkoala", "Authorized BLE Inventory", "GATT Readiness Checklist", "Pairing Security Review", "Lab Beacon Plan", "Packet Capture Notes", "Defensive Lab Report", "Restricted Placeholder", "Settings", "Lab", "Shutdown", "Quit"]
+    "items": ["Scan", "Summary", "Show Devices", "eucalyptus Status", "eucalyptus Start", "eucalyptus Stop", "eucalyptus Restart", "eucalyptus Upload Status", "Eucalyptus Mode", "Koala Kapture", "Koala Kry", "Koala Kry RF Review", "Ear Tag", "KoalaByte Lab", "Koala Mode Switcher", "Koala Kan Kommander", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Dropbear Discovery Sweep", "Billabong HCI Watch", "Kookaburra Safe Nest Run", "that’s not a knife", "KillerKoala Voice", "Urban Poaching", "Buttons", "Level / Status", "Report", "Boomerang", "Wake killerkoala", "Authorized BLE Inventory", "GATT Readiness Checklist", "Pairing Security Review", "Lab Beacon Plan", "Packet Capture Notes", "Defensive Lab Report", "Restricted Placeholder", "Settings", "Lab", "Shutdown", "Quit"]
   },
   "capture_dir": "/blecaptures",
   "scan_window_seconds": 8.0,
