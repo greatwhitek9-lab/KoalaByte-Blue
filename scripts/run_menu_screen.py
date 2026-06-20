@@ -8,6 +8,7 @@ large bubbly jungle/eucalyptus touchscreen menu.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import time
 from typing import Optional
@@ -57,9 +58,26 @@ def run_eucalyptus_mode_action(_item: MenuItem) -> None:
         run_terminal()
 
 
+def run_didgeridoo_action(_item: MenuItem) -> None:
+    from koalablue.didgeridoo_lora import meshtastic_profile, status
+
+    print("\n== KoalaByte Blue didgeridoo ==")
+    print("Phase 1: LoRa/Meshtastic setup, SPI readiness, and Meshtastic login profile only.")
+    print("No raw LoRa transmit or mesh text send is run from this menu action.\n")
+    print(json.dumps(status(), indent=2, sort_keys=True))
+    print("\nSaved Meshtastic profile:")
+    print(json.dumps(meshtastic_profile(), indent=2, sort_keys=True))
+    print("\nUseful commands:")
+    print("  PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py meshtastic-login --connection serial --port /dev/ttyUSB0 --verify")
+    print("  PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py meshtastic-login --connection tcp --host meshtastic.local --verify")
+    print("  PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py meshtastic-info")
+    input("\nPress Enter to return to the KoalaByte Blue menu...")
+
+
 def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
     menu.register_handler("boomerang", run_boomerang_action)
     menu.register_handler("eucalyptus_mode", run_eucalyptus_mode_action)
+    menu.register_handler("didgeridoo", run_didgeridoo_action)
 
 
 def make_menu() -> MenuSelectionScreen:
