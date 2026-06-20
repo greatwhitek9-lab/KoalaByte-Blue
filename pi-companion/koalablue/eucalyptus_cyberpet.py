@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import os
 import select
 import shutil
@@ -22,6 +23,8 @@ import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable, Optional
+
+from .menu_theme import DEFAULT_JUNGLE_MENU_THEME, JungleMenuUnavailable, _import_pygame, _pick_font
 
 ACTION_NAME = "Eucalyptus Mode"
 DESCRIPTION = "Koalagotchi always-on Bluetooth scanner and logger screen for passive Eucalyptus observations."
@@ -38,13 +41,6 @@ DORMANT_GRUMBLES = [
     "Bloody quiet out here, mate. KillerKoala's chuckin' the boomerang till the blue snacks show up.",
     "Not a single Bluetooth nibble in three minutes. Fair dinkum, this branch is boring.",
 ]
-
-
-def _safe_int(value: object, default: int = 0) -> int:
-    try:
-        return int(value)
-    except Exception:
-        return default
 
 
 @dataclass(frozen=True)
@@ -66,6 +62,13 @@ class CyberPetState:
     mood: str
     boomerang_throws: int
     updated_at: float
+
+
+def _safe_int(value: object, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return default
 
 
 def _read_json(path: Path) -> object:
@@ -233,18 +236,7 @@ def update_pet_state(
         next_pos = 0
         direction = 1
 
-    next_state = CyberPetState(
-        contentment=contentment,
-        total_observations_seen=max(state.total_observations_seen, stats.observation_count),
-        last_observation_count=stats.observation_count,
-        last_new_data_time=last_new_data_time,
-        direction=direction,
-        position=next_pos,
-        mood=mood,
-        boomerang_throws=boomerang_throws,
-        updated_at=now,
-    )
-    return next_state, delta, should_grumble, mood
+    return CyberPetState(contentment, max(state.total_observations_seen, stats.observation_count), stats.observation_count, last_new_data_time, direction, next_pos, mood, boomerang_throws, now), delta, should_grumble, mood
 
 
 def _bar(value: int, width: int = 24) -> str:
@@ -307,7 +299,7 @@ def _input_ready() -> bool:
         return False
 
 
-def run_interactive(
+def run_terminal(
     *,
     capture_dirs: Iterable[Path] = DEFAULT_CAPTURE_DIRS,
     state_path: Path = DEFAULT_STATE_PATH,
@@ -352,15 +344,187 @@ def run_interactive(
         time.sleep(max(0.1, tick_seconds))
 
 
+def _draw_leaf(pygame, screen, x: int, y: int, scale: float = 1.0, angle: float = 0.0) -> None:
+    color = (92, 186, 102)
+    highlight = (166, 246, 163)
+    rx, ry = int(11 * scale), int(5 * scale)
+    rect = pygame.Rect(x - rx, y - ry, rx * 2, ry * 2)
+    pygame.draw.ellipse(screen, color, rect)
+    pygame.draw.line(screen, highlight, (x - rx + 2, y), (x + rx - 2, y), max(1, int(1.5 * scale)))
+
+
+def _draw_branch(pygame, screen, w: int, h: int) -> tuple[int, int, int, int]:
+    y = int(h * 0.52)
+    start = int(w * 0.04)
+    end = int(w * 0.96)
+    for thickness, color in [(26, (61, 38, 18)), (18, (102, 70, 34)), (8, (151, 108, 54))]:
+        pygame.draw.line(screen, color, (start, y), (end, y), thickness)
+    for i in range(18):
+        x = start + int((end - start) * i / 17)
+        leaf_y = y - 28 - int(9 * math.sin(i))
+        _draw_leaf(pygame, screen, x, leaf_y, 1.1 + (i % 3) * 0.18)
+    return start, y, end, y
+
+
+def _draw_koala(pygame, screen, x: int, y: int, scale: float, mood: str) -> None:
+    fur = (145, 152, 154)
+    fur_dark = (78, 82, 84)
+    ear_inner = (220, 170, 185)
+    nose = (26, 25, 27)
+    eye = (40, 255, 120) if mood != "cranky boomerang toss" else (255, 142, 46)
+    r = int(26 * scale)
+    ear_r = int(17 * scale)
+    pygame.draw.circle(screen, fur_dark, (x - r, y - r), ear_r)
+    pygame.draw.circle(screen, fur_dark, (x + r, y - r), ear_r)
+    pygame.draw.circle(screen, ear_inner, (x - r, y - r), int(ear_r * 0.55))
+    pygame.draw.circle(screen, ear_inner, (x + r, y - r), int(ear_r * 0.55))
+    pygame.draw.circle(screen, fur, (x, y), r)
+    pygame.draw.circle(screen, eye, (x - int(9 * scale), y - int(5 * scale)), int(3.5 * scale))
+    pygame.draw.circle(screen, eye, (x + int(9 * scale), y - int(5 * scale)), int(3.5 * scale))
+    pygame.draw.ellipse(screen, nose, pygame.Rect(x - int(6 * scale), y, int(12 * scale), int(10 * scale)))
+    pygame.draw.arc(screen, nose, pygame.Rect(x - int(12 * scale), y + int(5 * scale), int(24 * scale), int(16 * scale)), 0.15, math.pi - 0.15, max(1, int(2 * scale)))
+
+
+def _draw_boomerang(pygame, screen, x: int, y: int, tick: int) -> None:
+    radius = 36
+    bx = x + int(math.cos(tick / 6.0) * radius)
+    by = y - 42 + int(math.sin(tick / 6.0) * 18)
+    points = [(bx - 22, by + 8), (bx, by - 5), (bx + 22, by + 8), (bx + 8, by + 14), (bx, by + 5), (bx - 8, by + 14)]
+    pygame.draw.polygon(screen, (213, 149, 58), points)
+    pygame.draw.lines(screen, (255, 218, 116), False, points[:3], 3)
+
+
+def _draw_panel(pygame, screen, font, small_font, state: CyberPetState, stats: EucalyptusStats, delta: int, w: int, h: int) -> None:
+    panel = pygame.Rect(int(w * 0.05), int(h * 0.69), int(w * 0.90), int(h * 0.24))
+    pygame.draw.rect(screen, (6, 28, 20), panel, border_radius=22)
+    pygame.draw.rect(screen, (116, 236, 127), panel, 3, border_radius=22)
+    title = font.render("KOALAGOTCHI STATUS", True, (231, 248, 158))
+    screen.blit(title, (panel.x + 20, panel.y + 12))
+    bar = pygame.Rect(panel.x + 22, panel.y + 56, int((panel.w - 44) * state.contentment / 100), 24)
+    bar_back = pygame.Rect(panel.x + 22, panel.y + 56, panel.w - 44, 24)
+    pygame.draw.rect(screen, (30, 74, 45), bar_back, border_radius=12)
+    pygame.draw.rect(screen, (119, 255, 107), bar, border_radius=12)
+    pygame.draw.rect(screen, (221, 255, 170), bar_back, 2, border_radius=12)
+    rows = [
+        f"Contentment: {state.contentment}%   Mood: {state.mood}",
+        f"Passive observations: {stats.observation_count}   New Bluetooth leaves: {delta}",
+        f"Files watched: {stats.files_seen}   Boomerang throws: {state.boomerang_throws}",
+    ]
+    for idx, row in enumerate(rows):
+        text = small_font.render(row, True, (204, 247, 202))
+        screen.blit(text, (panel.x + 22, panel.y + 90 + idx * 24))
+
+
+def run_graphical(
+    *,
+    capture_dirs: Iterable[Path] = DEFAULT_CAPTURE_DIRS,
+    state_path: Path = DEFAULT_STATE_PATH,
+    event_log: Path = DEFAULT_EVENT_LOG,
+    idle_seconds: float = DEFAULT_IDLE_SECONDS,
+    tick_seconds: float = DEFAULT_TICK_SECONDS,
+    fullscreen: bool = True,
+    width: int = 800,
+    height: int = 480,
+    fps: int = 30,
+) -> int:
+    pygame = _import_pygame()
+    pygame.init()
+    flags = pygame.FULLSCREEN if fullscreen else 0
+    screen = pygame.display.set_mode((0, 0), flags) if fullscreen else pygame.display.set_mode((width, height), flags)
+    pygame.display.set_caption("KoalaByte Blue - Eucalyptus Mode Koalagotchi")
+    clock = pygame.time.Clock()
+    w, h = screen.get_size()
+    title_font = _pick_font(pygame, DEFAULT_JUNGLE_MENU_THEME.font_family, max(26, min(56, int(w * 0.05))), True)
+    font = _pick_font(pygame, DEFAULT_JUNGLE_MENU_THEME.item_font_family, max(18, min(32, int(w * 0.030))), True)
+    small_font = pygame.font.SysFont("dejavusans", max(13, min(22, int(w * 0.020))), bold=True)
+    stats = read_eucalyptus_stats(capture_dirs)
+    state = load_state(state_path, stats)
+    last_tick = 0.0
+    delta = 0
+    tick = 0
+
+    while True:
+        now = time.time()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return 0
+            if event.type == pygame.KEYDOWN and event.key in {pygame.K_q, pygame.K_ESCAPE}:
+                return 0
+
+        if now - last_tick >= max(0.25, tick_seconds):
+            stats = read_eucalyptus_stats(capture_dirs)
+            state, delta, should_grumble, mood = update_pet_state(state, stats, idle_seconds=idle_seconds, branch_width=max(40, w - 120))
+            save_state(state, state_path)
+            append_event({
+                "action": ACTION_NAME,
+                "event": "graphical_tick",
+                "observation_count": stats.observation_count,
+                "delta": delta,
+                "contentment": state.contentment,
+                "mood": mood,
+                "boomerang_throws": state.boomerang_throws,
+                "timestamp": state.updated_at,
+                "safety": "Eucalyptus Mode is a passive Bluetooth log visualization; no pairing/probing/disruption is started here",
+            }, event_log)
+            if delta > 0:
+                speak_line("Nom nom. KillerKoala is eating Bluetooth eucalyptus data, mate.")
+            elif should_grumble:
+                line = DORMANT_GRUMBLES[state.boomerang_throws % len(DORMANT_GRUMBLES)]
+                speak_line(line)
+            last_tick = now
+
+        for y in range(h):
+            shade = int(18 + 34 * y / max(1, h))
+            pygame.draw.line(screen, (2, shade, 20), (0, y), (w, y))
+        title = title_font.render("EUCALYPTUS MODE", True, (174, 255, 121))
+        subtitle = small_font.render("Koalagotchi always-on Bluetooth scanner + logger", True, (109, 214, 255))
+        screen.blit(title, (int(w * 0.05), int(h * 0.04)))
+        screen.blit(subtitle, (int(w * 0.055), int(h * 0.04) + title.get_height() + 4))
+        pygame.draw.rect(screen, (85, 236, 110), pygame.Rect(16, 16, w - 32, h - 32), 4, border_radius=22)
+        start_x, branch_y, end_x, _ = _draw_branch(pygame, screen, w, h)
+        travel = max(1, end_x - start_x - 90)
+        koala_x = start_x + 45 + int((state.position / max(1, w - 120)) * travel)
+        koala_y = branch_y - 48
+        _draw_koala(pygame, screen, koala_x, koala_y, 1.25, state.mood)
+        if delta > 0 or state.mood.startswith("eating"):
+            for i in range(min(6, max(1, delta))):
+                _draw_leaf(pygame, screen, koala_x + 38 + i * 16, koala_y + 8 + (i % 2) * 10, 1.1)
+        if state.mood == "cranky boomerang toss":
+            _draw_boomerang(pygame, screen, koala_x + 60, koala_y, tick)
+        speech = "Nom nom, Bluetooth eucalyptus snack." if delta > 0 else "Oi! Three minutes dry. Chuckin' the boomerang, mate." if state.mood == "cranky boomerang toss" else "Patrolling the branch for passive BLE leaves."
+        bubble = pygame.Rect(int(w * 0.48), int(h * 0.16), int(w * 0.45), int(h * 0.16))
+        pygame.draw.rect(screen, (245, 238, 165), bubble, border_radius=24)
+        pygame.draw.rect(screen, (42, 112, 55), bubble, 3, border_radius=24)
+        for idx, chunk in enumerate([speech[:48], speech[48:96]]):
+            if chunk:
+                screen.blit(small_font.render(chunk, True, (21, 52, 29)), (bubble.x + 18, bubble.y + 18 + idx * 24))
+        _draw_panel(pygame, screen, font, small_font, state, stats, delta, w, h)
+        safety = small_font.render("Passive Eucalyptus log visualization only. Press Q to return.", True, (184, 222, 192))
+        screen.blit(safety, (int(w * 0.05), h - 34))
+        pygame.display.flip()
+        tick += 1
+        clock.tick(fps)
+
+
 def run_cli(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Eucalyptus Mode: Koalagotchi always-on Bluetooth scanner and logger screen")
     parser.add_argument("--capture-dir", action="append", default=[], help="Directory to watch for passive Eucalyptus Bluetooth logs. May be repeated.")
     parser.add_argument("--idle-seconds", type=float, default=DEFAULT_IDLE_SECONDS, help="Seconds without new observations before contentment drops and boomerang grumbles begin.")
     parser.add_argument("--tick-seconds", type=float, default=DEFAULT_TICK_SECONDS, help="Screen refresh interval.")
-    parser.add_argument("--once", action="store_true", help="Render one frame and exit; used by smoke checks.")
+    parser.add_argument("--terminal", action="store_true", help="Use terminal renderer instead of full-color graphical renderer.")
+    parser.add_argument("--windowed", action="store_true", help="Run graphical mode in a window instead of fullscreen.")
+    parser.add_argument("--width", type=int, default=800)
+    parser.add_argument("--height", type=int, default=480)
+    parser.add_argument("--once", action="store_true", help="Render one terminal frame and exit; used by smoke checks.")
     args = parser.parse_args(argv)
     capture_dirs = [Path(item) for item in args.capture_dir] if args.capture_dir else DEFAULT_CAPTURE_DIRS
-    return run_interactive(capture_dirs=capture_dirs, idle_seconds=args.idle_seconds, tick_seconds=args.tick_seconds, once=args.once)
+    if args.terminal or args.once:
+        return run_terminal(capture_dirs=capture_dirs, idle_seconds=args.idle_seconds, tick_seconds=args.tick_seconds, once=args.once)
+    try:
+        return run_graphical(capture_dirs=capture_dirs, idle_seconds=args.idle_seconds, tick_seconds=args.tick_seconds, fullscreen=not args.windowed, width=args.width, height=args.height)
+    except JungleMenuUnavailable as exc:
+        print(f"Full-color Eucalyptus Mode unavailable, falling back to terminal renderer: {exc}")
+        return run_terminal(capture_dirs=capture_dirs, idle_seconds=args.idle_seconds, tick_seconds=args.tick_seconds)
 
 
 if __name__ == "__main__":
