@@ -1,45 +1,79 @@
-# Didgeridoo LoRa Setup — Phase 1
+# Didgeridoo LoRa / Meshtastic Node Setup — Phase 1
 
-Didgeridoo is the KoalaByte Blue setup layer for the optional Semtech SX1262 / DX-LR30 433 MHz SPI LoRa board.
+Didgeridoo is the KoalaByte Blue setup layer for a **USB-C Meshtastic LoRa node board**. This replaces the earlier direct bare-SPI SX1262-first layout.
 
-This Phase 1 integration is deliberately limited to hardware setup, local checks, dependency installation, SPI enablement, menu visibility, a Meshtastic connection profile, and Meshtastic node information. It does not add raw radio sending features.
+The preferred KoalaByte Blue wiring is now:
+
+```text
+Raspberry Pi 3B+ USB-A port
+   → short USB-A to USB-C data cable
+   → Meshtastic LoRa node board USB-C port
+```
+
+The six KoalaByte Blue front buttons stay on the 40-pin GPIO ribbon/breakout. The Meshtastic LoRa board does **not** need Raspberry Pi GPIO pins when it is used over USB serial, TCP, or BLE through the official Meshtastic CLI.
+
+Phase 1 is deliberately limited to hardware setup, local checks, dependency installation, menu visibility, a Meshtastic connection profile, and Meshtastic node information. It does not add raw radio sending features.
 
 ## Meshtastic compatibility
 
-KoalaByte Blue has two different LoRa paths:
+KoalaByte Blue now treats Didgeridoo as a Meshtastic-node control/setup layer:
 
-1. **Direct SX1262 SPI board path** — the pictured DX-LR30/SX1262 board is wired directly to the Raspberry Pi over SPI. Phase 1 checks wiring, dependencies, and SPI readiness only.
-2. **Meshtastic node path** — KoalaByte Blue can connect to a separate Meshtastic firmware node over serial, TCP, or BLE and query information through the official Meshtastic CLI.
+1. **Primary path — USB-C Meshtastic node board**: plug the board into the Pi with a USB-A to USB-C data cable. The node should appear as `/dev/ttyUSB*` or `/dev/ttyACM*`.
+2. **Secondary path — BLE Meshtastic node**: pair/configure the node from the Meshtastic phone app, then let KoalaByte Blue connect to the same node using the saved Didgeridoo BLE profile.
+3. **Optional/legacy path — direct bare SX1262 SPI radio**: kept as documentation only for future lab experiments. It is not the preferred KoalaByte Blue build path anymore.
 
 Meshtastic does not use a normal web-app username/password login for this local CLI workflow. Didgeridoo's `meshtastic-login` command saves a local connection profile so KoalaByte Blue knows which Meshtastic node to talk to.
 
-No channel URL, PSK, or password is stored by this Phase 1 profile.
+No channel URL, PSK, password, private key, or QR-code secret is stored by this Phase 1 profile.
 
 ## Hardware target
 
-- Board: DX-LR30 / Semtech SX1262 SPI LoRa module
-- Band: 410–475 MHz / 433 MHz module variant
-- Raspberry Pi: Raspberry Pi 3B+
-- Connection: 40-pin GPIO breakout over SPI0
-- Antenna: 433 MHz antenna attached to the SX1262 SMA connector before the board is powered for radio use
+- Board: USB-C Meshtastic LoRa node board
+- Host: Raspberry Pi 3B+
+- Connection: USB-A to USB-C **data** cable
+- Pi GPIO usage: none for LoRa/Meshtastic node mode
+- LoRa antenna: board-matched LoRa antenna connected to the Meshtastic node's LoRa antenna connector
+- ESP32-S3 antenna: separate 2.4 GHz antenna connected to the ESP32-S3 DualEye IPEX1/U.FL path
 
-## GPIO map
+## KoalaByte Blue antenna plan
 
-The six KoalaByte Blue front buttons stay on their existing GPIO pins. Didgeridoo uses SPI0 and three control pins that do not overlap the button layout.
+KoalaByte Blue should now use two different external antennas:
 
-| DX-LR30 / SX1262 pin | Raspberry Pi signal | Physical pin |
-|---|---|---:|
-| SCK / SCLK | GPIO11 / SPI0 SCLK | 23 |
-| MISO / SDO | GPIO9 / SPI0 MISO | 21 |
-| MOSI / SDI | GPIO10 / SPI0 MOSI | 19 |
-| NSS / CS / NSEL | GPIO8 / SPI0 CE0 | 24 |
-| RESET / NRST | GPIO22 | 15 |
-| BUSY | GPIO24 | 18 |
-| DIO1 / IRQ | GPIO25 | 22 |
-| GND | Ground | 20 or 25 |
-| VCC | 3.3V if the board header is marked 3V3; VIN/5V only if the carrier board label explicitly supports it | 17 for 3.3V |
+| Case antenna position | Connects to | Antenna type | Notes |
+|---|---|---|---|
+| Antenna 1 | USB-C Meshtastic LoRa node board | LoRa antenna matched to the board frequency, such as 433 MHz, 868 MHz, or 915 MHz | Do not use a 2.4 GHz Wi-Fi/BLE antenna here. Match the node's region/frequency. |
+| Antenna 2 | ESP32-S3 DualEye IPEX1/U.FL connector | 2.4 GHz Wi-Fi/Bluetooth antenna | Use SMA/RP-SMA bulkhead to IPEX1/U.FL pigtail as appropriate. |
+
+Do **not** connect the LoRa antenna to the ESP32-S3.
+Do **not** connect the ESP32-S3 2.4 GHz antenna to the LoRa/Meshtastic board.
+Do **not** power or use the LoRa node without its correct LoRa antenna attached.
+
+## USB wiring
+
+```text
+Raspberry Pi 3B+ USB-A
+   → short USB-A to USB-C data cable
+   → USB-C Meshtastic LoRa node
+```
+
+After plugging it in, check:
+
+```bash
+lsusb
+ls /dev/ttyUSB*
+ls /dev/ttyACM*
+```
+
+Common serial ports:
+
+```text
+/dev/ttyUSB0
+/dev/ttyACM0
+```
 
 ## Existing six button map
+
+The six buttons remain on the 40-pin GPIO cable and do not conflict with the USB Meshtastic node.
 
 | Button | Function | GPIO | Physical pin |
 |---:|---|---:|---:|
@@ -54,13 +88,13 @@ All button grounds share a ground bus, usually physical pin 39.
 
 ## Flash/install behavior
 
-The normal KoalaByte Blue helper already runs system package setup and then the Pi companion installer. Phase 1 adds SPI/Meshtastic dependencies to that flow so a normal install can prepare the Pi for Didgeridoo.
+The normal KoalaByte Blue helper already runs system package setup and then the Pi companion installer. Phase 1 adds the Meshtastic CLI dependency to that flow so a normal install can prepare the Pi for Didgeridoo.
 
 ```bash
 bash scripts/flash_all_components.sh --all
 ```
 
-The setup helper enables the Pi SPI interface when `raspi-config` is available. Reboot after first install if `/dev/spidev0.0` does not appear immediately.
+SPI support remains optional for future direct-SX1262 lab work, but it is not required when using a full USB-C Meshtastic node board.
 
 ## Local Didgeridoo checks
 
@@ -71,10 +105,16 @@ PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py status
 
 ## Meshtastic login profiles
 
-Serial USB node:
+USB serial node:
 
 ```bash
 PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py meshtastic-login --connection serial --port /dev/ttyUSB0 --verify
+```
+
+Alternative USB CDC serial node:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py meshtastic-login --connection serial --port /dev/ttyACM0 --verify
 ```
 
 TCP/network node:
@@ -109,18 +149,46 @@ PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py meshtastic-info
 
 The Meshtastic info command only queries a connected Meshtastic node. It does not send a mesh text message.
 
+## Phone app workflow
+
+The Meshtastic phone app and KoalaByte Blue both talk to the Meshtastic node. The phone is not the LoRa radio for KoalaByte Blue.
+
+Typical workflow:
+
+1. Pair/configure the Meshtastic node with the phone app over Bluetooth.
+2. Confirm the node's region/frequency and antenna are correct.
+3. Disconnect or close the phone app if the node supports only one active client connection.
+4. Connect KoalaByte Blue to the node by USB serial, TCP, or BLE using Didgeridoo.
+
+## GPS note
+
+The USB-C Meshtastic node may support GPS only if that specific board includes a GNSS/GPS receiver or accepts an external GPS module. The LoRa radio chip itself is not GPS.
+
+Look for board/listing terms such as:
+
+- GPS
+- GNSS
+- L76K
+- LC76G
+- NEO-6M
+- NEO-M8N
+- ATGM336H
+- PPS
+
+If the node has no GPS, it can still use phone-provided location, fixed position settings, or an external GPS module depending on the board and Meshtastic configuration.
+
 ## Phase 1 boundaries
 
 Included:
 
 - Didgeridoo menu entry
 - LoRa / Mesh Tools menu group
-- SPI package dependency
-- Meshtastic Python dependency
-- Pi SPI enablement helper
+- Meshtastic Python/CLI dependency
 - Local status and manifest artifacts
 - Local Meshtastic connection profile / login helper
 - Meshtastic node info checks
+- USB-C Meshtastic node wiring guidance
+- Two-antenna KoalaByte Blue routing plan
 
 Not included yet:
 
