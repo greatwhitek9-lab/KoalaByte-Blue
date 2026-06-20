@@ -7,7 +7,7 @@ This repo keeps the current dongle-only, no-custom-PCB KoalaByte Blue software s
 3. **nRF Connect SDK / Zephyr firmware for the Nordic nRF52840 Dongle KoalaByte Lab profile** under `firmware/nrf52840-dongle-ear-tag-tx-lab/`.
 4. **Koala Konnect** as an alternate nRF52840 Dongle USB HCI adapter profile.
 5. **Pre-Boot Dongle Mode Selector** to choose KoalaByte Blue Lab Mode or Koala Konnect Mode before the normal boot splash/menu flow.
-6. **Koala Kan Kommander InnoMaker CAN support** through the Pi companion.
+6. **Koala Kan Kommander support for the InnoMaker USB to CAN Converter kit** through the Pi companion.
 
 Safety boundary: this code is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, synthetic owned-device lab advertising, scoped CAN observation, completely isolated CAN bench simulator testing, and safe lab validation only. Koala Kry remains offline metadata replay/RF bench review only. Koala Kan Kommander transmit requires both `--bench-simulator` and `--confirm-transmit`.
 
@@ -37,7 +37,7 @@ bash scripts/flash_all_components.sh --all --build-only
 bash scripts/flash_all_components.sh --all --smoke
 ```
 
-The helper runs the repo readiness check, installs the Pi companion when requested, checks/prepares `west` and `nrfutil` before nRF workflows, flashes ESP32 when requested, builds/packages/flashes the nRF52840 Dongle when requested, and writes a Koala Kan Kommander InnoMaker manifest check. If `NRF_DFU_PORT` is not set, the nRF helper creates the DFU ZIP but does not flash.
+The helper runs the repo readiness check, installs the Pi companion when requested, checks/prepares `west` and `nrfutil` before nRF workflows, flashes ESP32 when requested, builds/packages/flashes the nRF52840 Dongle when requested, and writes a Koala Kan Kommander manifest check for the InnoMaker USB to CAN Converter kit. If `NRF_DFU_PORT` is not set, the nRF helper creates the DFU ZIP but does not flash.
 
 The same flow now installs KillerKoala voice/TTS support through `scripts/setup_system_packages.sh` when system packages are enabled. Raspberry Pi OS installs `espeak-ng`, `espeak`, ALSA utilities/plugins, PulseAudio CLI utilities, PortAudio, and `python3-pyaudio`. Apple `say` is not installed on Raspberry Pi OS; it remains an automatic fallback only on macOS-style systems where Apple already provides it.
 
