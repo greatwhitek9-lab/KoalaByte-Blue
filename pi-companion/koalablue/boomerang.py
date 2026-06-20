@@ -9,6 +9,9 @@ identity details.
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import subprocess
 import time
 from dataclasses import asdict
 from pathlib import Path
@@ -34,6 +37,13 @@ DESCRIPTION = (
 SCOPE = "manual/public observation only; no RF scanning, network probing, MAC/IP IDs, or avoidance routing"
 XP_REWARD_PER_LOG = 10
 DEFAULT_XP_PATH = Path("logs/killerkoala/xp_state.json")
+DEFAULT_ALERT_LOG = Path("logs/killerkoala/boomerang_alerts.jsonl")
+
+KILLERKOALA_BOOMERANG_ALERTS = {
+    "boomerang_start": "Boomerang is live, mate. Camera awareness logbook is open. Notes only, no dodgy scanning.",
+    "camera_found": "Camera found and logged, mate. Boomerang tagged it clean.",
+    "xp_gain": "killerkoala gained XP. Another notch in the gumtree.",
+}
 
 
 def _rank_for_xp(xp: int) -> str:
@@ -47,6 +57,12 @@ def _rank_for_xp(xp: int) -> str:
 def _write_json(path: Path, payload: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _append_jsonl(path: Path, payload: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, sort_keys=True) + "\n")
 
 
 def _load_xp(path: Path = DEFAULT_XP_PATH) -> dict:
@@ -66,6 +82,63 @@ def _load_xp(path: Path = DEFAULT_XP_PATH) -> dict:
         }
     except Exception:
         return {"xp": 0, "rank": _rank_for_xp(0), "successful_modules": 0, "failed_modules": 0, "last_module": "", "updated_at": time.time(), "boomerang_logs": 0}
+
+
+def _resolve_tts_command(preferred: Optional[str] = None) -> Optional[str]:
+    candidates = [preferred] if preferred else []
+    candidates.extend(["espeak-ng", "espeak", "say"])
+    for candidate in candidates:
+        if candidate and shutil.which(candidate):
+            return candidate
+    return None
+
+
+def speak_killerkoala_alert(
+    event: str,
+    *,
+    context: Optional[dict] = None,
+    tts_enabled: Optional[bool] = None,
+    alert_log: str | Path = DEFAULT_ALERT_LOG,
+    tts_command: Optional[str] = None,
+) -> str:
+    """Emit a separate KillerKoala alert for a Boomerang event.
+
+    Audio is optional and controlled by KOALABYTE_TTS=1 or tts_enabled=True.
+    The alert always prints and logs, even when a TTS engine is unavailable.
+    """
+
+    line = KILLERKOALA_BOOMERANG_ALERTS.get(event, f"killerkoala alert: {event}")
+    context = dict(context or {})
+    reward = context.get("xp_reward")
+    xp_after = context.get("xp_after")
+    rank = context.get("rank")
+    camera_label = context.get("camera_label")
+    local_asset_id = context.get("local_asset_id")
+
+    if event == "camera_found" and camera_label:
+        line = f"{line} {camera_label} is stored as {local_asset_id or 'a local asset'}."
+    if event == "xp_gain" and reward is not None:
+        line = f"{line} Plus {reward} XP. Total {xp_after}. Rank {rank}."
+
+    payload = {
+        "action": ACTION_NAME,
+        "event": event,
+        "line": line,
+        "context": context,
+        "timestamp": time.time(),
+        "verbal_alert": True,
+    }
+    _append_jsonl(Path(alert_log), payload)
+    print(f"killerkoala alert [{event}]: {line}")
+
+    enabled = tts_enabled if tts_enabled is not None else os.environ.get("KOALABYTE_TTS", "0") == "1"
+    command = _resolve_tts_command(tts_command) if enabled else None
+    if command:
+        try:
+            subprocess.run([command, line], check=False, timeout=6)
+        except Exception:
+            pass
+    return line
 
 
 def award_boomerang_xp(reward: int = XP_REWARD_PER_LOG, xp_path: str | Path = DEFAULT_XP_PATH) -> tuple[int, int, str]:
@@ -106,6 +179,7 @@ def _show_home(log_root: Path) -> None:
         f"Stored observations: {summary['count']}",
         f"XP reward: +{XP_REWARD_PER_LOG} per successfully logged camera record",
         f"killerkoala XP: {xp.get('xp', 0)} | Rank: {xp.get('rank', 'Noob')}",
+        "Verbal alerts: start | camera found/logged | XP gained",
         "Commands: add | list | export | help | quit",
     ]
     print(render_terminal_eucalyptus_card("Boomerang", rows, subtitle="camera awareness action"))
@@ -115,6 +189,7 @@ def _show_help() -> None:
     rows = [
         "Boomerang comes back with the details you recorded: local ID, visible markings, public source, location, mounting notes, and confidence.",
         f"killerkoala earns +{XP_REWARD_PER_LOG} XP for every camera record successfully logged through this action.",
+        "Separate killerkoala alerts fire when Boomerang starts, when a camera record is saved, and when XP is gained.",
         "Use add to enter one manually observed/public camera record.",
         "Use list to review stored records.",
         "Use export to write JSON and CSV reports.",
@@ -162,7 +237,26 @@ def _add_observation(log_root: Path) -> None:
         notes=notes,
     )
     path = append_observation(observation, log_root)
+    speak_killerkoala_alert(
+        "camera_found",
+        context={
+            "camera_label": observation.label,
+            "local_asset_id": observation.local_asset_id,
+            "observation_id": observation.observation_id,
+        },
+    )
     xp_before, xp_after, rank = award_boomerang_xp()
+    speak_killerkoala_alert(
+        "xp_gain",
+        context={
+            "xp_reward": XP_REWARD_PER_LOG,
+            "xp_before": xp_before,
+            "xp_after": xp_after,
+            "rank": rank,
+            "camera_label": observation.label,
+            "local_asset_id": observation.local_asset_id,
+        },
+    )
     rows = [
         f"Saved to: {path}",
         f"Local asset ID: {observation.local_asset_id}",
@@ -201,6 +295,7 @@ def _export_observations(log_root: Path) -> None:
 
 def run_interactive(log_root: str | Path = LOG_ROOT) -> int:
     root = Path(log_root)
+    speak_killerkoala_alert("boomerang_start", context={"log_root": str(root)})
     _show_home(root)
     while True:
         command = input("boomerang> ").strip().lower()
