@@ -1,4 +1,4 @@
-# KoalaByte Blue RevA17 Dongle-Only Production Package / RevA23 InnoMaker CAN Update
+# KoalaByte Blue RevA17 Dongle-Only Production Package / RevA24 Heltec Didgeridoo Update
 
 ## Current production target
 
@@ -10,13 +10,14 @@ Retained BLE hardware:
 Nordic nRF52840 USB Dongle / PCA10059 / NRF52840-DONGLE
 ```
 
-The build is **dongle-only** and **no-custom-PCB**. It uses off-the-shelf modules, short USB/JST wiring, M2.5 standoffs, a protected 2S 18650 power layer, the Seloky USB-C PD/QC 12 V trigger board, a 5 V buck converter, optional 3D printed enclosure parts, and the optional InnoMaker USB to CAN Converter kit for Koala Kan Kommander.
+The build is **dongle-only** and **no-custom-PCB**. It uses off-the-shelf modules, short USB/JST wiring, M2.5 standoffs, a protected 2S 18650 power layer, the Seloky USB-C PD/QC 12 V trigger board, a 5 V buck converter, optional 3D printed enclosure parts, the optional InnoMaker USB to CAN Converter kit for Koala Kan Kommander, and the optional Heltec / Meshtastic USB-C LoRa node for Didgeridoo.
 
 ## Architecture
 
 ```text
-Top antenna plate:      2x 2.4 GHz antennas
+Top antenna plate:      2x 2.4 GHz antennas + 1 smaller LoRa antenna opening
 Front/UI layer:         ESP32-S3 DualEye module, 2x round 1.28 in LCDs, mic path
+LoRa/Mesh layer:        Optional Heltec / Meshtastic USB-C LoRa node for Didgeridoo
 BLE/CAN service layer:  Nordic nRF52840 USB Dongle / PCA10059 + optional InnoMaker USB-to-CAN kit
 Main computer layer:    Raspberry Pi 3 Model B+
 Power layer:            2x protected 18650 cells, BMS/protection, Seloky USB-C PD/QC 12 V trigger, 5 V 3 A buck
@@ -33,7 +34,49 @@ Use only the current BOM:
 production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv
 ```
 
-The BOM includes the Raspberry Pi 3B+, ESP32-S3 DualEye, Nordic nRF52840 USB Dongle, six-button front panel, speaker, antennas, 2S protected 18650 power system, **Seloky USB-C PD Trigger Board Module PD/QC Decoy Fast Charge USB Type-C to 12V**, 5 V 3 A buck converter, cabling, fasteners, frame plates, optional printed enclosure parts, and the optional **InnoMaker USB to CAN Converter kit**.
+The BOM includes the Raspberry Pi 3B+, ESP32-S3 DualEye, Nordic nRF52840 USB Dongle, six-button front panel, speaker, antennas, 2S protected 18650 power system, **Seloky USB-C PD Trigger Board Module PD/QC Decoy Fast Charge USB Type-C to 12V**, 5 V 3 A buck converter, cabling, fasteners, frame plates, optional printed enclosure parts, the optional **InnoMaker USB to CAN Converter kit**, and the optional **Heltec / Meshtastic USB-C LoRa node** for Didgeridoo.
+
+## RevA24 Didgeridoo Heltec / Meshtastic node option
+
+Physical USB path:
+
+```text
+Raspberry Pi 3B+ USB host
+  -> short internal USB-A to USB-C data cable
+  -> Heltec / Meshtastic USB-C LoRa node
+```
+
+Mechanical and antenna requirements:
+
+1. The Heltec / Meshtastic node mounts internally in the USB service layer or side/rear service bay.
+2. The node connects to the Raspberry Pi by USB. Do not use Raspberry Pi GPIO for the USB Meshtastic node path.
+3. Add **three antenna openings** to the case/top antenna plate:
+   - 2.4 GHz antenna opening 1: Heltec / Meshtastic board Wi-Fi/Bluetooth antenna connector.
+   - 2.4 GHz antenna opening 2: ESP32-S3 DualEye IPEX1/U.FL Wi-Fi/Bluetooth antenna path.
+   - Smaller LoRa antenna opening 3: Heltec / Meshtastic board LoRa antenna connector.
+4. The smaller LoRa opening must be sized for the selected LoRa whip antenna, pigtail, or bulkhead hardware. Match the antenna frequency to the Heltec board/region, such as 433 MHz, 868 MHz, or 915 MHz.
+5. Do not connect a 2.4 GHz antenna to the LoRa connector. Do not connect the LoRa antenna to either 2.4 GHz connector.
+6. Do not share one 2.4 GHz antenna between the Heltec board and the ESP32-S3 DualEye.
+7. Keep LoRa coax separated from the two 2.4 GHz pigtails where practical and route all antenna leads away from the buck converter, 18650 battery wiring, fan motor, speaker magnet, CAN harness, and USB bundle.
+
+Recommended case/top-plate opening layout:
+
+```text
+Top / rear antenna area
+  [2.4 GHz hole] Heltec Wi-Fi/Bluetooth antenna
+  [2.4 GHz hole] ESP32-S3 DualEye Wi-Fi/Bluetooth antenna
+  [small LoRa hole] Heltec LoRa antenna
+```
+
+Software requirements:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py status
+PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py meshtastic-login --connection serial --port /dev/ttyUSB0 --verify
+PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py meshtastic-info
+```
+
+Didgeridoo Phase 1 is setup/status/profile only. It does not send raw LoRa packets or Meshtastic text messages.
 
 ## RevA23 InnoMaker Koala Kan Kommander option
 
@@ -112,6 +155,7 @@ Main retained companion features:
 - Koala Konnect optional external Bluetooth adapter mode for the USB Dongle.
 - Koala Mode Switcher Pi-side controller for preparing and selecting the dongle firmware profile.
 - Koala Kan Kommander passive InnoMaker USB-to-CAN status/listen/report workflow.
+- Didgeridoo Heltec / Meshtastic node setup, login profile, and node-info workflow.
 
 ## Flash-ready validation flow
 
@@ -125,7 +169,7 @@ Expected output:
 
 ```text
 KoalaByte Blue repo readiness check passed.
-Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, and Koala Kan Kommander InnoMaker CAN support.
+Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, Koala Kan Kommander InnoMaker CAN support, and Didgeridoo Meshtastic node setup.
 ```
 
 Primary all-component helper:
@@ -174,6 +218,7 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py inventory
 PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py status
 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status --xp 100
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
+PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py manifest
 ```
 
 ## nRF52840 Dongle build and DFU
@@ -299,14 +344,16 @@ python3 scripts/test_gpio_buttons.py
 - [ ] Pi boots without undervoltage warning.
 - [ ] nRF52840 Dongle enumerates over USB.
 - [ ] ESP32 DualEye boot animation and serial JSON are visible.
+- [ ] Heltec / Meshtastic node enumerates by USB as `/dev/ttyUSB*` or `/dev/ttyACM*` when connected.
+- [ ] Didgeridoo `status`, `meshtastic-login`, and `meshtastic-info` checks complete for the connected node.
 - [ ] Koala BlueZ inventory/status commands run.
 - [ ] Koala Kan Kommander detects the InnoMaker adapter as a SocketCAN interface such as `can0` when installed.
 - [ ] killerkoala voice preview returns an XP-scaled response.
 - [ ] eucalyptus writes passive BLE capture/log output under `/blecaptures` when enabled.
 - [ ] All six front buttons generate the expected GPIO events.
 - [ ] Button 3 short press emits `select`; Button 3 hold emits `shutdown`.
-- [ ] Battery, BMS, buck converter, switch, cable strain relief, and optional InnoMaker adapter mount pass inspection.
+- [ ] Battery, BMS, buck converter, switch, cable strain relief, antenna openings, optional Heltec node mount, and optional InnoMaker adapter mount pass inspection.
 
 ## Safety boundary
 
-KoalaByte Blue is for lawful educational research, defensive testing, owned-device lab work, authorized Bluetooth assessment, and scoped CAN observation only. Passive capture, local logging, synthetic owned-device lab advertising, Koala Mode Switcher DFU use, Koala Konnect host-adapter use, Koala Kan Kommander passive observation, and all Bluetooth/CAN activity must remain scoped to environments where you have permission.
+KoalaByte Blue is for lawful educational research, defensive testing, owned-device lab work, authorized Bluetooth assessment, scoped CAN observation, and authorized Meshtastic/LoRa node configuration only. Passive capture, local logging, synthetic owned-device lab advertising, Koala Mode Switcher DFU use, Koala Konnect host-adapter use, Koala Kan Kommander passive observation, Didgeridoo node setup/status, and all Bluetooth/CAN/LoRa activity must remain scoped to environments where you have permission.
