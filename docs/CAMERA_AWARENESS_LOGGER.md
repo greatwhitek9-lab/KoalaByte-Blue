@@ -8,6 +8,18 @@ It is intentionally **manual/public-observation only**.
 
 When selected from the KoalaByte menu, Boomerang stays open until the operator chooses `quit`, `q`, `back`, or `menu`.
 
+## XP reward
+
+killerkoala earns **+10 XP** for every camera record successfully logged through Boomerang.
+
+XP is awarded only after the record passes the manual/public-observation safety checks and is written to the local log. Rejected records do not earn XP.
+
+Boomerang writes XP to:
+
+```text
+logs/killerkoala/xp_state.json
+```
+
 ## What it does
 
 The logger stores rich, non-network identity details so manually found cameras are easier to track over time:
