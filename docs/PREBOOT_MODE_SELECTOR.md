@@ -14,7 +14,51 @@ Available choices:
    External USB HCI adapter mode. Replug the dongle into the phone or computer host USB port after switching.
 ```
 
-The selector is a Pi-side startup step. It does not change the Raspberry Pi bootloader. It runs before the KoalaByte Blue boot splash/menu flow and calls Koala Mode Switcher when a DFU port is available.
+The selector is a Pi-side startup step. It does not change the Raspberry Pi bootloader. It runs before the KillerKoala mode-aware welcome, KoalaByte Blue boot splash, and menu flow. It calls Koala Mode Switcher when a DFU port is available.
+
+## KillerKoala boot welcome
+
+After the selector records the selected mode, the normal startup wrapper runs:
+
+```text
+scripts/run_killerkoala_boot_welcome.py
+```
+
+KillerKoala speaks a different gruff Aussie cyberpunk welcome depending on the selected mode.
+
+Lab Mode line:
+
+```text
+G'day mate, KillerKoala is online. Lab Mode is loaded — clean scope, clean signals. Select a menu item to get started.
+```
+
+External Adaptor / Koala Konnect Mode line:
+
+```text
+G'day mate, KillerKoala is online. External adaptor mode is loaded — plug in the dongle and drive the stack. Select a menu item to get started.
+```
+
+The welcome reads `logs/preboot_mode_selection.json` first, then falls back to `logs/dongle_mode_state.json`. Spoken audio is on by default through `KOALABYTE_TTS=1`.
+
+Useful controls:
+
+```bash
+# Mute only speech while still logging the welcome
+KOALABYTE_TTS=0 bash scripts/koalabyte_blue_boot.sh
+
+# Disable the boot welcome entirely
+KILLERKOALA_BOOT_WELCOME=0 bash scripts/koalabyte_blue_boot.sh
+
+# Preview without audio
+PYTHONPATH=pi-companion python3 scripts/run_killerkoala_boot_welcome.py --mode koalabyte_lab --no-tts
+PYTHONPATH=pi-companion python3 scripts/run_killerkoala_boot_welcome.py --mode koala_konnect --no-tts
+```
+
+Welcome events are logged to:
+
+```text
+logs/killerkoala/boot_welcome_alerts.jsonl
+```
 
 ## Offline firmware cache on the Pi
 
@@ -109,20 +153,21 @@ Boot wrapper order:
 
 ```text
 1. Pre-boot dongle mode selector
-2. KoalaByte Blue boot splash
-3. KoalaByte Blue grouped menu
+2. KillerKoala mode-aware boot welcome
+3. KoalaByte Blue boot splash
+4. KoalaByte Blue grouped menu
 ```
 
 Useful environment variables:
 
 ```bash
-# Skip selector and continue to boot splash/menu
+# Skip selector and continue to boot welcome/splash/menu
 PREBOOT_SELECTOR=0 bash scripts/koalabyte_blue_boot.sh
 
 # Pick KoalaByte Blue Lab Mode without prompting
 PREBOOT_MODE=koalabyte_lab bash scripts/koalabyte_blue_boot.sh
 
-# Pick Koala Konnect Mode without prompting
+# Pick Koala Konnect / External Adaptor Mode without prompting
 PREBOOT_MODE=koala_konnect bash scripts/koalabyte_blue_boot.sh
 
 # Record selected mode but do not flash the dongle
