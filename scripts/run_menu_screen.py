@@ -47,8 +47,19 @@ def run_boomerang_action(_item: MenuItem) -> None:
     boomerang.run_interactive()
 
 
+def run_eucalyptus_mode_action(_item: MenuItem) -> None:
+    from koalablue.eucalyptus_cyberpet import JungleMenuUnavailable, run_graphical, run_terminal
+
+    try:
+        run_graphical(fullscreen=True)
+    except JungleMenuUnavailable as exc:
+        print(f"Full-color Eucalyptus Mode unavailable, falling back to terminal renderer: {exc}")
+        run_terminal()
+
+
 def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
     menu.register_handler("boomerang", run_boomerang_action)
+    menu.register_handler("eucalyptus_mode", run_eucalyptus_mode_action)
 
 
 def make_menu() -> MenuSelectionScreen:
