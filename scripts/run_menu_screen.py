@@ -12,6 +12,8 @@ import os
 import time
 from typing import Optional
 
+os.environ.setdefault("KOALABYTE_TTS", "1")
+
 from koalablue.menu_ui import MenuEvent, MenuItem, MenuSelectionScreen
 
 try:
@@ -39,7 +41,7 @@ def selected_quit(event: Optional[MenuEvent]) -> bool:
 
 
 def run_boomerang_action(_item: MenuItem) -> None:
-    from koalablue import boomerang
+    from koalblue import boomerang
 
     boomerang.KILLERKOALA_BOOMERANG_ALERTS["boomerang_start"] = "BOOMerang!"
     boomerang.run_interactive()
