@@ -7,7 +7,8 @@
     "bluez_module_deck": "Outback BlueZ Module Deck",
     "dongle_mode_switcher": "Koala Mode Switcher",
     "pre_boot_mode_selector": "Pre-Boot Dongle Mode Selector",
-    "kan_plugin": "Koala Kan Kommander"
+    "kan_plugin": "Koala Kan Kommander",
+    "camera_awareness_logger": "Boomerang"
   },
   "killerkoala_companion": {
     "display_name": "killerkoala",
@@ -34,6 +35,16 @@
     "mode": "passive_ble_observation",
     "wigle_upload_enabled": false,
     "wigle_upload_interval_seconds": 1800
+  },
+  "boomerang": {
+    "display_name": "Boomerang",
+    "description": "Manual camera-awareness logbook. Records public/visible camera details, assigns local IDs, exports reports, and stays open until the operator quits.",
+    "enabled": true,
+    "mode": "manual_public_camera_awareness_logbook",
+    "output_dir": "logs/camera_awareness",
+    "interactive_stays_open_until_quit": true,
+    "allowed_identity_fields": ["local observation ID", "local asset ID", "location text", "latitude", "longitude", "public agency", "public source URL", "visible markings", "pole or mount ID", "public asset tag", "visible make/model", "mounting description", "facing direction", "photo reference", "confidence", "notes"],
+    "blocked_identity_fields": ["MAC address", "BSSID", "SSID", "IP address", "Bluetooth address", "RF fingerprint", "probe response", "network scan output", "avoidance routing"]
   },
   "urban_poaching": {
     "display_name": "Urban Poaching",
@@ -185,7 +196,7 @@
     },
     "touch": {"enabled": true, "row_height_px": 64, "long_press_seconds": 0.75, "scroll_threshold_px": 18},
     "groups": ["Bluetooth Tools", "CAN Bench Tools", "Reports & Reviews", "System / Companion"],
-    "items": ["Scan", "Summary", "Show Devices", "eucalyptus Status", "eucalyptus Start", "eucalyptus Stop", "eucalyptus Restart", "eucalyptus Upload Status", "Koala Kapture", "Koala Kry", "Koala Kry RF Review", "Ear Tag", "KoalaByte Lab", "Koala Mode Switcher", "Koala Kan Kommander", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Dropbear Discovery Sweep", "Billabong HCI Watch", "Kookaburra Safe Nest Run", "KillerKoala Voice", "Urban Poaching", "Buttons", "Level / Status", "Report", "Wake killerkoala", "Authorized BLE Inventory", "GATT Readiness Checklist", "Pairing Security Review", "Lab Beacon Plan", "Packet Capture Notes", "Defensive Lab Report", "Restricted Placeholder", "Settings", "Lab", "Shutdown", "Quit"]
+    "items": ["Scan", "Summary", "Show Devices", "eucalyptus Status", "eucalyptus Start", "eucalyptus Stop", "eucalyptus Restart", "eucalyptus Upload Status", "Koala Kapture", "Koala Kry", "Koala Kry RF Review", "Ear Tag", "KoalaByte Lab", "Koala Mode Switcher", "Koala Kan Kommander", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Dropbear Discovery Sweep", "Billabong HCI Watch", "Kookaburra Safe Nest Run", "that’s not a knife", "KillerKoala Voice", "Urban Poaching", "Buttons", "Level / Status", "Report", "Boomerang", "Wake killerkoala", "Authorized BLE Inventory", "GATT Readiness Checklist", "Pairing Security Review", "Lab Beacon Plan", "Packet Capture Notes", "Defensive Lab Report", "Restricted Placeholder", "Settings", "Lab", "Shutdown", "Quit"]
   },
   "capture_dir": "/blecaptures",
   "scan_window_seconds": 8.0,
