@@ -8,6 +8,38 @@ It is intentionally **manual/public-observation only**.
 
 When selected from the KoalaByte menu, Boomerang stays open until the operator chooses `quit`, `q`, `back`, or `menu`.
 
+## KillerKoala verbal alerts
+
+Boomerang fires three separate KillerKoala alerts:
+
+| Event | Alert purpose |
+|---|---|
+| `boomerang_start` | Plays when Boomerang starts. |
+| `camera_found` | Plays after a manually observed camera record is successfully saved. |
+| `xp_gain` | Plays separately after killerkoala XP is awarded. |
+
+The default lines are:
+
+```text
+boomerang_start: Boomerang is live, mate. Camera awareness logbook is open. Notes only, no dodgy scanning.
+camera_found: Camera found and logged, mate. Boomerang tagged it clean.
+xp_gain: killerkoala gained XP. Another notch in the gumtree.
+```
+
+Alerts always print and log to:
+
+```text
+logs/killerkoala/boomerang_alerts.jsonl
+```
+
+Audio text-to-speech is optional. Enable it on the Pi with:
+
+```bash
+KOALABYTE_TTS=1 PYTHONPATH=pi-companion python3 scripts/run_boomerang.py
+```
+
+Boomerang will try `espeak-ng`, `espeak`, or `say` if available. Without a TTS engine, the alerts still appear on screen and in the alert log.
+
 ## XP reward
 
 killerkoala earns **+10 XP** for every camera record successfully logged through Boomerang.
