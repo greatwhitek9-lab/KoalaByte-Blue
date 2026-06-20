@@ -10,8 +10,9 @@ production/RevA17-dongle-only/
 
 Current production references:
 
-- `production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv` - current complete dongle-only BOM with Seloky 12 V PD/QC trigger board and optional InnoMaker USB-to-CAN kit for Koala Kan Kommander.
-- `production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md` - current production, assembly, power, validation, and RevA23 InnoMaker CAN guide.
+- `production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv` - current complete dongle-only BOM using a 2x18650 2S battery pack, 2S BMS, 5 A fuse, switch, 5 V buck converter, regulated 5 V rails, and optional InnoMaker USB-to-CAN kit for Koala Kan Kommander.
+- `production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md` - current production, assembly, validation, and RevA23 InnoMaker CAN guide.
+- `production/RevA17-dongle-only/BATTERY_POWER_2S_18650.md` - current battery-power production guide for the 2x18650 series pack, 2S BMS, fuse, switch, 5 V buck, and rails.
 - `production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv` - safety, bring-up, and functional test record template.
 
 ## Current top-level docs
@@ -21,7 +22,7 @@ Current production references:
 - `docs/ORDERABLE_PARTS_LIST.md` - current orderable hardware list.
 - `docs/PRODUCTION_FILES.md` - this current production index.
 - `docs/THEME_AND_MENU_SYSTEM.md` - consolidated current RevA23 theme, boot-splash, and menu guide.
-- `docs/POWER_UPDATE_REVA2.md` - Seloky trigger and 5 V buck validation guide.
+- `docs/POWER_UPDATE_REVA2.md` - legacy Seloky trigger and 5 V buck validation guide; use the RevA17 battery guide for the current battery-powered production path.
 - `docs/NRF52840_DONGLE_FLASHING.md` - nRF52840 Dongle / PCA10059 Zephyr build and DFU guide.
 - `docs/KOALA_KAN_KOMMANDER_REVA22.md` - Koala Kan Kommander InnoMaker USB-to-CAN guide.
 - `docs/KOALA_MODE_SWITCHER_REVA21.md` - Koala Mode Switcher guide.
@@ -48,11 +49,15 @@ Current production references:
 - `scripts/run_koala_kan_kommander.py` - Koala Kan Kommander CLI runner.
 - `.github/workflows/koalabyte-blue-ci.yml` - CI workflow using the readiness check.
 
-No custom PCB is required. The build uses commercially available development boards/modules, USB cabling, standoffs, a protected battery/power system, optional InnoMaker USB-to-CAN accessory hardware, approved firmware theme assets, and an open-frame stacked layout.
+No custom PCB is required. The build uses commercially available development boards/modules, USB cabling, standoffs, a protected 2S battery/power system, optional InnoMaker USB-to-CAN accessory hardware, approved firmware theme assets, and an open-frame stacked layout.
 
 ## RevA23 CAN mechanical rule
 
 The current Koala Kan Kommander physical option is the InnoMaker USB to CAN Converter kit. Do not use or reintroduce the earlier circular CAN panel port in RevA23 case notes or renderings. Use an internal mount or rectangular side/rear service-bay cutout with strain relief.
+
+## Battery power mechanical rule
+
+The current production path is battery powered. Leave internal clearance for two 18650 cells, 2S BMS/protection board, inline 5 A fuse, main switch, 5 V buck converter, +5 V rail, GND rail, and strain relief. Do not route raw 2S battery voltage to Pi GPIO, ESP32 GPIO, button wiring, USB devices, or CAN wiring.
 
 ## Cleanup rule
 
@@ -68,4 +73,5 @@ The repository is considered current only when:
 4. The nRF52840 Dongle Zephyr project wiring and DFU helpers are present.
 5. Optional Koala Kan Kommander files remain present and passive by default.
 6. `scripts/flash_all_components.sh --all` is documented as the primary all-component helper.
-7. Removed legacy production packages and legacy power/theme docs are not reintroduced.
+7. The battery-powered RevA17 production guide and BOM remain aligned.
+8. Removed legacy production packages and legacy theme docs are not reintroduced.
