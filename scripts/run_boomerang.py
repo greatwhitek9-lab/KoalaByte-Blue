@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-from koalablue.boomerang import run_cli
+from koalablue import boomerang
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_cli())
+    boomerang.KILLERKOALA_BOOMERANG_ALERTS["boomerang_start"] = "BOOMerang!"
+    raise SystemExit(boomerang.run_cli())
