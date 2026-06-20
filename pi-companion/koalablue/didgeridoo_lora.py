@@ -15,6 +15,7 @@ MODULE_NAME = "KoalaByte Blue Didgeridoo LoRa Setup"
 DEFAULT_OUTPUT_DIR = Path("logs/didgeridoo")
 DEFAULT_SPI_DEVICE = "/dev/spidev0.0"
 DEFAULT_MESHTASTIC_PORT = "/dev/ttyUSB0"
+DEFAULT_PROFILE_PATH = Path("logs/didgeridoo/meshtastic_login.json")
 
 PIN_MAP = {
     "sck": {"gpio": 11, "physical_pin": 23, "signal": "SPI0 SCLK"},
@@ -47,6 +48,7 @@ class DidgeridooStatus:
     spidev_python_available: bool
     meshtastic_python_available: bool
     meshtastic_cli_available: bool
+    meshtastic_profile_present: bool
     pin_map: Dict[str, Dict[str, object]]
     button_pin_map: Dict[str, Dict[str, object]]
     timestamp: float
@@ -77,18 +79,65 @@ def _run_command(args: List[str], timeout: float = 8.0) -> Dict[str, object]:
         return {"command": args, "returncode": 124, "stdout": exc.stdout or "", "stderr": "command timed out"}
 
 
+def _profile_path(profile_path: str | Path = DEFAULT_PROFILE_PATH) -> Path:
+    return Path(profile_path)
+
+
+def load_meshtastic_profile(profile_path: str | Path = DEFAULT_PROFILE_PATH) -> Dict[str, object]:
+    path = _profile_path(profile_path)
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def save_meshtastic_profile(profile: Dict[str, object], profile_path: str | Path = DEFAULT_PROFILE_PATH) -> Dict[str, object]:
+    path = _profile_path(profile_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(profile, indent=2, sort_keys=True), encoding="utf-8")
+    return {**profile, "profile_path": str(path)}
+
+
+def build_meshtastic_connection_args(
+    port: Optional[str] = None,
+    host: Optional[str] = None,
+    ble: Optional[str] = None,
+    profile_path: str | Path = DEFAULT_PROFILE_PATH,
+) -> List[str]:
+    if host:
+        return ["--host", host]
+    if ble:
+        return ["--ble", ble]
+    if port:
+        return ["--port", port]
+
+    profile = load_meshtastic_profile(profile_path)
+    connection_type = str(profile.get("connection_type", "serial"))
+    if connection_type == "tcp" and profile.get("host"):
+        return ["--host", str(profile["host"])]
+    if connection_type == "ble" and profile.get("ble"):
+        return ["--ble", str(profile["ble"])]
+    if profile.get("port"):
+        return ["--port", str(profile["port"])]
+    return ["--port", DEFAULT_MESHTASTIC_PORT]
+
+
 def manifest(output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> Dict[str, object]:
     root = ensure_output_dir(output_dir)
     data = {
         "display_name": DISPLAY_NAME,
         "module_name": MODULE_NAME,
-        "revision": "Phase1_Setup_Status_Only",
-        "scope": "SX1262 hardware setup, SPI dependency checks, menu integration, and Meshtastic node information only",
+        "revision": "Phase1_Setup_Status_Login_Only",
+        "scope": "SX1262 hardware setup, SPI dependency checks, menu integration, Meshtastic node login profile, and Meshtastic node information only",
         "hardware_target": {
             "module": "DX-LR30 / Semtech SX1262 SPI LoRa board",
             "band_note": "410-475 MHz / 433 MHz module variant",
             "host": "Raspberry Pi 3B+ over 40-pin GPIO breakout",
             "antenna": "433 MHz antenna on the SX1262 SMA connector",
+        },
+        "meshtastic_compatibility": {
+            "direct_sx1262_spi": "raw LoRa hardware checks only in Phase 1",
+            "compatible_path": "connect KoalaByte Blue to a Meshtastic firmware node by serial, TCP, or BLE and query it with the official meshtastic CLI",
+            "login_model": "local connection profile; Meshtastic does not use a KoalaByte username/password login",
         },
         "safe_boundaries": {
             "raw_radio_sending": False,
@@ -98,7 +147,7 @@ def manifest(output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> Dict[str, object]:
         },
         "pin_map": PIN_MAP,
         "button_pin_map": BUTTON_PINS,
-        "commands": ["manifest", "status", "meshtastic-info"],
+        "commands": ["manifest", "status", "meshtastic-login", "meshtastic-profile", "meshtastic-logout", "meshtastic-info"],
     }
     path = root / "didgeridoo_manifest.json"
     path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
@@ -106,7 +155,7 @@ def manifest(output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> Dict[str, object]:
     return data
 
 
-def status(spi_device: str = DEFAULT_SPI_DEVICE, output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> Dict[str, object]:
+def status(spi_device: str = DEFAULT_SPI_DEVICE, output_dir: str | Path = DEFAULT_OUTPUT_DIR, profile_path: str | Path = DEFAULT_PROFILE_PATH) -> Dict[str, object]:
     root = ensure_output_dir(output_dir)
     status_obj = DidgeridooStatus(
         display_name=DISPLAY_NAME,
@@ -115,30 +164,103 @@ def status(spi_device: str = DEFAULT_SPI_DEVICE, output_dir: str | Path = DEFAUL
         spidev_python_available=_spec_available("spidev"),
         meshtastic_python_available=_spec_available("meshtastic"),
         meshtastic_cli_available=shutil.which("meshtastic") is not None,
+        meshtastic_profile_present=_profile_path(profile_path).exists(),
         pin_map=PIN_MAP,
         button_pin_map=BUTTON_PINS,
         timestamp=time.time(),
     )
     data = asdict(status_obj)
     data["raspi_config_hint"] = "SPI should be enabled by scripts/setup_system_packages.sh when raspi-config is available. Reboot if /dev/spidev0.0 is missing after first install."
+    data["meshtastic_login_hint"] = "Run scripts/run_didgeridoo.py meshtastic-login to save a local serial/TCP/BLE connection profile."
     path = root / "didgeridoo_status.json"
     path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
     data["artifact_path"] = str(path)
     return data
 
 
-def meshtastic_info(port: str = DEFAULT_MESHTASTIC_PORT, host: Optional[str] = None, output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> Dict[str, object]:
+def meshtastic_login(
+    connection_type: str = "serial",
+    port: str = DEFAULT_MESHTASTIC_PORT,
+    host: Optional[str] = None,
+    ble: Optional[str] = None,
+    label: str = "KoalaByte Blue Mesh Node",
+    verify: bool = False,
+    output_dir: str | Path = DEFAULT_OUTPUT_DIR,
+    profile_path: str | Path = DEFAULT_PROFILE_PATH,
+) -> Dict[str, object]:
     root = ensure_output_dir(output_dir)
-    if host:
-        args = ["meshtastic", "--host", host, "--info"]
-    else:
-        args = ["meshtastic", "--port", port, "--info"]
-    result = _run_command(args, timeout=15.0)
+    if connection_type not in {"serial", "tcp", "ble"}:
+        raise ValueError("connection_type must be serial, tcp, or ble")
+    profile = {
+        "display_name": DISPLAY_NAME,
+        "label": label,
+        "connection_type": connection_type,
+        "port": port if connection_type == "serial" else None,
+        "host": host if connection_type == "tcp" else None,
+        "ble": ble if connection_type == "ble" else None,
+        "created_at": time.time(),
+        "note": "Local Meshtastic connection profile only. No username/password or channel secrets are stored here.",
+    }
+    saved = save_meshtastic_profile(profile, profile_path=profile_path)
+    data: Dict[str, object] = {"profile": saved, "verified": False}
+    if verify:
+        data["verification"] = meshtastic_info(output_dir=root, profile_path=profile_path)
+        result = data["verification"].get("result", {}) if isinstance(data["verification"], dict) else {}
+        data["verified"] = isinstance(result, dict) and result.get("returncode") == 0
+    path = root / "meshtastic_login_result.json"
+    path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+    data["artifact_path"] = str(path)
+    return data
+
+
+def meshtastic_profile(profile_path: str | Path = DEFAULT_PROFILE_PATH, output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> Dict[str, object]:
+    root = ensure_output_dir(output_dir)
+    profile = load_meshtastic_profile(profile_path=profile_path)
+    data = {
+        "display_name": DISPLAY_NAME,
+        "profile_present": bool(profile),
+        "profile": profile,
+        "profile_path": str(_profile_path(profile_path)),
+        "timestamp": time.time(),
+    }
+    path = root / "meshtastic_profile_status.json"
+    path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+    data["artifact_path"] = str(path)
+    return data
+
+
+def meshtastic_logout(profile_path: str | Path = DEFAULT_PROFILE_PATH, output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> Dict[str, object]:
+    root = ensure_output_dir(output_dir)
+    path = _profile_path(profile_path)
+    existed = path.exists()
+    if existed:
+        path.unlink()
+    data = {
+        "display_name": DISPLAY_NAME,
+        "profile_removed": existed,
+        "profile_path": str(path),
+        "timestamp": time.time(),
+    }
+    artifact = root / "meshtastic_logout_result.json"
+    artifact.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+    data["artifact_path"] = str(artifact)
+    return data
+
+
+def meshtastic_info(
+    port: Optional[str] = None,
+    host: Optional[str] = None,
+    ble: Optional[str] = None,
+    output_dir: str | Path = DEFAULT_OUTPUT_DIR,
+    profile_path: str | Path = DEFAULT_PROFILE_PATH,
+) -> Dict[str, object]:
+    root = ensure_output_dir(output_dir)
+    connection_args = build_meshtastic_connection_args(port=port, host=host, ble=ble, profile_path=profile_path)
+    result = _run_command(["meshtastic", *connection_args, "--info"], timeout=15.0)
     data = {
         "display_name": DISPLAY_NAME,
         "mode": "meshtastic_node_information_only",
-        "port": port if not host else None,
-        "host": host,
+        "connection_args": connection_args,
         "result": result,
         "note": "This command queries a connected Meshtastic node for information only.",
         "timestamp": time.time(),
@@ -163,11 +285,32 @@ def build_parser() -> argparse.ArgumentParser:
     p_status = sub.add_parser("status", help="Check local SPI and Meshtastic dependency readiness")
     p_status.add_argument("--spi-device", default=DEFAULT_SPI_DEVICE)
     p_status.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
+    p_status.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH))
+
+    p_login = sub.add_parser("meshtastic-login", help="Save a local Meshtastic serial/TCP/BLE connection profile")
+    p_login.add_argument("--connection", choices=["serial", "tcp", "ble"], default="serial")
+    p_login.add_argument("--port", default=DEFAULT_MESHTASTIC_PORT)
+    p_login.add_argument("--host", default=None)
+    p_login.add_argument("--ble", default=None)
+    p_login.add_argument("--label", default="KoalaByte Blue Mesh Node")
+    p_login.add_argument("--verify", action="store_true", help="Run meshtastic --info after saving the profile")
+    p_login.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
+    p_login.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH))
+
+    p_profile = sub.add_parser("meshtastic-profile", help="Show the saved local Meshtastic connection profile")
+    p_profile.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
+    p_profile.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH))
+
+    p_logout = sub.add_parser("meshtastic-logout", help="Remove the saved local Meshtastic connection profile")
+    p_logout.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
+    p_logout.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH))
 
     p_info = sub.add_parser("meshtastic-info", help="Read information from a connected Meshtastic node")
-    p_info.add_argument("--port", default=DEFAULT_MESHTASTIC_PORT)
+    p_info.add_argument("--port", default=None)
     p_info.add_argument("--host", default=None)
+    p_info.add_argument("--ble", default=None)
     p_info.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
+    p_info.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH))
     return parser
 
 
@@ -177,9 +320,29 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
         print_json(manifest(output_dir=args.output_dir))
         return 0
     if args.command == "status":
-        print_json(status(spi_device=args.spi_device, output_dir=args.output_dir))
+        print_json(status(spi_device=args.spi_device, output_dir=args.output_dir, profile_path=args.profile_path))
+        return 0
+    if args.command == "meshtastic-login":
+        print_json(
+            meshtastic_login(
+                connection_type=args.connection,
+                port=args.port,
+                host=args.host,
+                ble=args.ble,
+                label=args.label,
+                verify=args.verify,
+                output_dir=args.output_dir,
+                profile_path=args.profile_path,
+            )
+        )
+        return 0
+    if args.command == "meshtastic-profile":
+        print_json(meshtastic_profile(output_dir=args.output_dir, profile_path=args.profile_path))
+        return 0
+    if args.command == "meshtastic-logout":
+        print_json(meshtastic_logout(output_dir=args.output_dir, profile_path=args.profile_path))
         return 0
     if args.command == "meshtastic-info":
-        print_json(meshtastic_info(port=args.port, host=args.host, output_dir=args.output_dir))
+        print_json(meshtastic_info(port=args.port, host=args.host, ble=args.ble, output_dir=args.output_dir, profile_path=args.profile_path))
         return 0
     raise SystemExit(f"unknown command: {args.command}")
