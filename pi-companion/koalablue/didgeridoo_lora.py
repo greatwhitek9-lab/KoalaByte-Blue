@@ -134,19 +134,21 @@ def manifest(output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> Dict[str, object]:
     data = {
         "display_name": DISPLAY_NAME,
         "module_name": MODULE_NAME,
-        "revision": "Phase1_USB_Meshtastic_Node_First",
-        "scope": "USB-C Meshtastic node setup, serial/BLE/TCP login profile, node information, and antenna-routing guidance only",
+        "revision": "Phase1_USB_Heltec_Meshtastic_Node_Three_Antenna",
+        "scope": "USB-C Heltec/Meshtastic node setup, serial/BLE/TCP login profile, node information, and three-antenna case routing guidance only",
         "hardware_target": {
-            "primary_module": "USB-C Meshtastic LoRa node board",
+            "primary_module": "USB-C Heltec / Meshtastic LoRa node board",
             "host": "Raspberry Pi 3B+ USB-A port",
             "connection": "short USB-A to USB-C data cable",
             "pi_gpio_required_for_lora": False,
             "legacy_optional_module": "Bare SPI SX1262 module for future lab use only",
         },
         "antenna_plan": {
-            "meshtastic_lora_node": "Use one case antenna position for the node's frequency-matched LoRa antenna: 433/868/915 MHz depending on the board and region.",
-            "esp32_s3_dualeye": "Keep the second case antenna as a 2.4 GHz Wi-Fi/BLE antenna connected to the ESP32-S3 DualEye IPEX1/U.FL antenna path.",
-            "warning": "Do not swap the 2.4 GHz ESP32 antenna and the LoRa antenna; they are different RF systems.",
+            "case_openings_required": 3,
+            "heltec_2g4_antenna": "Use one 2.4 GHz case antenna opening for the Heltec board's Wi-Fi/Bluetooth antenna connector, if fitted.",
+            "esp32_s3_dualeye_2g4_antenna": "Use a second 2.4 GHz case antenna opening for the ESP32-S3 DualEye IPEX1/U.FL antenna path.",
+            "heltec_lora_antenna": "Add a third smaller case opening for the Heltec board's frequency-matched LoRa antenna: 433/868/915 MHz depending on the board and region.",
+            "warning": "Do not swap the 2.4 GHz antenna connectors with the LoRa connector, and do not share one antenna between the Heltec 2.4 GHz path and the ESP32-S3 2.4 GHz path.",
         },
         "meshtastic_compatibility": {
             "compatible_path": "connect KoalaByte Blue to a Meshtastic firmware node by USB serial, TCP, or BLE and query it with the official meshtastic CLI",
@@ -186,7 +188,7 @@ def status(spi_device: str = DEFAULT_SPI_DEVICE, output_dir: str | Path = DEFAUL
     data = asdict(status_obj)
     data["usb_hint"] = "Plug the Meshtastic node into the Pi with a USB-A to USB-C data cable, then use /dev/ttyUSB0 or /dev/ttyACM0 in meshtastic-login."
     data["ble_hint"] = "Pair/configure from the phone app first. If the phone app holds the only BLE session, disconnect it before KoalaByte Blue connects."
-    data["antenna_hint"] = "One case antenna should be the LoRa node's frequency-matched antenna; the other remains the ESP32-S3 2.4 GHz antenna."
+    data["antenna_hint"] = "Use three case openings: Heltec 2.4 GHz antenna, ESP32-S3 DualEye 2.4 GHz antenna, and a smaller LoRa antenna opening for the Heltec LoRa antenna."
     data["legacy_spi_hint"] = "SPI is optional and only for future direct bare-SX1262 lab work. It is not required for the USB-C Meshtastic node board."
     data["meshtastic_login_hint"] = "Run scripts/run_didgeridoo.py meshtastic-login to save a local serial/TCP/BLE connection profile."
     path = root / "didgeridoo_status.json"
