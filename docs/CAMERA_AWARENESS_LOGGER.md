@@ -32,10 +32,12 @@ Alerts always print and log to:
 logs/killerkoala/boomerang_alerts.jsonl
 ```
 
-Audio text-to-speech is optional. Enable it on the Pi with:
+Spoken audio is **on by default** at KoalaByte startup and when running Boomerang directly. The startup wrapper and menu runner set `KOALABYTE_TTS=1` unless you override it.
+
+Mute spoken alerts with:
 
 ```bash
-KOALABYTE_TTS=1 PYTHONPATH=pi-companion python3 scripts/run_boomerang.py
+KOALABYTE_TTS=0 bash scripts/koalabyte_blue_boot.sh
 ```
 
 Boomerang will try `espeak-ng`, `espeak`, or `say` if available. Without a TTS engine, the alerts still appear on screen and in the alert log.
