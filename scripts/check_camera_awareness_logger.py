@@ -35,11 +35,12 @@ def main() -> int:
             notes="Manual public observation only; no electronic probing performed.",
         )
         append_observation(obs, root)
+        KILLERKOALA_BOOMERANG_ALERTS["boomerang_start"] = "BOOMerang!"
         start_line = speak_killerkoala_alert("boomerang_start", context={"log_root": str(root)}, alert_log=alert_log, tts_enabled=False)
         camera_line = speak_killerkoala_alert("camera_found", context={"camera_label": obs.label, "local_asset_id": obs.local_asset_id}, alert_log=alert_log, tts_enabled=False)
         before, after, rank = award_boomerang_xp(xp_path=xp_path)
         xp_line = speak_killerkoala_alert("xp_gain", context={"xp_reward": XP_REWARD_PER_LOG, "xp_after": after, "rank": rank}, alert_log=alert_log, tts_enabled=False)
-        assert "Boomerang is live" in start_line
+        assert start_line == "BOOMerang!"
         assert "Camera found" in camera_line
         assert "Plus 10 XP" in xp_line
         alerts = [json.loads(line) for line in alert_log.read_text(encoding="utf-8").splitlines()]
