@@ -5,11 +5,12 @@ from typing import Dict, List, Type, TypeVar
 
 T = TypeVar("T")
 
-# Four production-facing menu sections. The command keys remain stable; only the
+# Production-facing menu sections. The command keys remain stable; only the
 # rendered order and group headings change.
 MENU_GROUPS: List[str] = [
     "Bluetooth Tools",
     "CAN Bench Tools",
+    "LoRa / Mesh Tools",
     "Reports & Reviews",
     "System / Companion",
 ]
@@ -35,6 +36,7 @@ FUNCTION_MENU_ITEMS: List[dict[str, object]] = [
     {"group": "Bluetooth Tools", "label": "KoalaByte Lab", "command": "ear_tag_tx_lab", "description": "Synthetic owned-device BLE advertisement for signal-integrity observation"},
     {"group": "System / Companion", "label": "Koala Mode Switcher", "command": "koala_mode_switcher", "description": "Build/package/select KoalaByte Lab or Koala Konnect for the nRF52840 Dongle"},
     {"group": "CAN Bench Tools", "label": "Koala Kan Kommander", "command": "koala_kan_kommander", "description": "InnoMaker USB-to-CAN listen and gated bench-simulator transmit plug-in"},
+    {"group": "LoRa / Mesh Tools", "label": "didgeridoo", "command": "didgeridoo", "description": "SX1262 LoRa setup, SPI readiness, and Meshtastic node login/profile/status checks; Phase 1 does not send raw LoRa or mesh text"},
     {"group": "Bluetooth Tools", "label": "Gumleaf Gear Check", "command": "koala_bluez_inventory", "description": "Inventory installed BlueZ helpers under KoalaByte themed names"},
     {"group": "Bluetooth Tools", "label": "Eucalyptus Bus Scout", "command": "koala_bluez_status", "description": "Collect local adapter, controller, rfkill, and optional D-Bus status"},
     {"group": "Bluetooth Tools", "label": "Dropbear Discovery Sweep", "command": "koala_bluez_scan", "description": "Run bounded Bluetooth discovery and save redacted results by default"},
