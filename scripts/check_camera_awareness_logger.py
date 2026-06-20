@@ -5,7 +5,13 @@ import json
 import tempfile
 from pathlib import Path
 
-from koalablue.boomerang import ACTION_NAME, XP_REWARD_PER_LOG, award_boomerang_xp
+from koalablue.boomerang import (
+    ACTION_NAME,
+    KILLERKOALA_BOOMERANG_ALERTS,
+    XP_REWARD_PER_LOG,
+    award_boomerang_xp,
+    speak_killerkoala_alert,
+)
 from koalablue.camera_awareness_logger import (
     append_observation,
     create_observation,
@@ -19,6 +25,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         xp_path = root / "xp_state.json"
+        alert_log = root / "boomerang_alerts.jsonl"
         obs = create_observation(
             label="Test public camera",
             camera_type="unknown camera",
@@ -28,7 +35,18 @@ def main() -> int:
             notes="Manual public observation only; no electronic probing performed.",
         )
         append_observation(obs, root)
+        start_line = speak_killerkoala_alert("boomerang_start", context={"log_root": str(root)}, alert_log=alert_log, tts_enabled=False)
+        camera_line = speak_killerkoala_alert("camera_found", context={"camera_label": obs.label, "local_asset_id": obs.local_asset_id}, alert_log=alert_log, tts_enabled=False)
         before, after, rank = award_boomerang_xp(xp_path=xp_path)
+        xp_line = speak_killerkoala_alert("xp_gain", context={"xp_reward": XP_REWARD_PER_LOG, "xp_after": after, "rank": rank}, alert_log=alert_log, tts_enabled=False)
+        assert "Boomerang is live" in start_line
+        assert "Camera found" in camera_line
+        assert "Plus 10 XP" in xp_line
+        alerts = [json.loads(line) for line in alert_log.read_text(encoding="utf-8").splitlines()]
+        assert [row["event"] for row in alerts] == ["boomerang_start", "camera_found", "xp_gain"]
+        assert "boomerang_start" in KILLERKOALA_BOOMERANG_ALERTS
+        assert "camera_found" in KILLERKOALA_BOOMERANG_ALERTS
+        assert "xp_gain" in KILLERKOALA_BOOMERANG_ALERTS
         assert before == 0
         assert after == XP_REWARD_PER_LOG
         assert rank == "Noob"
@@ -49,7 +67,7 @@ def main() -> int:
             pass
         else:
             raise AssertionError("MAC-like values must be rejected")
-    print("Camera awareness logger smoke check passed. Boomerang XP reward check passed.")
+    print("Camera awareness logger smoke check passed. Boomerang XP reward check passed. KillerKoala verbal alerts check passed.")
     return 0
 
 
