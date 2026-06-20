@@ -3,6 +3,7 @@
 #include <NimBLEDevice.h>
 #include "boot_animation.h"
 #include "config.h"
+#include "koalagotchi_mode_screens.h"
 
 struct ButtonDef {
   const char *name;
@@ -156,9 +157,16 @@ void handlePiCommand(const String &line) {
     ack["message"] = msg;
     sendJson(ack);
   } else if (!strcmp(type, "screen")) {
-    StaticJsonDocument<128> ack;
+    const char *mode = doc["mode"] | "eucalyptus";
+    const char *mood = doc["mood"] | "";
+    const int contentment = doc["contentment"] | 75;
+    const int xpPercent = doc["xp_percent"] | 88;
+    drawKoalagotchiModeScreen(mode, mood, contentment, xpPercent);
+
+    StaticJsonDocument<160> ack;
     ack["type"] = "screen_ack";
-    ack["mode"] = doc["mode"] | "unknown";
+    ack["mode"] = mode;
+    ack["renderer"] = "koalagotchi_mode_screens";
     sendJson(ack);
   } else if (!strcmp(type, "simulate_voice_wake")) {
     const char *phrase = doc["phrase"] | "";
