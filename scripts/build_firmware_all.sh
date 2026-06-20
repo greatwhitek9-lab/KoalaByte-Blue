@@ -35,7 +35,7 @@ else
   fi
 fi
 
-echo "Checking/preparing west for nRF52840 Dongle Zephyr builds..."
+echo "Checking/preparing west for nRF52840 Zephyr builds..."
 if ! STRICT_NRF_TOOLS="${STRICT_TOOLS}" bash scripts/setup_nrf_tools.sh --west-only; then
   echo "west setup/check failed." >&2
   if [[ "${STRICT_TOOLS}" == "1" ]]; then
@@ -61,8 +61,14 @@ if command -v west >/dev/null 2>&1; then
   else
     echo "Skipping optional Koala Konnect build. Set BUILD_KOALA_KONNECT=1 to build it."
   fi
+  if [[ "${BUILD_T114_LAB:-0}" == "1" ]]; then
+    echo "Building optional Heltec Mesh Node T114 V2 alternate nRF52840 KoalaByte Lab target..."
+    bash scripts/build_nrf52840_t114_lab.sh
+  else
+    echo "Skipping optional T114 alternate target build. Set BUILD_T114_LAB=1 and T114_BOARD=<confirmed target> to build it."
+  fi
 else
-  echo "Skipping nRF52840 Dongle Zephyr builds: west not found." >&2
+  echo "Skipping nRF52840 Zephyr builds: west not found." >&2
   if [[ "${STRICT_TOOLS}" == "1" ]]; then
     exit 1
   fi
