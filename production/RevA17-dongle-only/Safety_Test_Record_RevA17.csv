@@ -1,9 +1,14 @@
 Test,Pass/Fail,Measured Value,Technician,Date,Notes
 Repo readiness check passes,,,,,
 All-component helper check-only mode passes,,,,,
-Seloky trigger output before buck converter,,,,,
-5 V rail before load,,,,,
-5 V rail under normal load,,,,,
+2S cell polarity and series midpoint verified,,,,,
+2S BMS B- B1/BM B+ wiring verified,,,,,
+BMS P+ and P- output polarity verified,,,,,
+5 A fuse installed close to BMS P+,,,,,
+Main switch verified after fuse before buck VIN+,,,,,
+Buck converter output before load,,,,,Target 5.1 V
+5 V rail before load,,,,,Target 4.9 V to 5.1 V
+5 V rail under normal load,,,,,Target 4.9 V to 5.1 V with Pi and modules connected
 Battery polarity / BMS wiring,,,,,
 Raspberry Pi boot without undervoltage warning,,,,,
 Pi companion install script completed,,,,,
@@ -27,4 +32,4 @@ Six-button GPIO test,,,,,
 Button 3 hold shutdown event test,,,,,
 Speaker output test,,,,,
 30-minute idle thermal check,,,,,
-Cable strain relief / case close inspection,,,,,
+Cable strain relief / case close inspection,,,,,Confirm battery/BMS/fuse/switch/buck clearance and no raw 2S voltage near GPIO/USB/button wiring
