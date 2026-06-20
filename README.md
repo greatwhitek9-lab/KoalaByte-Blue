@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>Your Bluetooth sidekick in the wild.</strong><br>
-  A Raspberry Pi 3B+ + ESP32-S3 DualEye + Nordic nRF52840 Dongle build for safe Bluetooth research, passive logging, menu-driven lab workflows, defensive monitoring, and optional isolated CAN bench work.
+  A Raspberry Pi 3B+ + ESP32-S3 DualEye + Nordic nRF52840 Dongle build for safe Bluetooth research, passive logging, menu-driven lab workflows, defensive monitoring, game-style Koalagotchi companion behavior, and optional isolated CAN bench work.
 </p>
 
 <p align="center">
@@ -20,8 +20,10 @@ KoalaByte Blue is a dongle-only, no-custom-PCB Bluetooth companion build with a 
 - A **Raspberry Pi 3B+** as the Linux companion host.
 - An **ESP32-S3 DualEye display** for the boot splash, menu, and front-panel experience.
 - A **Nordic nRF52840 Dongle** for KoalaByte Lab Mode or Koala Konnect Mode.
-- The **killerkoala** companion for status, voice-style reactions, XP, and lab personality.
+- The **killerkoala** companion for status, spoken alerts, voice-style reactions, XP, rank progression, and lab personality.
+- **Eucalyptus Mode**, a Koalagotchi-style always-on Bluetooth scanner/logger screen where killerkoala patrols a branch, eats eucalyptus Bluetooth data, and reacts to activity.
 - The **that’s not a knife** always-on BLE defensive monitor suite.
+- **Boomerang**, the camera-awareness logbook action with separate verbal alerts and XP reward for successful manual records.
 - Optional **Koala Kan Kommander** support with the **InnoMaker USB to CAN Converter kit** for isolated bench-simulator or owned-harness CAN work.
 
 In plain English: it is a pocketable Bluetooth lab buddy that can help you inventory devices, monitor local BLE activity, collect notes, create reports, switch dongle modes, and keep your Bluetooth workflows wrapped in a fun KoalaByte interface instead of a pile of raw commands.
@@ -34,11 +36,74 @@ In plain English: it is a pocketable Bluetooth lab buddy that can help you inven
 
 - Run safe local BLE inventory scans.
 - Start, stop, restart, and check the **eucalyptus** passive BLE logger.
+- Open **Eucalyptus Mode**, the full-color Koalagotchi always-on Bluetooth scanner/logger screen.
 - Capture and archive BLE advertisement metadata for review.
 - Summarize observed devices and build authorized inventories.
 - Use BlueZ helper wrappers with KoalaByte-themed names.
 - Generate safe packet-capture notes and owned-device review checklists.
 - Switch the nRF52840 Dongle between **KoalaByte Lab Mode** and **Koala Konnect Mode**.
+
+### Eucalyptus Mode: Koalagotchi Bluetooth game screen
+
+**Eucalyptus Mode** is the game-style always-on Bluetooth scanner/logger action. It turns passive Eucalyptus Bluetooth observations into a cyber-pet status screen instead of a plain log window.
+
+The screen shows killerkoala on a long eucalyptus branch that stretches across the display. killerkoala walks back and forth, stops to eat eucalyptus leaves when new Bluetooth data appears, and uses that activity to drive a **contentment** meter.
+
+| Game element | What it means |
+|---|---|
+| Branch walk | killerkoala is patrolling the passive Eucalyptus Bluetooth log stream. |
+| Eucalyptus leaves | New passive Bluetooth/BLE observations waiting to be “eaten.” |
+| Eating animation | Logged Bluetooth data has been noticed by the Koalagotchi screen. |
+| Contentment | Rises when new Bluetooth observations appear; falls when the log goes quiet. |
+| 3-minute dormancy | If no new Bluetooth devices/observations appear for 3 minutes, killerkoala gets cranky. |
+| Boomerang throw | Idle grumble animation when the Bluetooth canopy is quiet. |
+| Aussie grumbles | Spoken/printed killerkoala attitude when no new Bluetooth data is showing up. |
+
+Eucalyptus Mode uses the same safety boundary as the passive logger: it visualizes local logs and status. It does **not** start pairing, probing, disruption, access, or offensive Bluetooth workflows.
+
+Run it directly:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_eucalyptus_cyberpet.py
+```
+
+Run it in a desktop test window:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_eucalyptus_cyberpet.py --windowed --width 800 --height 480
+```
+
+Terminal fallback:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_eucalyptus_cyberpet.py --terminal
+```
+
+### killerkoala XP and levels
+
+killerkoala has a shared companion XP/rank system across the Pi companion experience. XP is used to make the device feel more like a cyber-pet: successful approved actions and defensive wins can move killerkoala through levels while keeping unsafe behavior out of scope.
+
+Current XP ranks:
+
+| Rank | XP threshold | Personality style |
+|---|---:|---|
+| **Noob** | 0 XP | Rough beginner, cautious, scoped. |
+| **Hacker** | 75 XP | Sharper, more confident, dry humor. |
+| **Legend** | 250 XP | Cocky, controlled, veteran lab operator. |
+
+Important distinction:
+
+- **Contentment** is the Eucalyptus Mode Koalagotchi mood meter.
+- **XP/rank** is killerkoala’s broader companion progression system.
+- **Boomerang** awards XP after a public/manual camera record is successfully saved.
+- **that’s not a knife** awards XP only after a successful defensive local block.
+
+Check current level/status:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py
+# then select: Level / Status
+```
 
 ### Defensive monitor suite: “that’s not a knife”
 
@@ -73,6 +138,30 @@ PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife.py status --json
 ```
 
 killerkoala earns XP **only after a successful defensive local block**. Monitoring, detection, and failed block attempts award `0 XP`.
+
+### Boomerang camera-awareness logbook
+
+**Boomerang** is the manual camera-awareness logbook action. It records public/visible camera details, assigns local IDs, exports reports, and stays open until the operator quits.
+
+Boomerang has separate killerkoala alerts for:
+
+| Event | Alert behavior |
+|---|---|
+| Start | killerkoala says `BOOMerang!` |
+| Camera found/logged | killerkoala confirms the record in gruff Aussie style. |
+| XP gained | killerkoala announces the XP gain as a separate alert. |
+
+Boomerang XP behavior:
+
+- `+10 XP` per successfully saved manual/public camera-awareness record.
+- Rejected records do not earn XP.
+- It rejects MAC-like values, IP addresses, Bluetooth identifiers, RF fingerprints, and network scan output.
+
+Run it directly:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_boomerang.py
+```
 
 ### Reports and review helpers
 
@@ -174,7 +263,7 @@ bash scripts/install_pi.sh
 Normal startup order:
 
 ```text
-Pre-boot mode selector -> KoalaByte Blue boot splash -> grouped main menu
+Pre-boot mode selector -> KillerKoala mode-aware welcome -> KoalaByte Blue boot splash -> grouped main menu
 ```
 
 Run the Pi-side boot wrapper:
@@ -255,23 +344,24 @@ System / Companion
 | 6 | eucalyptus Stop | `eucalyptus stop` | Stop always-on passive BLE logging. |
 | 7 | eucalyptus Restart | `eucalyptus restart` | Restart always-on passive BLE logging. |
 | 8 | eucalyptus Upload Status | `eucalyptus upload-status` | Show WiGLE upload readiness/status. |
-| 9 | Koala Kapture | `koala_kapture` | Capture and archive BLE advertisement metadata. |
-| 10 | Koala Kry | `koala_kry` | Review captured metadata offline in the report/XP pipeline. |
-| 11 | Ear Tag | `ear_tag` | Named lab BLE beacon workflow. |
-| 12 | KoalaByte Lab | `ear_tag_tx_lab` | Synthetic owned-device BLE advertisement for signal-integrity observation. |
-| 13 | Gumleaf Gear Check | `koala_bluez_inventory` | Inventory installed BlueZ helpers under KoalaByte themed names. |
-| 14 | Eucalyptus Bus Scout | `koala_bluez_status` | Collect local adapter, controller, rfkill, and optional D-Bus status. |
-| 15 | Dropbear Discovery Sweep | `koala_bluez_scan` | Run bounded Bluetooth discovery and save redacted results by default. |
-| 16 | Billabong HCI Watch | `koala_bluez_monitor` | Run bounded local HCI capture and save lab artifacts. |
-| 17 | Kookaburra Safe Nest Run | `koala_bluez_all_safe` | Run BlueZ inventory, status, and bounded discovery with safe defaults. |
-| 18 | that’s not a knife | `thats_not_a_knife` | Always-on defensive BLE monitor suite for DoS pressure, bluesnarfing, bluebugging, and MITM-risk indicators. |
-| 19 | Urban Poaching | `urban_poaching` | Authorized BLE RSSI lab game. |
+| 9 | Eucalyptus Mode | `eucalyptus_mode` | Koalagotchi always-on Bluetooth scanner/logger screen with contentment and idle boomerang grumbles. |
+| 10 | Koala Kapture | `koala_kapture` | Capture and archive BLE advertisement metadata. |
+| 11 | Koala Kry | `koala_kry` | Review captured metadata offline in the report/XP pipeline. |
+| 12 | Ear Tag | `ear_tag` | Named lab BLE beacon workflow. |
+| 13 | KoalaByte Lab | `ear_tag_tx_lab` | Synthetic owned-device BLE advertisement for signal-integrity observation. |
+| 14 | Gumleaf Gear Check | `koala_bluez_inventory` | Inventory installed BlueZ helpers under KoalaByte themed names. |
+| 15 | Eucalyptus Bus Scout | `koala_bluez_status` | Collect local adapter, controller, rfkill, and optional D-Bus status. |
+| 16 | Dropbear Discovery Sweep | `koala_bluez_scan` | Run bounded Bluetooth discovery and save redacted results by default. |
+| 17 | Billabong HCI Watch | `koala_bluez_monitor` | Run bounded local HCI capture and save lab artifacts. |
+| 18 | Kookaburra Safe Nest Run | `koala_bluez_all_safe` | Run BlueZ inventory, status, and bounded discovery with safe defaults. |
+| 19 | that’s not a knife | `thats_not_a_knife` | Always-on defensive BLE monitor suite for DoS pressure, bluesnarfing, bluebugging, and MITM-risk indicators. |
+| 20 | Urban Poaching | `urban_poaching` | Authorized BLE RSSI lab game. |
 
 ### CAN Bench Tools
 
 | # | Menu item | Command | Capability |
 |---:|---|---|---|
-| 20 | Koala Kan Kommander | `koala_kan_kommander` | InnoMaker USB-to-CAN listen and gated bench-simulator workflow. |
+| 21 | Koala Kan Kommander | `koala_kan_kommander` | InnoMaker USB-to-CAN listen and gated bench-simulator workflow. |
 
 CAN actions are intended for an isolated simulator or owned bench harness. Do not connect CAN_H or CAN_L directly to Raspberry Pi GPIO.
 
@@ -279,35 +369,36 @@ CAN actions are intended for an isolated simulator or owned bench harness. Do no
 
 | # | Menu item | Command | Capability |
 |---:|---|---|---|
-| 21 | Koala Kry RF Review | `koala_kry_transmit_review` | Write RF bench-isolation, authorization, and test-plan manifest; no RF is sent by Koala Kry. |
-| 22 | Report | `report` | Write a Markdown session report. |
-| 23 | Authorized BLE Inventory | `authorized_ble_inventory` | Create a lab inventory from passive BLE observations. |
-| 24 | GATT Readiness Checklist | `gatt_readiness_checklist` | Generate a pre-test checklist for owned-device GATT review. |
-| 25 | Pairing Security Review | `pairing_security_review` | Review pairing/access-control posture for owned lab devices. |
-| 26 | Lab Beacon Plan | `lab_beacon_plan` | Create a safe ESP32 demo beacon/peripheral testing plan. |
-| 27 | Packet Capture Notes | `packet_capture_notes` | Create safe protocol-analysis notes. |
-| 28 | Defensive Lab Report | `defensive_report` | Generate a defensive lab report template. |
+| 22 | Koala Kry RF Review | `koala_kry_transmit_review` | Write RF bench-isolation, authorization, and test-plan manifest; no RF is sent by Koala Kry. |
+| 23 | Report | `report` | Write a Markdown session report. |
+| 24 | Boomerang | `boomerang` | Camera-awareness logbook with verbal alerts and +10 XP per successful manual/public record. |
+| 25 | Authorized BLE Inventory | `authorized_ble_inventory` | Create a lab inventory from passive BLE observations. |
+| 26 | GATT Readiness Checklist | `gatt_readiness_checklist` | Generate a pre-test checklist for owned-device GATT review. |
+| 27 | Pairing Security Review | `pairing_security_review` | Review pairing/access-control posture for owned lab devices. |
+| 28 | Lab Beacon Plan | `lab_beacon_plan` | Create a safe ESP32 demo beacon/peripheral testing plan. |
+| 29 | Packet Capture Notes | `packet_capture_notes` | Create safe protocol-analysis notes. |
+| 30 | Defensive Lab Report | `defensive_report` | Generate a defensive lab report template. |
 
 ### System / Companion
 
 | # | Menu item | Command | Capability |
 |---:|---|---|---|
-| 29 | Koala Mode Switcher | `koala_mode_switcher` | Build/package/select KoalaByte Lab or Koala Konnect for the nRF52840 Dongle. |
-| 30 | KillerKoala Voice | `killerkoala_voice` | Preview event reactions and inquiry vocabulary by XP rank. |
-| 31 | Buttons | `buttons` | Show/check GPIO front-panel button status. |
-| 32 | Level / Status | `level/status` | Show killerkoala XP and rank. |
-| 33 | Wake killerkoala | `wake killerkoala` | Test wake-word flow. |
-| 34 | Restricted Placeholder | `restricted_placeholder` | Reserved locked slot; intentionally non-operational. |
-| 35 | Settings | `settings` | Device and companion settings. |
-| 36 | Lab | `lab` | Password-gated Authorized Lab Use menu. |
-| 37 | Shutdown | `shutdown_confirm` | Confirm safe shutdown. |
-| 38 | Quit | `quit` | Exit the Pi companion UI. |
+| 31 | Koala Mode Switcher | `koala_mode_switcher` | Build/package/select KoalaByte Lab or Koala Konnect for the nRF52840 Dongle. |
+| 32 | KillerKoala Voice | `killerkoala_voice` | Preview event reactions and inquiry vocabulary by XP rank. |
+| 33 | Buttons | `buttons` | Show/check GPIO front-panel button status. |
+| 34 | Level / Status | `level/status` | Show killerkoala XP and rank. |
+| 35 | Wake killerkoala | `wake killerkoala` | Test wake-word flow. |
+| 36 | Restricted Placeholder | `restricted_placeholder` | Reserved locked slot; intentionally non-operational. |
+| 37 | Settings | `settings` | Device and companion settings. |
+| 38 | Lab | `lab` | Password-gated Authorized Lab Use menu. |
+| 39 | Shutdown | `shutdown_confirm` | Confirm safe shutdown. |
+| 40 | Quit | `quit` | Exit the Pi companion UI. |
 
 ---
 
 ## Theme and menu look
 
-KoalaByte Blue uses a shared jungle/eucalyptus theme so the boot splash, menu, and the new defensive monitor screens feel like one device.
+KoalaByte Blue uses a shared jungle/eucalyptus theme so the boot splash, menu, defensive monitor screens, Eucalyptus Mode, and Boomerang feel like one device.
 
 Theme highlights:
 
@@ -316,9 +407,10 @@ Theme highlights:
 - Eucalyptus branch border: `eucalyptus_branches`.
 - Leaf accents around highlighted rows.
 - Yellow/green glow for selected actions.
+- Full-color Eucalyptus Mode Koalagotchi renderer.
 - Terminal-safe preview cards for SSH sessions.
 
-The new monitor settings screens use the same theme and still support raw JSON for automation:
+The monitor settings screens use the same theme and still support raw JSON for automation:
 
 ```bash
 PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife.py status
@@ -384,10 +476,12 @@ Raspberry Pi 3B+ USB host
 KoalaByte Blue is built around safe defaults:
 
 - Authorized lab use only.
+- Eucalyptus Mode visualizes passive Bluetooth logs only.
 - Local defensive monitoring only for `that’s not a knife`.
 - No over-the-air response from the defensive monitor suite.
 - No spoofing, packet replay, or offensive frames from the defensive guard.
 - CAN transmit is gated for isolated bench-simulator or owned-harness use only.
+- Boomerang is manual/public camera-awareness documentation only.
 - Reports and review tools are designed to document posture, readiness, and defensive findings.
 
 ---
@@ -396,6 +490,8 @@ KoalaByte Blue is built around safe defaults:
 
 ```text
 docs/FLASHING.md
+docs/EUCALYPTUS_ALWAYS_ON_BLE_REVA8.md
+docs/CAMERA_AWARENESS_LOGGER.md
 docs/THATS_NOT_A_KNIFE_SERVICE.md
 docs/KOALA_BLUEZ_TOOLS_REVA16.md
 docs/KOALA_KONNECT_REVA20.md
@@ -410,6 +506,7 @@ docs/PRODUCTION_FILES.md
 
 ```bash
 python3 scripts/check_repo_readiness.py
+PYTHONPATH=pi-companion python3 scripts/check_eucalyptus_cyberpet.py
 PYTHONPATH=pi-companion python3 scripts/check_thats_not_a_knife_monitors.py
 PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife_loop.py --once
 ```
@@ -418,4 +515,4 @@ PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife_loop.py --once
 
 ## Project vibe
 
-KoalaByte Blue is supposed to feel like a real little cyber field companion: practical enough for a bench, weird enough to be memorable, and safe enough to demo without turning your lab into chaos. killerkoala watches the canopy, logs what matters, and only earns XP when a defensive action actually succeeds.
+KoalaByte Blue is supposed to feel like a real little cyber field companion: practical enough for a bench, weird enough to be memorable, and safe enough to demo without turning your lab into chaos. killerkoala watches the canopy, eats Bluetooth eucalyptus data in Eucalyptus Mode, keeps a contentment meter, gains XP through approved successful actions, and only celebrates behavior that stays inside the lab scope.
