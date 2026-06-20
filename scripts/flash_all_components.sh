@@ -8,6 +8,7 @@ RUN_PI=0
 RUN_ESP32=0
 RUN_NRF_LAB=0
 RUN_NRF_KONNECT=0
+RUN_NRF_T114_LAB=0
 RUN_CAN_CHECK=0
 BUILD_ONLY=0
 CHECK_ONLY=0
@@ -24,6 +25,8 @@ Usage:
   WIFI_INTERACTIVE=1 bash scripts/flash_all_components.sh --all
   WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword" bash scripts/flash_all_components.sh --all
   NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
+  T114_BOARD=<confirmed_zephyr_board_target> bash scripts/flash_all_components.sh --nrf-t114-lab --build-only
+  T114_BOARD=<confirmed_zephyr_board_target> T114_FLASH_CMD='<confirmed flash command>' bash scripts/flash_all_components.sh --nrf-t114-lab
   ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
 
 Targets:
@@ -32,6 +35,7 @@ Targets:
   --esp32          Build and flash ESP32-S3 DualEye firmware with PlatformIO
   --nrf-lab        Build/package/flash nRF52840 Dongle KoalaByte Lab firmware
   --nrf-konnect    Build/package/flash optional Koala Konnect USB HCI profile instead of KoalaByte Lab
+  --nrf-t114-lab   Build/flash alternate Heltec Mesh Node T114 V2 nRF52840 KoalaByte Lab target; not used by --all
   --can-check      Write Koala Kan Kommander InnoMaker manifest artifact; no CAN traffic is sent
 
 Modes:
@@ -48,6 +52,9 @@ Environment:
   STRICT_WIFI_FIRST_BOOT  1 fails if WiFi/internet cannot be verified before downloads.
   ESP32_PORT              Optional PlatformIO upload/monitor port, for example /dev/ttyUSB0 or COM5
   NRF_DFU_PORT           Optional nRF52840 Dongle bootloader serial port, for example /dev/ttyACM0 or COM7
+  T114_BOARD              Confirmed Zephyr/NCS board target for the Heltec Mesh Node T114 V2 alternate path.
+  T114_PORT               Optional serial/DFU port for the T114 alternate path.
+  T114_FLASH_CMD          Confirmed vendor/bootloader flash command for the T114 alternate path.
   INSTALL_SYSTEM_PACKAGES auto/1/0. Default: auto. Attempts apt install on Raspberry Pi OS.
   STRICT_SYSTEM_PACKAGES  1 fails if system packages cannot be checked/installed.
   INSTALL_ESP32_TOOLS     auto/1/0. Default: auto. Attempts to install missing PlatformIO.
@@ -64,13 +71,16 @@ Environment:
   KOALABYTE_TTS=1 enables Boomerang/KillerKoala spoken alerts after espeak-ng/espeak is installed.
 
 Notes:
-  - The nRF52840 Dongle can run KoalaByte Lab or Koala Konnect, not both at the same time.
+  - The Nordic nRF52840 Dongle remains the default KoalaByte Lab / Koala Konnect target.
+  - The T114 nRF52840 path is opt-in and experimental until its exact Zephyr board target and flash method are validated.
+  - The T114 board can run KoalaByte firmware or Meshtastic firmware, not both at once unless a future combined firmware is built.
   - WiFi/internet can be configured first so the Pi can download SDK/toolchain dependencies.
   - System packages, PlatformIO, west, nrfutil, and the full NCS/Zephyr toolchain are checked/prepared before relevant flashing steps.
   - Pi system package setup also installs AI voice/TTS dependencies: espeak-ng, espeak, ALSA tools, PulseAudio CLI utilities, PortAudio, and python3-pyaudio.
   - KillerKoala boot welcome speech runs after the mode selector and before the splash/menu unless KILLERKOALA_BOOT_WELCOME=0.
   - macOS say is an optional fallback on Apple systems; Raspberry Pi OS uses espeak-ng/espeak.
   - If NRF_DFU_PORT is unset, the nRF helper creates the DFU ZIP but does not flash.
+  - If T114_FLASH_CMD is unset, the T114 helper builds but refuses to guess a flash method.
   - Koala Kan Kommander remains gated for isolated bench CAN transmit; this script only writes a manifest/check artifact.
 EOF
 }
@@ -92,6 +102,7 @@ while [[ $# -gt 0 ]]; do
     --esp32) RUN_ESP32=1 ;;
     --nrf-lab) RUN_NRF_LAB=1 ;;
     --nrf-konnect) RUN_NRF_KONNECT=1 ;;
+    --nrf-t114-lab) RUN_NRF_T114_LAB=1 ;;
     --can-check) RUN_CAN_CHECK=1 ;;
     --build-only) BUILD_ONLY=1 ;;
     --check-only) CHECK_ONLY=1 ;;
@@ -111,13 +122,19 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "${RUN_NRF_LAB}" == "1" && "${RUN_NRF_KONNECT}" == "1" && "${BUILD_ONLY}" != "1" ]]; then
-  echo "Refusing to flash both nRF profiles in one run. The dongle can hold only one active profile." >&2
+  echo "Refusing to flash both nRF dongle profiles in one run. The dongle can hold only one active profile." >&2
   echo "Run one of: --nrf-lab or --nrf-konnect. Use --build-only if you only want to build/package both." >&2
   exit 2
 fi
 
+if [[ "${RUN_NRF_T114_LAB}" == "1" && ( "${RUN_NRF_LAB}" == "1" || "${RUN_NRF_KONNECT}" == "1" ) && "${BUILD_ONLY}" != "1" ]]; then
+  echo "Refusing to flash the T114 alternate target and Nordic dongle target in the same non-build-only run." >&2
+  echo "Build both with --build-only, or flash one physical target at a time." >&2
+  exit 2
+fi
+
 setup_wifi_for_selected_mode() {
-  if [[ "${RUN_PI}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
+  if [[ "${RUN_PI}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_NRF_T114_LAB}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
     return 0
   fi
   echo
@@ -126,7 +143,7 @@ setup_wifi_for_selected_mode() {
 }
 
 setup_system_packages_for_selected_mode() {
-  if [[ "${RUN_PI}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
+  if [[ "${RUN_PI}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_NRF_T114_LAB}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
     return 0
   fi
   echo
@@ -144,12 +161,12 @@ setup_esp32_tools_for_selected_mode() {
 }
 
 setup_nrf_tools_for_selected_mode() {
-  if [[ "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" ]]; then
+  if [[ "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_NRF_T114_LAB}" != "1" ]]; then
     return 0
   fi
   echo
-  echo "== west/nrfutil setup for nRF52840 Dongle workflow =="
-  if [[ "${BUILD_ONLY}" == "1" ]]; then
+  echo "== west/nrfutil setup for nRF52840 workflows =="
+  if [[ "${BUILD_ONLY}" == "1" || "${RUN_NRF_T114_LAB}" == "1" ]]; then
     STRICT_NRF_TOOLS="${STRICT_NRF_TOOLS:-1}" bash scripts/setup_nrf_tools.sh --west-only
   else
     STRICT_NRF_TOOLS="${STRICT_NRF_TOOLS:-1}" bash scripts/setup_nrf_tools.sh
@@ -204,6 +221,17 @@ if [[ "${RUN_NRF_LAB}" == "1" ]]; then
   fi
 fi
 
+if [[ "${RUN_NRF_T114_LAB}" == "1" ]]; then
+  echo
+  echo "== Alternate Heltec Mesh Node T114 V2 nRF52840 KoalaByte Lab firmware =="
+  bash scripts/build_nrf52840_t114_lab.sh
+  if [[ "${BUILD_ONLY}" != "1" ]]; then
+    bash scripts/flash_nrf52840_t114_lab.sh
+  else
+    echo "Build-only mode: skipping T114 alternate target flash step."
+  fi
+fi
+
 if [[ "${RUN_NRF_KONNECT}" == "1" ]]; then
   echo
   echo "== nRF52840 Dongle Koala Konnect firmware =="
@@ -231,6 +259,7 @@ if [[ "${RUN_SMOKE}" == "1" ]]; then
   PYTHONPATH=pi-companion python3 scripts/check_killerkoala_boot_welcome.py
   KOALABYTE_TTS=0 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_boot_welcome.py --mode koalabyte_lab --no-tts >/dev/null
   PYTHONPATH=pi-companion python3 scripts/run_boomerang.py <<< $'quit' >/dev/null || true
+  PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py manifest
 fi
 
 echo
