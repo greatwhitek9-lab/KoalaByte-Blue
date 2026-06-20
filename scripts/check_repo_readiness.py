@@ -38,6 +38,7 @@ EXPECTED_MENU_LABELS = [
     "Buttons",
     "Level / Status",
     "Report",
+    "Boomerang",
     "Wake killerkoala",
     "Authorized BLE Inventory",
     "GATT Readiness Checklist",
@@ -92,6 +93,7 @@ REQUIRED_TEXT = {
     "docs/ORDERABLE_PARTS_LIST.md": ["Seloky USB-C PD Trigger Board", "InnoMaker USB-to-CAN kit", "Do not connect 12V directly to the Pi"],
     "docs/POWER_UPDATE_REVA2.md": ["Seloky USB-C PD/QC 12V trigger board", "Replaces the prior USB-C PD breakout reference", "Verify 12V output"],
     "docs/PRODUCTION_FILES.md": ["production/RevA17-dongle-only/", "No custom PCB"],
+    "docs/CAMERA_AWARENESS_LOGGER.md": ["Boomerang", "manual/public-observation only", "does not collect"],
     "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv": ["Seloky USB-C PD Trigger Board Module", "InnoMaker USB to CAN Converter kit", "Koala Kan Kommander"],
     "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md": ["InnoMaker USB to CAN Converter kit", "5 V buck converter"],
     "production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv": ["Seloky trigger output", "KoalaByte Lab", "Koala Mode Switcher"],
@@ -102,10 +104,15 @@ REQUIRED_TEXT = {
     "firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c": ["KBTX", "bt_le_adv_start", "no captured packet replay"],
     "pi-companion/koalablue/bluez_tools.py": ["BLUEZ_MODULES", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Billabong HCI Watch", "owned_device_required"],
     "pi-companion/koalablue/ble_defense_guard.py": ["ACTION_NAME", "that’s not a knife", "XP_REWARD", "defensive_block_successful"],
-    "pi-companion/koalablue/menu_catalog.py": ["Koala Mode Switcher", "KoalaByte Lab", "bench-simulator transmit", "that’s not a knife"],
+    "pi-companion/koalablue/menu_catalog.py": ["Koala Mode Switcher", "KoalaByte Lab", "bench-simulator transmit", "that’s not a knife", "Boomerang"],
+    "pi-companion/koalablue/boomerang.py": ["ACTION_NAME = \"Boomerang\"", "stays open", "run_interactive"],
+    "pi-companion/koalablue/camera_awareness_logger.py": ["manual/public-observation only", "CameraObservation", "MAC_PATTERN"],
     "pi-companion/koalablue/koala_mode_switcher.py": ["Koala Mode Switcher", "KoalaByte Lab", "Koala Konnect", "dongle_mode_state.json"],
     "pi-companion/koalablue/koala_kan_kommander.py": ["ADAPTER_NAME", "InnoMaker USB to CAN Converter kit", "listen_transmit", "confirm_transmit"],
-    "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "KoalaByte Lab", "Koala Mode Switcher", "transmit_enabled", "killerkoala_companion"],
+    "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "KoalaByte Lab", "Koala Mode Switcher", "transmit_enabled", "killerkoala_companion", "Boomerang"],
+    "scripts/run_boomerang.py": ["koalablue.boomerang", "run_cli"],
+    "scripts/run_camera_awareness_logger.py": ["camera_awareness_logger", "run_cli"],
+    "scripts/check_camera_awareness_logger.py": ["MAC-like values must be rejected", "Camera awareness logger smoke check passed"],
     "scripts/run_thats_not_a_knife.py": ["ble_defense_guard", "run_cli"],
     "scripts/run_thats_not_a_knife_loop.py": ["run_guard_once", "xp_cooldown", "defensive_block_successful"],
     "scripts/install_thats_not_a_knife_service.sh": ["koalabyte-thats-not-a-knife.service", "systemctl", "set -euo pipefail"],
@@ -241,6 +248,12 @@ def check_json_config(failures: list[str]) -> None:
     if kan.get("transmit_requires_bench_simulator") is not True or kan.get("transmit_requires_explicit_confirmation") is not True:
         failures.append("Koala Kan Kommander transmit gates must remain enabled")
 
+    boomerang = config.get("boomerang", {})
+    if boomerang.get("display_name") != "Boomerang":
+        failures.append("boomerang display_name must be Boomerang")
+    if boomerang.get("interactive_stays_open_until_quit") is not True:
+        failures.append("boomerang must stay open until the operator quits")
+
 
 def check_menu_catalog(failures: list[str]) -> None:
     try:
@@ -251,7 +264,7 @@ def check_menu_catalog(failures: list[str]) -> None:
     if menu_labels() != EXPECTED_MENU_LABELS:
         failures.append("menu_catalog.menu_labels() does not match expected menu ordering")
     descriptions = "\n".join(str(item.get("description", "")) for item in FUNCTION_MENU_ITEMS)
-    for needle in ("bench-simulator transmit", "that’s not a knife"):
+    for needle in ("bench-simulator transmit", "that’s not a knife", "stays open until quit"):
         if needle not in descriptions and needle not in "\n".join(menu_labels()):
             failures.append(f"menu catalog missing expected text: {needle}")
 
@@ -318,6 +331,33 @@ def check_kan_module(failures: list[str]) -> None:
         failures.append("Koala Kan Kommander transmit must block without explicit gates")
 
 
+def check_boomerang_module(failures: list[str]) -> None:
+    try:
+        from koalablue.boomerang import ACTION_NAME, DESCRIPTION, SCOPE
+        from koalblue.camera_awareness_logger import create_observation  # type: ignore[import-not-found]
+    except ModuleNotFoundError:
+        try:
+            from koalablue.camera_awareness_logger import create_observation
+        except Exception as exc:
+            failures.append(f"failed to import Boomerang camera awareness logger: {exc}")
+            return
+    except Exception as exc:
+        failures.append(f"failed to import Boomerang: {exc}")
+        return
+    if ACTION_NAME != "Boomerang":
+        failures.append("Boomerang action name mismatch")
+    if "stays open" not in DESCRIPTION:
+        failures.append("Boomerang description must mention that it stays open")
+    if "no RF scanning" not in SCOPE:
+        failures.append("Boomerang scope must block RF scanning")
+    try:
+        create_observation(label="bad", notes="MAC address 00:11:22:33:44:55")
+    except ValueError:
+        pass
+    else:
+        failures.append("Boomerang logger must reject MAC-like identifiers")
+
+
 def check_current_bom(failures: list[str]) -> None:
     path = REPO_ROOT / "production" / "RevA17-dongle-only" / "BOM_RevA17_DongleOnly.csv"
     try:
@@ -362,6 +402,7 @@ def main() -> int:
     check_bluez_module_registry(failures)
     check_ble_guard(failures)
     check_kan_module(failures)
+    check_boomerang_module(failures)
     check_current_bom(failures)
     check_flash_helpers(failures)
 
@@ -372,7 +413,7 @@ def main() -> int:
         return 1
 
     print("KoalaByte Blue repo readiness check passed.")
-    print("Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, approved theme assets, Koala Kan Kommander, and the that’s not a knife local guard service.")
+    print("Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, approved theme assets, Boomerang, Koala Kan Kommander, and the that’s not a knife local guard service.")
     return 0
 
 
