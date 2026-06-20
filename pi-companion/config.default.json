@@ -9,6 +9,7 @@
     "dongle_mode_switcher": "Koala Mode Switcher",
     "pre_boot_mode_selector": "Pre-Boot Dongle Mode Selector",
     "kan_plugin": "Koala Kan Kommander",
+    "lora_mesh_setup": "didgeridoo",
     "camera_awareness_logger": "Boomerang"
   },
   "killerkoala_companion": {
@@ -210,6 +211,30 @@
     "allowed_lab_id_range": "0x600-0x67F",
     "max_transmit_frames": 64
   },
+  "didgeridoo": {
+    "display_name": "didgeridoo",
+    "description": "SX1262 LoRa setup, SPI readiness, and Meshtastic node login/profile/status checks. Phase 1 does not send raw LoRa or mesh text.",
+    "enabled": true,
+    "mode": "sx1262_lora_meshtastic_setup_status_only",
+    "runner": "scripts/run_didgeridoo.py",
+    "output_dir": "logs/didgeridoo",
+    "profile_path": "logs/didgeridoo/meshtastic_login.json",
+    "spi_device": "/dev/spidev0.0",
+    "default_meshtastic_port": "/dev/ttyUSB0",
+    "supported_meshtastic_connections": ["serial", "tcp", "ble"],
+    "raw_radio_sending": false,
+    "mesh_text_sending": false,
+    "automatic_radio_service": false,
+    "pin_map": {
+      "sck": {"gpio": 11, "physical_pin": 23},
+      "miso": {"gpio": 9, "physical_pin": 21},
+      "mosi": {"gpio": 10, "physical_pin": 19},
+      "cs": {"gpio": 8, "physical_pin": 24},
+      "reset": {"gpio": 22, "physical_pin": 15},
+      "busy": {"gpio": 24, "physical_pin": 18},
+      "dio1": {"gpio": 25, "physical_pin": 22}
+    }
+  },
   "menu_selection": {
     "enabled": true,
     "visible_rows": 6,
@@ -225,8 +250,8 @@
       "fullscreen_default": true
     },
     "touch": {"enabled": true, "row_height_px": 64, "long_press_seconds": 0.75, "scroll_threshold_px": 18},
-    "groups": ["Bluetooth Tools", "CAN Bench Tools", "Reports & Reviews", "System / Companion"],
-    "items": ["Scan", "Summary", "Show Devices", "eucalyptus Status", "eucalyptus Start", "eucalyptus Stop", "eucalyptus Restart", "eucalyptus Upload Status", "Eucalyptus Mode", "Koala Kapture", "Koala Kry", "Koala Kry RF Review", "Ear Tag", "KoalaByte Lab", "Koala Mode Switcher", "Koala Kan Kommander", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Dropbear Discovery Sweep", "Billabong HCI Watch", "Kookaburra Safe Nest Run", "that’s not a knife", "KillerKoala Voice", "Urban Poaching", "Buttons", "Level / Status", "Report", "Boomerang", "Wake killerkoala", "Authorized BLE Inventory", "GATT Readiness Checklist", "Pairing Security Review", "Lab Beacon Plan", "Packet Capture Notes", "Defensive Lab Report", "Restricted Placeholder", "Settings", "Lab", "Shutdown", "Quit"]
+    "groups": ["Bluetooth Tools", "CAN Bench Tools", "LoRa / Mesh Tools", "Reports & Reviews", "System / Companion"],
+    "items": ["Scan", "Summary", "Show Devices", "eucalyptus Status", "eucalyptus Start", "eucalyptus Stop", "eucalyptus Restart", "eucalyptus Upload Status", "Eucalyptus Mode", "Koala Kapture", "Koala Kry", "Koala Kry RF Review", "Ear Tag", "KoalaByte Lab", "Koala Mode Switcher", "Koala Kan Kommander", "didgeridoo", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Dropbear Discovery Sweep", "Billabong HCI Watch", "Kookaburra Safe Nest Run", "that’s not a knife", "KillerKoala Voice", "Urban Poaching", "Buttons", "Level / Status", "Report", "Boomerang", "Wake killerkoala", "Authorized BLE Inventory", "GATT Readiness Checklist", "Pairing Security Review", "Lab Beacon Plan", "Packet Capture Notes", "Defensive Lab Report", "Restricted Placeholder", "Settings", "Lab", "Shutdown", "Quit"]
   },
   "capture_dir": "/blecaptures",
   "scan_window_seconds": 8.0,
