@@ -9,6 +9,8 @@ This repo keeps the current dongle-only, no-custom-PCB KoalaByte Blue software s
 5. **Pre-Boot Dongle Mode Selector** to choose KoalaByte Blue Lab Mode or Koala Konnect Mode before the normal boot splash/menu flow.
 6. **Koala Kan Kommander support for the InnoMaker USB to CAN Converter kit** through the Pi companion.
 
+Readiness keywords: `flash_all_components.sh`, `KoalaByte Lab`, `InnoMaker USB to CAN Converter kit`.
+
 Safety boundary: this code is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, synthetic owned-device lab advertising, scoped CAN observation, completely isolated CAN bench simulator testing, and safe lab validation only. Koala Kry remains offline metadata replay/RF bench review only. Koala Kan Kommander transmit requires both `--bench-simulator` and `--confirm-transmit`.
 
 ---
