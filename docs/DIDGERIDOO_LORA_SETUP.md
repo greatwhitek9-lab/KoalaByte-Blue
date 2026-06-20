@@ -1,24 +1,24 @@
-# Didgeridoo LoRa / Meshtastic Node Setup — Phase 1
+# Didgeridoo LoRa / Meshtastic GNSS Node Setup — Phase 1
 
-Didgeridoo is the KoalaByte Blue setup layer for a **USB-C Meshtastic LoRa node board**, with the current target being a Heltec-style Meshtastic board that has both a LoRa antenna connection and a separate 2.4 GHz antenna connection.
+Didgeridoo is the KoalaByte Blue setup layer for the **Heltec Wireless Tracker V2** USB-C Meshtastic LoRa/GNSS node.
 
 The preferred KoalaByte Blue wiring is:
 
 ```text
 Raspberry Pi 3B+ USB-A port
    → short USB-A to USB-C data cable
-   → Heltec / Meshtastic LoRa node board USB-C port
+   → Heltec Wireless Tracker V2 USB-C port
 ```
 
-The six KoalaByte Blue front buttons stay on the 40-pin GPIO ribbon/breakout. The Meshtastic LoRa board does **not** need Raspberry Pi GPIO pins when it is used over USB serial, TCP, or BLE through the official Meshtastic CLI.
+The six KoalaByte Blue front buttons stay on the 40-pin GPIO ribbon/breakout. The Heltec Wireless Tracker V2 does **not** need Raspberry Pi GPIO pins when it is used over USB serial, TCP, or BLE through the official Meshtastic CLI.
 
-Phase 1 is deliberately limited to hardware setup, local checks, dependency installation, menu visibility, a Meshtastic connection profile, and Meshtastic node information. It does not add raw radio sending features.
+Phase 1 is deliberately limited to hardware setup, local checks, dependency installation, menu visibility, a Meshtastic connection profile, node information, and GNSS-readiness notes. It does not add raw radio sending features.
 
 ## Meshtastic compatibility
 
 KoalaByte Blue treats Didgeridoo as a Meshtastic-node control/setup layer:
 
-1. **Primary path — USB-C Meshtastic node board**: plug the board into the Pi with a USB-A to USB-C data cable. The node should appear as `/dev/ttyUSB*` or `/dev/ttyACM*`.
+1. **Primary path — USB-C Meshtastic GNSS node**: plug the Heltec Wireless Tracker V2 into the Pi with a USB-A to USB-C data cable. The node should appear as `/dev/ttyUSB*` or `/dev/ttyACM*`.
 2. **Secondary path — BLE Meshtastic node**: pair/configure the node from the Meshtastic phone app, then let KoalaByte Blue connect to the same node using the saved Didgeridoo BLE profile.
 3. **Optional/legacy path — direct bare SX1262 SPI radio**: kept as documentation only for future lab experiments. It is not the preferred KoalaByte Blue build path anymore.
 
@@ -28,29 +28,34 @@ No channel URL, PSK, password, private key, or QR-code secret is stored by this 
 
 ## Hardware target
 
-- Board: USB-C Heltec / Meshtastic LoRa node board
+- Board: Heltec Wireless Tracker V2 / USB-C Meshtastic LoRa GNSS node
 - Host: Raspberry Pi 3B+
 - Connection: USB-A to USB-C **data** cable
 - Pi GPIO usage: none for LoRa/Meshtastic node mode
-- Heltec LoRa antenna: board-matched LoRa antenna connected to the Heltec node's LoRa antenna connector
-- Heltec 2.4 GHz antenna: 2.4 GHz Wi-Fi/Bluetooth antenna connected to the Heltec board's 2.4 GHz antenna connector, if fitted
+- Core radio: SX1262 LoRa transceiver on the Heltec board
+- GNSS: UC6580 GNSS receiver on the Heltec board
+- GNSS systems: GPS, GLONASS, BDS, Galileo, NAVIC, and QZSS support through the Heltec GNSS hardware
+- LoRa antenna: board-matched LoRa antenna connected to the Heltec board's LoRa IPEX/U.FL antenna connector
+- 2.4 GHz antenna: the Wireless Tracker has an onboard Wi-Fi/Bluetooth 2.4 GHz metal spring antenna; do not assume it needs a second external 2.4 GHz pigtail unless the exact board revision provides and documents one
 - ESP32-S3 antenna: separate 2.4 GHz antenna connected to the ESP32-S3 DualEye IPEX1/U.FL path
 
 Detailed antenna-hole placement and enclosure geometry are maintained in the production package, not in this Didgeridoo software/setup guide.
 
-## Antenna connection rules
+## Antenna and GNSS connection rules
 
 Do **not** connect a 2.4 GHz antenna to the LoRa antenna connector.
-Do **not** connect the LoRa antenna to either 2.4 GHz antenna connector.
-Do **not** share one antenna between the Heltec 2.4 GHz connector and the ESP32-S3 DualEye.
+Do **not** connect the LoRa antenna to any 2.4 GHz antenna connector.
+Do **not** share one antenna between the Heltec board and the ESP32-S3 DualEye.
 Do **not** power or use the LoRa node without its correct LoRa antenna attached.
+
+For GNSS, the board may use its onboard GNSS antenna path by default. If the build uses an external GNSS antenna, follow the Heltec hardware documentation for switching to the GNSS IPEX/U.FL antenna path and keep that mechanical detail in the production package.
 
 ## USB wiring
 
 ```text
 Raspberry Pi 3B+ USB-A
    → short USB-A to USB-C data cable
-   → USB-C Heltec / Meshtastic LoRa node
+   → USB-C Heltec Wireless Tracker V2
 ```
 
 After plugging it in, check:
@@ -91,7 +96,7 @@ The normal KoalaByte Blue helper already runs system package setup and then the 
 bash scripts/flash_all_components.sh --all
 ```
 
-SPI support remains optional for future direct-SX1262 lab work, but it is not required when using a full USB-C Meshtastic node board.
+SPI support remains optional for future direct-SX1262 lab work, but it is not required when using the Heltec Wireless Tracker V2 as a full USB-C Meshtastic node.
 
 ## Local Didgeridoo checks
 
@@ -152,27 +157,16 @@ The Meshtastic phone app and KoalaByte Blue both talk to the Meshtastic node. Th
 
 Typical workflow:
 
-1. Pair/configure the Meshtastic node with the phone app over Bluetooth.
-2. Confirm the node's region/frequency and all antennas are correct.
-3. Disconnect or close the phone app if the node supports only one active client connection.
-4. Connect KoalaByte Blue to the node by USB serial, TCP, or BLE using Didgeridoo.
+1. Flash/configure the Heltec Wireless Tracker V2 with the correct Meshtastic firmware for its hardware target and LoRa region.
+2. Pair/configure the node with the phone app over Bluetooth.
+3. Confirm the node's LoRa region/frequency, LoRa antenna, and GNSS location behavior are correct.
+4. Move outdoors or near a window for first GNSS fix if needed.
+5. Disconnect or close the phone app if the node supports only one active client connection.
+6. Connect KoalaByte Blue to the node by USB serial, TCP, or BLE using Didgeridoo.
 
-## GPS note
+## GNSS note
 
-The USB-C Meshtastic node may support GPS only if that specific board includes a GNSS/GPS receiver or accepts an external GPS module. The LoRa radio chip itself is not GPS.
-
-Look for board/listing terms such as:
-
-- GPS
-- GNSS
-- L76K
-- LC76G
-- NEO-6M
-- NEO-M8N
-- ATGM336H
-- PPS
-
-If the node has no GPS, it can still use phone-provided location, fixed position settings, or an external GPS module depending on the board and Meshtastic configuration.
+The Heltec Wireless Tracker V2 is the preferred KoalaByte Blue Didgeridoo node when GPS/GNSS is required because it includes UC6580 GNSS hardware. GNSS fixes still require suitable sky view, correct firmware support, and correct antenna configuration.
 
 ## Phase 1 boundaries
 
@@ -184,7 +178,8 @@ Included:
 - Local status and manifest artifacts
 - Local Meshtastic connection profile / login helper
 - Meshtastic node info checks
-- USB-C Meshtastic node wiring guidance
+- Heltec Wireless Tracker V2 USB-C wiring guidance
+- GNSS-readiness guidance
 
 Not included yet:
 
