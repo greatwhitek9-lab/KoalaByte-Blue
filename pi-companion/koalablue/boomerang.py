@@ -9,6 +9,7 @@ identity details.
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
@@ -27,9 +28,59 @@ from .menu_theme import render_terminal_eucalyptus_card
 ACTION_NAME = "Boomerang"
 DESCRIPTION = (
     "Boomerang is a manual camera-awareness logbook. It records public/visible "
-    "camera details, assigns local IDs, exports reports, and stays open until quit."
+    "camera details, assigns local IDs, awards killerkoala XP, exports reports, "
+    "and stays open until quit."
 )
 SCOPE = "manual/public observation only; no RF scanning, network probing, MAC/IP IDs, or avoidance routing"
+XP_REWARD_PER_LOG = 10
+DEFAULT_XP_PATH = Path("logs/killerkoala/xp_state.json")
+
+
+def _rank_for_xp(xp: int) -> str:
+    if xp >= 250:
+        return "Legend"
+    if xp >= 75:
+        return "Hacker"
+    return "Noob"
+
+
+def _write_json(path: Path, payload: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _load_xp(path: Path = DEFAULT_XP_PATH) -> dict:
+    if not path.exists():
+        return {"xp": 0, "rank": _rank_for_xp(0), "successful_modules": 0, "failed_modules": 0, "last_module": "", "updated_at": time.time()}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        xp = int(data.get("xp", 0))
+        return {
+            "xp": xp,
+            "rank": _rank_for_xp(xp),
+            "successful_modules": int(data.get("successful_modules", 0)),
+            "failed_modules": int(data.get("failed_modules", 0)),
+            "last_module": str(data.get("last_module", "")),
+            "updated_at": float(data.get("updated_at", time.time())),
+            "boomerang_logs": int(data.get("boomerang_logs", 0)),
+        }
+    except Exception:
+        return {"xp": 0, "rank": _rank_for_xp(0), "successful_modules": 0, "failed_modules": 0, "last_module": "", "updated_at": time.time(), "boomerang_logs": 0}
+
+
+def award_boomerang_xp(reward: int = XP_REWARD_PER_LOG, xp_path: str | Path = DEFAULT_XP_PATH) -> tuple[int, int, str]:
+    path = Path(xp_path)
+    state = _load_xp(path)
+    before = int(state.get("xp", 0))
+    after = before + int(reward)
+    state["xp"] = after
+    state["rank"] = _rank_for_xp(after)
+    state["successful_modules"] = int(state.get("successful_modules", 0)) + 1
+    state["boomerang_logs"] = int(state.get("boomerang_logs", 0)) + 1
+    state["last_module"] = ACTION_NAME
+    state["updated_at"] = time.time()
+    _write_json(path, state)
+    return before, after, str(state["rank"])
 
 
 def _prompt(label: str, default: str = "") -> str:
@@ -48,10 +99,13 @@ def _prompt_float(label: str) -> Optional[float]:
 def _show_home(log_root: Path) -> None:
     observations = load_observations(log_root)
     summary = build_summary(observations)
+    xp = _load_xp(DEFAULT_XP_PATH)
     rows = [
         DESCRIPTION,
         f"Scope: {SCOPE}",
         f"Stored observations: {summary['count']}",
+        f"XP reward: +{XP_REWARD_PER_LOG} per successfully logged camera record",
+        f"killerkoala XP: {xp.get('xp', 0)} | Rank: {xp.get('rank', 'Noob')}",
         "Commands: add | list | export | help | quit",
     ]
     print(render_terminal_eucalyptus_card("Boomerang", rows, subtitle="camera awareness action"))
@@ -60,6 +114,7 @@ def _show_home(log_root: Path) -> None:
 def _show_help() -> None:
     rows = [
         "Boomerang comes back with the details you recorded: local ID, visible markings, public source, location, mounting notes, and confidence.",
+        f"killerkoala earns +{XP_REWARD_PER_LOG} XP for every camera record successfully logged through this action.",
         "Use add to enter one manually observed/public camera record.",
         "Use list to review stored records.",
         "Use export to write JSON and CSV reports.",
@@ -107,13 +162,16 @@ def _add_observation(log_root: Path) -> None:
         notes=notes,
     )
     path = append_observation(observation, log_root)
+    xp_before, xp_after, rank = award_boomerang_xp()
     rows = [
         f"Saved to: {path}",
         f"Local asset ID: {observation.local_asset_id}",
         f"Observation ID: {observation.observation_id}",
         f"Label: {observation.label}",
+        f"killerkoala XP: {xp_before} -> {xp_after} (+{XP_REWARD_PER_LOG})",
+        f"Rank: {rank}",
     ]
-    print(render_terminal_eucalyptus_card("Saved", rows, subtitle="boomerang"))
+    print(render_terminal_eucalyptus_card("Saved + XP Awarded", rows, subtitle="boomerang"))
 
 
 def _list_observations(log_root: Path) -> None:
