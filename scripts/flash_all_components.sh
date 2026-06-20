@@ -61,11 +61,14 @@ Environment:
   ZEPHYR_SDK_VERSION      Default: 0.17.0
   NRFUTIL_INSTALL_CMD     Optional custom nrfutil install command for scripts/setup_nrf_tools.sh.
   BUILD_KOALA_KONNECT=1 can still be used with scripts/build_firmware_all.sh for optional HCI builds.
+  KOALABYTE_TTS=1 enables Boomerang/KillerKoala spoken alerts after espeak-ng/espeak is installed.
 
 Notes:
   - The nRF52840 Dongle can run KoalaByte Lab or Koala Konnect, not both at the same time.
   - WiFi/internet can be configured first so the Pi can download SDK/toolchain dependencies.
   - System packages, PlatformIO, west, nrfutil, and the full NCS/Zephyr toolchain are checked/prepared before relevant flashing steps.
+  - Pi system package setup also installs AI voice/TTS dependencies: espeak-ng, espeak, ALSA tools, PulseAudio CLI utilities, PortAudio, and python3-pyaudio.
+  - macOS say is an optional fallback on Apple systems; Raspberry Pi OS uses espeak-ng/espeak.
   - If NRF_DFU_PORT is unset, the nRF helper creates the DFU ZIP but does not flash.
   - Koala Kan Kommander remains gated for isolated bench CAN transmit; this script only writes a manifest/check artifact.
 EOF
@@ -126,7 +129,7 @@ setup_system_packages_for_selected_mode() {
     return 0
   fi
   echo
-  echo "== Raspberry Pi/system package dependency setup =="
+  echo "== Raspberry Pi/system package dependency setup, including AI voice/TTS packages =="
   STRICT_SYSTEM_PACKAGES="${STRICT_SYSTEM_PACKAGES:-0}" bash scripts/setup_system_packages.sh
 }
 
@@ -224,6 +227,7 @@ if [[ "${RUN_SMOKE}" == "1" ]]; then
   PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py inventory
   PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status --xp 100
   PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
+  PYTHONPATH=pi-companion python3 scripts/run_boomerang.py <<< $'quit' >/dev/null || true
 fi
 
 echo
