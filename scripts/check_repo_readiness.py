@@ -20,6 +20,7 @@ EXPECTED_MENU_LABELS = [
     "eucalyptus Stop",
     "eucalyptus Restart",
     "eucalyptus Upload Status",
+    "Eucalyptus Mode",
     "Koala Kapture",
     "Koala Kry",
     "Koala Kry RF Review",
@@ -94,6 +95,7 @@ REQUIRED_TEXT = {
     "docs/POWER_UPDATE_REVA2.md": ["Seloky USB-C PD/QC 12V trigger board", "Replaces the prior USB-C PD breakout reference", "Verify 12V output"],
     "docs/PRODUCTION_FILES.md": ["production/RevA17-dongle-only/", "No custom PCB"],
     "docs/CAMERA_AWARENESS_LOGGER.md": ["Boomerang", "manual/public-observation only", "does not collect"],
+    "docs/EUCALYPTUS_ALWAYS_ON_BLE_REVA8.md": ["Eucalyptus Mode", "Koalagotchi", "always-on Bluetooth scanner and logger"],
     "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv": ["Seloky USB-C PD Trigger Board Module", "InnoMaker USB to CAN Converter kit", "Koala Kan Kommander"],
     "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md": ["InnoMaker USB to CAN Converter kit", "5 V buck converter"],
     "production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv": ["Seloky trigger output", "KoalaByte Lab", "Koala Mode Switcher"],
@@ -104,15 +106,18 @@ REQUIRED_TEXT = {
     "firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c": ["KBTX", "bt_le_adv_start", "no captured packet replay"],
     "pi-companion/koalablue/bluez_tools.py": ["BLUEZ_MODULES", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Billabong HCI Watch", "owned_device_required"],
     "pi-companion/koalablue/ble_defense_guard.py": ["ACTION_NAME", "that’s not a knife", "XP_REWARD", "defensive_block_successful"],
-    "pi-companion/koalablue/menu_catalog.py": ["Koala Mode Switcher", "KoalaByte Lab", "bench-simulator transmit", "that’s not a knife", "Boomerang"],
+    "pi-companion/koalablue/menu_catalog.py": ["Koala Mode Switcher", "KoalaByte Lab", "bench-simulator transmit", "that’s not a knife", "Boomerang", "Eucalyptus Mode"],
+    "pi-companion/koalablue/eucalyptus_cyberpet.py": ["ACTION_NAME = \"Eucalyptus Mode\"", "Koalagotchi", "full-color", "run_graphical"],
     "pi-companion/koalablue/boomerang.py": ["ACTION_NAME = \"Boomerang\"", "stays open", "run_interactive"],
     "pi-companion/koalablue/camera_awareness_logger.py": ["manual/public-observation only", "CameraObservation", "MAC_PATTERN"],
     "pi-companion/koalablue/koala_mode_switcher.py": ["Koala Mode Switcher", "KoalaByte Lab", "Koala Konnect", "dongle_mode_state.json"],
     "pi-companion/koalablue/koala_kan_kommander.py": ["ADAPTER_NAME", "InnoMaker USB to CAN Converter kit", "listen_transmit", "confirm_transmit"],
-    "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "KoalaByte Lab", "Koala Mode Switcher", "transmit_enabled", "killerkoala_companion", "Boomerang"],
+    "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "KoalaByte Lab", "Koala Mode Switcher", "transmit_enabled", "killerkoala_companion", "Boomerang", "Eucalyptus Mode"],
     "scripts/run_boomerang.py": ["koalablue.boomerang", "run_cli"],
+    "scripts/run_eucalyptus_cyberpet.py": ["eucalyptus_cyberpet", "run_cli"],
     "scripts/run_camera_awareness_logger.py": ["camera_awareness_logger", "run_cli"],
     "scripts/check_camera_awareness_logger.py": ["MAC-like values must be rejected", "Camera awareness logger smoke check passed"],
+    "scripts/check_eucalyptus_cyberpet.py": ["Eucalyptus cyberpet smoke check passed"],
     "scripts/run_thats_not_a_knife.py": ["ble_defense_guard", "run_cli"],
     "scripts/run_thats_not_a_knife_loop.py": ["run_guard_once", "xp_cooldown", "defensive_block_successful"],
     "scripts/install_thats_not_a_knife_service.sh": ["koalabyte-thats-not-a-knife.service", "systemctl", "set -euo pipefail"],
@@ -224,6 +229,16 @@ def check_json_config(failures: list[str]) -> None:
     if companion.get("voice_profile", {}).get("accent") != "Australian male":
         failures.append("killerkoala voice profile accent is not Australian male")
 
+    eucalyptus_mode = config.get("eucalyptus_mode", {})
+    if eucalyptus_mode.get("display_name") != "Eucalyptus Mode":
+        failures.append("eucalyptus_mode display_name must be Eucalyptus Mode")
+    if eucalyptus_mode.get("full_color_graphics") is not True:
+        failures.append("Eucalyptus Mode must enable full_color_graphics")
+    if eucalyptus_mode.get("idle_behavior", {}).get("idle_seconds_before_grumble") != 180:
+        failures.append("Eucalyptus Mode idle grumble threshold must be 180 seconds")
+    if eucalyptus_mode.get("eating_behavior", {}).get("contentment_increases_per_new_observation") is not True:
+        failures.append("Eucalyptus Mode must increase contentment when new observations appear")
+
     lab_mode = config.get("ear_tag_tx_lab", {})
     if lab_mode.get("firmware_path") != "firmware/nrf52840-dongle-ear-tag-tx-lab":
         failures.append("KoalaByte Lab firmware_path must point to the dongle-only firmware path")
@@ -253,6 +268,10 @@ def check_json_config(failures: list[str]) -> None:
         failures.append("boomerang display_name must be Boomerang")
     if boomerang.get("interactive_stays_open_until_quit") is not True:
         failures.append("boomerang must stay open until the operator quits")
+    if boomerang.get("matching_behavior_settings", {}).get("verbal_alerts_enabled_by_default") is not True:
+        failures.append("boomerang matching behavior settings must enable verbal alerts by default")
+    if boomerang.get("xp_reward_per_logged_record") != 10:
+        failures.append("boomerang xp_reward_per_logged_record must be 10")
 
 
 def check_menu_catalog(failures: list[str]) -> None:
@@ -264,7 +283,7 @@ def check_menu_catalog(failures: list[str]) -> None:
     if menu_labels() != EXPECTED_MENU_LABELS:
         failures.append("menu_catalog.menu_labels() does not match expected menu ordering")
     descriptions = "\n".join(str(item.get("description", "")) for item in FUNCTION_MENU_ITEMS)
-    for needle in ("bench-simulator transmit", "that’s not a knife", "stays open until quit"):
+    for needle in ("bench-simulator transmit", "that’s not a knife", "stays open until quit", "Koalagotchi always-on Bluetooth scanner and logger"):
         if needle not in descriptions and needle not in "\n".join(menu_labels()):
             failures.append(f"menu catalog missing expected text: {needle}")
 
@@ -331,18 +350,32 @@ def check_kan_module(failures: list[str]) -> None:
         failures.append("Koala Kan Kommander transmit must block without explicit gates")
 
 
+def check_eucalyptus_mode_module(failures: list[str]) -> None:
+    try:
+        from koalablue.eucalyptus_cyberpet import ACTION_NAME, DESCRIPTION, EucalyptusStats, CyberPetState, render_tamagotchi_screen, update_pet_state
+    except Exception as exc:
+        failures.append(f"failed to import Eucalyptus Mode cyberpet: {exc}")
+        return
+    if ACTION_NAME != "Eucalyptus Mode":
+        failures.append("Eucalyptus Mode action name mismatch")
+    if "Koalagotchi" not in DESCRIPTION:
+        failures.append("Eucalyptus Mode description must mention Koalagotchi")
+    stats = EucalyptusStats(observation_count=5, newest_mtime=0.0, files_seen=1, source_dirs=[])
+    state = CyberPetState(contentment=50, total_observations_seen=3, last_observation_count=3, last_new_data_time=0.0, direction=1, position=0, mood="scouting", boomerang_throws=0, updated_at=0.0)
+    updated, delta, _grumble, mood = update_pet_state(state, stats, idle_seconds=180, branch_width=60)
+    if delta != 2 or updated.contentment <= state.contentment or "eating" not in mood:
+        failures.append("Eucalyptus Mode must increase contentment when passive observations increase")
+    frame = render_tamagotchi_screen(updated, stats, delta=delta, width=72)
+    if "EUCALYPTUS MODE" not in frame or "KOALAGOTCHI" not in frame:
+        failures.append("Eucalyptus Mode terminal frame missing expected title")
+
+
 def check_boomerang_module(failures: list[str]) -> None:
     try:
         from koalablue.boomerang import ACTION_NAME, DESCRIPTION, SCOPE
-        from koalblue.camera_awareness_logger import create_observation  # type: ignore[import-not-found]
-    except ModuleNotFoundError:
-        try:
-            from koalablue.camera_awareness_logger import create_observation
-        except Exception as exc:
-            failures.append(f"failed to import Boomerang camera awareness logger: {exc}")
-            return
+        from koalablue.camera_awareness_logger import create_observation
     except Exception as exc:
-        failures.append(f"failed to import Boomerang: {exc}")
+        failures.append(f"failed to import Boomerang camera awareness logger: {exc}")
         return
     if ACTION_NAME != "Boomerang":
         failures.append("Boomerang action name mismatch")
@@ -402,6 +435,7 @@ def main() -> int:
     check_bluez_module_registry(failures)
     check_ble_guard(failures)
     check_kan_module(failures)
+    check_eucalyptus_mode_module(failures)
     check_boomerang_module(failures)
     check_current_bom(failures)
     check_flash_helpers(failures)
@@ -413,7 +447,7 @@ def main() -> int:
         return 1
 
     print("KoalaByte Blue repo readiness check passed.")
-    print("Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, approved theme assets, Boomerang, Koala Kan Kommander, and the that’s not a knife local guard service.")
+    print("Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, approved theme assets, Eucalyptus Mode, Boomerang, Koala Kan Kommander, and the that’s not a knife local guard service.")
     return 0
 
 
