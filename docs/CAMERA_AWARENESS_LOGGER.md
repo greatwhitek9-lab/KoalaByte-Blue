@@ -21,7 +21,7 @@ Boomerang fires three separate KillerKoala alerts:
 The default lines are:
 
 ```text
-boomerang_start: Boomerang is live, mate. Camera awareness logbook is open. Notes only, no dodgy scanning.
+boomerang_start: BOOMerang!
 camera_found: Camera found and logged, mate. Boomerang tagged it clean.
 xp_gain: killerkoala gained XP. Another notch in the gumtree.
 ```
