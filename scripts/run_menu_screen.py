@@ -39,9 +39,10 @@ def selected_quit(event: Optional[MenuEvent]) -> bool:
 
 
 def run_boomerang_action(_item: MenuItem) -> None:
-    from koalablue.boomerang import run_interactive
+    from koalablue import boomerang
 
-    run_interactive()
+    boomerang.KILLERKOALA_BOOMERANG_ALERTS["boomerang_start"] = "BOOMerang!"
+    boomerang.run_interactive()
 
 
 def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
