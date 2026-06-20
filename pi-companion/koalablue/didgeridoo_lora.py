@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import glob
 import importlib.util
 import json
 import shutil
@@ -11,13 +12,15 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 DISPLAY_NAME = "didgeridoo"
-MODULE_NAME = "KoalaByte Blue Didgeridoo LoRa Setup"
+MODULE_NAME = "KoalaByte Blue Didgeridoo Meshtastic Node Setup"
 DEFAULT_OUTPUT_DIR = Path("logs/didgeridoo")
 DEFAULT_SPI_DEVICE = "/dev/spidev0.0"
 DEFAULT_MESHTASTIC_PORT = "/dev/ttyUSB0"
 DEFAULT_PROFILE_PATH = Path("logs/didgeridoo/meshtastic_login.json")
 
-PIN_MAP = {
+# The preferred KoalaByte Blue Phase 1 layout is a full USB-C Meshtastic node.
+# The SPI pin map remains documented for optional future bare-SX1262 lab work only.
+OPTIONAL_SPI_PIN_MAP = {
     "sck": {"gpio": 11, "physical_pin": 23, "signal": "SPI0 SCLK"},
     "miso": {"gpio": 9, "physical_pin": 21, "signal": "SPI0 MISO"},
     "mosi": {"gpio": 10, "physical_pin": 19, "signal": "SPI0 MOSI"},
@@ -43,13 +46,13 @@ BUTTON_PINS = {
 @dataclass(frozen=True)
 class DidgeridooStatus:
     display_name: str
-    spi_device: str
-    spi_device_present: bool
-    spidev_python_available: bool
+    preferred_connection: str
+    detected_serial_ports: List[str]
     meshtastic_python_available: bool
     meshtastic_cli_available: bool
     meshtastic_profile_present: bool
-    pin_map: Dict[str, Dict[str, object]]
+    optional_spi_device: str
+    optional_spi_device_present: bool
     button_pin_map: Dict[str, Dict[str, object]]
     timestamp: float
 
@@ -81,6 +84,11 @@ def _run_command(args: List[str], timeout: float = 8.0) -> Dict[str, object]:
 
 def _profile_path(profile_path: str | Path = DEFAULT_PROFILE_PATH) -> Path:
     return Path(profile_path)
+
+
+def detect_serial_ports() -> List[str]:
+    ports = sorted(set(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*")))
+    return ports
 
 
 def load_meshtastic_profile(profile_path: str | Path = DEFAULT_PROFILE_PATH) -> Dict[str, object]:
@@ -126,17 +134,23 @@ def manifest(output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> Dict[str, object]:
     data = {
         "display_name": DISPLAY_NAME,
         "module_name": MODULE_NAME,
-        "revision": "Phase1_Setup_Status_Login_Only",
-        "scope": "SX1262 hardware setup, SPI dependency checks, menu integration, Meshtastic node login profile, and Meshtastic node information only",
+        "revision": "Phase1_USB_Meshtastic_Node_First",
+        "scope": "USB-C Meshtastic node setup, serial/BLE/TCP login profile, node information, and antenna-routing guidance only",
         "hardware_target": {
-            "module": "DX-LR30 / Semtech SX1262 SPI LoRa board",
-            "band_note": "410-475 MHz / 433 MHz module variant",
-            "host": "Raspberry Pi 3B+ over 40-pin GPIO breakout",
-            "antenna": "433 MHz antenna on the SX1262 SMA connector",
+            "primary_module": "USB-C Meshtastic LoRa node board",
+            "host": "Raspberry Pi 3B+ USB-A port",
+            "connection": "short USB-A to USB-C data cable",
+            "pi_gpio_required_for_lora": False,
+            "legacy_optional_module": "Bare SPI SX1262 module for future lab use only",
+        },
+        "antenna_plan": {
+            "meshtastic_lora_node": "Use one case antenna position for the node's frequency-matched LoRa antenna: 433/868/915 MHz depending on the board and region.",
+            "esp32_s3_dualeye": "Keep the second case antenna as a 2.4 GHz Wi-Fi/BLE antenna connected to the ESP32-S3 DualEye IPEX1/U.FL antenna path.",
+            "warning": "Do not swap the 2.4 GHz ESP32 antenna and the LoRa antenna; they are different RF systems.",
         },
         "meshtastic_compatibility": {
-            "direct_sx1262_spi": "raw LoRa hardware checks only in Phase 1",
-            "compatible_path": "connect KoalaByte Blue to a Meshtastic firmware node by serial, TCP, or BLE and query it with the official meshtastic CLI",
+            "compatible_path": "connect KoalaByte Blue to a Meshtastic firmware node by USB serial, TCP, or BLE and query it with the official meshtastic CLI",
+            "phone_app_path": "use the Meshtastic phone app to pair/configure the node, then KoalaByte Blue can connect to the same node by USB serial, TCP, or BLE",
             "login_model": "local connection profile; Meshtastic does not use a KoalaByte username/password login",
         },
         "safe_boundaries": {
@@ -145,8 +159,8 @@ def manifest(output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> Dict[str, object]:
             "automatic_radio_service": False,
             "status_and_setup_only": True,
         },
-        "pin_map": PIN_MAP,
         "button_pin_map": BUTTON_PINS,
+        "optional_spi_pin_map_for_legacy_bare_sx1262": OPTIONAL_SPI_PIN_MAP,
         "commands": ["manifest", "status", "meshtastic-login", "meshtastic-profile", "meshtastic-logout", "meshtastic-info"],
     }
     path = root / "didgeridoo_manifest.json"
@@ -159,18 +173,21 @@ def status(spi_device: str = DEFAULT_SPI_DEVICE, output_dir: str | Path = DEFAUL
     root = ensure_output_dir(output_dir)
     status_obj = DidgeridooStatus(
         display_name=DISPLAY_NAME,
-        spi_device=spi_device,
-        spi_device_present=Path(spi_device).exists(),
-        spidev_python_available=_spec_available("spidev"),
+        preferred_connection="USB-C Meshtastic node over /dev/ttyUSB* or /dev/ttyACM*",
+        detected_serial_ports=detect_serial_ports(),
         meshtastic_python_available=_spec_available("meshtastic"),
         meshtastic_cli_available=shutil.which("meshtastic") is not None,
         meshtastic_profile_present=_profile_path(profile_path).exists(),
-        pin_map=PIN_MAP,
+        optional_spi_device=spi_device,
+        optional_spi_device_present=Path(spi_device).exists(),
         button_pin_map=BUTTON_PINS,
         timestamp=time.time(),
     )
     data = asdict(status_obj)
-    data["raspi_config_hint"] = "SPI should be enabled by scripts/setup_system_packages.sh when raspi-config is available. Reboot if /dev/spidev0.0 is missing after first install."
+    data["usb_hint"] = "Plug the Meshtastic node into the Pi with a USB-A to USB-C data cable, then use /dev/ttyUSB0 or /dev/ttyACM0 in meshtastic-login."
+    data["ble_hint"] = "Pair/configure from the phone app first. If the phone app holds the only BLE session, disconnect it before KoalaByte Blue connects."
+    data["antenna_hint"] = "One case antenna should be the LoRa node's frequency-matched antenna; the other remains the ESP32-S3 2.4 GHz antenna."
+    data["legacy_spi_hint"] = "SPI is optional and only for future direct bare-SX1262 lab work. It is not required for the USB-C Meshtastic node board."
     data["meshtastic_login_hint"] = "Run scripts/run_didgeridoo.py meshtastic-login to save a local serial/TCP/BLE connection profile."
     path = root / "didgeridoo_status.json"
     path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
@@ -199,7 +216,7 @@ def meshtastic_login(
         "host": host if connection_type == "tcp" else None,
         "ble": ble if connection_type == "ble" else None,
         "created_at": time.time(),
-        "note": "Local Meshtastic connection profile only. No username/password or channel secrets are stored here.",
+        "note": "Local Meshtastic connection profile only. No username/password, channel URL, PSK, private key, QR-code secret, or phone-app credential is stored here.",
     }
     saved = save_meshtastic_profile(profile, profile_path=profile_path)
     data: Dict[str, object] = {"profile": saved, "verified": False}
@@ -276,13 +293,13 @@ def print_json(data: Dict[str, object]) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="KoalaByte Blue didgeridoo LoRa setup/status helper")
+    parser = argparse.ArgumentParser(description="KoalaByte Blue didgeridoo Meshtastic node setup/status helper")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_manifest = sub.add_parser("manifest", help="Write didgeridoo setup manifest")
     p_manifest.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
 
-    p_status = sub.add_parser("status", help="Check local SPI and Meshtastic dependency readiness")
+    p_status = sub.add_parser("status", help="Check local USB serial, optional SPI, and Meshtastic dependency readiness")
     p_status.add_argument("--spi-device", default=DEFAULT_SPI_DEVICE)
     p_status.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     p_status.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH))
