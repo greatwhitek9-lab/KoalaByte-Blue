@@ -12,13 +12,13 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 DISPLAY_NAME = "didgeridoo"
-MODULE_NAME = "KoalaByte Blue Didgeridoo Meshtastic Node Setup"
+MODULE_NAME = "KoalaByte Blue Didgeridoo Meshtastic GNSS Node Setup"
 DEFAULT_OUTPUT_DIR = Path("logs/didgeridoo")
 DEFAULT_SPI_DEVICE = "/dev/spidev0.0"
 DEFAULT_MESHTASTIC_PORT = "/dev/ttyUSB0"
 DEFAULT_PROFILE_PATH = Path("logs/didgeridoo/meshtastic_login.json")
 
-# The preferred KoalaByte Blue Phase 1 layout is a full USB-C Meshtastic node.
+# The preferred KoalaByte Blue Phase 1 layout is a full USB-C Meshtastic GNSS node.
 # The SPI pin map remains documented for optional future bare-SX1262 lab work only.
 OPTIONAL_SPI_PIN_MAP = {
     "sck": {"gpio": 11, "physical_pin": 23, "signal": "SPI0 SCLK"},
@@ -134,19 +134,24 @@ def manifest(output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> Dict[str, object]:
     data = {
         "display_name": DISPLAY_NAME,
         "module_name": MODULE_NAME,
-        "revision": "Phase1_USB_Heltec_Meshtastic_Node",
-        "scope": "USB-C Heltec/Meshtastic node setup, serial/BLE/TCP login profile, node information, and antenna connection sanity guidance only",
+        "revision": "Phase1_Heltec_Wireless_Tracker_V2_GNSS",
+        "scope": "Heltec Wireless Tracker V2 USB-C Meshtastic LoRa/GNSS node setup, serial/BLE/TCP login profile, node information, and antenna connection sanity guidance only",
         "hardware_target": {
-            "primary_module": "USB-C Heltec / Meshtastic LoRa node board",
+            "primary_module": "Heltec Wireless Tracker V2 / USB-C Meshtastic LoRa GNSS node",
             "host": "Raspberry Pi 3B+ USB-A port",
             "connection": "short USB-A to USB-C data cable",
             "pi_gpio_required_for_lora": False,
+            "soc": "ESP32-S3FN8",
+            "lora_chipset": "SX1262",
+            "gnss_chipset": "UC6580",
+            "gnss_supported_systems": ["GPS", "GLONASS", "BDS", "Galileo", "NAVIC", "QZSS"],
             "legacy_optional_module": "Bare SPI SX1262 module for future lab use only",
         },
         "antenna_connection_rules": {
-            "heltec_2g4_antenna": "Connect a 2.4 GHz Wi-Fi/Bluetooth antenna to the Heltec board's 2.4 GHz antenna connector, if fitted.",
+            "wireless_tracker_2g4": "The Wireless Tracker provides onboard Wi-Fi/Bluetooth 2.4 GHz antenna hardware; do not add an external 2.4 GHz pigtail unless the exact board revision documents it.",
             "esp32_s3_dualeye_2g4_antenna": "Connect a separate 2.4 GHz Wi-Fi/Bluetooth antenna to the ESP32-S3 DualEye IPEX1/U.FL antenna path.",
-            "heltec_lora_antenna": "Connect the Heltec board's frequency-matched LoRa antenna to the LoRa antenna connector: 433/868/915 MHz depending on the board and region.",
+            "wireless_tracker_lora_antenna": "Connect the Wireless Tracker's frequency-matched LoRa antenna to the LoRa antenna connector: 470-510 MHz, 863-928 MHz, or the purchased regional band.",
+            "wireless_tracker_gnss_antenna": "Use the onboard GNSS antenna path unless the production build intentionally switches to the documented GNSS IPEX/U.FL external antenna path.",
             "production_note": "Case-hole count, placement, and enclosure geometry live in the production files, not in the Didgeridoo module.",
         },
         "meshtastic_compatibility": {
@@ -174,7 +179,7 @@ def status(spi_device: str = DEFAULT_SPI_DEVICE, output_dir: str | Path = DEFAUL
     root = ensure_output_dir(output_dir)
     status_obj = DidgeridooStatus(
         display_name=DISPLAY_NAME,
-        preferred_connection="USB-C Meshtastic node over /dev/ttyUSB* or /dev/ttyACM*",
+        preferred_connection="Heltec Wireless Tracker V2 over USB serial: /dev/ttyUSB* or /dev/ttyACM*",
         detected_serial_ports=detect_serial_ports(),
         meshtastic_python_available=_spec_available("meshtastic"),
         meshtastic_cli_available=shutil.which("meshtastic") is not None,
@@ -185,10 +190,11 @@ def status(spi_device: str = DEFAULT_SPI_DEVICE, output_dir: str | Path = DEFAUL
         timestamp=time.time(),
     )
     data = asdict(status_obj)
-    data["usb_hint"] = "Plug the Meshtastic node into the Pi with a USB-A to USB-C data cable, then use /dev/ttyUSB0 or /dev/ttyACM0 in meshtastic-login."
+    data["usb_hint"] = "Plug the Heltec Wireless Tracker V2 into the Pi with a USB-A to USB-C data cable, then use /dev/ttyUSB0 or /dev/ttyACM0 in meshtastic-login."
     data["ble_hint"] = "Pair/configure from the phone app first. If the phone app holds the only BLE session, disconnect it before KoalaByte Blue connects."
-    data["antenna_hint"] = "Use separate antennas for Heltec 2.4 GHz, ESP32-S3 DualEye 2.4 GHz, and Heltec LoRa. Production files define the enclosure openings."
-    data["legacy_spi_hint"] = "SPI is optional and only for future direct bare-SX1262 lab work. It is not required for the USB-C Meshtastic node board."
+    data["gnss_hint"] = "The Wireless Tracker V2 has UC6580 GNSS hardware. First fix may require sky view, correct Meshtastic firmware target, correct region, and correct antenna path."
+    data["antenna_hint"] = "Use the Wireless Tracker's LoRa antenna, its onboard/default GNSS antenna path unless production switches to external GNSS, and the separate ESP32-S3 DualEye 2.4 GHz antenna. Production files define enclosure openings."
+    data["legacy_spi_hint"] = "SPI is optional and only for future direct bare-SX1262 lab work. It is not required for the Heltec Wireless Tracker V2 USB-C Meshtastic node."
     data["meshtastic_login_hint"] = "Run scripts/run_didgeridoo.py meshtastic-login to save a local serial/TCP/BLE connection profile."
     path = root / "didgeridoo_status.json"
     path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
@@ -294,13 +300,13 @@ def print_json(data: Dict[str, object]) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="KoalaByte Blue didgeridoo Meshtastic node setup/status helper")
+    parser = argparse.ArgumentParser(description="KoalaByte Blue didgeridoo Meshtastic GNSS node setup/status helper")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_manifest = sub.add_parser("manifest", help="Write didgeridoo setup manifest")
     p_manifest.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
 
-    p_status = sub.add_parser("status", help="Check local USB serial, optional SPI, and Meshtastic dependency readiness")
+    p_status = sub.add_parser("status", help="Check local USB serial, optional SPI, Meshtastic, and GNSS-node dependency readiness")
     p_status.add_argument("--spi-device", default=DEFAULT_SPI_DEVICE)
     p_status.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     p_status.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH))
