@@ -2,7 +2,18 @@
 
 Didgeridoo is the KoalaByte Blue setup layer for the optional Semtech SX1262 / DX-LR30 433 MHz SPI LoRa board.
 
-This Phase 1 integration is deliberately limited to hardware setup, local checks, dependency installation, SPI enablement, menu visibility, and Meshtastic node information. It does not add raw radio sending features.
+This Phase 1 integration is deliberately limited to hardware setup, local checks, dependency installation, SPI enablement, menu visibility, a Meshtastic connection profile, and Meshtastic node information. It does not add raw radio sending features.
+
+## Meshtastic compatibility
+
+KoalaByte Blue has two different LoRa paths:
+
+1. **Direct SX1262 SPI board path** — the pictured DX-LR30/SX1262 board is wired directly to the Raspberry Pi over SPI. Phase 1 checks wiring, dependencies, and SPI readiness only.
+2. **Meshtastic node path** — KoalaByte Blue can connect to a separate Meshtastic firmware node over serial, TCP, or BLE and query information through the official Meshtastic CLI.
+
+Meshtastic does not use a normal web-app username/password login for this local CLI workflow. Didgeridoo's `meshtastic-login` command saves a local connection profile so KoalaByte Blue knows which Meshtastic node to talk to.
+
+No channel URL, PSK, or password is stored by this Phase 1 profile.
 
 ## Hardware target
 
@@ -51,12 +62,49 @@ bash scripts/flash_all_components.sh --all
 
 The setup helper enables the Pi SPI interface when `raspi-config` is available. Reboot after first install if `/dev/spidev0.0` does not appear immediately.
 
-## Local checks
+## Local Didgeridoo checks
 
 ```bash
 PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py manifest
 PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py status
-PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py meshtastic-info --port /dev/ttyUSB0
+```
+
+## Meshtastic login profiles
+
+Serial USB node:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py meshtastic-login --connection serial --port /dev/ttyUSB0 --verify
+```
+
+TCP/network node:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py meshtastic-login --connection tcp --host meshtastic.local --verify
+```
+
+BLE node:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py meshtastic-login --connection ble --ble "device_name_or_address" --verify
+```
+
+Show the saved profile:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py meshtastic-profile
+```
+
+Clear the saved profile:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py meshtastic-logout
+```
+
+Query the logged-in node:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_didgeridoo.py meshtastic-info
 ```
 
 The Meshtastic info command only queries a connected Meshtastic node. It does not send a mesh text message.
@@ -71,6 +119,7 @@ Included:
 - Meshtastic Python dependency
 - Pi SPI enablement helper
 - Local status and manifest artifacts
+- Local Meshtastic connection profile / login helper
 - Meshtastic node info checks
 
 Not included yet:
