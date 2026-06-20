@@ -12,7 +12,7 @@ import os
 import time
 from typing import Optional
 
-from koalablue.menu_ui import MenuEvent, MenuSelectionScreen
+from koalablue.menu_ui import MenuEvent, MenuItem, MenuSelectionScreen
 
 try:
     from koalablue.gpio_buttons import GPIOButtonManager
@@ -38,8 +38,24 @@ def selected_quit(event: Optional[MenuEvent]) -> bool:
     return event is not None and event.event_type in {"select", "touch_long_press_select"} and event.command == "quit"
 
 
-def run_terminal() -> int:
+def run_boomerang_action(_item: MenuItem) -> None:
+    from koalablue.boomerang import run_interactive
+
+    run_interactive()
+
+
+def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
+    menu.register_handler("boomerang", run_boomerang_action)
+
+
+def make_menu() -> MenuSelectionScreen:
     menu = MenuSelectionScreen()
+    register_default_action_handlers(menu)
+    return menu
+
+
+def run_terminal() -> int:
+    menu = make_menu()
     buttons = GPIOButtonManager() if GPIOButtonManager is not None else None
     if buttons is not None:
         buttons.start()
@@ -88,7 +104,7 @@ def main() -> int:
         from koalablue.menu_theme import JungleMenuRenderer, JungleMenuUnavailable
 
         try:
-            return JungleMenuRenderer(fullscreen=not args.windowed, width=args.width, height=args.height).run()
+            return JungleMenuRenderer(menu=make_menu(), fullscreen=not args.windowed, width=args.width, height=args.height).run()
         except JungleMenuUnavailable as exc:
             print(f"Graphical jungle menu unavailable: {exc}")
             return run_terminal()
