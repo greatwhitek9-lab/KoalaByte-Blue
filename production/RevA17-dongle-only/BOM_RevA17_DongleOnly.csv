@@ -1,23 +1,29 @@
 Item,Qty,Description,Notes
-Raspberry Pi 3 Model B+,1,Main Linux computer / KoalaByte Blue companion brain,Use stable regulated 5 V rail
-Nordic nRF52840 USB Dongle / PCA10059 / NRF52840-DONGLE,1,Only retained Nordic BLE board for the dongle-only build,Build with nRF Connect SDK / Zephyr and flash by USB DFU
-ESP32-S3 DualEye module,1,Dual-eye UI / microphone / display front-end,Connect to Raspberry Pi by USB serial
+Raspberry Pi 3 Model B+,1,Main Linux computer / KoalaByte Blue companion brain,Use stable regulated 5.1 V rail from buck converter; do not feed raw battery voltage
+Nordic nRF52840 USB Dongle / PCA10059 / NRF52840-DONGLE,1,Only retained Nordic BLE board for the dongle-only build,Plug into Raspberry Pi USB; no separate battery wiring
+ESP32-S3 DualEye module,1,Dual-eye UI / microphone / display front-end,Power from regulated 5 V rail and connect to Raspberry Pi by USB serial
 1.28 inch round LCD display,2,240x240 round LCD eyes,Included on the ESP32-S3 DualEye module
-8 ohm 2 W mini speaker,1,Audio output for local status / companion feedback,Mount behind front grille or internal speaker location
+8 ohm 2 W mini speaker,1,Audio output for local status / companion feedback,Mount behind front grille or internal speaker location; use amp module from 5 V rail if required
 2.4 GHz external antenna,2,External wireless antennas with fitted leads,Use only connector-compatible antenna leads and strain relief
-Adafruit tactile button switch 6mm pack PID 367,1 pack / 6 used,Six-button front-panel controls,Buttons are numbered left-to-right and wired to Raspberry Pi GPIO
+Adafruit tactile button switch 6mm pack PID 367,1 pack / 6 used,Six-button front-panel controls,Signal wiring only; GPIO to button and other side to GND; do not connect to battery positive or 5 V
 KoalaByte Blue front button bezel 6x6mm RevA6,1,3D printed front button bezel,Aligns six front buttons in the enclosure
-Protected 18650 Li-ion cell,2,2S battery pack cells,Use matched protected cells from reputable source
-2x18650 holder with protection / BMS,1,Protected battery holder / protection board,Verify polarity and BMS wiring before electronics are installed
-Seloky USB-C PD Trigger Board Module PD/QC Decoy Fast Charge USB Type-C to 12V,1,Input power / 12 V PD-QC trigger path,Verify 12 V output with a multimeter before connecting the 5 V buck converter
-5 V 3 A buck converter,1,Regulated 5 V rail for the Pi and modules,Feed from the Seloky 12 V trigger output; verify 4.9 V to 5.1 V under normal load before closing case
-Inline rated power switch,1,Main on/off control,Use a current-rated switch and route wiring with strain relief
+Protected 18650 Li-ion cell,2,2S battery pack cells,Use matched protected cells from reputable source; inspect wraps and polarity before install
+2x18650 series holder,1,Mechanical holder for 2S battery pack,Use correct series polarity and strain relief; holder alone does not replace a BMS unless it includes true 2S protection
+2S Li-ion BMS / protection board,1,Primary battery protection for 2x18650 series pack,Wire B- B1/BM B+ and P-/P+ exactly; verify before connecting electronics
+Inline ATC/ATO fuse holder,1,Main battery positive fuse holder,Install close to BMS P+; 18-20 AWG leads preferred
+5 A blade fuse,1,Main battery fuse,Start with 5 A for bring-up; replace only after fault inspection
+Inline rated power switch,1,Main on/off control,Route after fuse and before buck converter VIN+; use DC current-rated switch and strain relief
+5 V 3 A buck converter,1,Regulated 5 V rail for the Pi and modules,Feed from 2S battery/BMS through fuse and switch; set output to 5.1 V before connecting electronics; 5 V 5 A preferred if available
++5 V distribution rail,1,Regulated positive power distribution,WAGO lever connector or screw terminal rail; do not use breadboard rail for main power
+GND distribution rail,1,Common ground distribution,All modules share GND after buck converter output
+1000 uF electrolytic capacitor,0-1 optional,Optional 5 V rail stabilizer,Install across regulated 5 V rail only; positive to 5 V stripe/negative to GND; use 10 V minimum 16 V preferred
+Seloky USB-C PD Trigger Board Module PD/QC Decoy Fast Charge USB Type-C to 12V,0-1 optional,Optional external bench/service input path,Not the primary battery path and not a battery charger; do not tie PD output and battery output together without proper power-path control
 microSD card,1,Pi OS / logs / reports / captures,128 GB recommended; 32 GB minimum for basic testing
-USB and JST power/data cables,1 set,Internal power and data harnesses,Use short data-capable cables and label each harness
+USB and JST power/data cables,1 set,Internal power and data harnesses,Use short data-capable USB cables and label each harness; use heavier wire for main battery and 5 V rail paths
 M2.5 standoffs / screws / nuts,1 set,Mechanical stacked assembly,Use insulating standoffs where clearance is tight
 Acrylic or printed frame plates,1 set,Open-frame stacked module structure,No custom PCB required
-3D printed case / stacked frame / rear panel,1 set,Optional production enclosure with koala-ear form factor,Print and test-fit before final wiring
+3D printed case / stacked frame / rear panel,1 set,Optional production enclosure with koala-ear form factor,Print and test-fit before final wiring; leave clearance around batteries fuse switch buck and BMS
 InnoMaker USB to CAN Converter kit,0-1 optional,Optional Koala Kan Kommander USB-to-CAN adapter,Mount internally or in a side/rear service bay; use as SocketCAN interface such as can0 on Linux
 InnoMaker CAN cable / adapter-side harness,0-1 optional,Adapter-matched CAN_H / CAN_L / GND / optional SHIELD connection,No circular panel CAN port; route to authorized bench harness with strain relief
 Adapter mount / strain relief,0-1 optional,Printed bracket adhesive mount Velcro or standoff support for InnoMaker converter,Keep clear of antennas battery contacts speaker grille and Raspberry Pi GPIO
-Cable management / strain relief,1 set,Zip ties heat-shrink adhesive cable anchors,Keep wires away from antennas vents battery contacts and optional InnoMaker CAN adapter
+Cable management / strain relief,1 set,Zip ties heat-shrink adhesive cable anchors,Keep wires away from antennas vents battery contacts BMS fuse and optional InnoMaker CAN adapter
