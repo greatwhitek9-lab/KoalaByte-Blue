@@ -39,6 +39,14 @@ bash scripts/flash_all_components.sh --all --smoke
 
 The helper runs the repo readiness check, installs the Pi companion when requested, checks/prepares `west` and `nrfutil` before nRF workflows, flashes ESP32 when requested, builds/packages/flashes the nRF52840 Dongle when requested, and writes a Koala Kan Kommander InnoMaker manifest check. If `NRF_DFU_PORT` is not set, the nRF helper creates the DFU ZIP but does not flash.
 
+The same flow now installs KillerKoala voice/TTS support through `scripts/setup_system_packages.sh` when system packages are enabled. Raspberry Pi OS installs `espeak-ng`, `espeak`, ALSA utilities/plugins, PulseAudio CLI utilities, PortAudio, and `python3-pyaudio`. Apple `say` is not installed on Raspberry Pi OS; it remains an automatic fallback only on macOS-style systems where Apple already provides it.
+
+Enable spoken Boomerang/KillerKoala alerts after installation with:
+
+```bash
+KOALABYTE_TTS=1 PYTHONPATH=pi-companion python3 scripts/run_boomerang.py
+```
+
 ---
 
 ## west and nrfutil setup
@@ -137,7 +145,7 @@ Recommended Raspberry Pi OS packages:
 
 ```bash
 sudo apt update
-sudo apt install -y git python3 python3-venv python3-pip bluetooth bluez rfkill sqlite3 libsdl2-2.0-0 iproute2 can-utils
+sudo apt install -y git python3 python3-venv python3-pip bluetooth bluez rfkill sqlite3 libsdl2-2.0-0 iproute2 can-utils espeak-ng espeak alsa-utils libasound2-plugins pulseaudio-utils portaudio19-dev python3-pyaudio
 ```
 
 Install/update the companion environment:
@@ -159,6 +167,7 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py manifest
 PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py inventory
 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status --xp 100
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
+KOALABYTE_TTS=1 PYTHONPATH=pi-companion python3 scripts/run_boomerang.py
 ```
 
 ---
@@ -220,145 +229,6 @@ bash scripts/build_nrf52840_dongle_lab.sh
 Manual build:
 
 ```bash
-west build -b nrf52840dongle_nrf52840 firmware/nrf52840-dongle-ear-tag-tx-lab -d build/nrf52840-dongle-lab
+cd firmware/nrf52840-dongle-ear-tag-tx-lab
+west build -b nrf52840dongle_nrf52840 .
 ```
-
-Create a DFU package without flashing:
-
-```bash
-bash scripts/flash_nrf52840_dongle_lab_dfu.sh
-```
-
-Flash after identifying the Dongle DFU serial port:
-
-```bash
-NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_nrf52840_dongle_lab_dfu.sh
-```
-
-Expected BLE advertisement name:
-
-```text
-KoalaByte Lab
-```
-
----
-
-## Optional Koala Konnect profile
-
-Koala Konnect is an alternate nRF52840 Dongle profile that turns the dongle into a USB HCI Bluetooth adapter. It cannot run at the same time as KoalaByte Lab on the same dongle.
-
-```bash
-bash scripts/build_koala_konnect.sh
-NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_koala_konnect.sh
-```
-
-For build-only multi-target checks:
-
-```bash
-BUILD_KOALA_KONNECT=1 bash scripts/build_firmware_all.sh
-```
-
----
-
-## RevA25 InnoMaker USB-to-CAN listen and transmit support
-
-Koala Kan Kommander uses the optional **InnoMaker USB to CAN Converter kit**.
-
-Physical path:
-
-```text
-Raspberry Pi 3B+ USB host
-  -> short internal USB data cable
-  -> InnoMaker USB to CAN Converter kit
-  -> adapter-side CAN_H / CAN_L / GND / optional SHIELD
-  -> isolated CAN bench simulator or owned bench harness
-```
-
-Do not use the earlier circular CAN panel-port concept. Mount the adapter internally or in a rectangular side/rear service bay with strain relief. Do not wire CAN_H or CAN_L directly to Raspberry Pi GPIO.
-
-Optional Pi setup:
-
-```bash
-sudo apt install -y can-utils iproute2
-ip link show
-sudo ip link set can0 up type can bitrate 500000
-ip -details -statistics link show can0
-```
-
-Listen/report checks:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
-PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py inventory
-PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py status --interface can0
-PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py listen --interface can0 --duration 10
-PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py report --interface can0
-```
-
-Generate synthetic payloads without transmitting:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py generate-payloads --interface can0 --payload-profile all --base-id 0x600 --sequence-count 8 --tag KOALAKAN
-```
-
-Transmit to an isolated bench simulator:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit --interface can0 --bench-simulator --confirm-transmit --payload-profile heartbeat --base-id 0x600 --sequence-count 3
-PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py listen-transmit --interface can0 --bench-simulator --confirm-transmit --can-id 0x600 --data "4B 42 01 00" --duration 10
-```
-
-`transmit-placeholder` remains a blocked legacy artifact and never sends frames.
-
----
-
-## Outback BlueZ Module Deck
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py manifest
-PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py inventory
-PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py status
-PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py scan --duration 15
-PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py monitor --duration 20
-PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py all-safe --duration 15
-```
-
-Target-specific notes require an owned/scope-approved target:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py gatt-readiness --target AA:BB:CC:DD:EE:FF --owned-device
-```
-
-The Outback BlueZ Module Deck hashes/redacts Bluetooth addresses by default unless `--raw-addresses` is explicitly passed.
-
----
-
-## First functional test checklist
-
-```bash
-python3 scripts/check_repo_readiness.py
-bash scripts/install_pi.sh
-bash scripts/setup_nrf_tools.sh --check-only
-PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --noninteractive --no-apply
-bash scripts/build_firmware_all.sh
-NO_MONITOR=1 bash scripts/flash_esp32.sh
-bash scripts/build_nrf52840_dongle_lab.sh
-bash scripts/flash_nrf52840_dongle_lab_dfu.sh
-PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py manifest
-PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py inventory
-PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status --xp 100
-PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
-PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit --interface can0 --bench-simulator --confirm-transmit --can-id 0x600 --data "4B 42 01 00"
-```
-
-Expected behavior:
-
-- Repo readiness check passes before flashing.
-- `west` and `nrfutil` are checked by the flashing/install helpers before nRF build/package/flash actions.
-- Pre-boot selector can choose KoalaByte Blue Lab Mode or Koala Konnect Mode.
-- ESP32 shows the KoalaByte Blue boot splash before normal runtime.
-- ESP32 serial JSON includes `"boot_animation":1`.
-- nRF52840 Dongle advertises as `KoalaByte Lab` when Lab mode is flashed.
-- Koala Konnect exposes the alternate USB HCI adapter profile when Konnect mode is flashed.
-- Pi companion boot splash, grouped menu, BlueZ wrappers, killerkoala preview, and Koala Kan Kommander manifest checks run without missing-file errors.
-- CAN transmit sends only when `--bench-simulator` and `--confirm-transmit` are both present.
