@@ -4,7 +4,11 @@ Nordic nRF52840 USB Dongle / PCA10059 / NRF52840-DONGLE,1,Only retained Nordic B
 ESP32-S3 DualEye module,1,Dual-eye UI / microphone / display front-end,Power from regulated 5 V rail and connect to Raspberry Pi by USB serial
 1.28 inch round LCD display,2,240x240 round LCD eyes,Included on the ESP32-S3 DualEye module
 8 ohm 2 W mini speaker,1,Audio output for local status / companion feedback,Mount behind front grille or internal speaker location; use amp module from 5 V rail if required
-2.4 GHz external antenna,2,External wireless antennas with fitted leads,Use only connector-compatible antenna leads and strain relief
+2.4 GHz external antenna,2,External Wi-Fi/Bluetooth antennas with fitted leads,One for ESP32-S3 DualEye IPEX1/U.FL and one for the Heltec/Meshtastic board 2.4 GHz connector if fitted; use connector-compatible antenna leads and strain relief
+Frequency-matched LoRa antenna,1,Small external LoRa antenna for Heltec/Meshtastic node,Match the board and legal region such as 433 MHz 868 MHz or 915 MHz; do not substitute a 2.4 GHz antenna
+Heltec / Meshtastic USB-C LoRa node board,0-1 optional,Optional Didgeridoo LoRa/Mesh node,Connect to Raspberry Pi USB-A with short USB-A to USB-C data cable; do not wire this USB node to Raspberry Pi GPIO
+Heltec USB-A to USB-C data cable,0-1 optional,Internal USB data cable for Didgeridoo node,Use a short data-capable cable; charge-only cables will not enumerate as ttyUSB or ttyACM
+Third smaller LoRa antenna case opening,1,Mechanical case/top-plate feature for Heltec LoRa antenna,Add separate smaller LoRa hole or bulkhead location in addition to the two 2.4 GHz antenna openings
 Adafruit tactile button switch 6mm pack PID 367,1 pack / 6 used,Six-button front-panel controls,Signal wiring only; GPIO to button and other side to GND; do not connect to battery positive or 5 V
 KoalaByte Blue front button bezel 6x6mm RevA6,1,3D printed front button bezel,Aligns six front buttons in the enclosure
 Protected 18650 Li-ion cell,2,2S battery pack cells,Use matched protected cells from reputable source; inspect wraps and polarity before install
@@ -22,7 +26,7 @@ microSD card,1,Pi OS / logs / reports / captures,128 GB recommended; 32 GB minim
 USB and JST power/data cables,1 set,Internal power and data harnesses,Use short data-capable USB cables and label each harness; use heavier wire for main battery and 5 V rail paths
 M2.5 standoffs / screws / nuts,1 set,Mechanical stacked assembly,Use insulating standoffs where clearance is tight
 Acrylic or printed frame plates,1 set,Open-frame stacked module structure,No custom PCB required
-3D printed case / stacked frame / rear panel,1 set,Optional production enclosure with koala-ear form factor,Print and test-fit before final wiring; leave clearance around batteries fuse switch buck and BMS
+3D printed case / stacked frame / rear panel,1 set,Optional production enclosure with koala-ear form factor,Print and test-fit before final wiring; leave clearance around batteries fuse switch buck BMS and three antenna openings
 InnoMaker USB to CAN Converter kit,0-1 optional,Optional Koala Kan Kommander USB-to-CAN adapter,Mount internally or in a side/rear service bay; use as SocketCAN interface such as can0 on Linux
 InnoMaker CAN cable / adapter-side harness,0-1 optional,Adapter-matched CAN_H / CAN_L / GND / optional SHIELD connection,No circular panel CAN port; route to authorized bench harness with strain relief
 Adapter mount / strain relief,0-1 optional,Printed bracket adhesive mount Velcro or standoff support for InnoMaker converter,Keep clear of antennas battery contacts speaker grille and Raspberry Pi GPIO
