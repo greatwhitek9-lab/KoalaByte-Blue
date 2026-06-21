@@ -21,7 +21,6 @@ PIFFA-style USB portable power bank
 Raspberry Pi USB ports or optional powered USB hub
   -> Nordic nRF52840 USB Dongle
   -> ESP32-S3 DualEye
-  -> optional Heltec USB-C LoRa/GNSS board
   -> optional InnoMaker USB-to-CAN adapter
 ```
 
