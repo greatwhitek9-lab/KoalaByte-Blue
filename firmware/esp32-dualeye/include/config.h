@@ -12,6 +12,15 @@
 #define KOALABLUE_ACTIVE_THEME "jungle_jumanji_eucalyptus"
 #define KOALABLUE_THEMES_DIR "firmware/esp32-dualeye/themes"
 
+// ESP32-S3 DualEye 2.4 GHz antenna configuration.
+// This applies to the ESP32-S3 DualEye board only.
+// Use the external-antenna board variant, or set the vendor-documented antenna selector resistor/jumper for IPEX/U.FL use.
+#define ESP32S3_DUALEYE_EXTERNAL_2G4_ANTENNA 1
+#define ESP32S3_DUALEYE_2G4_ANTENNA_MODE "external_connector"
+#define ESP32S3_DUALEYE_2G4_ANTENNA_CONNECTOR "IPEX1/U.FL/MHF1 2.4 GHz connector"
+#define ESP32S3_DUALEYE_2G4_WIRING_PATH "ESP32-S3 DualEye IPEX1/U.FL/MHF1 -> IPEX/U.FL pigtail -> SMA/RP-SMA bulkhead -> 2.4 GHz antenna"
+#define ESP32S3_DUALEYE_VENDOR_SELECTOR_REQUIRED 1
+
 // Feature toggles.
 // Mic wake is enabled by default for the killerkoala build. If audio pins are not configured,
 // the firmware boots safely and reports that the hardware wake backend needs board-specific pin mapping.
