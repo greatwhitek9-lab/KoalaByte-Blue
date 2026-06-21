@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="720" viewBox="0 0 1100 720" role="img" aria-label="KoalaByte Blue main branch USB power bank wiring diagram">
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="680" viewBox="0 0 1100 680" role="img" aria-label="KoalaByte Blue main branch USB power bank wiring diagram">
   <defs>
     <style>
       .bg { fill:#06120f; }
@@ -11,13 +11,12 @@
       .warn { fill:#ffd36a; font-family:Arial, sans-serif; font-size:16px; font-weight:700; }
       .wire { stroke:#72ff7a; stroke-width:5; fill:none; marker-end:url(#arrow); }
       .data { stroke:#33b5ff; stroke-width:4; fill:none; marker-end:url(#arrowBlue); }
-      .no { stroke:#ff4c4c; stroke-width:5; fill:none; }
     </style>
     <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth"><path d="M2,2 L10,6 L2,10 z" fill="#72ff7a"/></marker>
     <marker id="arrowBlue" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth"><path d="M2,2 L10,6 L2,10 z" fill="#33b5ff"/></marker>
   </defs>
 
-  <rect class="bg" x="0" y="0" width="1100" height="720"/>
+  <rect class="bg" x="0" y="0" width="1100" height="680"/>
   <text class="title" x="44" y="56">KoalaByte Blue Main Branch — USB Power Bank Wiring</text>
   <text class="small" x="44" y="86">Replaces the old loose 2×18650 / BMS / fuse / switch / buck / PD-trigger wiring stack.</text>
 
@@ -34,42 +33,37 @@
   <path class="wire" d="M340 195 C380 195,390 195,430 195"/>
   <text class="small" x="355" y="180">short USB power cable</text>
 
-  <rect class="box2" x="795" y="72" width="250" height="90"/>
-  <text class="label" x="820" y="108">Nordic nRF52840</text>
-  <text class="small" x="820" y="134">USB Dongle / PCA10059</text>
+  <rect class="box2" x="795" y="105" width="250" height="90"/>
+  <text class="label" x="820" y="141">Nordic nRF52840</text>
+  <text class="small" x="820" y="167">USB Dongle / PCA10059</text>
 
-  <rect class="box2" x="795" y="190" width="250" height="90"/>
-  <text class="label" x="820" y="226">ESP32-S3 DualEye</text>
-  <text class="small" x="820" y="252">USB data / display UI</text>
+  <rect class="box2" x="795" y="230" width="250" height="90"/>
+  <text class="label" x="820" y="266">ESP32-S3 DualEye</text>
+  <text class="small" x="820" y="292">USB data / display UI</text>
 
-  <rect class="opt" x="795" y="310" width="250" height="90"/>
-  <text class="label" x="820" y="346">Optional Heltec USB-C</text>
-  <text class="small" x="820" y="372">Didgeridoo / T114 / GNSS</text>
+  <rect class="opt" x="795" y="355" width="250" height="90"/>
+  <text class="label" x="820" y="391">Optional InnoMaker</text>
+  <text class="small" x="820" y="417">USB-to-CAN adapter</text>
 
-  <rect class="opt" x="795" y="430" width="250" height="90"/>
-  <text class="label" x="820" y="466">Optional InnoMaker</text>
-  <text class="small" x="820" y="492">USB-to-CAN adapter</text>
+  <rect class="opt" x="430" y="390" width="290" height="90"/>
+  <text class="label" x="460" y="426">Optional Powered USB Hub</text>
+  <text class="small" x="460" y="452">Use if Pi undervoltage appears</text>
 
-  <rect class="opt" x="430" y="430" width="290" height="90"/>
-  <text class="label" x="460" y="466">Optional Powered USB Hub</text>
-  <text class="small" x="460" y="492">Use if Pi undervoltage appears</text>
+  <path class="data" d="M720 180 C750 158,765 142,795 150"/>
+  <path class="data" d="M720 215 C752 230,765 258,795 275"/>
+  <path class="data" d="M720 245 C760 315,758 385,795 400"/>
 
-  <path class="data" d="M720 175 C750 155,765 130,795 117"/>
-  <path class="data" d="M720 202 C750 210,765 228,795 235"/>
-  <path class="data" d="M720 230 C755 270,760 335,795 355"/>
-  <path class="data" d="M720 250 C760 330,750 455,795 475"/>
+  <path class="data" d="M575 250 C575 305,575 345,575 390"/>
+  <text class="small" x="585" y="330">optional if USB load is unstable</text>
 
-  <path class="data" d="M575 250 C575 320,575 370,575 430"/>
-  <text class="small" x="585" y="344">optional if USB load is unstable</text>
+  <rect class="box2" x="72" y="350" width="300" height="115"/>
+  <text class="label" x="98" y="388">Six Front Buttons</text>
+  <text class="small" x="98" y="416">GPIO signal to GND only</text>
+  <text class="warn" x="98" y="442">Do not connect to 5 V or power-bank +</text>
+  <path class="data" d="M372 408 C405 380,425 300,465 250"/>
 
-  <rect class="box2" x="72" y="360" width="300" height="115"/>
-  <text class="label" x="98" y="398">Six Front Buttons</text>
-  <text class="small" x="98" y="426">GPIO signal to GND only</text>
-  <text class="warn" x="98" y="452">Do not connect to 5 V or power-bank +</text>
-  <path class="data" d="M372 418 C405 390,425 300,465 250"/>
-
-  <rect class="opt" x="72" y="540" width="970" height="110"/>
-  <text class="warn" x="100" y="580">Removed from main production wiring:</text>
-  <text class="small" x="100" y="612">loose 18650 cells • 2S holder • BMS • inline fuse • DC switch • buck converter • USB-C PD trigger • raw battery rails</text>
-  <text class="small" x="100" y="640">Use only the power bank’s regulated USB output. Add strain relief for every USB cable before closing the case.</text>
+  <rect class="opt" x="72" y="520" width="970" height="110"/>
+  <text class="warn" x="100" y="560">Removed from main production wiring:</text>
+  <text class="small" x="100" y="592">loose 18650 cells • 2S holder • BMS • inline fuse • DC switch • buck converter • USB-C PD trigger • raw battery rails</text>
+  <text class="small" x="100" y="620">Use only the power bank’s regulated USB output. Add strain relief for every USB cable before closing the case.</text>
 </svg>
