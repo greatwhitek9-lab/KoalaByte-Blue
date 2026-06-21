@@ -25,15 +25,20 @@ MAIN_REQUIRED_FILES = [
     "docs/PRODUCTION_FILES.md",
     "docs/ORDERABLE_PARTS_LIST.md",
     "docs/POWER_BANK_WIRING_MAIN.svg",
+    "production/WIRING_DIAGRAM_ANTENNAS.md",
+    "production/WIRING_DIAGRAM_ANTENNAS.svg",
     "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv",
     "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md",
     "production/RevA17-dongle-only/BATTERY_POWER_2S_18650.md",
     "production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv",
     "firmware/esp32-dualeye/platformio.ini",
+    "firmware/esp32-dualeye/include/config.h",
+    "firmware/esp32-dualeye/src/main.cpp",
     "firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt",
     "pi-companion/config.default.json",
     "pi-companion/requirements.txt",
     "pi-companion/koalablue/menu_catalog.py",
+    "scripts/configure_esp32s3_dualeye_2g4_antenna.sh",
     "scripts/flash_all_components.sh",
     "scripts/build_firmware_all.sh",
     "scripts/install_pi.sh",
@@ -65,8 +70,19 @@ EXPECTED_BOM_ITEMS = {
     "Raspberry Pi 3 Model B+",
     "Nordic nRF52840 USB Dongle / PCA10059 / NRF52840-DONGLE",
     "ESP32-S3 DualEye module",
+    "ESP32-S3 DualEye external 2.4 GHz antenna kit",
     "PIFFA-style 50000 mAh USB portable power bank 22.5 W class",
     "InnoMaker USB to CAN Converter kit",
+}
+
+REQUIRED_TEXT = {
+    "firmware/esp32-dualeye/include/config.h": ["ESP32S3_DUALEYE_EXTERNAL_2G4_ANTENNA", "external_connector", "IPEX1/U.FL/MHF1"],
+    "firmware/esp32-dualeye/src/main.cpp": ["antenna_status", "ESP32S3_DUALEYE_2G4_ANTENNA_MODE", "esp32_external_antenna"],
+    "scripts/configure_esp32s3_dualeye_2g4_antenna.sh": ["ESP32-S3 DualEye", "external 2.4 GHz antenna", "logs/esp32s3_dualeye_2g4_antenna_status.json"],
+    "scripts/flash_esp32.sh": ["configure_esp32s3_dualeye_2g4_antenna.sh", "esp32_external_antenna"],
+    "production/WIRING_DIAGRAM_ANTENNAS.md": ["ESP32-S3 DualEye 2.4 GHz", "IPEX/U.FL/MHF1 coax pigtail", "external 2.4 GHz WiFi/Bluetooth antenna"],
+    "docs/PRODUCTION_FILES.md": ["production/WIRING_DIAGRAM_ANTENNAS.md", "ESP32-S3 DualEye antenna rule", "external 2.4 GHz"],
+    "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md": ["ESP32-S3 DualEye external 2.4 GHz antenna path", "production/WIRING_DIAGRAM_ANTENNAS.md", "esp32_external_antenna"],
 }
 
 
@@ -84,6 +100,15 @@ def check_required_files(failures: list[str]) -> None:
     for relative_path in BRANCH_ONLY_PATHS:
         if (REPO_ROOT / relative_path).exists():
             failures.append(f"branch-only file still present on main: {relative_path}")
+
+
+def check_required_text(failures: list[str]) -> None:
+    for relative_path, needles in REQUIRED_TEXT.items():
+        path = REPO_ROOT / relative_path
+        text = read_text(path)
+        for needle in needles:
+            if needle not in text:
+                failures.append(f"{relative_path} missing expected text: {needle}")
 
 
 def check_no_branch_terms(failures: list[str]) -> None:
@@ -145,7 +170,7 @@ def check_bom(failures: list[str]) -> None:
 
 
 def check_helpers(failures: list[str]) -> None:
-    for helper in ["scripts/flash_all_components.sh", "scripts/build_firmware_all.sh", "scripts/setup_system_packages.sh"]:
+    for helper in ["scripts/flash_all_components.sh", "scripts/build_firmware_all.sh", "scripts/setup_system_packages.sh", "scripts/configure_esp32s3_dualeye_2g4_antenna.sh"]:
         path = REPO_ROOT / helper
         if path.exists() and "set -euo pipefail" not in path.read_text(encoding="utf-8"):
             failures.append(f"shell helper missing strict shell mode: {helper}")
@@ -154,6 +179,7 @@ def check_helpers(failures: list[str]) -> None:
 def main() -> int:
     failures: list[str] = []
     check_required_files(failures)
+    check_required_text(failures)
     check_no_branch_terms(failures)
     check_config(failures)
     check_menu_catalog(failures)
@@ -167,7 +193,7 @@ def main() -> int:
         return 1
 
     print("KoalaByte Blue repo readiness check passed.")
-    print("Main branch is scoped to ESP32-S3 DualEye, Nordic nRF52840 Dongle, Raspberry Pi companion, optional InnoMaker USB-to-CAN, and USB power-bank production power.")
+    print("Main branch is scoped to ESP32-S3 DualEye with external 2.4 GHz antenna support, Nordic nRF52840 Dongle, Raspberry Pi companion, optional InnoMaker USB-to-CAN, and USB power-bank production power.")
     return 0
 
 
