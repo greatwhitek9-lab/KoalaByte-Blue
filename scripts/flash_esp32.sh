@@ -34,6 +34,7 @@ KoalaByte Blue ESP32-S3 DualEye firmware flash helper
 Firmware directory: ${FW_DIR}
 Boot animation: enabled in include/config.h when ENABLE_DISPLAY_BOOT_ANIMATION=1
 ESP32-S3 2.4 GHz antenna: external connector path recorded in logs/esp32s3_dualeye_2g4_antenna_status.json
+Voice front end: ESP-SR AFE/VAD + WakeNet9 + MultiNet7 Q8 English command aliases; Raspberry Pi handles large vocabulary responses
 PlatformIO env: ${PIO_ENV:-default}
 Upload port: ${ESP32_PORT:-PlatformIO auto-detect}
 EOF
@@ -61,10 +62,12 @@ Expected on-device boot behavior:
   - Dual-eye UI comes up with the KoalaByte/killerkoala theme.
   - BOOTING... progress bar advances when boot animation is enabled.
   - Serial boot JSON reports esp32_2g4_antenna as external_connector.
+  - Serial voice_stack JSON reports WakeNet9/MultiNet7 front-end intent and the Pi companion brain.
 
 Expected serial boot JSON includes:
   "boot_animation": 1
   "esp32_external_antenna": 1
+  "voice_front_end": "ESP-SR AFE/VAD + WakeNet9 + MultiNet7 Q8 English"
 EOF
 
 if [[ "${NO_MONITOR}" == "1" ]]; then
