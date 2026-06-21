@@ -6,30 +6,27 @@ Power bank regulated USB output verified,,,,,Use normal USB output only; do not 
 Short Pi micro-USB power cable installed,,,,,Use short low-resistance cable
 Raspberry Pi boot without undervoltage warning,,,,,
 Powered USB hub used if needed,,,,,Required if USB modules disconnect or Pi undervoltage appears
-nRF52840 Dongle enumerates over USB,,,,,
-nRF52840 Dongle DFU package generated,,,,,
-nRF52840 Dongle advertises as KoalaByte Lab after flashing,,,,,
+Nordic dongle enumerates over USB,,,,,
+Nordic dongle package generated,,,,,
+Nordic dongle profile check,,,,,
 ESP32-S3 DualEye enumerates over USB,,,,,
 ESP32-S3 DualEye serial boot JSON received,,,,,
 ESP32-S3 DualEye boot animation visible,,,,,
 ESP32-S3 DualEye flash helper completed,,,,,
-Optional Heltec USB-C node enumerates over USB,,,,,Optional Didgeridoo/T114 hardware only
-Optional LoRa antenna installed and frequency matched,,,,,Do not use 2.4 GHz antenna for LoRa
-ESP32 2.4 GHz antenna installed,,,,,Do not swap with LoRa antenna
-Optional GNSS antenna path or sky-view clearance verified,,,,,Keep clear of metal dense wiring and speaker magnets
+ESP32 antenna installed,,,,,Use the antenna path documented for the board revision
 Pi companion install script completed,,,,,
 Python compileall check completed,,,,,
 Koala Mode Switcher status command completed,,,,,
 Koala BlueZ inventory/status test,,,,,
 killerkoala voice preview test,,,,,
-eucalyptus /blecaptures write test,,,,,
-Koala Kapture passive capture smoke test,,,,,
-InnoMaker USB-to-CAN adapter mounted with strain relief,,,,,Optional
-InnoMaker adapter appears as SocketCAN interface can0 when installed,,,,,Optional
+eucalyptus storage write test,,,,,
+Koala Kapture local log smoke test,,,,,
+InnoMaker adapter mounted with strain relief,,,,,Optional
+InnoMaker adapter appears as can0 when installed,,,,,Optional
 Koala Kan Kommander manifest command completed,,,,,
 Koala Kan Kommander status/report commands remain passive,,,,,
 Six-button GPIO test,,,,,
 Button 3 hold shutdown event test,,,,,
 Speaker output test,,,,,
 30-minute idle thermal check,,,,,Run while powered from the USB power bank
-Cable strain relief / case close inspection,,,,,Confirm USB cable bend radius antenna clearance optional GNSS sky-view area and no raw battery wiring
+Cable strain relief / case close inspection,,,,,Confirm USB cable bend radius antenna clearance and no raw battery wiring
