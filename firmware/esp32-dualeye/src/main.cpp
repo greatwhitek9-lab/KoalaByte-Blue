@@ -36,8 +36,21 @@ void emitStatus(const char *message) {
   sendJson(doc);
 }
 
+void emitAntennaStatus() {
+  StaticJsonDocument<512> doc;
+  doc["type"] = "antenna_status";
+  doc["device"] = "esp32-dualeye";
+  doc["radio"] = "2.4GHz WiFi/Bluetooth";
+  doc["external_antenna"] = ESP32S3_DUALEYE_EXTERNAL_2G4_ANTENNA;
+  doc["mode"] = ESP32S3_DUALEYE_2G4_ANTENNA_MODE;
+  doc["connector"] = ESP32S3_DUALEYE_2G4_ANTENNA_CONNECTOR;
+  doc["wiring_path"] = ESP32S3_DUALEYE_2G4_WIRING_PATH;
+  doc["selector_required"] = ESP32S3_DUALEYE_VENDOR_SELECTOR_REQUIRED;
+  sendJson(doc);
+}
+
 void emitBoot() {
-  StaticJsonDocument<256> doc;
+  StaticJsonDocument<512> doc;
   doc["type"] = "boot";
   doc["device"] = "esp32-dualeye";
   doc["fw"] = KOALABLUE_FW_VERSION;
@@ -47,7 +60,10 @@ void emitBoot() {
   doc["mic_wake"] = ENABLE_MIC_WAKE;
   doc["display_stub"] = ENABLE_DISPLAY_STUB;
   doc["boot_animation"] = ENABLE_DISPLAY_BOOT_ANIMATION;
+  doc["esp32_2g4_antenna"] = ESP32S3_DUALEYE_2G4_ANTENNA_MODE;
+  doc["esp32_external_antenna"] = ESP32S3_DUALEYE_EXTERNAL_2G4_ANTENNA;
   sendJson(doc);
+  emitAntennaStatus();
 #if ENABLE_MIC_WAKE
   if (MIC_I2S_BCLK_PIN < 0 || MIC_I2S_WS_PIN < 0 || MIC_I2S_DIN_PIN < 0) {
     StaticJsonDocument<256> warn;
