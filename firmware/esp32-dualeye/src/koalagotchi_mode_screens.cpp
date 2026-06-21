@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <math.h>
 #include <string.h>
 
 #include "config.h"
@@ -10,8 +11,91 @@
 static TFT_eSPI tft = TFT_eSPI();
 static bool screen_ready = false;
 
+struct EyeRgb {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+};
+
+struct EyeStyleState {
+  char look[18];
+  char animation[18];
+  char leftHex[10];
+  char rightHex[10];
+  EyeRgb left;
+  EyeRgb right;
+  int brightness;
+  uint8_t frame;
+  uint32_t lastFrameMs;
+  bool active;
+};
+
+static EyeStyleState eyeStyle = {
+  "cyber",
+  "pulse",
+  "#A54BFF",
+  "#32FF71",
+  {165, 75, 255},
+  {50, 255, 113},
+  100,
+  0,
+  0,
+  true,
+};
+
+static char lastMode[20] = "eucalyptus";
+static char lastMood[28] = "calm";
+static int lastContentment = 75;
+static int lastXp = 88;
+static bool hasLastScreen = false;
+
 static uint16_t c565(uint8_t r, uint8_t g, uint8_t b) { return tft.color565(r, g, b); }
+static uint16_t c565Eye(EyeRgb c) { return c565(c.r, c.g, c.b); }
 static int clampPct(int value) { return value < 0 ? 0 : value > 100 ? 100 : value; }
+static int clamp8(int value) { return value < 0 ? 0 : value > 255 ? 255 : value; }
+
+static bool eqi(const char *a, const char *b) {
+  if (!a || !b) return false;
+  while (*a && *b) {
+    char ca = *a >= 'A' && *a <= 'Z' ? *a + 32 : *a;
+    char cb = *b >= 'A' && *b <= 'Z' ? *b + 32 : *b;
+    if (ca != cb) return false;
+    ++a;
+    ++b;
+  }
+  return *a == 0 && *b == 0;
+}
+
+static int hexNibble(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return -1;
+}
+
+static EyeRgb parseHexColor(const char *hex, EyeRgb fallback, char *stored, size_t storedLen) {
+  if (!hex) return fallback;
+  const char *p = hex[0] == '#' ? hex + 1 : hex;
+  if (strlen(p) != 6) return fallback;
+  int n[6];
+  for (int i = 0; i < 6; ++i) {
+    n[i] = hexNibble(p[i]);
+    if (n[i] < 0) return fallback;
+  }
+  EyeRgb out = {(uint8_t)((n[0] << 4) | n[1]), (uint8_t)((n[2] << 4) | n[3]), (uint8_t)((n[4] << 4) | n[5])};
+  if (stored && storedLen > 0) snprintf(stored, storedLen, "#%02X%02X%02X", out.r, out.g, out.b);
+  return out;
+}
+
+static EyeRgb scaleColor(EyeRgb c, int pct) {
+  pct = clampPct(pct);
+  return {(uint8_t)clamp8((int)c.r * pct / 100), (uint8_t)clamp8((int)c.g * pct / 100), (uint8_t)clamp8((int)c.b * pct / 100)};
+}
+
+static void copyToken(char *dst, size_t len, const char *value, const char *fallback) {
+  const char *src = value && value[0] ? value : fallback;
+  snprintf(dst, len, "%s", src);
+}
 
 static void ensureScreenReady() {
   if (!screen_ready) {
@@ -20,6 +104,28 @@ static void ensureScreenReady() {
     screen_ready = true;
   }
 }
+
+bool setKoalagotchiEyeStyle(const char *look, const char *left_color, const char *right_color, const char *animation, int brightness_percent) {
+  copyToken(eyeStyle.look, sizeof(eyeStyle.look), look, "cyber");
+  copyToken(eyeStyle.animation, sizeof(eyeStyle.animation), animation, "pulse");
+  eyeStyle.left = parseHexColor(left_color, eyeStyle.left, eyeStyle.leftHex, sizeof(eyeStyle.leftHex));
+  eyeStyle.right = parseHexColor(right_color, eyeStyle.right, eyeStyle.rightHex, sizeof(eyeStyle.rightHex));
+  eyeStyle.brightness = clampPct(brightness_percent <= 0 ? 100 : brightness_percent);
+  eyeStyle.active = true;
+  eyeStyle.frame = 0;
+  if (screen_ready && hasLastScreen) drawKoalagotchiModeScreen(lastMode, lastMood, lastContentment, lastXp);
+  return true;
+}
+
+void resetKoalagotchiEyeStyle() {
+  setKoalagotchiEyeStyle("cyber", "#A54BFF", "#32FF71", "pulse", 100);
+}
+
+const char *getKoalagotchiEyeLook() { return eyeStyle.look; }
+const char *getKoalagotchiEyeAnimation() { return eyeStyle.animation; }
+const char *getKoalagotchiLeftEyeHex() { return eyeStyle.leftHex; }
+const char *getKoalagotchiRightEyeHex() { return eyeStyle.rightHex; }
+int getKoalagotchiEyeBrightness() { return eyeStyle.brightness; }
 
 static void drawBar(int x, int y, int w, int h, int pct, uint16_t color) {
   pct = clampPct(pct);
@@ -42,14 +148,82 @@ static void drawBoomerang(int cx, int cy, uint16_t fill, uint16_t edge) {
   int px[] = {cx - 54, cx - 14, cx + 4, cx - 12, cx + 56, cx + 72, cx + 3};
   int py[] = {cy + 34, cy - 44, cy - 35, cy - 1, cy - 42, cy - 22, cy + 56};
   for (int i = 0; i < 5; ++i) tft.fillTriangle(px[0], py[0], px[i + 1], py[i + 1], px[i + 2], py[i + 2], fill);
-  for (int i = 0; i < 7; ++i) tft.drawLine(px[i], py[i], px[(i + 1) % 7], py[(i + 1) % 7], edge);
-  uint16_t dark = c565(102, 39, 8);
-  tft.drawLine(cx - 41, cy + 25, cx - 12, cy - 28, dark);
-  tft.drawLine(cx - 12, cy - 28, cx + 2, cy - 25, dark);
-  tft.drawLine(cx + 5, cy + 5, cx + 47, cy - 29, dark);
+  for (int i = 0; i < 7; ++i) tft.drawLine(px[i], py[i], px[(i + 1) % 7], edge);
 }
 
-static void drawKoala(int cx, int cy, bool rowdy, uint16_t leftEye, uint16_t rightEye) {
+static void drawStarEye(int cx, int cy, int r, uint16_t color) {
+  tft.fillTriangle(cx, cy - r, cx - r / 3, cy - r / 4, cx + r / 3, cy - r / 4, color);
+  tft.fillTriangle(cx, cy + r, cx - r / 3, cy + r / 4, cx + r / 3, cy + r / 4, color);
+  tft.fillTriangle(cx - r, cy, cx - r / 4, cy - r / 3, cx - r / 4, cy + r / 3, color);
+  tft.fillTriangle(cx + r, cy, cx + r / 4, cy - r / 3, cx + r / 4, cy + r / 3, color);
+  tft.fillCircle(cx, cy, r / 2, color);
+}
+
+static void drawHeartEye(int cx, int cy, int r, uint16_t color) {
+  tft.fillCircle(cx - r / 3, cy - r / 4, r / 2, color);
+  tft.fillCircle(cx + r / 3, cy - r / 4, r / 2, color);
+  tft.fillTriangle(cx - r, cy, cx + r, cy, cx, cy + r, color);
+}
+
+static void drawCustomEye(int cx, int cy, EyeRgb rgb, bool leftSide, bool rowdy) {
+  int frame = eyeStyle.frame % 16;
+  int pulse = eqi(eyeStyle.animation, "pulse") ? (frame < 8 ? frame : 16 - frame) : 0;
+  int r = 15 + pulse / 2;
+  int ry = 15;
+  if (eqi(eyeStyle.animation, "blink") && (frame == 5 || frame == 6)) ry = 3;
+  if (eqi(eyeStyle.animation, "sleepy")) ry = 7;
+  EyeRgb bright = scaleColor(rgb, eyeStyle.brightness);
+  uint16_t eye = c565Eye(bright);
+  uint16_t glow = c565(clamp8(bright.r + 35), clamp8(bright.g + 35), clamp8(bright.b + 35));
+  uint16_t black = c565(3, 6, 10);
+
+  tft.drawCircle(cx, cy, r + 4, glow);
+  tft.drawCircle(cx, cy, r + 2, eye);
+
+  if (eqi(eyeStyle.look, "star")) {
+    drawStarEye(cx, cy, r, eye);
+  } else if (eqi(eyeStyle.look, "heart")) {
+    drawHeartEye(cx, cy, r, eye);
+  } else if (eqi(eyeStyle.look, "slit")) {
+    tft.fillEllipse(cx, cy, r + 3, max(3, ry / 2), eye);
+    tft.fillRoundRect(cx - 2, cy - ry, 4, ry * 2, 2, black);
+  } else if (eqi(eyeStyle.look, "sleepy")) {
+    tft.fillEllipse(cx, cy + 2, r + 3, 6, eye);
+    tft.drawFastHLine(cx - r, cy - 4, r * 2, black);
+  } else if (eqi(eyeStyle.look, "angry")) {
+    tft.fillEllipse(cx, cy, r + 1, ry, eye);
+    tft.drawLine(cx - r, cy - 12, cx + r, cy - 3, black);
+    tft.fillCircle(cx + (leftSide ? 3 : -3), cy, 5, black);
+  } else if (eqi(eyeStyle.look, "x")) {
+    tft.drawLine(cx - r, cy - r, cx + r, cy + r, eye);
+    tft.drawLine(cx + r, cy - r, cx - r, cy + r, eye);
+    tft.drawLine(cx - r, cy - r + 1, cx + r, cy + r + 1, glow);
+    tft.drawLine(cx + r, cy - r + 1, cx - r, cy + r + 1, glow);
+  } else if (eqi(eyeStyle.look, "cyber")) {
+    tft.fillCircle(cx, cy, r, eye);
+    tft.fillCircle(cx + (leftSide ? 2 : -2), cy, 6, black);
+    tft.drawFastHLine(cx - r + 2, cy - 6, r * 2 - 4, black);
+    tft.drawFastHLine(cx - r + 2, cy + 6, r * 2 - 4, black);
+  } else {
+    tft.fillEllipse(cx, cy, r, ry, eye);
+    tft.fillCircle(cx + (leftSide ? 2 : -2), cy + 1, 6, black);
+  }
+
+  if (eqi(eyeStyle.animation, "scan")) {
+    int sx = cx - r + ((frame * (r * 2)) / 15);
+    tft.drawFastVLine(sx, cy - r, r * 2, TFT_WHITE);
+  } else if (eqi(eyeStyle.animation, "glitch")) {
+    int dx = (frame % 4) - 1;
+    tft.fillRect(cx - r + 2, cy - 2 + dx, r * 2 - 4, 3, glow);
+    tft.fillRect(cx - 5 + dx, cy + 7, 10, 2, TFT_WHITE);
+  } else if (rowdy) {
+    tft.fillCircle(cx + (leftSide ? 7 : -7), cy - 8, 3, TFT_WHITE);
+  } else {
+    tft.fillCircle(cx + (leftSide ? 6 : -6), cy - 7, 3, TFT_WHITE);
+  }
+}
+
+static void drawKoala(int cx, int cy, bool rowdy, uint16_t leftEyeFallback, uint16_t rightEyeFallback) {
   uint16_t fur = c565(158, 169, 182);
   uint16_t furDark = c565(111, 123, 137);
   uint16_t inner = c565(52, 59, 70);
@@ -68,12 +242,17 @@ static void drawKoala(int cx, int cy, bool rowdy, uint16_t leftEye, uint16_t rig
   tft.drawRoundRect(cx - 65, cy - 58, 130, 116, 38, c565(230, 238, 244));
   tft.fillRoundRect(cx - 49, cy - 33, 98, 78, 30, face);
 
-  tft.fillCircle(cx - 27, cy - 6, 15, leftEye);
-  tft.fillCircle(cx + 27, cy - 6, 15, rightEye);
-  tft.fillCircle(cx - 25, cy - 5, 6, black);
-  tft.fillCircle(cx + 29, cy - 5, 6, black);
-  tft.fillCircle(cx - 21, cy - 12, 3, TFT_WHITE);
-  tft.fillCircle(cx + 33, cy - 12, 3, TFT_WHITE);
+  if (eyeStyle.active) {
+    drawCustomEye(cx - 27, cy - 6, eyeStyle.left, true, rowdy);
+    drawCustomEye(cx + 27, cy - 6, eyeStyle.right, false, rowdy);
+  } else {
+    tft.fillCircle(cx - 27, cy - 6, 15, leftEyeFallback);
+    tft.fillCircle(cx + 27, cy - 6, 15, rightEyeFallback);
+    tft.fillCircle(cx - 25, cy - 5, 6, black);
+    tft.fillCircle(cx + 29, cy - 5, 6, black);
+    tft.fillCircle(cx - 21, cy - 12, 3, TFT_WHITE);
+    tft.fillCircle(cx + 33, cy - 12, 3, TFT_WHITE);
+  }
 
   if (rowdy) {
     tft.drawLine(cx - 43, cy - 26, cx - 14, cy - 16, line);
@@ -88,15 +267,10 @@ static void drawKoala(int cx, int cy, bool rowdy, uint16_t leftEye, uint16_t rig
   }
 
   tft.fillRoundRect(cx - 14, cy + 13, 28, 18, 8, black);
-  if (rowdy) {
-    tft.drawLine(cx - 20, cy + 34, cx, cy + 43, black);
-    tft.drawLine(cx, cy + 43, cx + 20, cy + 34, black);
-  } else {
-    tft.drawLine(cx - 20, cy + 31, cx - 9, cy + 39, black);
-    tft.drawLine(cx - 9, cy + 39, cx, cy + 31, black);
-    tft.drawLine(cx, cy + 31, cx + 9, cy + 39, black);
-    tft.drawLine(cx + 9, cy + 39, cx + 20, cy + 31, black);
-  }
+  tft.drawLine(cx - 20, cy + 31, cx - 9, cy + 39, black);
+  tft.drawLine(cx - 9, cy + 39, cx, cy + 31, black);
+  tft.drawLine(cx, cy + 31, cx + 9, cy + 39, black);
+  tft.drawLine(cx + 9, cy + 39, cx + 20, cy + 31, black);
 
   tft.fillRoundRect(cx - 45, cy + 53, 90, 74, 28, c565(124, 137, 151));
   tft.drawRoundRect(cx - 45, cy + 53, 90, 74, 28, c565(220, 232, 239));
@@ -133,6 +307,12 @@ static void drawFooter(uint16_t accent, bool eucalyptusMode) {
 
 void drawKoalagotchiModeScreen(const char *mode, const char *mood, int contentment, int xp_percent) {
   ensureScreenReady();
+  snprintf(lastMode, sizeof(lastMode), "%s", mode && mode[0] ? mode : "eucalyptus");
+  snprintf(lastMood, sizeof(lastMood), "%s", mood && mood[0] ? mood : "calm");
+  lastContentment = clampPct(contentment);
+  lastXp = clampPct(xp_percent);
+  hasLastScreen = true;
+
   const bool eucalyptusMode = !mode || strcmp(mode, "boomerang") != 0;
   const bool rowdy = !eucalyptusMode || (mood && strstr(mood, "rowdy") != nullptr);
   const int w = tft.width();
@@ -224,7 +404,7 @@ void drawKoalagotchiModeScreen(const char *mode, const char *mood, int contentme
   tft.setTextColor(white, c565(8, 13, 22));
   tft.drawString(eucalyptusMode ? "KillerKoala: chill shield is up." : "KillerKoala: boomerang path locked.", 178, 232);
   tft.setTextColor(accent, c565(8, 13, 22));
-  tft.drawString(eucalyptusMode ? "Eucalyptus haze cleaned the noise." : "What comes in gets sent back clean.", 178, 250);
+  tft.drawString(eucalyptusMode ? eyeStyle.look : eyeStyle.animation, 178, 250);
 
   tft.fillRoundRect(12, 182, 128, 91, 8, c565(8, 15, 24));
   tft.drawRoundRect(12, 182, 128, 91, 8, c565(38, 92, 108));
@@ -242,6 +422,16 @@ void drawKoalagotchiModeScreen(const char *mode, const char *mood, int contentme
   drawFooter(accent, eucalyptusMode);
 }
 
+void tickKoalagotchiEyes() {
+  if (!screen_ready || !hasLastScreen || !eyeStyle.active) return;
+  if (eqi(eyeStyle.animation, "static")) return;
+  uint32_t now = millis();
+  if (now - eyeStyle.lastFrameMs < 180) return;
+  eyeStyle.lastFrameMs = now;
+  eyeStyle.frame = (eyeStyle.frame + 1) % 16;
+  drawKoalagotchiModeScreen(lastMode, lastMood, lastContentment, lastXp);
+}
+
 #else
 
 void drawKoalagotchiModeScreen(const char *mode, const char *mood, int contentment, int xp_percent) {
@@ -250,5 +440,17 @@ void drawKoalagotchiModeScreen(const char *mode, const char *mood, int contentme
   (void)contentment;
   (void)xp_percent;
 }
+
+bool setKoalagotchiEyeStyle(const char *look, const char *left_color, const char *right_color, const char *animation, int brightness_percent) {
+  (void)look; (void)left_color; (void)right_color; (void)animation; (void)brightness_percent;
+  return false;
+}
+void resetKoalagotchiEyeStyle() {}
+void tickKoalagotchiEyes() {}
+const char *getKoalagotchiEyeLook() { return "disabled"; }
+const char *getKoalagotchiEyeAnimation() { return "disabled"; }
+const char *getKoalagotchiLeftEyeHex() { return "#000000"; }
+const char *getKoalagotchiRightEyeHex() { return "#000000"; }
+int getKoalagotchiEyeBrightness() { return 0; }
 
 #endif
