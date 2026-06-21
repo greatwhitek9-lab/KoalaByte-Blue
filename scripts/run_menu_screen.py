@@ -57,9 +57,20 @@ def run_eucalyptus_mode_action(_item: MenuItem) -> None:
         run_terminal()
 
 
+def run_anteater_action(_item: MenuItem) -> None:
+    from koalablue.anteater import render_summary, run_once
+
+    print("\n== AntEater ==")
+    print("Running passive BLE advertisement triage. AntEater does not pair, connect, or write to nearby devices.")
+    report = run_once(scan_seconds=12.0)
+    print(render_summary(report))
+    input("\nPress Enter to return to the KoalaByte Blue menu...")
+
+
 def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
     menu.register_handler("boomerang", run_boomerang_action)
     menu.register_handler("eucalyptus_mode", run_eucalyptus_mode_action)
+    menu.register_handler("anteater", run_anteater_action)
 
 
 def make_menu() -> MenuSelectionScreen:
