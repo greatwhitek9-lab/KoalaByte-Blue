@@ -11,6 +11,19 @@ The Pi can send a serial JSON command to change:
 - brightness
 - preview mode/mood
 
+## Dependencies
+
+The animated eye firmware is part of the ESP32-S3 DualEye PlatformIO project.
+
+```bash
+bash scripts/setup_esp32_tools.sh
+NO_MONITOR=1 bash scripts/flash_esp32.sh
+```
+
+`flash_all_components.sh --all` also runs the ESP32 tool setup before flashing the ESP32 firmware. PlatformIO is installed by `scripts/setup_esp32_tools.sh` when missing.
+
+The serial helper uses `pyserial`. The Pi companion requirements already include `pyserial`, and the helper will also tell you to install it if it is missing.
+
 ## Supported looks
 
 ```text
@@ -146,4 +159,5 @@ firmware/esp32-dualeye/src/koalagotchi_mode_screens.h
 firmware/esp32-dualeye/src/koalagotchi_mode_screens.cpp
 firmware/esp32-dualeye/src/main.cpp
 scripts/set_esp32_eyes.py
+scripts/setup_esp32_tools.sh
 ```
