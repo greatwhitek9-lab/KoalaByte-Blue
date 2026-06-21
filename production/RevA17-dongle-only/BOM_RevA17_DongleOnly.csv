@@ -4,7 +4,7 @@ Nordic nRF52840 USB Dongle / PCA10059 / NRF52840-DONGLE,1,Production-default Nor
 ESP32-S3 DualEye module,1,Dual-eye UI / microphone / display front-end,Connect to Raspberry Pi by USB data cable; power from Pi USB or powered hub where stable
 1.28 inch round LCD display,2,240x240 round LCD eyes,Included on the ESP32-S3 DualEye module
 8 ohm 2 W mini speaker,1,Audio output for local status / companion feedback,Mount behind front grille or internal speaker location
-2.4 GHz external antenna,1,External Wi-Fi/Bluetooth antenna with fitted lead for ESP32-S3 DualEye,Use only with the ESP32-S3 DualEye antenna connector
+ESP32-S3 DualEye external 2.4 GHz antenna kit,1,External 2.4 GHz Wi-Fi Bluetooth antenna with IPEX/U.FL/MHF1 pigtail and SMA or RP-SMA bulkhead path,Use the ESP32-S3 DualEye external antenna connector or vendor-documented selector resistor path
 PIFFA-style 50000 mAh USB portable power bank 22.5 W class,1,Main simplified external power source,Replaces loose 18650 cells 2S holder BMS fuse switch buck converter PD trigger and raw battery wiring
 Short USB-A or USB-C to micro-USB power cable for Raspberry Pi 3B+,1,Power cable from power bank to Raspberry Pi,Use a short quality low-resistance cable rated for the Pi current draw
 Short USB data cable for ESP32-S3 DualEye,1,USB data cable from Raspberry Pi or powered hub to ESP32-S3 DualEye,Use actual data-capable cable
