@@ -9,7 +9,6 @@
     "dongle_mode_switcher": "Koala Mode Switcher",
     "pre_boot_mode_selector": "Pre-Boot Dongle Mode Selector",
     "kan_plugin": "Koala Kan Kommander",
-    "lora_mesh_setup": "didgeridoo",
     "camera_awareness_logger": "Boomerang"
   },
   "killerkoala_companion": {
@@ -211,25 +210,6 @@
     "allowed_lab_id_range": "0x600-0x67F",
     "max_transmit_frames": 64
   },
-  "didgeridoo": {
-    "display_name": "didgeridoo",
-    "description": "Heltec Wireless Tracker V2 USB-C Meshtastic LoRa/GNSS setup, serial/BLE/TCP login profile, and node status checks. Phase 1 does not send raw LoRa or mesh text.",
-    "enabled": true,
-    "mode": "heltec_wireless_tracker_v2_meshtastic_gnss_setup_status_only",
-    "runner": "scripts/run_didgeridoo.py",
-    "output_dir": "logs/didgeridoo",
-    "profile_path": "logs/didgeridoo/meshtastic_login.json",
-    "primary_node": "Heltec Wireless Tracker V2",
-    "default_meshtastic_port": "/dev/ttyUSB0",
-    "supported_meshtastic_connections": ["serial", "tcp", "ble"],
-    "lora_chipset": "SX1262",
-    "gnss_chipset": "UC6580",
-    "gnss_supported_systems": ["GPS", "GLONASS", "BDS", "Galileo", "NAVIC", "QZSS"],
-    "raw_radio_sending": false,
-    "mesh_text_sending": false,
-    "automatic_radio_service": false,
-    "optional_legacy_spi_device": "/dev/spidev0.0"
-  },
   "menu_selection": {
     "enabled": true,
     "visible_rows": 6,
@@ -238,15 +218,16 @@
       "name": "RevA14 Jungle Book style eucalyptus menu",
       "renderer": "koalablue.menu_theme.JungleMenuRenderer",
       "text_preview": "koalablue.menu_theme.render_terminal_jungle_menu",
-      "font_style": "large rounded bubbly jungle title style using system fonts; no bundled third-party font files",
-      "font_family_candidates": ["cooperblack", "arialroundedmsbold", "dejavusans"],
-      "border_style": "eucalyptus_branches",
+      "font_style": "large rounded bubbly jungle title style using cooperblack arialroundedmsbold dejavusans fallback",
+      "background": "jungle_jumanji_eucalyptus_dark_teal_black",
+      "header_text": "KOALABYTE BLUE",
+      "subtitle_text": "killerkoala companion deck",
       "selected_item_style": "large rounded pill with eucalyptus leaves and glow",
       "fullscreen_default": true
     },
     "touch": {"enabled": true, "row_height_px": 64, "long_press_seconds": 0.75, "scroll_threshold_px": 18},
-    "groups": ["Bluetooth Tools", "CAN Bench Tools", "LoRa / Mesh Tools", "Reports & Reviews", "System / Companion"],
-    "items": ["Scan", "Summary", "Show Devices", "eucalyptus Status", "eucalyptus Start", "eucalyptus Stop", "eucalyptus Restart", "eucalyptus Upload Status", "Eucalyptus Mode", "Koala Kapture", "Koala Kry", "Koala Kry RF Review", "Ear Tag", "KoalaByte Lab", "Koala Mode Switcher", "Koala Kan Kommander", "didgeridoo", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Dropbear Discovery Sweep", "Billabong HCI Watch", "Kookaburra Safe Nest Run", "that’s not a knife", "KillerKoala Voice", "Urban Poaching", "Buttons", "Level / Status", "Report", "Boomerang", "Wake killerkoala", "Authorized BLE Inventory", "GATT Readiness Checklist", "Pairing Security Review", "Lab Beacon Plan", "Packet Capture Notes", "Defensive Lab Report", "Restricted Placeholder", "Settings", "Lab", "Shutdown", "Quit"]
+    "groups": ["Bluetooth Tools", "CAN Bench Tools", "Reports & Reviews", "System / Companion"],
+    "items": ["Scan", "Summary", "Show Devices", "eucalyptus Status", "eucalyptus Start", "eucalyptus Stop", "eucalyptus Restart", "eucalyptus Upload Status", "Eucalyptus Mode", "Koala Kapture", "Koala Kry", "Koala Kry RF Review", "Ear Tag", "KoalaByte Lab", "Koala Mode Switcher", "Koala Kan Kommander", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Dropbear Discovery Sweep", "Billabong HCI Watch", "Kookaburra Safe Nest Run", "that’s not a knife", "KillerKoala Voice", "Urban Poaching", "Buttons", "Level / Status", "Report", "Boomerang", "Wake killerkoala", "Authorized BLE Inventory", "GATT Readiness Checklist", "Pairing Security Review", "Lab Beacon Plan", "Packet Capture Notes", "Defensive Lab Report", "Restricted Placeholder", "Settings", "Lab", "Shutdown", "Quit"]
   },
   "capture_dir": "/blecaptures",
   "scan_window_seconds": 8.0,
