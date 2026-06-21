@@ -21,6 +21,15 @@
 #define ESP32S3_DUALEYE_2G4_WIRING_PATH "ESP32-S3 DualEye IPEX1/U.FL/MHF1 -> IPEX/U.FL pigtail -> SMA/RP-SMA bulkhead -> 2.4 GHz antenna"
 #define ESP32S3_DUALEYE_VENDOR_SELECTOR_REQUIRED 1
 
+// Voice front-end model plan.
+// ESP32-S3 handles wake/short-command recognition; Raspberry Pi handles large-vocabulary companion responses.
+#define ESP32S3_VOICE_FRONTEND_STACK "ESP-SR AFE/VAD + WakeNet9 + MultiNet7 Q8 English"
+#define ESP32S3_WAKE_MODEL "WakeNet9 custom wake word: killerkoala"
+#define ESP32S3_COMMAND_MODEL "MultiNet7 Q8 English command aliases"
+#define ESP32S3_COMMAND_ALIAS_PACK "firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv"
+#define KILLERKOALA_COMPANION_BRAIN "Raspberry Pi large-vocabulary Aussie cyberpunk companion engine"
+#define KILLERKOALA_RESPONSE_POLICY "anti-repeat rotating vocabulary with XP/rank-aware Aussie terminology"
+
 // Feature toggles.
 // Mic wake is enabled by default for the killerkoala build. If audio pins are not configured,
 // the firmware boots safely and reports that the hardware wake backend needs board-specific pin mapping.
