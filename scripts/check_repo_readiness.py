@@ -94,7 +94,7 @@ REQUIRED_TEXT = {
     "firmware/esp32-dualeye/include/config.h": ["ESP32S3_DUALEYE_EXTERNAL_2G4_ANTENNA", "ESP32S3_VOICE_FRONTEND_STACK", "MultiNet7 Q8 English"],
     "firmware/esp32-dualeye/src/main.cpp": ["voice_stack", "custom_animated_eyes", "eye_style_ack", "setKoalagotchiEyeStyle"],
     "firmware/esp32-dualeye/src/koalagotchi_mode_screens.h": ["setKoalagotchiEyeStyle", "tickKoalagotchiEyes", "getKoalagotchiLeftEyeHex"],
-    "firmware/esp32-dualeye/src/koalagotchi_mode_screens.cpp": ["EyeStyleState", "drawCustomEye", "tickKoalagotchiEyes", "scan", "glitch"],
+    "firmware/esp32-dualeye/src/koalagotchi_mode_screens.cpp": ["EyeState", "drawOneEye", "tickKoalagotchiEyes", "scan", "glitch"],
     "firmware/esp32-dualeye/voice_commands/README.md": ["WakeNet9", "MultiNet7 Q8 English", "Large Aussie/cyberpunk vocabulary pack"],
     "firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv": ["give the air a squiz", "suss the bluetooth stack", "bag the beacons"],
     "pi-companion/koalablue/killerkoala_vocabulary.py": ["RECENT_HISTORY_WINDOW", "AUSSIE_TERMS", "anti_repeat_policy", "estimated_total_lines"],
@@ -221,9 +221,7 @@ def main() -> int:
         for failure in failures:
             print(f"- {failure}", file=sys.stderr)
         return 1
-
     print("KoalaByte Blue repo readiness check passed.")
-    print("Main branch is scoped to ESP32-S3 DualEye with custom animated eyes, PlatformIO ESP32 build setup, external 2.4 GHz antenna support, ESP-SR voice-front-end intent, KillerKoala large Aussie vocabulary, phrase-first optional local LoRA model support, Nordic nRF52840 Dongle, Raspberry Pi companion, optional InnoMaker USB-to-CAN, and USB power-bank production power.")
     return 0
 
 
