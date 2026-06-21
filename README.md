@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>Your Bluetooth sidekick in the wild.</strong><br>
-  A Raspberry Pi 3B+ + ESP32-S3 DualEye + Nordic nRF52840 Dongle build for safe Bluetooth research, passive logging, menu-driven lab workflows, defensive monitoring, game-style Koalagotchi companion behavior, and optional isolated CAN bench work.
+  A Raspberry Pi 3B+ + ESP32-S3 DualEye + Nordic nRF52840 Dongle build for safe Bluetooth research, passive logging, menu-driven lab workflows, defensive monitoring, game-style Koalagotchi companion behavior, simplified USB power-bank power, and optional isolated CAN bench work.
 </p>
 
 <p align="center">
@@ -20,6 +20,7 @@ KoalaByte Blue is a dongle-only, no-custom-PCB Bluetooth companion build with a 
 - A **Raspberry Pi 3B+** as the Linux companion host.
 - An **ESP32-S3 DualEye display** for the boot splash, menu, and front-panel experience.
 - A **Nordic nRF52840 Dongle** for KoalaByte Lab Mode or Koala Konnect Mode.
+- A **PIFFA-style 50000 mAh USB portable power bank, 22.5 W class** as the simplified production power source.
 - The **killerkoala** companion for status, spoken alerts, voice-style reactions, XP, rank progression, and lab personality.
 - **Eucalyptus Mode**, a Koalagotchi-style always-on Bluetooth scanner/logger screen where killerkoala patrols a branch, eats eucalyptus Bluetooth data, and reacts to activity.
 - The **that’s not a knife** always-on BLE defensive monitor suite.
@@ -421,7 +422,7 @@ PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife.py status --json
 
 ## Hardware profile
 
-KoalaByte Blue is designed as a dongle-only build using common modules and cables instead of a custom PCB.
+KoalaByte Blue is designed as a dongle-only build using common modules and cables instead of a custom PCB. The main branch now uses a USB portable power bank instead of the old hand-wired 2x18650 power stack.
 
 ### Core components
 
@@ -430,12 +431,10 @@ KoalaByte Blue is designed as a dongle-only build using common modules and cable
 | Main SBC | Raspberry Pi 3 Model B+ | 1 | Main Linux computer and Pi companion host. |
 | Display/UI board | Waveshare ESP32-S3-DualEye-LCD-1.28 | 1 | Boot splash, menu UI, mic/front-end, serial companion bridge. |
 | BLE dongle | Nordic nRF52840 Dongle / PCA10059 / NRF52840-DONGLE | 1 | BLE lab firmware profile or Koala Konnect USB HCI profile. |
-| microSD card | 64GB high-endurance microSD recommended | 1 | Pi OS, logs, reports, artifacts. |
-| 5V regulator | Pololu D24V50F5 or equivalent 5V 5A buck | 1 | Stable 5V rail. |
-| USB-C PD trigger | Seloky USB-C PD/QC 12V trigger board or equivalent | 1 | USB-C input trigger before buck conversion. |
-| Fuse | 3A-5A 5V rail fuse | 1 | Basic over-current protection. |
-| Output capacitor | 470uF-1000uF low-ESR capacitor | 1 | Helps stabilize the 5V distribution point. |
-| USB/data cables | Short data-capable USB cables | as needed | Internal Pi, ESP32, and dongle connections. |
+| USB power bank | PIFFA-style 50000 mAh USB portable power bank, 22.5 W class | 1 | Main simplified power source. |
+| Pi power cable | Short USB-A or USB-C to micro-USB cable | 1 | Power from power bank to Raspberry Pi 3B+. |
+| USB/data cables | Short data-capable USB cables | as needed | Pi, ESP32, dongle, optional Heltec, and optional CAN data connections. |
+| Optional powered USB hub | Small powered USB hub | 0-1 | Helpful if USB load is tight or Pi undervoltage appears. |
 | Speaker | Small 8 ohm speaker, optional | 0-1 | Alerts and companion output. |
 | Standoffs/frame | M2.5 standoffs plus acrylic/printed frame plates | 1 set | Physical assembly. |
 
@@ -444,20 +443,33 @@ KoalaByte Blue is designed as a dongle-only build using common modules and cable
 | Component | Exact model / type | Qty | Purpose |
 |---|---|---:|---|
 | CAN adapter | InnoMaker USB to CAN Converter kit | 0-1 | Optional Koala Kan Kommander bench workflow. |
-| Powered USB hub | Small powered USB hub | 0-1 | Helpful if USB load is tight. |
+| Heltec USB-C LoRa/GNSS node | Heltec Wireless Tracker V2 or supported T114 validation board | 0-1 | Optional Didgeridoo LoRa/GNSS/Meshtastic setup/status workflow. |
+| LoRa antenna | Frequency-matched antenna for optional Heltec board | 0-1 | Only if optional LoRa hardware is installed. |
+| GNSS antenna/clearance | Board-matched GNSS antenna or sky-view clearance | 0-1 | Only if optional GNSS hardware is installed. |
 | USB mic fallback | CM108-style USB sound adapter | 0-1 | Fallback if DualEye mic mapping is not complete. |
 
 Power path:
 
 ```text
-USB-C PD/QC charger capable of 12 V
-  -> Seloky USB-C PD/QC 12 V trigger board
-  -> 5 V buck converter
-  -> fused regulated 5 V rail
-  -> Raspberry Pi / ESP32-S3 DualEye / USB peripherals
+PIFFA-style USB power bank
+  -> regulated USB-A or USB-C output
+  -> short quality USB power cable
+  -> Raspberry Pi 3B+ micro-USB power input
+
+Raspberry Pi USB ports or optional powered USB hub
+  -> Nordic nRF52840 USB Dongle
+  -> ESP32-S3 DualEye
+  -> optional Heltec USB-C LoRa/GNSS board
+  -> optional InnoMaker USB-to-CAN adapter
 ```
 
-Do **not** connect the Seloky 12V output directly to the Raspberry Pi.
+Do **not** add the old loose 18650 cells, 2S holder, BMS wiring, inline fuse, DC switch, 5 V buck converter, USB-C PD trigger board, or raw battery rails to the main production build.
+
+Wiring diagram:
+
+<p align="center">
+  <img src="docs/POWER_BANK_WIRING_MAIN.svg" alt="KoalaByte Blue USB power bank wiring diagram" width="760">
+</p>
 
 Optional CAN path:
 
@@ -483,6 +495,7 @@ KoalaByte Blue is built around safe defaults:
 - CAN transmit is gated for isolated bench-simulator or owned-harness use only.
 - Boomerang is manual/public camera-awareness documentation only.
 - Reports and review tools are designed to document posture, readiness, and defensive findings.
+- Power comes from the USB power bank's regulated output only; do not route raw lithium voltage into the device.
 
 ---
 
@@ -498,6 +511,8 @@ docs/KOALA_KONNECT_REVA20.md
 docs/NRF52840_DONGLE_FLASHING.md
 docs/ORDERABLE_PARTS_LIST.md
 docs/PRODUCTION_FILES.md
+docs/POWER_BANK_WIRING_MAIN.svg
+production/RevA17-dongle-only/BATTERY_POWER_2S_18650.md
 ```
 
 ---
