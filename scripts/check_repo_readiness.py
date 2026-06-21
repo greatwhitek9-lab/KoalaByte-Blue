@@ -25,6 +25,7 @@ MAIN_REQUIRED_FILES = [
     "docs/PRODUCTION_FILES.md",
     "docs/ORDERABLE_PARTS_LIST.md",
     "docs/POWER_BANK_WIRING_MAIN.svg",
+    "docs/KILLERKOALA_VOCABULARY_REVA17.md",
     "production/WIRING_DIAGRAM_ANTENNAS.md",
     "production/WIRING_DIAGRAM_ANTENNAS.svg",
     "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv",
@@ -34,14 +35,18 @@ MAIN_REQUIRED_FILES = [
     "firmware/esp32-dualeye/platformio.ini",
     "firmware/esp32-dualeye/include/config.h",
     "firmware/esp32-dualeye/src/main.cpp",
+    "firmware/esp32-dualeye/voice_commands/README.md",
+    "firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv",
     "firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt",
     "pi-companion/config.default.json",
     "pi-companion/requirements.txt",
     "pi-companion/koalablue/menu_catalog.py",
+    "pi-companion/koalablue/killerkoala_vocabulary.py",
     "scripts/configure_esp32s3_dualeye_2g4_antenna.sh",
     "scripts/flash_all_components.sh",
     "scripts/build_firmware_all.sh",
     "scripts/install_pi.sh",
+    "scripts/run_killerkoala_voice.py",
     "scripts/run_menu_screen.py",
 ]
 
@@ -76,10 +81,15 @@ EXPECTED_BOM_ITEMS = {
 }
 
 REQUIRED_TEXT = {
-    "firmware/esp32-dualeye/include/config.h": ["ESP32S3_DUALEYE_EXTERNAL_2G4_ANTENNA", "external_connector", "IPEX1/U.FL/MHF1"],
-    "firmware/esp32-dualeye/src/main.cpp": ["antenna_status", "ESP32S3_DUALEYE_2G4_ANTENNA_MODE", "esp32_external_antenna"],
+    "firmware/esp32-dualeye/include/config.h": ["ESP32S3_DUALEYE_EXTERNAL_2G4_ANTENNA", "ESP32S3_VOICE_FRONTEND_STACK", "MultiNet7 Q8 English"],
+    "firmware/esp32-dualeye/src/main.cpp": ["voice_stack", "ESP32S3_COMMAND_MODEL", "esp32_external_antenna"],
+    "firmware/esp32-dualeye/voice_commands/README.md": ["WakeNet9", "MultiNet7 Q8 English", "Raspberry Pi large-vocabulary companion engine"],
+    "firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv": ["give the air a squiz", "suss the bluetooth stack", "bag the beacons"],
+    "pi-companion/koalablue/killerkoala_vocabulary.py": ["RECENT_HISTORY_WINDOW", "AUSSIE_TERMS", "anti_repeat_policy", "estimated_total_lines"],
+    "docs/KILLERKOALA_VOCABULARY_REVA17.md": ["large vocabulary engine", "anti-repeat phrase rotation", "killerkoala_multinet_aliases.csv"],
+    "scripts/run_killerkoala_voice.py": ["killerkoala_vocabulary", "run_cli"],
+    "scripts/flash_esp32.sh": ["configure_esp32s3_dualeye_2g4_antenna.sh", "voice_stack", "MultiNet7 Q8 English"],
     "scripts/configure_esp32s3_dualeye_2g4_antenna.sh": ["ESP32-S3 DualEye", "external 2.4 GHz antenna", "logs/esp32s3_dualeye_2g4_antenna_status.json"],
-    "scripts/flash_esp32.sh": ["configure_esp32s3_dualeye_2g4_antenna.sh", "esp32_external_antenna"],
     "production/WIRING_DIAGRAM_ANTENNAS.md": ["ESP32-S3 DualEye 2.4 GHz", "IPEX/U.FL/MHF1 coax pigtail", "external 2.4 GHz WiFi/Bluetooth antenna"],
     "docs/PRODUCTION_FILES.md": ["production/WIRING_DIAGRAM_ANTENNAS.md", "ESP32-S3 DualEye antenna rule", "external 2.4 GHz"],
     "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md": ["ESP32-S3 DualEye external 2.4 GHz antenna path", "production/WIRING_DIAGRAM_ANTENNAS.md", "esp32_external_antenna"],
@@ -193,7 +203,7 @@ def main() -> int:
         return 1
 
     print("KoalaByte Blue repo readiness check passed.")
-    print("Main branch is scoped to ESP32-S3 DualEye with external 2.4 GHz antenna support, Nordic nRF52840 Dongle, Raspberry Pi companion, optional InnoMaker USB-to-CAN, and USB power-bank production power.")
+    print("Main branch is scoped to ESP32-S3 DualEye with external 2.4 GHz antenna support and ESP-SR voice-front-end intent, KillerKoala large Aussie vocabulary, Nordic nRF52840 Dongle, Raspberry Pi companion, optional InnoMaker USB-to-CAN, and USB power-bank production power.")
     return 0
 
 
