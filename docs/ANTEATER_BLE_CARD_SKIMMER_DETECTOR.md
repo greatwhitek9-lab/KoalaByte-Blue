@@ -6,7 +6,7 @@ It is a triage tool, not proof that a skimmer exists. AntEater looks at local BL
 
 ## Safety rules
 
-AntEater is advertisement-only. It does not pair, connect, write, replay, spoof, jam, disrupt, or interfere with nearby devices. Use it only on systems you own, manage, or have authorization to inspect.
+AntEater is advertisement-only. It performs no pairing, no connections, no writes, no replay, no spoofing, no jamming, no disruption, and no interference with nearby devices. Use it only on systems you own, manage, or have authorization to inspect.
 
 Raw BLE addresses are redacted by default. Use `--raw-addresses` only when you have written authorization and need raw identifiers in the local report.
 
