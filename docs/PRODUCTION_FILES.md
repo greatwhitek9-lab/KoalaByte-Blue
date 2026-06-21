@@ -16,6 +16,8 @@ Current production references:
 - `production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md` - current production, assembly, validation, RevA23 InnoMaker CAN guide, and USB power-bank power path.
 - `production/RevA17-dongle-only/BATTERY_POWER_2S_18650.md` - compatibility filename now containing the current USB power-bank power guide. The 2x18650/BMS/fuse/switch/buck path is no longer the main production path.
 - `production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv` - safety, bring-up, power-bank, and functional test record template.
+- `production/WIRING_DIAGRAM_ANTENNAS.md` - main production ESP32-S3 DualEye external 2.4 GHz antenna wiring guide.
+- `production/WIRING_DIAGRAM_ANTENNAS.svg` - visual ESP32-S3 DualEye antenna wiring diagram.
 
 ## Current top-level docs
 
@@ -33,11 +35,12 @@ Current production references:
 
 ## Current firmware/software production files
 
-- `firmware/esp32-dualeye/` - ESP32-S3 DualEye firmware, boot animation, and theme assets.
+- `firmware/esp32-dualeye/` - ESP32-S3 DualEye firmware, boot animation, theme assets, and external 2.4 GHz antenna mode reporting.
 - `firmware/esp32-dualeye/themes/` - active theme and approved SVG visual source-of-truth assets.
 - `firmware/nrf52840-dongle-ear-tag-tx-lab/` - nRF52840 Dongle KoalaByte Lab Zephyr app. This remains the default nRF production firmware source.
 - `pi-companion/` - Raspberry Pi companion app, menu, theme, and helper modules.
 - `scripts/check_repo_readiness.py` - current ready-to-run repository validation check.
+- `scripts/configure_esp32s3_dualeye_2g4_antenna.sh` - writes ESP32-S3 DualEye external antenna status before ESP32 flashing.
 - `scripts/flash_all_components.sh` - one-command Pi install, ESP32 flash, nRF52840 Dongle build/DFU, InnoMaker CAN manifest helper, and USB power-bank checks.
 - `scripts/build_firmware_all.sh` - all-firmware build helper for the main Nordic-dongle branch.
 - `scripts/flash_esp32.sh` - ESP32 build/upload helper.
@@ -53,13 +56,24 @@ Current production references:
 
 No custom PCB is required. The build uses commercially available development boards/modules, USB cabling, standoffs, a PIFFA-style USB portable power bank, optional powered USB hub, optional InnoMaker USB-to-CAN accessory hardware, approved firmware theme assets, and an open-frame stacked layout.
 
+## ESP32-S3 DualEye antenna rule
+
+```text
+ESP32-S3 DualEye 2.4 GHz / IPEX1-U.FL-MHF1 connector
+  -> short IPEX/U.FL/MHF1 coax pigtail
+  -> case-mounted SMA or RP-SMA bulkhead connector
+  -> external 2.4 GHz WiFi/Bluetooth antenna
+```
+
+Use the external-antenna board variant when possible. If the board revision uses an antenna-selector resistor or jumper, configure it for the external IPEX/U.FL path according to the vendor documentation.
+
 ## RevA23 CAN mechanical rule
 
 The current Koala Kan Kommander physical option is the InnoMaker USB to CAN Converter kit. Do not use or reintroduce the earlier circular CAN panel port in RevA23 case notes or renderings. Use an internal mount or rectangular side/rear service-bay cutout with strain relief.
 
 ## USB power-bank mechanical rule
 
-The current production path is powered by a PIFFA-style USB portable power bank through regulated USB output. Leave clearance for the Raspberry Pi 3B+ micro-USB power cable, USB cable bend radius, optional powered USB hub, Nordic nRF52840 dongle, ESP32-S3 DualEye, optional InnoMaker adapter, and strain relief. Do not route raw battery voltage to Pi GPIO, ESP32 GPIO, button wiring, USB devices, or CAN wiring.
+The current production path is powered by a PIFFA-style USB portable power bank through regulated USB output. Leave clearance for the Raspberry Pi 3B+ micro-USB power cable, USB cable bend radius, optional powered USB hub, Nordic nRF52840 dongle, ESP32-S3 DualEye, ESP32 antenna pigtail/bulkhead path, optional InnoMaker adapter, and strain relief. Do not route raw battery voltage to Pi GPIO, ESP32 GPIO, button wiring, USB devices, or CAN wiring.
 
 ## Branch cleanup rule
 
