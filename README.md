@@ -15,7 +15,9 @@
 
 ## What is KoalaByte Blue?
 
-KoalaByte Blue is a dongle-only, no-custom-PCB Bluetooth companion build with a jungle/eucalyptus menu, a little attitude, and a practical lab workflow. It brings together:
+KoalaByte Blue is a dongle-only, no-custom-PCB Bluetooth companion build with a jungle/eucalyptus menu, a little attitude, and a practical lab workflow. The `main` branch is intentionally scoped to the Raspberry Pi 3B+, ESP32-S3 DualEye, Nordic nRF52840 USB Dongle, optional InnoMaker USB-to-CAN adapter, and USB power-bank production path.
+
+It brings together:
 
 - A **Raspberry Pi 3B+** as the Linux companion host.
 - An **ESP32-S3 DualEye display** for the boot splash, menu, and front-panel experience.
@@ -84,8 +86,6 @@ PYTHONPATH=pi-companion python3 scripts/run_eucalyptus_cyberpet.py --terminal
 
 killerkoala has a shared companion XP/rank system across the Pi companion experience. XP is used to make the device feel more like a cyber-pet: successful approved actions and defensive wins can move killerkoala through levels while keeping unsafe behavior out of scope.
 
-Current XP ranks:
-
 | Rank | XP threshold | Personality style |
 |---|---:|---|
 | **Noob** | 0 XP | Rough beginner, cautious, scoped. |
@@ -113,8 +113,6 @@ PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py
 </p>
 
 The **that’s not a knife** action is an always-on local defensive monitor suite. It watches for local signs of BLE pressure or suspicious access patterns and then blocks KoalaByte Blue’s own local BLE workflows when a defensive condition trips.
-
-Current individual monitors:
 
 | Monitor | Default | Purpose |
 |---|---:|---|
@@ -221,7 +219,7 @@ Then use the one helper for the normal full path:
 bash scripts/flash_all_components.sh --all
 ```
 
-That one action is the easiest path. It runs the readiness check, installs/updates the Pi companion, prepares firmware tooling, handles ESP32/nRF helper flows, refreshes service wiring, and keeps gated bench actions behind explicit flags.
+That one action runs the readiness check, installs/updates the Pi companion, prepares firmware tooling, handles ESP32/nRF helper flows, refreshes service wiring, and keeps gated bench actions behind explicit flags.
 
 Useful variants:
 
@@ -243,18 +241,6 @@ bash scripts/flash_all_components.sh --all --build-only
 
 # Safe smoke checks after selected actions
 bash scripts/flash_all_components.sh --all --smoke
-```
-
-If WiFi was not configured before first boot, allow the installer to prompt before SDK/tool downloads:
-
-```bash
-WIFI_INTERACTIVE=1 \
-STRICT_WIFI_FIRST_BOOT=1 \
-STRICT_SYSTEM_PACKAGES=1 \
-STRICT_ESP32_TOOLS=1 \
-STRICT_DONGLE_CACHE=1 \
-STRICT_NCS_TOOLCHAIN=1 \
-bash scripts/install_pi.sh
 ```
 
 ---
@@ -310,15 +296,6 @@ Direct selection:
 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koalabyte_lab
 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koala_konnect
 ```
-
-Switch the physical dongle when it is in DFU bootloader mode:
-
-```bash
-NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koalabyte_lab
-NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koala_konnect
-```
-
-If no DFU port is available, the selector records the requested mode in `logs/preboot_mode_selection.json` without claiming the physical dongle changed.
 
 ---
 
@@ -411,13 +388,6 @@ Theme highlights:
 - Full-color Eucalyptus Mode Koalagotchi renderer.
 - Terminal-safe preview cards for SSH sessions.
 
-The monitor settings screens use the same theme and still support raw JSON for automation:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife.py status
-PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife.py status --json
-```
-
 ---
 
 ## Hardware profile
@@ -433,7 +403,7 @@ KoalaByte Blue is designed as a dongle-only build using common modules and cable
 | BLE dongle | Nordic nRF52840 Dongle / PCA10059 / NRF52840-DONGLE | 1 | BLE lab firmware profile or Koala Konnect USB HCI profile. |
 | USB power bank | PIFFA-style 50000 mAh USB portable power bank, 22.5 W class | 1 | Main simplified power source. |
 | Pi power cable | Short USB-A or USB-C to micro-USB cable | 1 | Power from power bank to Raspberry Pi 3B+. |
-| USB/data cables | Short data-capable USB cables | as needed | Pi, ESP32, dongle, optional Heltec, and optional CAN data connections. |
+| USB/data cables | Short data-capable USB cables | as needed | Pi, ESP32, dongle, and optional CAN data connections. |
 | Optional powered USB hub | Small powered USB hub | 0-1 | Helpful if USB load is tight or Pi undervoltage appears. |
 | Speaker | Small 8 ohm speaker, optional | 0-1 | Alerts and companion output. |
 | Standoffs/frame | M2.5 standoffs plus acrylic/printed frame plates | 1 set | Physical assembly. |
@@ -443,9 +413,7 @@ KoalaByte Blue is designed as a dongle-only build using common modules and cable
 | Component | Exact model / type | Qty | Purpose |
 |---|---|---:|---|
 | CAN adapter | InnoMaker USB to CAN Converter kit | 0-1 | Optional Koala Kan Kommander bench workflow. |
-| Heltec USB-C LoRa/GNSS node | Heltec Wireless Tracker V2 or supported T114 validation board | 0-1 | Optional Didgeridoo LoRa/GNSS/Meshtastic setup/status workflow. |
-| LoRa antenna | Frequency-matched antenna for optional Heltec board | 0-1 | Only if optional LoRa hardware is installed. |
-| GNSS antenna/clearance | Board-matched GNSS antenna or sky-view clearance | 0-1 | Only if optional GNSS hardware is installed. |
+| ESP32 antenna | 2.4 GHz antenna matched to the ESP32-S3 DualEye IPEX1/U.FL path | 1 | Wi-Fi/Bluetooth antenna for the ESP32-S3 DualEye only. |
 | USB mic fallback | CM108-style USB sound adapter | 0-1 | Fallback if DualEye mic mapping is not complete. |
 
 Power path:
@@ -459,7 +427,6 @@ PIFFA-style USB power bank
 Raspberry Pi USB ports or optional powered USB hub
   -> Nordic nRF52840 USB Dongle
   -> ESP32-S3 DualEye
-  -> optional Heltec USB-C LoRa/GNSS board
   -> optional InnoMaker USB-to-CAN adapter
 ```
 
@@ -496,6 +463,12 @@ KoalaByte Blue is built around safe defaults:
 - Boomerang is manual/public camera-awareness documentation only.
 - Reports and review tools are designed to document posture, readiness, and defensive findings.
 - Power comes from the USB power bank's regulated output only; do not route raw lithium voltage into the device.
+
+---
+
+## Branch separation
+
+The `main` branch is the KoalaByte Blue Nordic-dongle production branch. Alternate board-specific work must live in its own branch and should not be merged back into `main` unless the hardware target becomes part of the main production build.
 
 ---
 
