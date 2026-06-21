@@ -26,6 +26,7 @@ MAIN_REQUIRED_FILES = [
     "docs/ORDERABLE_PARTS_LIST.md",
     "docs/POWER_BANK_WIRING_MAIN.svg",
     "docs/KILLERKOALA_VOCABULARY_REVA17.md",
+    "docs/KILLERKOALA_LORA_TRAINING.md",
     "production/WIRING_DIAGRAM_ANTENNAS.md",
     "production/WIRING_DIAGRAM_ANTENNAS.svg",
     "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv",
@@ -42,12 +43,15 @@ MAIN_REQUIRED_FILES = [
     "pi-companion/requirements.txt",
     "pi-companion/koalablue/menu_catalog.py",
     "pi-companion/koalablue/killerkoala_vocabulary.py",
+    "pi-companion/koalablue/killerkoala_hybrid_companion.py",
     "scripts/configure_esp32s3_dualeye_2g4_antenna.sh",
     "scripts/flash_all_components.sh",
     "scripts/build_firmware_all.sh",
     "scripts/install_pi.sh",
     "scripts/run_killerkoala_voice.py",
+    "scripts/run_killerkoala_hybrid.py",
     "scripts/run_menu_screen.py",
+    "training/killerkoala_lora/Modelfile.killerkoala-tinyllama",
 ]
 
 BRANCH_ONLY_PATHS = [
@@ -56,14 +60,19 @@ BRANCH_ONLY_PATHS = [
     "docs/" + "T" + "114_WHOLE_FIRMWARE_TEST.md",
     "scripts/run_" + "didgeri" + "doo.py",
     "pi-companion/koalablue/" + "didgeri" + "doo_" + "lo" + "ra.py",
+    "pi-companion/koalblue/killerkoala_hybrid_companion.py",
 ]
 
+# Keep this list specific to branch-only hardware/project terms. Do not include "LoRA" here:
+# LoRA is also the AI fine-tuning technique used by KillerKoala on main, while LoRa is the
+# branch-only long-range radio workflow.
 BRANCH_ONLY_TERMS = [
     "Hel" + "tec",
     "Mesh" + "tastic",
     "didgeri" + "doo",
-    "Lo" + "Ra",
-    "lo" + "ra",
+    "LoRa antenna",
+    "LoRa/GNSS",
+    "LoRa / Mesh",
     "GN" + "SS",
     "SX" + "1262",
     "UC" + "6580",
@@ -83,11 +92,16 @@ EXPECTED_BOM_ITEMS = {
 REQUIRED_TEXT = {
     "firmware/esp32-dualeye/include/config.h": ["ESP32S3_DUALEYE_EXTERNAL_2G4_ANTENNA", "ESP32S3_VOICE_FRONTEND_STACK", "MultiNet7 Q8 English"],
     "firmware/esp32-dualeye/src/main.cpp": ["voice_stack", "ESP32S3_COMMAND_MODEL", "esp32_external_antenna"],
-    "firmware/esp32-dualeye/voice_commands/README.md": ["WakeNet9", "MultiNet7 Q8 English", "Raspberry Pi large-vocabulary companion engine"],
+    "firmware/esp32-dualeye/voice_commands/README.md": ["WakeNet9", "MultiNet7 Q8 English", "Large Aussie/cyberpunk vocabulary pack"],
     "firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv": ["give the air a squiz", "suss the bluetooth stack", "bag the beacons"],
     "pi-companion/koalablue/killerkoala_vocabulary.py": ["RECENT_HISTORY_WINDOW", "AUSSIE_TERMS", "anti_repeat_policy", "estimated_total_lines"],
+    "pi-companion/koalablue/killerkoala_hybrid_companion.py": ["killerkoala-tinyllama:latest", "phrase_engine", "fallback_reason", "KILLERKOALA_LLM_MODE"],
     "docs/KILLERKOALA_VOCABULARY_REVA17.md": ["large vocabulary engine", "anti-repeat phrase rotation", "killerkoala_multinet_aliases.csv"],
-    "scripts/run_killerkoala_voice.py": ["killerkoala_vocabulary", "run_cli"],
+    "docs/KILLERKOALA_LORA_TRAINING.md": ["does **not** rely only on an LLM", "anti-repeat phrase engine", "KILLERKOALA_LLM_MODE"],
+    "scripts/run_killerkoala_voice.py": ["killerkoala_voice_control", "run_cli"],
+    "scripts/run_killerkoala_hybrid.py": ["killerkoala_hybrid_companion", "run_cli"],
+    "scripts/flash_all_components.sh": ["RUN_AI_VOICE", "--ai-voice", "flash_all_ai_voice_config.json", "flash_all_ai_voice_preview.json"],
+    "training/killerkoala_lora/Modelfile.killerkoala-tinyllama": ["FROM tinyllama:1.1b", "PARAMETER num_ctx 1024", "KillerKoala"],
     "scripts/flash_esp32.sh": ["configure_esp32s3_dualeye_2g4_antenna.sh", "voice_stack", "MultiNet7 Q8 English"],
     "scripts/configure_esp32s3_dualeye_2g4_antenna.sh": ["ESP32-S3 DualEye", "external 2.4 GHz antenna", "logs/esp32s3_dualeye_2g4_antenna_status.json"],
     "production/WIRING_DIAGRAM_ANTENNAS.md": ["ESP32-S3 DualEye 2.4 GHz", "IPEX/U.FL/MHF1 coax pigtail", "external 2.4 GHz WiFi/Bluetooth antenna"],
@@ -203,7 +217,7 @@ def main() -> int:
         return 1
 
     print("KoalaByte Blue repo readiness check passed.")
-    print("Main branch is scoped to ESP32-S3 DualEye with external 2.4 GHz antenna support and ESP-SR voice-front-end intent, KillerKoala large Aussie vocabulary, Nordic nRF52840 Dongle, Raspberry Pi companion, optional InnoMaker USB-to-CAN, and USB power-bank production power.")
+    print("Main branch is scoped to ESP32-S3 DualEye with external 2.4 GHz antenna support and ESP-SR voice-front-end intent, KillerKoala large Aussie vocabulary, phrase-first optional local LoRA model support, Nordic nRF52840 Dongle, Raspberry Pi companion, optional InnoMaker USB-to-CAN, and USB power-bank production power.")
     return 0
 
 
