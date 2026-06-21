@@ -1,6 +1,6 @@
 # Production Files
 
-This repository keeps one current no-custom-PCB production package for the KoalaByte Blue stacked Raspberry Pi 3B+ device using the Nordic nRF52840 USB Dongle / PCA10059, optional InnoMaker USB-to-CAN, optional Heltec Wireless Tracker V2 USB-C LoRa/GNSS node for Didgeridoo, and an experimental Heltec Mesh Node T114 V2 alternate nRF52840 target.
+This repository keeps one current no-custom-PCB production package for the KoalaByte Blue stacked Raspberry Pi 3B+ device using the Nordic nRF52840 USB Dongle / PCA10059, optional InnoMaker USB-to-CAN, optional Heltec USB-C LoRa/GNSS node hardware, optional T114 validation hardware, and a simplified USB portable power-bank power path.
 
 ## Current dongle-only package
 
@@ -10,21 +10,21 @@ production/RevA17-dongle-only/
 
 Current production references:
 
-- `production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv` - current complete dongle-only BOM using a 2x18650 2S battery pack, 2S BMS, 5 A fuse, switch, 5 V buck converter, regulated 5 V rails, optional InnoMaker USB-to-CAN kit for Koala Kan Kommander, optional Heltec Wireless Tracker V2 USB-C LoRa/GNSS node hardware for Didgeridoo, and optional T114 validation hardware.
-- `production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md` - current production, assembly, validation, RevA23 InnoMaker CAN guide, RevA25 Heltec Wireless Tracker V2 GNSS update, and opt-in T114 alternate target rule.
-- `production/RevA17-dongle-only/BATTERY_POWER_2S_18650.md` - current battery-power production guide for the 2x18650 series pack, 2S BMS, fuse, switch, 5 V buck, and rails.
-- `production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv` - safety, bring-up, and functional test record template.
+- `production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv` - current complete dongle-only BOM using the Nordic nRF52840 USB Dongle, ESP32-S3 DualEye, Raspberry Pi 3B+, PIFFA-style 50000 mAh USB portable power bank, short USB power/data cables, optional powered USB hub, optional InnoMaker USB-to-CAN kit for Koala Kan Kommander, optional Heltec Wireless Tracker V2 USB-C LoRa/GNSS node hardware for Didgeridoo, and optional T114 validation hardware.
+- `production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md` - current production, assembly, validation, RevA23 InnoMaker CAN guide, RevA25 Heltec Wireless Tracker V2 GNSS update, opt-in T114 alternate target rule, and USB power-bank power path.
+- `production/RevA17-dongle-only/BATTERY_POWER_2S_18650.md` - compatibility filename now containing the current USB power-bank power guide. The 2x18650/BMS/fuse/switch/buck path is no longer the main production path.
+- `production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv` - safety, bring-up, power-bank, and functional test record template.
 
 ## Current top-level docs
 
 - `README.md` - current quick-start and operation index.
 - `docs/FLASHING.md` - current all-component flashing and install guide.
-- `docs/ORDERABLE_PARTS_LIST.md` - current orderable hardware list.
+- `docs/ORDERABLE_PARTS_LIST.md` - current orderable hardware list with USB power bank replacing the old 18650 stack.
 - `docs/PRODUCTION_FILES.md` - this current production index.
+- `docs/POWER_BANK_WIRING_MAIN.svg` - current text/SVG wiring diagram for the USB power-bank power path.
 - `docs/DIDGERIDOO_LORA_SETUP.md` - Didgeridoo software/setup guide for the Heltec Wireless Tracker V2 USB-C Meshtastic LoRa/GNSS node; detailed case-hole and enclosure geometry remains in the production package.
 - `docs/NRF52840_T114_ALT_TARGET.md` - opt-in Heltec Mesh Node T114 V2 alternate nRF52840 target guide; not a production replacement for the Nordic dongle yet.
 - `docs/THEME_AND_MENU_SYSTEM.md` - consolidated current RevA23 theme, boot-splash, and menu guide.
-- `docs/POWER_UPDATE_REVA2.md` - legacy Seloky trigger and 5 V buck validation guide; use the RevA17 battery guide for the current battery-powered production path.
 - `docs/NRF52840_DONGLE_FLASHING.md` - nRF52840 Dongle / PCA10059 Zephyr build and DFU guide.
 - `docs/KOALA_KAN_KOMMANDER_REVA22.md` - Koala Kan Kommander InnoMaker USB-to-CAN guide.
 - `docs/KOALA_MODE_SWITCHER_REVA21.md` - Koala Mode Switcher guide.
@@ -54,11 +54,11 @@ Current production references:
 - `scripts/run_didgeridoo.py` - Didgeridoo Wireless Tracker V2 Meshtastic/GNSS setup/status runner.
 - `.github/workflows/koalabyte-blue-ci.yml` - CI workflow using the readiness check.
 
-No custom PCB is required. The build uses commercially available development boards/modules, USB cabling, standoffs, a protected 2S battery/power system, optional InnoMaker USB-to-CAN accessory hardware, optional Heltec Wireless Tracker V2 USB-C LoRa/GNSS node hardware, optional T114 nRF52840 validation hardware, approved firmware theme assets, and an open-frame stacked layout.
+No custom PCB is required. The build uses commercially available development boards/modules, USB cabling, standoffs, a PIFFA-style USB portable power bank, optional powered USB hub, optional InnoMaker USB-to-CAN accessory hardware, optional Heltec Wireless Tracker V2 USB-C LoRa/GNSS node hardware, optional T114 nRF52840 validation hardware, approved firmware theme assets, and an open-frame stacked layout.
 
 ## T114 alternate target rule
 
-The Heltec Mesh Node T114 V2 style board may be tested as an alternate nRF52840 target, but it is not the production replacement for the Nordic nRF52840 USB Dongle yet.
+The Heltec Mesh Node T114 V2 style board may be tested as an alternate nRF52840 target, but it is not the production replacement for the Nordic nRF52840 USB Dongle on main yet.
 
 Rules:
 
@@ -66,7 +66,6 @@ Rules:
 2. Use the T114 path only with `--nrf-t114-lab`, `BUILD_T114_LAB=1`, or the dedicated T114 scripts.
 3. Confirm the exact Zephyr board target before running the T114 build.
 4. Confirm the exact T114 bootloader/flash command before flashing.
-5. Do not remove the dongle production files until the T114 target builds, flashes, enumerates, and passes KoalaByte Lab BLE behavior checks.
 
 ## RevA25 Heltec Wireless Tracker V2 / Didgeridoo mechanical antenna and GNSS rule
 
@@ -75,19 +74,19 @@ Case-hole and antenna-placement details belong in the production package, not in
 The current case/top RF area must provide:
 
 1. One 2.4 GHz antenna opening for the ESP32-S3 DualEye IPEX1/U.FL Wi-Fi/Bluetooth antenna path.
-2. One smaller LoRa antenna opening for the Heltec Wireless Tracker V2 LoRa IPEX/U.FL antenna connector.
-3. One GNSS sky-view clearance zone above the Wireless Tracker V2 GNSS antenna area.
+2. One smaller LoRa antenna opening only when the Heltec Wireless Tracker V2 LoRa IPEX/U.FL antenna connector is installed.
+3. One GNSS sky-view clearance zone above the Wireless Tracker V2 GNSS antenna area when GNSS hardware is installed.
 4. Optional GNSS external antenna opening only if the build intentionally switches the Wireless Tracker V2 to a documented external GNSS IPEX/U.FL antenna path.
 
-The Wireless Tracker V2 uses onboard Wi-Fi/Bluetooth 2.4 GHz antenna hardware unless the exact board revision documents an external 2.4 GHz connector. The LoRa antenna must be matched to the purchased board and legal region, such as 470-510 MHz, 863-870 MHz, or 902-928 MHz. Do not substitute a 2.4 GHz antenna for the LoRa antenna. Do not place the GNSS antenna path beneath battery cells, speaker magnets, metal screws/standoffs, or dense wire bundles.
+The Wireless Tracker V2 uses onboard Wi-Fi/Bluetooth 2.4 GHz antenna hardware unless the exact board revision documents an external 2.4 GHz connector. The LoRa antenna must be matched to the purchased board and legal region. Do not substitute a 2.4 GHz antenna for the LoRa antenna. Do not place the GNSS antenna path beneath speaker magnets, metal screws/standoffs, USB cable bundles, or dense wire bundles.
 
 ## RevA23 CAN mechanical rule
 
 The current Koala Kan Kommander physical option is the InnoMaker USB to CAN Converter kit. Do not use or reintroduce the earlier circular CAN panel port in RevA23 case notes or renderings. Use an internal mount or rectangular side/rear service-bay cutout with strain relief.
 
-## Battery power mechanical rule
+## USB power-bank mechanical rule
 
-The current production path is battery powered. Leave internal clearance for two 18650 cells, 2S BMS/protection board, inline 5 A fuse, main switch, 5 V buck converter, +5 V rail, GND rail, optional Heltec Wireless Tracker V2 USB-C node, optional T114 validation board, and strain relief. Do not route raw 2S battery voltage to Pi GPIO, ESP32 GPIO, button wiring, USB devices, CAN wiring, or the Meshtastic/GNSS/T114 node.
+The current production path is powered by a PIFFA-style USB portable power bank through regulated USB output. Leave clearance for the Raspberry Pi 3B+ micro-USB power cable, USB cable bend radius, optional powered USB hub, Nordic nRF52840 dongle, ESP32-S3 DualEye, optional Heltec board, optional InnoMaker adapter, and strain relief. Do not route raw battery voltage to Pi GPIO, ESP32 GPIO, button wiring, USB devices, CAN wiring, or the Meshtastic/GNSS/T114 node.
 
 ## Cleanup rule
 
@@ -103,7 +102,7 @@ The repository is considered current only when:
 4. The nRF52840 Dongle Zephyr project wiring and DFU helpers are present.
 5. Optional Koala Kan Kommander files remain present and passive by default.
 6. Optional Didgeridoo files remain setup/status/profile only by default.
-7. Optional T114 files remain opt-in and do not replace the Nordic dongle default.
+7. Optional T114 files remain opt-in and do not replace the Nordic dongle default on main.
 8. `scripts/flash_all_components.sh --all` is documented as the primary all-component helper.
-9. The battery-powered RevA17 production guide and BOM remain aligned.
+9. The USB power-bank production guide and BOM remain aligned.
 10. Removed legacy production packages and legacy theme docs are not reintroduced.
