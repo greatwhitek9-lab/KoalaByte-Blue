@@ -9,6 +9,7 @@ RUN_ESP32=0
 RUN_NRF_LAB=0
 RUN_NRF_KONNECT=0
 RUN_CAN_CHECK=0
+RUN_AI_VOICE=0
 BUILD_ONLY=0
 CHECK_ONLY=0
 RUN_SMOKE=0
@@ -21,14 +22,16 @@ KoalaByte Blue all-component flash/install helper
 Usage:
   bash scripts/flash_all_components.sh --all
   bash scripts/flash_all_components.sh --pi --esp32 --nrf-lab
+  bash scripts/flash_all_components.sh --ai-voice
   WIFI_INTERACTIVE=1 bash scripts/flash_all_components.sh --all
   WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword" bash scripts/flash_all_components.sh --all
   NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
   ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
 
 Targets:
-  --all            Install Pi companion, flash ESP32, build/package/flash nRF52840 KoalaByte Lab, and run CAN manifest check
+  --all            Install Pi companion, prepare KillerKoala AI voice, flash ESP32, build/package/flash nRF52840 KoalaByte Lab, and run CAN manifest check
   --pi             Install/update Raspberry Pi companion environment
+  --ai-voice       Prepare/verify KillerKoala phrase-first companion config and optional TinyLlama/Ollama settings
   --esp32          Build and flash ESP32-S3 DualEye firmware with PlatformIO
   --nrf-lab        Build/package/flash nRF52840 Dongle KoalaByte Lab firmware
   --nrf-konnect    Build/package/flash optional Koala Konnect USB HCI profile instead of KoalaByte Lab
@@ -62,6 +65,9 @@ Environment:
   NRFUTIL_INSTALL_CMD     Optional custom nrfutil install command for scripts/setup_nrf_tools.sh.
   BUILD_KOALA_KONNECT=1 can still be used with scripts/build_firmware_all.sh for optional HCI builds.
   KOALABYTE_TTS=1 enables Boomerang/KillerKoala spoken alerts after espeak-ng/espeak is installed.
+  KILLERKOALA_LLM_MODE    fast_default/off/force. Default: fast_default; phrase engine remains default.
+  KILLERKOALA_LLM_MODEL   Optional local Ollama model. Default: killerkoala-tinyllama:latest.
+  KILLERKOALA_LLM_TIMEOUT_SECONDS Optional local model timeout. Default: 2.5.
 
 Notes:
   - The Nordic nRF52840 Dongle remains the default KoalaByte Lab / Koala Konnect target on main.
@@ -69,6 +75,7 @@ Notes:
   - WiFi/internet can be configured first so the Pi can download SDK/toolchain dependencies.
   - System packages, PlatformIO, west, nrfutil, and the full NCS/Zephyr toolchain are checked/prepared before relevant flashing steps.
   - Pi system package setup also installs AI voice/TTS dependencies: espeak-ng, espeak, ALSA tools, PulseAudio CLI utilities, PortAudio, and python3-pyaudio.
+  - KillerKoala AI voice setup keeps the anti-repeat phrase engine as the fast default and only uses TinyLlama/Ollama for flexible banter when enabled.
   - KillerKoala boot welcome speech runs after the mode selector and before the splash/menu unless KILLERKOALA_BOOT_WELCOME=0.
   - macOS say is an optional fallback on Apple systems; Raspberry Pi OS uses espeak-ng/espeak.
   - If NRF_DFU_PORT is unset, the nRF helper creates the DFU ZIP but does not flash.
@@ -85,11 +92,13 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --all)
       RUN_PI=1
+      RUN_AI_VOICE=1
       RUN_ESP32=1
       RUN_NRF_LAB=1
       RUN_CAN_CHECK=1
       ;;
     --pi) RUN_PI=1 ;;
+    --ai-voice) RUN_PI=1; RUN_AI_VOICE=1 ;;
     --esp32) RUN_ESP32=1 ;;
     --nrf-lab) RUN_NRF_LAB=1 ;;
     --nrf-konnect) RUN_NRF_KONNECT=1 ;;
@@ -118,7 +127,7 @@ if [[ "${RUN_NRF_LAB}" == "1" && "${RUN_NRF_KONNECT}" == "1" && "${BUILD_ONLY}" 
 fi
 
 setup_wifi_for_selected_mode() {
-  if [[ "${RUN_PI}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
+  if [[ "${RUN_PI}" != "1" && "${RUN_AI_VOICE}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
     return 0
   fi
   echo
@@ -127,7 +136,7 @@ setup_wifi_for_selected_mode() {
 }
 
 setup_system_packages_for_selected_mode() {
-  if [[ "${RUN_PI}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
+  if [[ "${RUN_PI}" != "1" && "${RUN_AI_VOICE}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
     return 0
   fi
   echo
@@ -160,6 +169,34 @@ setup_nrf_tools_for_selected_mode() {
   STRICT_NCS_TOOLCHAIN="${STRICT_NCS_TOOLCHAIN:-${STRICT_NRF_TOOLS:-1}}" INSTALL_NCS_TOOLCHAIN="${INSTALL_NCS_TOOLCHAIN:-auto}" bash scripts/setup_nrf_connect_sdk_toolchain.sh
 }
 
+setup_killerkoala_ai_voice_for_selected_mode() {
+  if [[ "${RUN_AI_VOICE}" != "1" && "${RUN_SMOKE}" != "1" ]]; then
+    return 0
+  fi
+  echo
+  echo "== KillerKoala AI voice companion setup =="
+  mkdir -p logs/killerkoala
+  cat > logs/killerkoala/flash_all_ai_voice_config.json <<JSON
+{
+  "mode": "${KILLERKOALA_LLM_MODE:-fast_default}",
+  "model": "${KILLERKOALA_LLM_MODEL:-killerkoala-tinyllama:latest}",
+  "timeout_seconds": "${KILLERKOALA_LLM_TIMEOUT_SECONDS:-2.5}",
+  "fast_default": "pi-companion/koalablue/killerkoala_vocabulary.py",
+  "hybrid_companion": "pi-companion/koalablue/killerkoala_hybrid_companion.py",
+  "runner": "scripts/run_killerkoala_hybrid.py",
+  "training_doc": "docs/KILLERKOALA_LORA_TRAINING.md",
+  "ollama_modelfile": "training/killerkoala_lora/Modelfile.killerkoala-tinyllama"
+}
+JSON
+  PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py --manifest >/dev/null
+  KILLERKOALA_LLM_MODE="${KILLERKOALA_LLM_MODE:-fast_default}" \
+    KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-tinyllama:latest}" \
+    KILLERKOALA_LLM_TIMEOUT_SECONDS="${KILLERKOALA_LLM_TIMEOUT_SECONDS:-2.5}" \
+    PYTHONPATH=pi-companion python3 scripts/run_killerkoala_hybrid.py status --xp 100 --no-history > logs/killerkoala/flash_all_ai_voice_preview.json
+  echo "KillerKoala AI voice config written to logs/killerkoala/flash_all_ai_voice_config.json"
+  echo "Phrase-first preview written to logs/killerkoala/flash_all_ai_voice_preview.json"
+}
+
 echo "== KoalaByte Blue readiness check =="
 python3 scripts/check_repo_readiness.py
 
@@ -177,6 +214,7 @@ if [[ "${RUN_PI}" == "1" ]]; then
   bash scripts/install_pi.sh
 fi
 
+setup_killerkoala_ai_voice_for_selected_mode
 setup_esp32_tools_for_selected_mode
 setup_nrf_tools_for_selected_mode
 
@@ -228,6 +266,7 @@ if [[ "${RUN_SMOKE}" == "1" ]]; then
   PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py manifest
   PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py inventory
   PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status --xp 100
+  PYTHONPATH=pi-companion python3 scripts/run_killerkoala_hybrid.py banter --xp 100 --flexible --text "flash all smoke check" --no-history || true
   PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
   PYTHONPATH=pi-companion python3 scripts/check_killerkoala_boot_welcome.py
   KOALABYTE_TTS=0 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py preview --event boomerang_xp --xp 100 >/dev/null
