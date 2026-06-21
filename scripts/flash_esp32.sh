@@ -10,6 +10,7 @@ NO_CLEAN="${NO_CLEAN:-0}"
 
 cd "${REPO_ROOT}"
 STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-1}" bash scripts/setup_esp32_tools.sh
+bash scripts/configure_esp32s3_dualeye_2g4_antenna.sh
 
 cd "${FW_DIR}"
 
@@ -32,6 +33,7 @@ cat <<EOF
 KoalaByte Blue ESP32-S3 DualEye firmware flash helper
 Firmware directory: ${FW_DIR}
 Boot animation: enabled in include/config.h when ENABLE_DISPLAY_BOOT_ANIMATION=1
+ESP32-S3 2.4 GHz antenna: external connector path recorded in logs/esp32s3_dualeye_2g4_antenna_status.json
 PlatformIO env: ${PIO_ENV:-default}
 Upload port: ${ESP32_PORT:-PlatformIO auto-detect}
 EOF
@@ -58,9 +60,11 @@ Expected on-device boot behavior:
   - KoalaByte Blue splash appears on the ESP32 display.
   - Dual-eye UI comes up with the KoalaByte/killerkoala theme.
   - BOOTING... progress bar advances when boot animation is enabled.
+  - Serial boot JSON reports esp32_2g4_antenna as external_connector.
 
 Expected serial boot JSON includes:
   "boot_animation": 1
+  "esp32_external_antenna": 1
 EOF
 
 if [[ "${NO_MONITOR}" == "1" ]]; then
