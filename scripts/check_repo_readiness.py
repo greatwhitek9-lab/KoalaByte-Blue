@@ -12,51 +12,16 @@ if str(PI_ROOT) not in sys.path:
     sys.path.insert(0, str(PI_ROOT))
 
 EXPECTED_MENU_LABELS = [
-    "Scan",
-    "Summary",
-    "Show Devices",
-    "eucalyptus Status",
-    "eucalyptus Start",
-    "eucalyptus Stop",
-    "eucalyptus Restart",
-    "eucalyptus Upload Status",
-    "Eucalyptus Mode",
-    "Koala Kapture",
-    "Koala Kry",
-    "Koala Kry RF Review",
-    "Ear Tag",
-    "KoalaByte Lab",
-    "Koala Mode Switcher",
-    "Koala Kan Kommander",
-    "didgeridoo",
-    "Gumleaf Gear Check",
-    "Eucalyptus Bus Scout",
-    "Dropbear Discovery Sweep",
-    "Billabong HCI Watch",
-    "Kookaburra Safe Nest Run",
-    "that’s not a knife",
-    "KillerKoala Voice",
-    "Urban Poaching",
-    "Buttons",
-    "Level / Status",
-    "Report",
-    "Boomerang",
-    "Wake killerkoala",
-    "Authorized BLE Inventory",
-    "GATT Readiness Checklist",
-    "Pairing Security Review",
-    "Lab Beacon Plan",
-    "Packet Capture Notes",
-    "Defensive Lab Report",
-    "Restricted Placeholder",
-    "Settings",
-    "Lab",
-    "Shutdown",
-    "Quit",
+    "Scan", "Summary", "Show Devices", "eucalyptus Status", "eucalyptus Start", "eucalyptus Stop", "eucalyptus Restart", "eucalyptus Upload Status",
+    "Eucalyptus Mode", "Koala Kapture", "Koala Kry", "Koala Kry RF Review", "Ear Tag", "KoalaByte Lab", "Koala Mode Switcher", "Koala Kan Kommander",
+    "didgeridoo", "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Dropbear Discovery Sweep", "Billabong HCI Watch", "Kookaburra Safe Nest Run",
+    "that’s not a knife", "KillerKoala Voice", "Urban Poaching", "Buttons", "Level / Status", "Report", "Boomerang", "Wake killerkoala",
+    "Authorized BLE Inventory", "GATT Readiness Checklist", "Pairing Security Review", "Lab Beacon Plan", "Packet Capture Notes", "Defensive Lab Report",
+    "Restricted Placeholder", "Settings", "Lab", "Shutdown", "Quit",
 ]
 
-SELOKY_PD_ITEM = "Seloky USB-C PD Trigger Board Module PD/QC Decoy Fast Charge USB Type-C to 12V"
 INNOMAKER_ITEM = "InnoMaker USB to CAN Converter kit"
+POWER_BANK_ITEM = "PIFFA-style 50000 mAh USB portable power bank 22.5 W class"
 
 EXPECTED_BOM_ITEMS = [
     "Raspberry Pi 3 Model B+",
@@ -65,15 +30,13 @@ EXPECTED_BOM_ITEMS = [
     "1.28 inch round LCD display",
     "8 ohm 2 W mini speaker",
     "2.4 GHz external antenna",
+    POWER_BANK_ITEM,
+    "Short USB-A or USB-C to micro-USB power cable for Raspberry Pi 3B+",
+    "Short USB data cable for ESP32-S3 DualEye",
+    "Optional powered USB hub",
     "Adafruit tactile button switch 6mm pack PID 367",
     "KoalaByte Blue front button bezel 6x6mm RevA6",
-    "Protected 18650 Li-ion cell",
-    "2x18650 holder with protection / BMS",
-    SELOKY_PD_ITEM,
-    "5 V 3 A buck converter",
-    "Inline rated power switch",
     "microSD card",
-    "USB and JST power/data cables",
     "M2.5 standoffs / screws / nuts",
     "Acrylic or printed frame plates",
     "3D printed case / stacked frame / rear panel",
@@ -83,8 +46,21 @@ EXPECTED_BOM_ITEMS = [
     "Cable management / strain relief",
 ]
 
+REMOVED_BOM_ITEMS = [
+    "Protected 18650 Li-ion cell",
+    "2x18650 holder with protection / BMS",
+    "2S Li-ion BMS / protection board",
+    "Inline ATC/ATO fuse holder",
+    "5 A blade fuse",
+    "Inline rated power switch",
+    "5 V 3 A buck converter",
+    "Seloky USB-C PD Trigger Board Module PD/QC Decoy Fast Charge USB Type-C to 12V",
+    "+5 V distribution rail",
+    "GND distribution rail",
+]
+
 REQUIRED_TEXT = {
-    "README.md": ["RevA25", "InnoMaker USB to CAN Converter kit", "bench-simulator", "flash_all_components.sh"],
+    "README.md": ["RevA25", "PIFFA-style 50000 mAh USB portable power bank", "POWER_BANK_WIRING_MAIN.svg", "flash_all_components.sh"],
     "docs/DIDGERIDOO_LORA_SETUP.md": ["Didgeridoo", "SX1262", "Meshtastic", "meshtastic-login", "does not add raw radio sending"],
     "docs/KOALA_KAN_KOMMANDER_REVA22.md": ["RevA25", "InnoMaker USB to CAN Converter kit", "listen-transmit", "--confirm-transmit"],
     "docs/FLASHING.md": ["flash_all_components.sh", "InnoMaker USB to CAN Converter kit", "KoalaByte Lab"],
@@ -93,14 +69,15 @@ REQUIRED_TEXT = {
     "docs/NRF52840_DONGLE_FLASHING.md": ["nrf52840dongle_nrf52840", "flash_nrf52840_dongle_lab_dfu.sh", "KoalaByte Lab"],
     "docs/EAR_TAG_TX_LAB_REVA15.md": ["KoalaByte Lab", "KBTX", "does not replay captured packets"],
     "docs/KOALA_KONNECT_REVA20.md": ["Koala Konnect", "hci_usb", "koala-konnect-nrf52840-dongle-dfu.zip"],
-    "docs/ORDERABLE_PARTS_LIST.md": ["Seloky USB-C PD Trigger Board", "InnoMaker USB-to-CAN kit", "Do not connect 12V directly to the Pi"],
-    "docs/POWER_UPDATE_REVA2.md": ["Seloky USB-C PD/QC 12V trigger board", "Replaces the prior USB-C PD breakout reference", "Verify 12V output"],
-    "docs/PRODUCTION_FILES.md": ["production/RevA17-dongle-only/", "No custom PCB"],
+    "docs/ORDERABLE_PARTS_LIST.md": ["USB Power Bank Build", "PIFFA-style Portable Charger Power Bank", "Removed from the main build"],
+    "docs/PRODUCTION_FILES.md": ["production/RevA17-dongle-only/", "USB power-bank mechanical rule", "No custom PCB"],
+    "docs/POWER_BANK_WIRING_MAIN.svg": ["KoalaByte Blue Main Branch", "PIFFA-style USB Power Bank", "Removed from main production wiring"],
     "docs/CAMERA_AWARENESS_LOGGER.md": ["Boomerang", "manual/public-observation only", "does not collect"],
     "docs/EUCALYPTUS_ALWAYS_ON_BLE_REVA8.md": ["Eucalyptus Mode", "Koalagotchi", "always-on Bluetooth scanner and logger"],
-    "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv": ["Seloky USB-C PD Trigger Board Module", "InnoMaker USB to CAN Converter kit", "Koala Kan Kommander"],
-    "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md": ["InnoMaker USB to CAN Converter kit", "5 V buck converter"],
-    "production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv": ["Seloky trigger output", "KoalaByte Lab", "Koala Mode Switcher"],
+    "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv": [POWER_BANK_ITEM, INNOMAKER_ITEM, "Nordic nRF52840 USB Dongle"],
+    "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md": ["PIFFA-style 50000 mAh USB portable power bank", "BOM no longer requires loose 18650 cells", "Nordic nRF52840 USB Dongle"],
+    "production/RevA17-dongle-only/BATTERY_POWER_2S_18650.md": ["USB Power Bank Guide", "PIFFA-style 50000 mAh USB portable power bank", "Removed older power parts"],
+    "production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv": ["USB power bank", "Raspberry Pi boot without undervoltage warning", "no raw battery wiring"],
     "firmware/esp32-dualeye/platformio.ini": ["bodmer/TFT_eSPI"],
     "firmware/esp32-dualeye/src/main.cpp": ["runBootAnimation();", "ENABLE_DISPLAY_BOOT_ANIMATION"],
     "firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt": ["find_package(Zephyr REQUIRED", "target_sources(app PRIVATE src/main.c)"],
@@ -115,7 +92,7 @@ REQUIRED_TEXT = {
     "pi-companion/koalablue/boomerang.py": ["ACTION_NAME = \"Boomerang\"", "stays open", "run_interactive"],
     "pi-companion/koalablue/camera_awareness_logger.py": ["manual/public-observation only", "CameraObservation", "MAC_PATTERN"],
     "pi-companion/koalablue/koala_mode_switcher.py": ["Koala Mode Switcher", "KoalaByte Lab", "Koala Konnect", "dongle_mode_state.json"],
-    "pi-companion/koalablue/koala_kan_kommander.py": ["ADAPTER_NAME", "InnoMaker USB to CAN Converter kit", "listen_transmit", "confirm_transmit"],
+    "pi-companion/koalablue/koala_kan_kommander.py": ["ADAPTER_NAME", INNOMAKER_ITEM, "listen_transmit", "confirm_transmit"],
     "pi-companion/config.default.json": ["Outback BlueZ Module Deck", "KoalaByte Lab", "Koala Mode Switcher", "transmit_enabled", "killerkoala_companion", "Boomerang", "Eucalyptus Mode", "didgeridoo"],
     "scripts/run_boomerang.py": ["koalablue.boomerang", "run_cli"],
     "scripts/run_didgeridoo.py": ["koalablue.didgeridoo_lora", "run_cli"],
@@ -429,6 +406,9 @@ def check_current_bom(failures: list[str]) -> None:
     for item in EXPECTED_BOM_ITEMS:
         if item not in actual_items:
             failures.append(f"current BOM missing item: {item}")
+    for item in REMOVED_BOM_ITEMS:
+        if item in actual_items:
+            failures.append(f"current BOM still contains removed battery item: {item}")
 
 
 def check_flash_helpers(failures: list[str]) -> None:
@@ -475,7 +455,7 @@ def main() -> int:
         return 1
 
     print("KoalaByte Blue repo readiness check passed.")
-    print("Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, approved theme assets, Eucalyptus Mode, Boomerang, Koala Kan Kommander, didgeridoo LoRa/Meshtastic setup, and the that’s not a knife local guard service.")
+    print("Ready-to-flash file wiring is present for ESP32, nRF52840 Dongle/DFU, Pi companion, approved theme assets, Eucalyptus Mode, Boomerang, Koala Kan Kommander, didgeridoo LoRa/Meshtastic setup, the that’s not a knife local guard service, and the USB power-bank production power path.")
     return 0
 
 
