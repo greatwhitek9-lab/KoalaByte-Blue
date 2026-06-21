@@ -1,36 +1,35 @@
 Test,Pass/Fail,Measured Value,Technician,Date,Notes
 Repo readiness check passes,,,,,
 All-component helper check-only mode passes,,,,,
-2S cell polarity and series midpoint verified,,,,,
-2S BMS B- B1/BM B+ wiring verified,,,,,
-BMS P+ and P- output polarity verified,,,,,
-5 A fuse installed close to BMS P+,,,,,
-Main switch verified after fuse before buck VIN+,,,,,
-Seloky trigger output before buck converter,,,,,Optional bench/service input only; not primary battery path and not a battery charger
-Buck converter output before load,,,,,Target 5.1 V
-5 V rail before load,,,,,Target 4.9 V to 5.1 V
-5 V rail under normal load,,,,,Target 4.9 V to 5.1 V with Pi and modules connected
-Battery polarity / BMS wiring,,,,,
+USB power bank fully charged,,,,,PIFFA-style 50000 mAh 22.5 W class or equivalent
+Power bank regulated USB output verified,,,,,Use normal USB output only; do not open or modify pack
+Short Pi micro-USB power cable installed,,,,,Use short low-resistance cable
 Raspberry Pi boot without undervoltage warning,,,,,
-Pi companion install script completed,,,,,
-Python compileall check completed,,,,,
-ESP32-S3 DualEye serial boot JSON received,,,,,
-ESP32-S3 DualEye boot animation visible,,,,,
-ESP32-S3 DualEye flash helper completed,,,,,
+Powered USB hub used if needed,,,,,Required if USB modules disconnect or Pi undervoltage appears
 nRF52840 Dongle enumerates over USB,,,,,
 nRF52840 Dongle DFU package generated,,,,,
 nRF52840 Dongle advertises as KoalaByte Lab after flashing,,,,,
+ESP32-S3 DualEye enumerates over USB,,,,,
+ESP32-S3 DualEye serial boot JSON received,,,,,
+ESP32-S3 DualEye boot animation visible,,,,,
+ESP32-S3 DualEye flash helper completed,,,,,
+Optional Heltec USB-C node enumerates over USB,,,,,Optional Didgeridoo/T114 hardware only
+Optional LoRa antenna installed and frequency matched,,,,,Do not use 2.4 GHz antenna for LoRa
+ESP32 2.4 GHz antenna installed,,,,,Do not swap with LoRa antenna
+Optional GNSS antenna path or sky-view clearance verified,,,,,Keep clear of metal dense wiring and speaker magnets
+Pi companion install script completed,,,,,
+Python compileall check completed,,,,,
 Koala Mode Switcher status command completed,,,,,
 Koala BlueZ inventory/status test,,,,,
 killerkoala voice preview test,,,,,
 eucalyptus /blecaptures write test,,,,,
 Koala Kapture passive capture smoke test,,,,,
-InnoMaker USB-to-CAN adapter mounted with strain relief,,,,,
-InnoMaker adapter appears as SocketCAN interface can0 when installed,,,,,
+InnoMaker USB-to-CAN adapter mounted with strain relief,,,,,Optional
+InnoMaker adapter appears as SocketCAN interface can0 when installed,,,,,Optional
 Koala Kan Kommander manifest command completed,,,,,
 Koala Kan Kommander status/report commands remain passive,,,,,
 Six-button GPIO test,,,,,
 Button 3 hold shutdown event test,,,,,
 Speaker output test,,,,,
-30-minute idle thermal check,,,,,
-Cable strain relief / case close inspection,,,,,Confirm battery/BMS/fuse/switch/buck clearance and no raw 2S voltage near GPIO/USB/button wiring
+30-minute idle thermal check,,,,,Run while powered from the USB power bank
+Cable strain relief / case close inspection,,,,,Confirm USB cable bend radius antenna clearance optional GNSS sky-view area and no raw battery wiring
