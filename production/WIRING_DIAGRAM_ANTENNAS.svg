@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650" role="img" aria-label="KoalaByte Blue ESP32-S3 DualEye antenna wiring">
+  <rect width="1200" height="650" fill="#07130d"/>
+  <rect x="40" y="40" width="1120" height="570" rx="24" fill="#0d1f14" stroke="#62ff8f" stroke-width="4"/>
+  <text x="600" y="95" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="700" fill="#d9c58a">KOALABYTE BLUE</text>
+  <text x="600" y="140" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#67c7ff">ESP32-S3 DualEye External 2.4 GHz Antenna Path</text>
+
+  <g font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#e8ffe8">
+    <rect x="90" y="250" width="350" height="135" rx="18" fill="#12281a" stroke="#62ff8f" stroke-width="3"/>
+    <text x="265" y="294" text-anchor="middle" font-size="26" font-weight="700">ESP32-S3 DualEye</text>
+    <text x="265" y="332" text-anchor="middle">2.4 GHz / IPEX1-U.FL-MHF1</text>
+    <text x="265" y="363" text-anchor="middle">WiFi/Bluetooth connector</text>
+
+    <rect x="760" y="250" width="350" height="135" rx="18" fill="#12281a" stroke="#62ff8f" stroke-width="3"/>
+    <text x="935" y="294" text-anchor="middle" font-size="26" font-weight="700">External 2.4 GHz Antenna</text>
+    <text x="935" y="332" text-anchor="middle">SMA/RP-SMA bulkhead</text>
+    <text x="935" y="363" text-anchor="middle">via IPEX/U.FL pigtail</text>
+
+    <line x1="440" y1="318" x2="760" y2="318" stroke="#67c7ff" stroke-width="6" marker-end="url(#arrow)"/>
+    <text x="600" y="300" text-anchor="middle" fill="#67c7ff">short coax pigtail</text>
+  </g>
+
+  <text x="600" y="500" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#ffdf7a">Use the external-antenna board variant or vendor-documented selector setting.</text>
+  <text x="600" y="535" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="#e8ffe8">Keep coax strain-relieved and away from power wiring, speaker magnets, and USB cable bends.</text>
+
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#67c7ff"/>
+    </marker>
+  </defs>
+</svg>
