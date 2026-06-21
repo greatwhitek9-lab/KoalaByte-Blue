@@ -63,6 +63,20 @@ void emitVoiceStackStatus() {
   sendJson(doc);
 }
 
+void emitEyeStyleStatus(const char *statusType = "eye_style") {
+  StaticJsonDocument<384> doc;
+  doc["type"] = statusType;
+  doc["device"] = "esp32-dualeye";
+  doc["look"] = getKoalagotchiEyeLook();
+  doc["animation"] = getKoalagotchiEyeAnimation();
+  doc["left_color"] = getKoalagotchiLeftEyeHex();
+  doc["right_color"] = getKoalagotchiRightEyeHex();
+  doc["brightness"] = getKoalagotchiEyeBrightness();
+  doc["accepted_looks"] = "round,cyber,slit,sleepy,angry,star,heart,x";
+  doc["accepted_animations"] = "static,idle,pulse,blink,scan,glitch,sleepy";
+  sendJson(doc);
+}
+
 void emitBoot() {
   StaticJsonDocument<768> doc;
   doc["type"] = "boot";
@@ -74,6 +88,7 @@ void emitBoot() {
   doc["mic_wake"] = ENABLE_MIC_WAKE;
   doc["display_stub"] = ENABLE_DISPLAY_STUB;
   doc["boot_animation"] = ENABLE_DISPLAY_BOOT_ANIMATION;
+  doc["custom_animated_eyes"] = 1;
   doc["voice_front_end"] = ESP32S3_VOICE_FRONTEND_STACK;
   doc["command_model"] = ESP32S3_COMMAND_MODEL;
   doc["companion_brain"] = KILLERKOALA_COMPANION_BRAIN;
@@ -82,6 +97,7 @@ void emitBoot() {
   sendJson(doc);
   emitAntennaStatus();
   emitVoiceStackStatus();
+  emitEyeStyleStatus();
 #if ENABLE_MIC_WAKE
   if (MIC_I2S_BCLK_PIN < 0 || MIC_I2S_WS_PIN < 0 || MIC_I2S_DIN_PIN < 0) {
     StaticJsonDocument<256> warn;
@@ -179,7 +195,7 @@ void pollVoiceWake() {
 }
 
 void handlePiCommand(const String &line) {
-  StaticJsonDocument<512> doc;
+  StaticJsonDocument<768> doc;
   DeserializationError err = deserializeJson(doc, line);
   if (err) return;
 
@@ -191,17 +207,43 @@ void handlePiCommand(const String &line) {
     ack["message"] = msg;
     sendJson(ack);
   } else if (!strcmp(type, "screen")) {
+    if (doc["eye_look"].is<const char*>() || doc["left_eye"].is<const char*>() || doc["right_eye"].is<const char*>()) {
+      setKoalagotchiEyeStyle(
+        doc["eye_look"] | getKoalagotchiEyeLook(),
+        doc["left_eye"] | getKoalagotchiLeftEyeHex(),
+        doc["right_eye"] | getKoalagotchiRightEyeHex(),
+        doc["eye_animation"] | getKoalagotchiEyeAnimation(),
+        doc["eye_brightness"] | getKoalagotchiEyeBrightness()
+      );
+    }
     const char *mode = doc["mode"] | "eucalyptus";
     const char *mood = doc["mood"] | "";
     const int contentment = doc["contentment"] | 75;
     const int xpPercent = doc["xp_percent"] | 88;
     drawKoalagotchiModeScreen(mode, mood, contentment, xpPercent);
 
-    StaticJsonDocument<160> ack;
+    StaticJsonDocument<192> ack;
     ack["type"] = "screen_ack";
     ack["mode"] = mode;
     ack["renderer"] = "koalagotchi_mode_screens";
+    ack["eye_look"] = getKoalagotchiEyeLook();
     sendJson(ack);
+  } else if (!strcmp(type, "eye_style") || !strcmp(type, "custom_eyes")) {
+    if (doc["reset"] | false) {
+      resetKoalagotchiEyeStyle();
+    } else {
+      setKoalagotchiEyeStyle(
+        doc["look"] | getKoalagotchiEyeLook(),
+        doc["left_color"] | getKoalagotchiLeftEyeHex(),
+        doc["right_color"] | getKoalagotchiRightEyeHex(),
+        doc["animation"] | getKoalagotchiEyeAnimation(),
+        doc["brightness"] | getKoalagotchiEyeBrightness()
+      );
+    }
+    drawKoalagotchiModeScreen(doc["mode"] | "eucalyptus", doc["mood"] | "custom", doc["contentment"] | 75, doc["xp_percent"] | 88);
+    emitEyeStyleStatus("eye_style_ack");
+  } else if (!strcmp(type, "eye_status")) {
+    emitEyeStyleStatus();
   } else if (!strcmp(type, "simulate_voice_wake")) {
     const char *phrase = doc["phrase"] | "";
     if (strstr(phrase, WAKE_WORD) != nullptr) {
@@ -225,7 +267,7 @@ void pollSerial() {
       line = "";
     } else if (c != '\r') {
       line += c;
-      if (line.length() > 768) line = "";
+      if (line.length() > 1024) line = "";
     }
   }
 }
@@ -233,10 +275,12 @@ void pollSerial() {
 void heartbeat() {
   if (millis() - lastHeartbeat < 5000) return;
   lastHeartbeat = millis();
-  StaticJsonDocument<160> doc;
+  StaticJsonDocument<192> doc;
   doc["type"] = "heartbeat";
   doc["uptime_ms"] = millis();
   doc["free_heap"] = ESP.getFreeHeap();
+  doc["eye_look"] = getKoalagotchiEyeLook();
+  doc["eye_animation"] = getKoalagotchiEyeAnimation();
   sendJson(doc);
 }
 
@@ -251,6 +295,7 @@ void setup() {
 #if ENABLE_LOCAL_BLE_SCAN
   setupBle();
 #endif
+  drawKoalagotchiModeScreen("eucalyptus", "calm", 75, 88);
   emitBoot();
 }
 
@@ -258,6 +303,7 @@ void loop() {
   pollSerial();
   pollButtons();
   pollVoiceWake();
+  tickKoalagotchiEyes();
 #if ENABLE_LOCAL_BLE_SCAN
   runBleScanCycle();
 #endif
