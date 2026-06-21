@@ -25,6 +25,7 @@ Current production references:
 - `docs/FLASHING.md` - current all-component flashing and install guide.
 - `docs/ORDERABLE_PARTS_LIST.md` - current orderable hardware list with USB power bank replacing the old 18650 stack.
 - `docs/PRODUCTION_FILES.md` - this current production index.
+- `docs/KILLERKOALA_VOCABULARY_REVA17.md` - KillerKoala large Aussie/cyberpunk vocabulary, anti-repeat rotation, and ESP32 voice alias split.
 - `docs/POWER_BANK_WIRING_MAIN.svg` - current text/SVG wiring diagram for the USB power-bank power path.
 - `docs/THEME_AND_MENU_SYSTEM.md` - consolidated current RevA23 theme, boot-splash, and menu guide.
 - `docs/NRF52840_DONGLE_FLASHING.md` - nRF52840 Dongle / PCA10059 Zephyr build and DFU guide.
@@ -35,10 +36,12 @@ Current production references:
 
 ## Current firmware/software production files
 
-- `firmware/esp32-dualeye/` - ESP32-S3 DualEye firmware, boot animation, theme assets, and external 2.4 GHz antenna mode reporting.
+- `firmware/esp32-dualeye/` - ESP32-S3 DualEye firmware, boot animation, theme assets, external 2.4 GHz antenna mode reporting, and voice front-end model metadata.
+- `firmware/esp32-dualeye/voice_commands/` - WakeNet/MultiNet command alias planning files for ESP32-S3 voice activation.
 - `firmware/esp32-dualeye/themes/` - active theme and approved SVG visual source-of-truth assets.
 - `firmware/nrf52840-dongle-ear-tag-tx-lab/` - nRF52840 Dongle KoalaByte Lab Zephyr app. This remains the default nRF production firmware source.
 - `pi-companion/` - Raspberry Pi companion app, menu, theme, and helper modules.
+- `pi-companion/koalablue/killerkoala_vocabulary.py` - Raspberry Pi large-vocabulary companion engine with Aussie slang, XP rank tone changes, and anti-repeat phrase rotation.
 - `scripts/check_repo_readiness.py` - current ready-to-run repository validation check.
 - `scripts/configure_esp32s3_dualeye_2g4_antenna.sh` - writes ESP32-S3 DualEye external antenna status before ESP32 flashing.
 - `scripts/flash_all_components.sh` - one-command Pi install, ESP32 flash, nRF52840 Dongle build/DFU, InnoMaker CAN manifest helper, and USB power-bank checks.
@@ -49,6 +52,7 @@ Current production references:
 - `scripts/build_koala_konnect.sh` - Koala Konnect build wrapper.
 - `scripts/flash_koala_konnect.sh` - Koala Konnect DFU wrapper.
 - `scripts/install_pi.sh` - Pi companion dependency installer.
+- `scripts/run_killerkoala_voice.py` - KillerKoala vocabulary preview and manifest writer.
 - `scripts/run_koala_bluez.py` and `scripts/run_koala_bluez_*.sh` - Koala BlueZ runners.
 - `scripts/run_koala_mode_switcher.py` - Koala Mode Switcher CLI runner.
 - `scripts/run_koala_kan_kommander.py` - Koala Kan Kommander CLI runner.
@@ -66,6 +70,21 @@ ESP32-S3 DualEye 2.4 GHz / IPEX1-U.FL-MHF1 connector
 ```
 
 Use the external-antenna board variant when possible. If the board revision uses an antenna-selector resistor or jumper, configure it for the external IPEX/U.FL path according to the vendor documentation.
+
+## KillerKoala voice/AI companion rule
+
+```text
+ESP32-S3 DualEye:
+  wake word and short command recognition front end
+
+Raspberry Pi:
+  KillerKoala large-vocabulary companion brain
+  Aussie/cyberpunk phrase variation
+  XP/rank tone changes
+  anti-repeat response rotation
+```
+
+The ESP32-S3 records the intended voice front-end stack at boot. The Pi generates the long companion response so KillerKoala does not repeat the same handful of phrases.
 
 ## RevA23 CAN mechanical rule
 
