@@ -27,6 +27,7 @@ MAIN_REQUIRED_FILES = [
     "docs/POWER_BANK_WIRING_MAIN.svg",
     "docs/KILLERKOALA_VOCABULARY_REVA17.md",
     "docs/KILLERKOALA_LORA_TRAINING.md",
+    "docs/ESP32_CUSTOM_ANIMATED_EYES.md",
     "production/WIRING_DIAGRAM_ANTENNAS.md",
     "production/WIRING_DIAGRAM_ANTENNAS.svg",
     "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv",
@@ -36,6 +37,8 @@ MAIN_REQUIRED_FILES = [
     "firmware/esp32-dualeye/platformio.ini",
     "firmware/esp32-dualeye/include/config.h",
     "firmware/esp32-dualeye/src/main.cpp",
+    "firmware/esp32-dualeye/src/koalagotchi_mode_screens.h",
+    "firmware/esp32-dualeye/src/koalagotchi_mode_screens.cpp",
     "firmware/esp32-dualeye/voice_commands/README.md",
     "firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv",
     "firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt",
@@ -50,6 +53,7 @@ MAIN_REQUIRED_FILES = [
     "scripts/install_pi.sh",
     "scripts/run_killerkoala_voice.py",
     "scripts/run_killerkoala_hybrid.py",
+    "scripts/set_esp32_eyes.py",
     "scripts/run_menu_screen.py",
     "training/killerkoala_lora/Modelfile.killerkoala-tinyllama",
 ]
@@ -63,9 +67,6 @@ BRANCH_ONLY_PATHS = [
     "pi-companion/koalblue/killerkoala_hybrid_companion.py",
 ]
 
-# Keep this list specific to branch-only hardware/project terms. Do not include "LoRA" here:
-# LoRA is also the AI fine-tuning technique used by KillerKoala on main, while LoRa is the
-# branch-only long-range radio workflow.
 BRANCH_ONLY_TERMS = [
     "Hel" + "tec",
     "Mesh" + "tastic",
@@ -91,18 +92,23 @@ EXPECTED_BOM_ITEMS = {
 
 REQUIRED_TEXT = {
     "firmware/esp32-dualeye/include/config.h": ["ESP32S3_DUALEYE_EXTERNAL_2G4_ANTENNA", "ESP32S3_VOICE_FRONTEND_STACK", "MultiNet7 Q8 English"],
-    "firmware/esp32-dualeye/src/main.cpp": ["voice_stack", "ESP32S3_COMMAND_MODEL", "esp32_external_antenna"],
+    "firmware/esp32-dualeye/src/main.cpp": ["voice_stack", "custom_animated_eyes", "eye_style_ack", "setKoalagotchiEyeStyle"],
+    "firmware/esp32-dualeye/src/koalagotchi_mode_screens.h": ["setKoalagotchiEyeStyle", "tickKoalagotchiEyes", "getKoalagotchiLeftEyeHex"],
+    "firmware/esp32-dualeye/src/koalagotchi_mode_screens.cpp": ["EyeStyleState", "drawCustomEye", "tickKoalagotchiEyes", "scan", "glitch"],
     "firmware/esp32-dualeye/voice_commands/README.md": ["WakeNet9", "MultiNet7 Q8 English", "Large Aussie/cyberpunk vocabulary pack"],
     "firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv": ["give the air a squiz", "suss the bluetooth stack", "bag the beacons"],
     "pi-companion/koalablue/killerkoala_vocabulary.py": ["RECENT_HISTORY_WINDOW", "AUSSIE_TERMS", "anti_repeat_policy", "estimated_total_lines"],
     "pi-companion/koalablue/killerkoala_hybrid_companion.py": ["killerkoala-tinyllama:latest", "phrase_engine", "fallback_reason", "KILLERKOALA_LLM_MODE"],
+    "docs/ESP32_CUSTOM_ANIMATED_EYES.md": ["Supported looks", "Supported animations", "scripts/set_esp32_eyes.py", "PlatformIO"],
     "docs/KILLERKOALA_VOCABULARY_REVA17.md": ["large vocabulary engine", "anti-repeat phrase rotation", "killerkoala_multinet_aliases.csv"],
     "docs/KILLERKOALA_LORA_TRAINING.md": ["does **not** rely only on an LLM", "anti-repeat phrase engine", "KILLERKOALA_LLM_MODE"],
     "scripts/run_killerkoala_voice.py": ["killerkoala_voice_control", "run_cli"],
     "scripts/run_killerkoala_hybrid.py": ["killerkoala_hybrid_companion", "run_cli"],
-    "scripts/flash_all_components.sh": ["RUN_AI_VOICE", "--ai-voice", "flash_all_ai_voice_config.json", "flash_all_ai_voice_preview.json"],
+    "scripts/set_esp32_eyes.py": ["PRESETS", "pyserial", "eye_style", "preview-only"],
+    "scripts/flash_all_components.sh": ["RUN_AI_VOICE", "--ai-voice", "setup_esp32_tools.sh", "flash_all_ai_voice_preview.json"],
     "training/killerkoala_lora/Modelfile.killerkoala-tinyllama": ["FROM tinyllama:1.1b", "PARAMETER num_ctx 1024", "KillerKoala"],
     "scripts/flash_esp32.sh": ["configure_esp32s3_dualeye_2g4_antenna.sh", "voice_stack", "MultiNet7 Q8 English"],
+    "scripts/setup_esp32_tools.sh": ["PlatformIO", "pip install", "platformio"],
     "scripts/configure_esp32s3_dualeye_2g4_antenna.sh": ["ESP32-S3 DualEye", "external 2.4 GHz antenna", "logs/esp32s3_dualeye_2g4_antenna_status.json"],
     "production/WIRING_DIAGRAM_ANTENNAS.md": ["ESP32-S3 DualEye 2.4 GHz", "IPEX/U.FL/MHF1 coax pigtail", "external 2.4 GHz WiFi/Bluetooth antenna"],
     "docs/PRODUCTION_FILES.md": ["production/WIRING_DIAGRAM_ANTENNAS.md", "ESP32-S3 DualEye antenna rule", "external 2.4 GHz"],
@@ -194,7 +200,7 @@ def check_bom(failures: list[str]) -> None:
 
 
 def check_helpers(failures: list[str]) -> None:
-    for helper in ["scripts/flash_all_components.sh", "scripts/build_firmware_all.sh", "scripts/setup_system_packages.sh", "scripts/configure_esp32s3_dualeye_2g4_antenna.sh"]:
+    for helper in ["scripts/flash_all_components.sh", "scripts/build_firmware_all.sh", "scripts/setup_system_packages.sh", "scripts/setup_esp32_tools.sh", "scripts/configure_esp32s3_dualeye_2g4_antenna.sh"]:
         path = REPO_ROOT / helper
         if path.exists() and "set -euo pipefail" not in path.read_text(encoding="utf-8"):
             failures.append(f"shell helper missing strict shell mode: {helper}")
@@ -217,7 +223,7 @@ def main() -> int:
         return 1
 
     print("KoalaByte Blue repo readiness check passed.")
-    print("Main branch is scoped to ESP32-S3 DualEye with external 2.4 GHz antenna support and ESP-SR voice-front-end intent, KillerKoala large Aussie vocabulary, phrase-first optional local LoRA model support, Nordic nRF52840 Dongle, Raspberry Pi companion, optional InnoMaker USB-to-CAN, and USB power-bank production power.")
+    print("Main branch is scoped to ESP32-S3 DualEye with custom animated eyes, PlatformIO ESP32 build setup, external 2.4 GHz antenna support, ESP-SR voice-front-end intent, KillerKoala large Aussie vocabulary, phrase-first optional local LoRA model support, Nordic nRF52840 Dongle, Raspberry Pi companion, optional InnoMaker USB-to-CAN, and USB power-bank production power.")
     return 0
 
 
