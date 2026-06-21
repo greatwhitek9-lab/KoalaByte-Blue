@@ -19,7 +19,6 @@ This production update uses a **PIFFA-style 50000 mAh USB portable power bank 22
 | USB portable power bank | PIFFA-style Portable Charger Power Bank 50000 mAh 22.5 W class | 50000 mAh 22.5 W USB output power bank | 1 | Amazon listing or reputable equivalent | Same or better rated bank | varies | Main simplified power source. Replaces 18650 cells, BMS, fuse, switch, buck converter, and PD trigger. |
 | Pi power cable | Short USB-A or USB-C to micro-USB power cable | Quality low-resistance cable | 1 | Anker, StarTech, CanaKit, Amazon direct | Short quality cable only | $5-$10 | Powers Raspberry Pi 3B+ from the power bank. Use the shortest reliable cable possible. |
 | ESP32 USB-C data cable | Short USB-A or USB-C to USB-C data cable | Data-capable cable | 1 | Anker, UGREEN, Amazon direct | Data-capable cable only | $6-$12 | Connects ESP32-S3 DualEye to Pi or powered USB hub. |
-| Optional Heltec USB data cable | Short USB-A to USB-C data cable | Data-capable cable | 0-1 | Anker, UGREEN, Amazon direct | Data-capable cable only | $6-$12 | Optional Didgeridoo/T114 node connection. Charge-only cables will not enumerate. |
 | Optional powered USB hub | Sabrent 4-Port USB hub with switches or equivalent | HB-UM43 or equivalent | 0-1 | Amazon/Sabrent | Amazon | $10-$20 | Use if Pi USB power or enumeration becomes unstable with multiple modules. |
 | InnoMaker USB-to-CAN kit | InnoMaker USB to CAN Converter for Raspberry Pi 5/4/Pi3B+/Pi3/Pi Zero(W)/Jetson Nano/Tinker Board/SBCs | InnoMaker USB to CAN Converter kit | 0-1 | InnoMaker/Amazon listing or authorized seller | Same exact listing only | varies | Optional Koala Kan Kommander adapter. Use as SocketCAN `can0` on Linux where supported. Mount internally or in a side/rear service bay. |
 | microSD card | SanDisk High Endurance microSDXC 64GB | SDSQQNR-064G-GN6IA | 1 | Amazon direct, B&H, Best Buy | Amazon direct, not marketplace clones | $8-$13 | Pi OS, logs, reports. |
@@ -28,6 +27,7 @@ This production update uses a **PIFFA-style 50000 mAh USB portable power bank 22
 | Mechanical hardware | M2.5 nylon/brass standoff assortment kit | M2.5 assorted 6/10/15/20/25mm kit | 1 kit | Amazon, McMaster-Carr | Amazon assortment kit | $7-$12 | Layer spacing and open-frame stack. |
 | Frame plates | 3mm black cast acrylic sheet / custom cut plates | 85x55mm to 90x65mm plates, 3mm acrylic | 1 set | Ponoko, SendCutSend, local makerspace | Amazon acrylic sheet + drill template | $8-$25 | Mechanical mounting plates; no PCB. |
 | Cable management | 3M Dual Lock or adhesive cable tie mounts | 3M Dual Lock SJ3550 or generic mounts | 1 set | Amazon, McMaster-Carr | Amazon | $5-$10 | Strain relief and wire control. |
+| ESP32 2.4 GHz antenna | 2.4 GHz Wi-Fi/Bluetooth antenna with IPEX1/U.FL-compatible pigtail | Match the ESP32-S3 DualEye connector | 1 | Waveshare docs, DigiKey, Mouser, reputable RF seller | Same frequency/connector only | varies | Use only for the ESP32-S3 DualEye Wi-Fi/Bluetooth path. |
 | Optional USB mic fallback | UGREEN USB external sound card | CM108-style USB audio adapter | 0-1 | Amazon/UGREEN | Amazon | $8-$12 | Fallback if DualEye mic mapping is not complete. |
 
 ## Removed from the main build
@@ -43,12 +43,14 @@ The following older power items are no longer part of the current main productio
 - USB-C PD/QC trigger board
 - raw battery-voltage distribution rails
 
+Alternate-board hardware belongs on its own branch, not on the main KoalaByte Blue production parts list.
+
 ## Power notes
 
 - Power the Pi from the USB power bank regulated output through the Pi 3B+ micro-USB input.
 - Use a short quality cable to prevent undervoltage warnings.
-- If the Pi reports undervoltage or USB devices disconnect, move ESP32/Heltec/CAN modules to a powered USB hub.
-- Do not feed the Pi, ESP32, Nordic dongle, Heltec board, buttons, or USB devices from raw lithium battery wiring.
+- If the Pi reports undervoltage or USB devices disconnect, move ESP32/CAN accessories to a powered USB hub.
+- Do not feed the Pi, ESP32, Nordic dongle, buttons, or USB devices from raw lithium battery wiring.
 
 ## Koala Kan Kommander notes
 
@@ -56,10 +58,10 @@ The following older power items are no longer part of the current main productio
 - Do not use the older circular CAN panel-port concept.
 - Mount the adapter internally or expose it through a rectangular side/rear service bay with strain relief.
 - Do not connect CAN_H or CAN_L directly to Raspberry Pi GPIO.
-- Production software is passive by default and does not transmit raw CAN frames.
+- Production software is passive by default unless explicitly gated for isolated bench-simulator work.
 
 ## Approximate total
 
 - Bare-minimum working build: depends on Raspberry Pi and power bank price.
 - Recommended build: Raspberry Pi + ESP32-S3 DualEye + nRF52840 dongle + power bank + short cables + microSD + buttons + frame hardware.
-- Fully equipped build: add powered USB hub, speaker, case, antennas, optional Heltec node, and optional InnoMaker USB-to-CAN kit.
+- Fully equipped build: add powered USB hub, speaker, case, ESP32 antenna, and optional InnoMaker USB-to-CAN kit.
