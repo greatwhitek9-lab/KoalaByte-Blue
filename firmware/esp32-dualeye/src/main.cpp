@@ -49,8 +49,22 @@ void emitAntennaStatus() {
   sendJson(doc);
 }
 
+void emitVoiceStackStatus() {
+  StaticJsonDocument<768> doc;
+  doc["type"] = "voice_stack";
+  doc["device"] = "esp32-dualeye";
+  doc["wake_word"] = WAKE_WORD;
+  doc["front_end"] = ESP32S3_VOICE_FRONTEND_STACK;
+  doc["wake_model"] = ESP32S3_WAKE_MODEL;
+  doc["command_model"] = ESP32S3_COMMAND_MODEL;
+  doc["alias_pack"] = ESP32S3_COMMAND_ALIAS_PACK;
+  doc["companion_brain"] = KILLERKOALA_COMPANION_BRAIN;
+  doc["response_policy"] = KILLERKOALA_RESPONSE_POLICY;
+  sendJson(doc);
+}
+
 void emitBoot() {
-  StaticJsonDocument<512> doc;
+  StaticJsonDocument<768> doc;
   doc["type"] = "boot";
   doc["device"] = "esp32-dualeye";
   doc["fw"] = KOALABLUE_FW_VERSION;
@@ -60,10 +74,14 @@ void emitBoot() {
   doc["mic_wake"] = ENABLE_MIC_WAKE;
   doc["display_stub"] = ENABLE_DISPLAY_STUB;
   doc["boot_animation"] = ENABLE_DISPLAY_BOOT_ANIMATION;
+  doc["voice_front_end"] = ESP32S3_VOICE_FRONTEND_STACK;
+  doc["command_model"] = ESP32S3_COMMAND_MODEL;
+  doc["companion_brain"] = KILLERKOALA_COMPANION_BRAIN;
   doc["esp32_2g4_antenna"] = ESP32S3_DUALEYE_2G4_ANTENNA_MODE;
   doc["esp32_external_antenna"] = ESP32S3_DUALEYE_EXTERNAL_2G4_ANTENNA;
   sendJson(doc);
   emitAntennaStatus();
+  emitVoiceStackStatus();
 #if ENABLE_MIC_WAKE
   if (MIC_I2S_BCLK_PIN < 0 || MIC_I2S_WS_PIN < 0 || MIC_I2S_DIN_PIN < 0) {
     StaticJsonDocument<256> warn;
