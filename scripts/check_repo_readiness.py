@@ -15,7 +15,7 @@ EXPECTED_MENU_LABELS = [
     "Scan", "Summary", "Show Devices", "eucalyptus Status", "eucalyptus Start", "eucalyptus Stop", "eucalyptus Restart", "eucalyptus Upload Status",
     "Eucalyptus Mode", "Koala Kapture", "Koala Kry", "Koala Kry RF Review", "Ear Tag", "KoalaByte Lab", "Koala Mode Switcher", "Koala Kan Kommander",
     "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Dropbear Discovery Sweep", "Billabong HCI Watch", "Kookaburra Safe Nest Run",
-    "that’s not a knife", "KillerKoala Voice", "Urban Poaching", "Buttons", "Level / Status", "Report", "Boomerang", "Wake killerkoala",
+    "that’s not a knife", "AntEater", "KillerKoala Voice", "Urban Poaching", "Buttons", "Level / Status", "Report", "Boomerang", "Wake killerkoala",
     "Authorized BLE Inventory", "GATT Readiness Checklist", "Pairing Security Review", "Lab Beacon Plan", "Packet Capture Notes", "Defensive Lab Report",
     "Restricted Placeholder", "Settings", "Lab", "Shutdown", "Quit",
 ]
@@ -28,6 +28,7 @@ MAIN_REQUIRED_FILES = [
     "docs/KILLERKOALA_VOCABULARY_REVA17.md",
     "docs/KILLERKOALA_LORA_TRAINING.md",
     "docs/ESP32_CUSTOM_ANIMATED_EYES.md",
+    "docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md",
     "production/WIRING_DIAGRAM_ANTENNAS.md",
     "production/WIRING_DIAGRAM_ANTENNAS.svg",
     "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv",
@@ -47,6 +48,7 @@ MAIN_REQUIRED_FILES = [
     "pi-companion/koalablue/menu_catalog.py",
     "pi-companion/koalablue/killerkoala_vocabulary.py",
     "pi-companion/koalablue/killerkoala_hybrid_companion.py",
+    "pi-companion/koalablue/anteater.py",
     "scripts/configure_esp32s3_dualeye_2g4_antenna.sh",
     "scripts/flash_all_components.sh",
     "scripts/build_firmware_all.sh",
@@ -54,6 +56,7 @@ MAIN_REQUIRED_FILES = [
     "scripts/run_killerkoala_voice.py",
     "scripts/run_killerkoala_hybrid.py",
     "scripts/set_esp32_eyes.py",
+    "scripts/run_anteater.py",
     "scripts/run_menu_screen.py",
     "training/killerkoala_lora/Modelfile.killerkoala-tinyllama",
 ]
@@ -63,7 +66,6 @@ BRANCH_ONLY_PATHS = [
     "docs/NRF52840_" + "T" + "114_ALT_TARGET.md",
     "docs/" + "T" + "114_WHOLE_FIRMWARE_TEST.md",
     "scripts/run_" + "didgeri" + "doo.py",
-    "pi-companion/koalablue/" + "didgeri" + "doo_" + "lo" + "ra.py",
     "pi-companion/koalblue/killerkoala_hybrid_companion.py",
 ]
 
@@ -99,6 +101,9 @@ REQUIRED_TEXT = {
     "firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv": ["give the air a squiz", "suss the bluetooth stack", "bag the beacons"],
     "pi-companion/koalablue/killerkoala_vocabulary.py": ["RECENT_HISTORY_WINDOW", "AUSSIE_TERMS", "anti_repeat_policy", "estimated_total_lines"],
     "pi-companion/koalablue/killerkoala_hybrid_companion.py": ["killerkoala-tinyllama:latest", "phrase_engine", "fallback_reason", "KILLERKOALA_LLM_MODE"],
+    "pi-companion/koalablue/anteater.py": ["ACTION_NAME = \"AntEater\"", "BLEAK", "advertisement", "skimmer"],
+    "scripts/run_anteater.py": ["koalablue.anteater", "run_cli"],
+    "docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md": ["AntEater", "BLE Card Skimmer", "advertisement-only", "no pairing"],
     "docs/ESP32_CUSTOM_ANIMATED_EYES.md": ["Supported looks", "Supported animations", "scripts/set_esp32_eyes.py", "PlatformIO"],
     "docs/KILLERKOALA_VOCABULARY_REVA17.md": ["large vocabulary engine", "anti-repeat phrase rotation", "killerkoala_multinet_aliases.csv"],
     "docs/KILLERKOALA_LORA_TRAINING.md": ["does **not** rely only on an LLM", "anti-repeat phrase engine", "KILLERKOALA_LLM_MODE"],
@@ -113,6 +118,8 @@ REQUIRED_TEXT = {
     "production/WIRING_DIAGRAM_ANTENNAS.md": ["ESP32-S3 DualEye 2.4 GHz", "IPEX/U.FL/MHF1 coax pigtail", "external 2.4 GHz WiFi/Bluetooth antenna"],
     "docs/PRODUCTION_FILES.md": ["production/WIRING_DIAGRAM_ANTENNAS.md", "ESP32-S3 DualEye antenna rule", "external 2.4 GHz"],
     "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md": ["ESP32-S3 DualEye external 2.4 GHz antenna path", "production/WIRING_DIAGRAM_ANTENNAS.md", "esp32_external_antenna"],
+    "pi-companion/koalablue/menu_catalog.py": ["AntEater", "anteater"],
+    "scripts/run_menu_screen.py": ["run_anteater_action", "anteater"],
 }
 
 
@@ -169,8 +176,8 @@ def check_config(failures: list[str]) -> None:
         failures.append("menu groups do not match main branch layout")
     if menu.get("items") != EXPECTED_MENU_LABELS:
         failures.append("menu items do not match main branch ordering")
-    if "killerkoala_companion" not in config or "koala_kan_kommander" not in config:
-        failures.append("main config missing required companion or CAN plug-in section")
+    if "killerkoala_companion" not in config or "koala_kan_kommander" not in config or "anteater" not in config:
+        failures.append("main config missing required companion, CAN plug-in, or AntEater section")
 
 
 def check_menu_catalog(failures: list[str]) -> None:
