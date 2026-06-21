@@ -4,68 +4,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INSTALL_SYSTEM_PACKAGES="${INSTALL_SYSTEM_PACKAGES:-auto}"
 STRICT_SYSTEM_PACKAGES="${STRICT_SYSTEM_PACKAGES:-0}"
-ENABLE_PI_SPI="${ENABLE_PI_SPI:-0}"
 CHECK_ONLY=0
-
-APT_PACKAGES=(
-  git
-  python3
-  python3-venv
-  python3-pip
-  python3-dev
-  python3-gpiozero
-  python3-lgpio
-  python3-spidev
-  build-essential
-  pkg-config
-  cmake
-  ninja-build
-  gperf
-  ccache
-  device-tree-compiler
-  wget
-  curl
-  xz-utils
-  file
-  make
-  gcc
-  g++
-  libffi-dev
-  libssl-dev
-  usbutils
-  udev
-  util-linux
-  parted
-  dosfstools
-  exfatprogs
-  libusb-1.0-0
-  libusb-1.0-0-dev
-  libsdl2-2.0-0
-  network-manager
-  wpasupplicant
-  wireless-tools
-  iw
-  dhcpcd-base
-  dnsutils
-  iputils-ping
-  bluetooth
-  bluez
-  bluez-tools
-  rfkill
-  sqlite3
-  iproute2
-  can-utils
-  gpiod
-  libgpiod2
-  espeak-ng
-  espeak
-  alsa-utils
-  libasound2
-  libasound2-plugins
-  pulseaudio-utils
-  portaudio19-dev
-  python3-pyaudio
-)
 
 usage() {
   cat <<'EOF'
@@ -75,25 +14,17 @@ Usage:
   bash scripts/setup_system_packages.sh
   STRICT_SYSTEM_PACKAGES=1 bash scripts/setup_system_packages.sh
   INSTALL_SYSTEM_PACKAGES=0 bash scripts/setup_system_packages.sh
-  ENABLE_PI_SPI=1 bash scripts/setup_system_packages.sh
   bash scripts/setup_system_packages.sh --check-only
 
 Environment:
   INSTALL_SYSTEM_PACKAGES  auto/1/0. Default: auto. Attempts apt install on apt-based systems.
   STRICT_SYSTEM_PACKAGES   1 fails if packages cannot be checked/installed. Default: 0.
-  ENABLE_PI_SPI            1/0. Default: 0. Enables Raspberry Pi SPI with raspi-config only for optional direct bare-SX1262 lab work.
 
 Packages covered:
   Python venv/pip/dev headers, build tools, PlatformIO/USB runtime dependencies,
   nRF/Zephyr helper build tools, WiFi/NetworkManager/wpa_supplicant, BlueZ tools,
   SD card formatter tools, CAN tools, SDL2 runtime, SQLite, USB utilities,
-  Raspberry Pi GPIO support, optional SPI package support, Didgeridoo USB Meshtastic node support,
-  and AI voice/TTS audio support.
-
-AI voice/TTS packages:
-  espeak-ng, espeak, ALSA utilities/plugins, PulseAudio CLI utilities,
-  PortAudio dev files, and python3-pyaudio. macOS 'say' is not installed here;
-  it remains an automatic fallback only on systems where Apple already provides it.
+  Raspberry Pi GPIO support, and AI voice/TTS audio support.
 EOF
 }
 
@@ -118,111 +49,55 @@ done
 
 cd "${REPO_ROOT}"
 
-install_enabled() {
-  case "${INSTALL_SYSTEM_PACKAGES}" in
-    1|true|True|yes|YES|auto|AUTO) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-strict_enabled() {
-  [[ "${STRICT_SYSTEM_PACKAGES}" == "1" ]]
-}
-
-spi_enable_enabled() {
-  case "${ENABLE_PI_SPI}" in
-    1|true|True|yes|YES|auto|AUTO) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-apt_runner=()
-if command -v apt-get >/dev/null 2>&1; then
-  if [[ "${EUID}" -eq 0 ]]; then
-    apt_runner=(apt-get)
-  elif command -v sudo >/dev/null 2>&1; then
-    apt_runner=(sudo apt-get)
-  fi
-fi
-
 echo "== KoalaByte Blue system package setup =="
 echo "Repository root: ${REPO_ROOT}"
-echo "INSTALL_SYSTEM_PACKAGES=${INSTALL_SYSTEM_PACKAGES} STRICT_SYSTEM_PACKAGES=${STRICT_SYSTEM_PACKAGES} ENABLE_PI_SPI=${ENABLE_PI_SPI}"
+echo "INSTALL_SYSTEM_PACKAGES=${INSTALL_SYSTEM_PACKAGES} STRICT_SYSTEM_PACKAGES=${STRICT_SYSTEM_PACKAGES}"
+
+if [[ "${CHECK_ONLY}" == "1" || "${INSTALL_SYSTEM_PACKAGES}" == "0" ]]; then
+  echo "Package installation not attempted."
+  exit 0
+fi
 
 if ! command -v apt-get >/dev/null 2>&1; then
   echo "apt-get not found; skipping system package setup on this OS." >&2
-  if strict_enabled; then
-    exit 1
-  fi
+  [[ "${STRICT_SYSTEM_PACKAGES}" == "1" ]] && exit 1
   exit 0
 fi
 
-if [[ "${CHECK_ONLY}" == "1" ]]; then
-  echo "Check-only mode: apt-based system detected. Package installation not attempted."
-  exit 0
-fi
-
-if ! install_enabled; then
-  echo "System package install disabled by INSTALL_SYSTEM_PACKAGES=${INSTALL_SYSTEM_PACKAGES}."
-  exit 0
-fi
-
-if [[ "${#apt_runner[@]}" -eq 0 ]]; then
+if [[ "${EUID}" -eq 0 ]]; then
+  apt_runner=(apt-get)
+elif command -v sudo >/dev/null 2>&1; then
+  apt_runner=(sudo apt-get)
+else
   echo "apt-get is available, but this user is not root and sudo was not found." >&2
-  echo "Install manually: sudo apt update && sudo apt install -y ${APT_PACKAGES[*]}" >&2
-  if strict_enabled; then
-    exit 1
-  fi
+  [[ "${STRICT_SYSTEM_PACKAGES}" == "1" ]] && exit 1
   exit 0
 fi
+
+packages=(
+  git python3 python3-venv python3-pip python3-dev python3-gpiozero python3-lgpio
+  build-essential pkg-config cmake ninja-build gperf ccache device-tree-compiler
+  wget curl xz-utils file make gcc g++ libffi-dev libssl-dev usbutils udev
+  util-linux parted dosfstools exfatprogs libusb-1.0-0 libusb-1.0-0-dev
+  libsdl2-2.0-0 network-manager wpasupplicant wireless-tools iw dhcpcd-base
+  dnsutils iputils-ping bluetooth bluez bluez-tools rfkill sqlite3 iproute2
+  can-utils gpiod libgpiod2 espeak-ng espeak alsa-utils libasound2
+  libasound2-plugins pulseaudio-utils portaudio19-dev python3-pyaudio
+)
 
 echo "Installing/checking Raspberry Pi system packages..."
 "${apt_runner[@]}" update
-"${apt_runner[@]}" install -y "${APT_PACKAGES[@]}"
-
-enable_pi_spi_if_possible() {
-  if ! spi_enable_enabled; then
-    echo "Raspberry Pi SPI enablement skipped. USB-C Meshtastic node mode does not require GPIO/SPI. Set ENABLE_PI_SPI=1 only for optional direct bare-SX1262 lab work."
-    return 0
-  fi
-  if ! command -v raspi-config >/dev/null 2>&1; then
-    echo "raspi-config not found; skipping automatic SPI enablement. Enable SPI manually if using a direct bare-SX1262 board." >&2
-    return 0
-  fi
-  echo "Checking/enabling Raspberry Pi SPI interface for optional direct SX1262 lab setup..."
-  if [[ "${EUID}" -eq 0 ]]; then
-    raspi-config nonint do_spi 0 || true
-  elif command -v sudo >/dev/null 2>&1; then
-    sudo raspi-config nonint do_spi 0 || true
-  else
-    echo "sudo not found; enable SPI manually with raspi-config." >&2
-  fi
-}
-
-enable_pi_spi_if_possible
+"${apt_runner[@]}" install -y "${packages[@]}"
 
 echo "System package setup complete."
-echo "AI voice/TTS check:"
 if command -v espeak-ng >/dev/null 2>&1; then
   echo "  espeak-ng: $(command -v espeak-ng)"
 elif command -v espeak >/dev/null 2>&1; then
   echo "  espeak: $(command -v espeak)"
 else
   echo "  warning: no espeak-ng/espeak command found after install attempt" >&2
-  if strict_enabled; then
-    exit 1
-  fi
+  [[ "${STRICT_SYSTEM_PACKAGES}" == "1" ]] && exit 1
 fi
 if command -v aplay >/dev/null 2>&1; then
   echo "  ALSA aplay: $(command -v aplay)"
-fi
-if [[ -e /dev/ttyUSB0 || -e /dev/ttyACM0 ]]; then
-  echo "  Meshtastic USB serial candidate: present under /dev/ttyUSB* or /dev/ttyACM*"
-else
-  echo "  Meshtastic USB serial candidate: not currently detected; plug in the USB-C node and run ls /dev/ttyUSB* /dev/ttyACM*" >&2
-fi
-if [[ -e /dev/spidev0.0 ]]; then
-  echo "  Optional SPI: /dev/spidev0.0 present"
-else
-  echo "  Optional SPI: /dev/spidev0.0 not present; OK for USB-C Meshtastic node mode" >&2
 fi
