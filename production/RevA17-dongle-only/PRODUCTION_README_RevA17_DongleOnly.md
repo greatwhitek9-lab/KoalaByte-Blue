@@ -37,6 +37,33 @@ The BOM includes the Raspberry Pi 3B+, ESP32-S3 DualEye, Nordic nRF52840 USB Don
 
 The BOM no longer requires loose 18650 cells, a 2S holder, a 2S BMS, a battery fuse holder, a battery switch, a PD trigger board, or a buck converter for the main production build.
 
+## ESP32-S3 DualEye external 2.4 GHz antenna path
+
+Use the general production antenna wiring diagram:
+
+```text
+production/WIRING_DIAGRAM_ANTENNAS.md
+production/WIRING_DIAGRAM_ANTENNAS.svg
+```
+
+Practical ESP32 antenna wiring:
+
+```text
+ESP32-S3 DualEye 2.4 GHz / IPEX1-U.FL-MHF1 connector
+  -> short IPEX/U.FL/MHF1 coax pigtail
+  -> case-mounted SMA or RP-SMA bulkhead connector
+  -> external 2.4 GHz WiFi/Bluetooth antenna
+```
+
+The ESP32-S3 DualEye external antenna path is configured in:
+
+```text
+firmware/esp32-dualeye/include/config.h
+scripts/configure_esp32s3_dualeye_2g4_antenna.sh
+```
+
+That path is a physical ESP32-S3 board requirement. Use the external-antenna board variant, or configure the vendor-documented antenna selector resistor/jumper for the IPEX/U.FL path.
+
 ## Simplified power-bank power path
 
 The current main production power source is:
@@ -164,6 +191,8 @@ Expected behavior:
 - KoalaByte Blue animated boot splash appears.
 - DualEye firmware emits serial boot JSON.
 - Serial JSON includes `"boot_animation":1`.
+- Serial JSON includes `"esp32_external_antenna":1`.
+- Serial JSON reports `"esp32_2g4_antenna":"external_connector"`.
 
 ## Raspberry Pi companion install
 
