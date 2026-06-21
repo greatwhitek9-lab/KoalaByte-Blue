@@ -7,5 +7,3 @@ uvicorn>=0.30.0
 requests>=2.32.0
 gpiozero>=2.0.1
 pygame>=2.5.2
-spidev>=3.6; platform_system == "Linux"
-meshtastic[cli]>=2.3.0
