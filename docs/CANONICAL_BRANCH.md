@@ -6,22 +6,30 @@ The canonical KoalaByte Blue Heltec Edition branch is:
 koalabyte_blue_v2_heltec_edition
 ```
 
-The shorter `heltec` branch is kept as a compatibility alias for the same hardware profile.
+The shorter `heltec` branch was previously used as a compatibility alias. It is no longer required for the installer or normal development once the repo has this document and the updated `scripts/flash_all_components.sh`.
 
 ## Current policy
 
-- New Heltec Edition development should target `koalabyte_blue_v2_heltec_edition`.
-- The `heltec` branch should be kept synchronized to the canonical branch when changes are finalized.
-- Both branches are intended to represent the same Raspberry Pi + ESP32-S3 DualEye + Heltec T114 hardware profile.
+- New Heltec Edition development targets `koalabyte_blue_v2_heltec_edition`.
+- Installer scripts should checkout `koalabyte_blue_v2_heltec_edition` through `KOALABYTE_HELTEC_BRANCH`, which defaults to the canonical branch.
+- The `heltec` branch may be deleted after confirming it is identical to the canonical branch and no GitHub settings, rules, or open PRs target it.
+- The Heltec Edition hardware profile remains Raspberry Pi + ESP32-S3 DualEye + Heltec T114.
 
-## Sync command for maintainers
+## Optional compatibility
 
-When the canonical branch is stable and should update the alias branch:
+If a local workflow still expects a shorter branch name, recreate or sync an alias locally only:
 
 ```bash
-git checkout heltec
-git reset --hard koalabyte_blue_v2_heltec_edition
-git push --force-with-lease origin heltec
+git fetch origin koalabyte_blue_v2_heltec_edition
+git branch -f heltec origin/koalabyte_blue_v2_heltec_edition
 ```
 
-Or through GitHub refs, move `heltec` to the current `koalabyte_blue_v2_heltec_edition` commit.
+Do not use `heltec` as the production source of truth.
+
+## Delete command for maintainers
+
+After confirming the remote alias is no longer needed:
+
+```bash
+git push origin --delete heltec
+```
