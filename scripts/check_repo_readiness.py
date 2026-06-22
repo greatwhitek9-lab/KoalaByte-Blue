@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 from pathlib import Path
@@ -43,7 +44,7 @@ NEEDED = [
     "pi-companion/koalablue/killerkoala_face_bridge.py",
     "pi-companion/koalablue/killerkoala_voice_face_control.py",
     "pi-companion/koalablue/t114_bluez.py",
-    "pi-companion/koalablue/location_password_gate.py",
+    "pi-companion/koalblue/location_password_gate.py",
     "pi-companion/koalablue/gnss_location.py",
     "pi-companion/koalablue/meshtastic_app.py",
     "pi-companion/koalablue/greatwhite.py",
@@ -102,6 +103,7 @@ TEXT = {
         "Canopy Konnect T114", "Canopy Konnect Build Check", "T114 Vine HCI Check",
         "T114 Canopy Safe Sweep", "Meshtastic Gumleaf Status", "Meshtastic Billabong Nodes",
         "Greatwhite Reef Patrol", "Greatwhite Interface Lagoon", "nRF Sniffer Nest Check",
+        "SUBMENU_ITEMS", "leaf_menu_entries",
     ],
     "pi-companion/koalablue/menu_theme.py": [
         "JungleMenuTheme", "cooperblack", "porkchop_style_eucalyptus_branches",
@@ -144,10 +146,10 @@ TEXT = {
     "scripts/run_ble_node_manager.py": ["--heltec-port", "--esp32-port", "BleNodeManager"],
     "scripts/run_ble_node_manager_service.sh": ["/dev/koalabyte-heltec", "koalabyte_ports.env", "run_ble_node_manager.py"],
     "scripts/install_ble_node_manager_service.sh": ["systemd-udev-settle.service", "koalabyte_ports.env", "KOALABYTE_HELTEC_USB_PORT"],
-    "scripts/run_menu_screen.py": ["emit_selected_action_face"],
+    "scripts/run_menu_screen.py": ["emit_selected_action_face", "leaf_menu_entries", "menu.register_handler", "Touchscreen: long press=select"],
     "scripts/run_t114_bluez.py": ["koalablue.t114_bluez", "run_cli"],
     "scripts/run_meshtastic_app.py": ["koalablue.meshtastic_app", "run_cli"],
-    "scripts/run_location_password_gate.py": ["koalablue.location_password_gate", "run_cli"],
+    "scripts/run_location_password_gate.py": ["koalblue.location_password_gate", "run_cli"],
     "scripts/run_gw.py": ["koalablue.greatwhite", "run_cli"],
     "scripts/setup_nrf_sniffer_ble.sh": ["Nordic nRF Sniffer", "does not redistribute", "NRF_SNIFFER_ZIP", "logs/nrf_sniffer_ble_status.json"],
     "scripts/confirm_t114_board_target.sh": ["heltec_t114_v2/nrf52840", "ALLOW_T114_BOARD_SMOKE_FALLBACK", "t114_board_target.json"],
@@ -196,6 +198,53 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="ignore") if path.exists() else ""
 
 
+def check_executable_submenus(failures: list[str]) -> None:
+    try:
+        from koalablue.menu_catalog import SUBMENU_ITEMS, leaf_menu_entries
+    except Exception as exc:
+        failures.append(f"failed to import submenu catalog: {exc}")
+        return
+
+    leaf_commands: set[str] = set()
+    for submenu_name, entries in SUBMENU_ITEMS.items():
+        if not entries:
+            failures.append(f"submenu has no items: {submenu_name}")
+            continue
+        for idx, entry in enumerate(entries, start=1):
+            label = str(entry.get("label", "")).strip()
+            command = str(entry.get("command", "")).strip()
+            enabled = bool(entry.get("enabled", True))
+            if not label:
+                failures.append(f"submenu {submenu_name} item {idx} has no label")
+            if enabled and not command:
+                failures.append(f"submenu {submenu_name} item {label or idx} has no executable command")
+            if enabled and command and not command.startswith("submenu:"):
+                leaf_commands.add(command)
+
+    catalog_leaf_commands = {str(entry.get("command", "")).strip() for entry in leaf_menu_entries()}
+    missing_from_leaf_helper = sorted(leaf_commands - catalog_leaf_commands)
+    if missing_from_leaf_helper:
+        failures.append(f"enabled submenu leaf commands missing from leaf_menu_entries(): {missing_from_leaf_helper}")
+
+    runner_path = ROOT / "scripts" / "run_menu_screen.py"
+    spec = importlib.util.spec_from_file_location("koalabyte_menu_runner_readiness", runner_path)
+    if spec is None or spec.loader is None:
+        failures.append("failed to load run_menu_screen.py for menu handler validation")
+        return
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+        menu = module.make_menu()
+    except Exception as exc:
+        failures.append(f"failed to build menu runner for handler validation: {exc}")
+        return
+
+    registered = set(getattr(menu, "_handlers", {}).keys())
+    missing_handlers = sorted(catalog_leaf_commands - registered)
+    if missing_handlers:
+        failures.append(f"submenu leaf commands missing registered execution handlers: {missing_handlers}")
+
+
 def main() -> int:
     failures: list[str] = []
     for relative_path in NEEDED:
@@ -221,6 +270,7 @@ def main() -> int:
                 failures.append("config.default.json missing koala_kan_kommander section")
         except json.JSONDecodeError as exc:
             failures.append(f"config.default.json is invalid JSON: {exc}")
+    check_executable_submenus(failures)
     for helper in SHELL_HELPERS:
         body = read_text(ROOT / helper)
         if body and "set -euo pipefail" not in body:
