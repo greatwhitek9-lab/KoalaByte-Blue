@@ -61,7 +61,7 @@ def route_leaf(item: MenuItem) -> None:
 
 
 def run_boomerang_action(_item: MenuItem) -> None:
-    from koalblue import boomerang  # type: ignore
+    from koalablue import boomerang
 
     boomerang.run_interactive()
 
