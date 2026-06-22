@@ -11,7 +11,7 @@ PI_ROOT = REPO_ROOT / "pi-companion"
 if str(PI_ROOT) not in sys.path:
     sys.path.insert(0, str(PI_ROOT))
 
-EXPECTED_MENU_LABELS = [
+EXPECTED_CONFIG_MENU_LABELS = [
     "Scan", "Summary", "Show Devices", "eucalyptus Status", "eucalyptus Start", "eucalyptus Stop", "eucalyptus Restart", "eucalyptus Upload Status",
     "Eucalyptus Mode", "Koala Kapture", "Koala Kry", "Koala Kry RF Review", "Ear Tag", "KoalaByte Lab", "Koala Mode Switcher", "Koala Kan Kommander",
     "Gumleaf Gear Check", "Eucalyptus Bus Scout", "Dropbear Discovery Sweep", "Billabong HCI Watch", "Kookaburra Safe Nest Run",
@@ -19,6 +19,86 @@ EXPECTED_MENU_LABELS = [
     "Authorized BLE Inventory", "GATT Readiness Checklist", "Pairing Security Review", "Lab Beacon Plan", "Packet Capture Notes", "Defensive Lab Report",
     "Restricted Placeholder", "Settings", "Lab", "Shutdown", "Quit",
 ]
+
+EXPECTED_CATALOG_MAIN_LABELS = [
+    "Eucalyptus",
+    "Bluetooth Tools",
+    "CAN Bench Tools",
+    "Reports & Reviews",
+    "System / Companion",
+    "Lab",
+    "Power & Exit",
+]
+
+EXPECTED_CATALOG_SUBMENU_LABELS = {
+    "eucalyptus": [
+        "Eucalyptus Canopy Status",
+        "Eucalyptus Canopy Start",
+        "Eucalyptus Canopy Stop",
+        "Eucalyptus Canopy Restart",
+        "Eucalyptus Upload Trail",
+        "Eucalyptus Koalagotchi Mode",
+        "Back to Main Canopy",
+    ],
+    "bluetooth": [
+        "Scan",
+        "Summary",
+        "Show Devices",
+        "Koala Kapture",
+        "Koala Kry",
+        "Ear Tag",
+        "KoalaByte Lab",
+        "Gumleaf Gear Check",
+        "Eucalyptus Bus Scout",
+        "Dropbear Discovery Sweep",
+        "Billabong HCI Watch",
+        "Kookaburra Safe Nest Run",
+        "that’s not a knife",
+        "AntEater",
+        "Urban Poaching",
+        "Back to Main Canopy",
+    ],
+    "can_bench": [
+        "Koala Kan Kommander",
+        "CAN Bench Safety Check",
+        "Back to Main Canopy",
+    ],
+    "reports": [
+        "Koala Kry RF Review",
+        "Report",
+        "Boomerang",
+        "Authorized BLE Inventory",
+        "GATT Readiness Checklist",
+        "Pairing Security Review",
+        "Lab Beacon Plan",
+        "Packet Capture Notes",
+        "Defensive Lab Report",
+        "Back to Main Canopy",
+    ],
+    "system": [
+        "Koala Mode Switcher",
+        "KillerKoala Voice",
+        "Buttons",
+        "Level / Status",
+        "Wake killerkoala",
+        "Restricted Placeholder",
+        "Settings",
+        "Back to Main Canopy",
+    ],
+    "lab": [
+        "Authorized BLE Inventory",
+        "GATT Readiness Checklist",
+        "Pairing Security Review",
+        "Lab Beacon Plan",
+        "CAN Bench Safety Check",
+        "Back to Main Canopy",
+    ],
+    "power": [
+        "Shutdown",
+        "Quit",
+        "Back to Main Canopy",
+    ],
+}
 
 MAIN_REQUIRED_FILES = [
     "README.md",
@@ -167,8 +247,8 @@ REQUIRED_TEXT = {
     "production/WIRING_DIAGRAM_ANTENNAS.md": ["ESP32-S3 DualEye 2.4 GHz", "IPEX/U.FL/MHF1 coax pigtail", "external 2.4 GHz WiFi/Bluetooth antenna"],
     "docs/PRODUCTION_FILES.md": ["production/WIRING_DIAGRAM_ANTENNAS.md", "ESP32-S3 DualEye antenna rule", "external 2.4 GHz"],
     "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md": ["ESP32-S3 DualEye external 2.4 GHz antenna path", "production/WIRING_DIAGRAM_ANTENNAS.md", "esp32_external_antenna"],
-    "pi-companion/koalablue/menu_catalog.py": ["AntEater", "anteater"],
-    "scripts/run_menu_screen.py": ["run_anteater_action", "anteater"],
+    "pi-companion/koalablue/menu_catalog.py": ["AntEater", "anteater", "submenu:eucalyptus", "leaf_menu_entries"],
+    "scripts/run_menu_screen.py": ["run_anteater_action", "anteater", "long press=select"],
 }
 
 
@@ -223,8 +303,8 @@ def check_config(failures: list[str]) -> None:
     menu = config.get("menu_selection", {})
     if menu.get("groups") != ["Bluetooth Tools", "CAN Bench Tools", "Reports & Reviews", "System / Companion"]:
         failures.append("menu groups do not match main branch layout")
-    if menu.get("items") != EXPECTED_MENU_LABELS:
-        failures.append("menu items do not match main branch ordering")
+    if menu.get("items") != EXPECTED_CONFIG_MENU_LABELS:
+        failures.append("config menu items do not match legacy main branch ordering")
     for section in ["killerkoala_companion", "koala_kan_kommander", "anteater"]:
         if section not in config:
             failures.append(f"main config missing required section: {section}")
@@ -232,14 +312,21 @@ def check_config(failures: list[str]) -> None:
 
 def check_menu_catalog(failures: list[str]) -> None:
     try:
-        from koalablue.menu_catalog import MENU_GROUPS, menu_labels
+        from koalablue.menu_catalog import MENU_GROUPS, SUBMENU_ITEMS, menu_labels
     except Exception as exc:
         failures.append(f"failed to import menu catalog: {exc}")
         return
     if MENU_GROUPS != ["Bluetooth Tools", "CAN Bench Tools", "Reports & Reviews", "System / Companion"]:
         failures.append("menu catalog groups do not match main branch layout")
-    if menu_labels() != EXPECTED_MENU_LABELS:
-        failures.append("menu catalog labels do not match main branch ordering")
+    if menu_labels("main") != EXPECTED_CATALOG_MAIN_LABELS:
+        failures.append("menu catalog main hub labels do not match main branch submenu layout")
+    for submenu_name, expected_labels in EXPECTED_CATALOG_SUBMENU_LABELS.items():
+        if submenu_name not in SUBMENU_ITEMS:
+            failures.append(f"menu catalog missing submenu: {submenu_name}")
+            continue
+        actual_labels = menu_labels(submenu_name)
+        if actual_labels != expected_labels:
+            failures.append(f"menu catalog labels do not match submenu ordering: {submenu_name}")
 
 
 def check_bom(failures: list[str]) -> None:
