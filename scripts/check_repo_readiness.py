@@ -88,7 +88,7 @@ TEXT = {
     "scripts/run_killerkoala_face_demo.py": ["Heltec T114 color TFT", "emit_face"],
     "scripts/flash_heltec_mouth.sh": ["KOALABYTE_HELTEC_USB_PORT", "heltec_t114.json", "firmware/heltec-mouth"],
     "scripts/flash_all_components.sh": ["--install-firmware", "CANONICAL_HELTEC_BRANCH", CANONICAL_BRANCH, "KOALABYTE_HELTEC_BRANCH", "--nrf-konnect", "build_nrf52840_t114_hci_usb.sh", "flash_nrf52840_t114_hci_usb.sh", "PREFLIGHT_BUILD", "--heltec-t114", "RUN_HELTEC_T114", "scripts/flash_heltec_mouth.sh", "RUN_BLE_NODE_MANAGER", "--ble-node-manager", "RUN_CAN_CHECK", "--can-check", "setup_can0.sh", "run_koala_kan_kommander.py manifest", "run_koala_kan_kommander.py inventory", "run_koala_kan_kommander.py status", "CAN_INTERFACE", "CAN_BITRATE", "STRICT_CAN_SETUP"],
-    "scripts/build_firmware_all.sh": ["firmware/heltec-mouth", "Heltec Mesh Node T114 v2"],
+    "scripts/build_firmware_all.sh": ["firmware/heltec-mouth", "Heltec Mesh Node T114 v2", "BUILD_KOALA_KONNECT", "build_nrf52840_t114_hci_usb.sh", "setup_nrf_connect_sdk_toolchain.sh"],
     "scripts/setup_system_packages.sh": ["can-utils", "python3-can", "cansend", "udev", "iproute2"],
     "scripts/install_koalabyte_udev_rules.sh": ["/dev/koalabyte-nrf-ble", "/dev/koalabyte-esp32-eyes", "/dev/koalabyte-heltec", "99-koalabyte.rules"],
     "scripts/discover_koalabyte_ports.py": ["KOALABYTE_HELTEC_USB_PORT", "KOALABYTE_ESP32_FACE_PORT", "CAN_INTERFACE", "koalabyte_ports.env"],
