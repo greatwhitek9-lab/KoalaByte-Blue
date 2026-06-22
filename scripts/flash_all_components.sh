@@ -3,6 +3,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPO_ROOT}"
+ORIGINAL_ARGS=("$@")
 
 RUN_PI=0
 RUN_ESP32=0
@@ -15,37 +16,44 @@ BUILD_ONLY=0
 CHECK_ONLY=0
 RUN_SMOKE=0
 NO_MONITOR_DEFAULT=1
+CHECKOUT_HELTEC=0
+PREFLIGHT_BUILD=0
+ONE_SCRIPT_INSTALL=0
 
 usage() {
   cat <<'EOF'
 KoalaByte Blue all-component flash/install helper
 
 Usage:
+  bash scripts/flash_all_components.sh --install-firmware
   bash scripts/flash_all_components.sh --all
   bash scripts/flash_all_components.sh --pi --esp32 --heltec-t114
   bash scripts/flash_all_components.sh --ai-voice
-  WIFI_INTERACTIVE=1 bash scripts/flash_all_components.sh --all
-  WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword" bash scripts/flash_all_components.sh --all
+  WIFI_INTERACTIVE=1 bash scripts/flash_all_components.sh --install-firmware
+  WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword" bash scripts/flash_all_components.sh --install-firmware
   ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
   HELTEC_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --heltec-t114
   NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
 
 Targets:
-  --all            Install Pi companion, prepare KillerKoala AI voice, flash ESP32 DualEye, flash Heltec T114 color mouth/GNSS firmware, and run CAN manifest check
-  --pi             Install/update Raspberry Pi companion environment
-  --ai-voice       Prepare/verify KillerKoala phrase-first companion config and optional TinyLlama/Ollama settings
-  --esp32          Build and flash ESP32-S3 DualEye firmware with PlatformIO
-  --heltec-t114    Build and flash Heltec Mesh Node T114 v2 nRF52840 color TFT mouth/GNSS firmware over USB-C
-  --nrf-lab        Optional: build/package/flash separate nRF52840 Dongle KoalaByte Lab firmware
-  --nrf-konnect    Optional: build/package/flash separate Koala Konnect USB HCI profile instead of KoalaByte Lab
-  --can-check      Write Koala Kan Kommander InnoMaker manifest artifact; no CAN traffic is sent
+  --install-firmware  One-script Heltec branch install: git checkout heltec, readiness check, build-only preflight, then install/flash Pi companion, ESP32 DualEye, Heltec T114, and CAN manifest checks
+  --all               Install Pi companion, prepare KillerKoala AI voice, flash ESP32 DualEye, flash Heltec T114 color mouth/GNSS firmware, and run CAN manifest check
+  --pi                Install/update Raspberry Pi companion environment
+  --ai-voice          Prepare/verify KillerKoala phrase-first companion config and optional TinyLlama/Ollama settings
+  --esp32             Build and flash ESP32-S3 DualEye firmware with PlatformIO
+  --heltec-t114       Build and flash Heltec Mesh Node T114 v2 nRF52840 color TFT mouth/GNSS firmware over USB-C
+  --nrf-lab           Optional: build/package/flash separate nRF52840 Dongle KoalaByte Lab firmware
+  --nrf-konnect       Optional: build/package/flash separate Koala Konnect USB HCI profile instead of KoalaByte Lab
+  --can-check         Write Koala Kan Kommander InnoMaker manifest artifact; no CAN traffic is sent
 
 Modes:
-  --build-only     Build/package only; do not upload/flash firmware
-  --check-only     Run repo readiness check only
-  --smoke          After selected actions, run safe local Pi companion smoke checks
-  --monitor        Open ESP32/Heltec serial monitor after flash where supported
-  -h, --help       Show this help
+  --build-only        Build/package only; do not upload/flash firmware
+  --preflight-build   Run the all-firmware build helper before flashing selected targets
+  --checkout-heltec   Checkout the heltec branch before continuing
+  --check-only        Run repo readiness check only
+  --smoke             After selected actions, run safe local Pi companion smoke checks
+  --monitor           Open ESP32/Heltec serial monitor after flash where supported
+  -h, --help          Show this help
 
 Environment:
   WIFI_SSID               Optional WiFi SSID used before download/install steps.
@@ -68,11 +76,19 @@ Environment:
   NCS_REVISION            Default: v2.9.0
   ZEPHYR_SDK_VERSION      Default: 0.17.0
   NRFUTIL_INSTALL_CMD     Optional custom nrfutil install command for scripts/setup_nrf_tools.sh.
-  BUILD_KOALA_KONNECT=1 can still be used with scripts/build_firmware_all.sh for optional HCI builds.
+  BUILD_SEPARATE_NRF=1 builds the optional separate nRF52840 Dongle KoalaByte Lab firmware in scripts/build_firmware_all.sh.
+  BUILD_KOALA_KONNECT=1 builds the optional Koala Konnect HCI adapter firmware.
   KOALABYTE_TTS=1 enables Boomerang/KillerKoala spoken alerts after espeak-ng/espeak is installed.
   KILLERKOALA_LLM_MODE    fast_default/off/force. Default: fast_default; phrase engine remains default.
   KILLERKOALA_LLM_MODEL   Optional local Ollama model. Default: killerkoala-tinyllama:latest.
   KILLERKOALA_LLM_TIMEOUT_SECONDS Optional local model timeout. Default: 2.5.
+
+One-script install flow:
+  --install-firmware folds this manual sequence into one command:
+    git checkout heltec
+    python3 scripts/check_repo_readiness.py
+    BUILD_ONLY=1 bash scripts/flash_all_components.sh --all
+    HELTEC_PORT=${HELTEC_PORT:-/dev/ttyACM0} bash scripts/flash_all_components.sh --heltec-t114
 
 Notes:
   - The Heltec branch treats the Heltec Mesh Node T114 v2 as a USB-C connected nRF52840 board.
@@ -96,6 +112,16 @@ fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --install-firmware)
+      ONE_SCRIPT_INSTALL=1
+      CHECKOUT_HELTEC=1
+      PREFLIGHT_BUILD=1
+      RUN_PI=1
+      RUN_AI_VOICE=1
+      RUN_ESP32=1
+      RUN_HELTEC_T114=1
+      RUN_CAN_CHECK=1
+      ;;
     --all)
       RUN_PI=1
       RUN_AI_VOICE=1
@@ -111,6 +137,8 @@ while [[ $# -gt 0 ]]; do
     --nrf-konnect) RUN_NRF_KONNECT=1 ;;
     --can-check) RUN_CAN_CHECK=1 ;;
     --build-only) BUILD_ONLY=1 ;;
+    --preflight-build) PREFLIGHT_BUILD=1 ;;
+    --checkout-heltec) CHECKOUT_HELTEC=1 ;;
     --check-only) CHECK_ONLY=1 ;;
     --smoke) RUN_SMOKE=1 ;;
     --monitor) NO_MONITOR_DEFAULT=0 ;;
@@ -126,6 +154,37 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
+
+if [[ "${ONE_SCRIPT_INSTALL}" == "1" ]]; then
+  export HELTEC_PORT="${HELTEC_PORT:-/dev/ttyACM0}"
+fi
+
+checkout_heltec_if_requested() {
+  if [[ "${CHECKOUT_HELTEC}" != "1" ]]; then
+    return 0
+  fi
+  if ! command -v git >/dev/null 2>&1; then
+    echo "git is required for --checkout-heltec / --install-firmware." >&2
+    exit 1
+  fi
+  if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "Not inside a git checkout; cannot switch to the heltec branch." >&2
+    exit 1
+  fi
+  local current_branch
+  current_branch="$(git rev-parse --abbrev-ref HEAD)"
+  if [[ "${current_branch}" == "heltec" ]]; then
+    echo "Already on heltec branch."
+    return 0
+  fi
+  echo "Checking out heltec branch..."
+  git fetch origin heltec || true
+  git checkout heltec
+  if [[ "${KOALABYTE_FLASH_ALL_REEXECED:-0}" != "1" ]]; then
+    echo "Re-running flash helper from the heltec branch copy..."
+    exec env KOALABYTE_FLASH_ALL_REEXECED=1 bash scripts/flash_all_components.sh "${ORIGINAL_ARGS[@]}"
+  fi
+}
 
 if [[ "${RUN_NRF_LAB}" == "1" && "${RUN_NRF_KONNECT}" == "1" && "${BUILD_ONLY}" != "1" ]]; then
   echo "Refusing to flash both separate nRF dongle profiles in one run. The dongle can hold only one active profile." >&2
@@ -205,6 +264,8 @@ JSON
   echo "Phrase-first preview written to logs/killerkoala/flash_all_ai_voice_preview.json"
 }
 
+checkout_heltec_if_requested
+
 echo "== KoalaByte Blue readiness check =="
 python3 scripts/check_repo_readiness.py
 
@@ -225,6 +286,12 @@ fi
 setup_killerkoala_ai_voice_for_selected_mode
 setup_platformio_for_selected_mode
 setup_nrf_tools_for_selected_mode
+
+if [[ "${PREFLIGHT_BUILD}" == "1" ]]; then
+  echo
+  echo "== Build-only preflight for selected Heltec branch firmware =="
+  STRICT_TOOLS="${STRICT_TOOLS:-0}" bash scripts/build_firmware_all.sh
+fi
 
 if [[ "${RUN_ESP32}" == "1" ]]; then
   echo
