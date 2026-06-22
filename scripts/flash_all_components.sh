@@ -31,13 +31,13 @@ Usage:
   NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
 
 Targets:
-  --all            Install Pi companion, prepare KillerKoala AI voice, flash ESP32 DualEye, flash Heltec T114 color mouth/GNSS firmware, build/package/flash nRF52840 KoalaByte Lab, and run CAN manifest check
+  --all            Install Pi companion, prepare KillerKoala AI voice, flash ESP32 DualEye, flash Heltec T114 color mouth/GNSS firmware, and run CAN manifest check
   --pi             Install/update Raspberry Pi companion environment
   --ai-voice       Prepare/verify KillerKoala phrase-first companion config and optional TinyLlama/Ollama settings
   --esp32          Build and flash ESP32-S3 DualEye firmware with PlatformIO
   --heltec-t114    Build and flash Heltec Mesh Node T114 v2 nRF52840 color TFT mouth/GNSS firmware over USB-C
-  --nrf-lab        Build/package/flash separate nRF52840 Dongle KoalaByte Lab firmware
-  --nrf-konnect    Build/package/flash optional Koala Konnect USB HCI profile instead of KoalaByte Lab
+  --nrf-lab        Optional: build/package/flash separate nRF52840 Dongle KoalaByte Lab firmware
+  --nrf-konnect    Optional: build/package/flash separate Koala Konnect USB HCI profile instead of KoalaByte Lab
   --can-check      Write Koala Kan Kommander InnoMaker manifest artifact; no CAN traffic is sent
 
 Modes:
@@ -78,13 +78,13 @@ Notes:
   - The Heltec branch treats the Heltec Mesh Node T114 v2 as a USB-C connected nRF52840 board.
   - Heltec GPS, LoRa/SX1262, BLE, and color mouth display use the T114 hardware and communicate to the Pi over USB CDC.
   - Do not wire Heltec TX/RX pins to the Raspberry Pi GPIO header for the KillerKoala face/GNSS/LoRa/BLE channel.
-  - The separate Nordic nRF52840 Dongle remains available for legacy KoalaByte Lab / Koala Konnect profiles.
+  - The separate Nordic nRF52840 Dongle is optional/legacy on this branch; it is not flashed by --all.
   - WiFi/internet can be configured first so the Pi can download SDK/toolchain dependencies.
   - System packages, PlatformIO, west, nrfutil, and the full NCS/Zephyr toolchain are checked/prepared before relevant flashing steps.
   - Pi system package setup also installs AI voice/TTS dependencies: espeak-ng, espeak, ALSA tools, PulseAudio CLI utilities, PortAudio, and python3-pyaudio.
   - KillerKoala AI voice setup keeps the anti-repeat phrase engine as the fast default and only uses TinyLlama/Ollama for flexible banter when enabled.
   - KillerKoala boot welcome speech runs after the mode selector and before the splash/menu unless KILLERKOALA_BOOT_WELCOME=0.
-  - If NRF_DFU_PORT is unset, the separate nRF helper creates the DFU ZIP but does not flash.
+  - If NRF_DFU_PORT is unset, the optional separate nRF helper creates the DFU ZIP but does not flash.
   - Koala Kan Kommander remains gated for isolated bench CAN transmit; this script only writes a manifest/check artifact.
 EOF
 }
@@ -101,7 +101,6 @@ while [[ $# -gt 0 ]]; do
       RUN_AI_VOICE=1
       RUN_ESP32=1
       RUN_HELTEC_T114=1
-      RUN_NRF_LAB=1
       RUN_CAN_CHECK=1
       ;;
     --pi) RUN_PI=1 ;;
@@ -166,7 +165,7 @@ setup_nrf_tools_for_selected_mode() {
     return 0
   fi
   echo
-  echo "== west/nrfutil setup for separate nRF52840 dongle workflows =="
+  echo "== west/nrfutil setup for optional separate nRF52840 dongle workflows =="
   if [[ "${BUILD_ONLY}" == "1" ]]; then
     STRICT_NRF_TOOLS="${STRICT_NRF_TOOLS:-1}" bash scripts/setup_nrf_tools.sh --west-only
   else
@@ -257,7 +256,7 @@ fi
 
 if [[ "${RUN_NRF_LAB}" == "1" ]]; then
   echo
-  echo "== Separate nRF52840 Dongle KoalaByte Lab firmware =="
+  echo "== Optional separate nRF52840 Dongle KoalaByte Lab firmware =="
   bash scripts/build_nrf52840_dongle_lab.sh
   if [[ "${BUILD_ONLY}" != "1" ]]; then
     bash scripts/flash_nrf52840_dongle_lab_dfu.sh
@@ -268,7 +267,7 @@ fi
 
 if [[ "${RUN_NRF_KONNECT}" == "1" ]]; then
   echo
-  echo "== Separate nRF52840 Dongle Koala Konnect firmware =="
+  echo "== Optional separate nRF52840 Dongle Koala Konnect firmware =="
   bash scripts/build_koala_konnect.sh
   if [[ "${BUILD_ONLY}" != "1" ]]; then
     bash scripts/flash_koala_konnect.sh
