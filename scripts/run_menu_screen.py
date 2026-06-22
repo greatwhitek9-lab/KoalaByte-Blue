@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 os.environ.setdefault("KOALABYTE_TTS", "1")
+from koalablue.menu_catalog import leaf_menu_entries
 from koalablue.menu_ui import MenuEvent, MenuItem, MenuSelectionScreen
 
 try:
@@ -56,10 +57,11 @@ def write_leaf_selection(item: MenuItem) -> None:
 
 def make_menu() -> MenuSelectionScreen:
     menu = MenuSelectionScreen()
-    # Any non-submenu leaf selection now produces an executable menu artifact instead of silently selecting.
-    for item in menu.items:
-        if not item.command.startswith("submenu:"):
-            menu.register_handler(item.command, write_leaf_selection)
+    # Register every leaf from every submenu so selecting a submenu action never silently does nothing.
+    for entry in leaf_menu_entries():
+        command = str(entry.get("command", ""))
+        if command:
+            menu.register_handler(command, write_leaf_selection)
     return menu
 
 
