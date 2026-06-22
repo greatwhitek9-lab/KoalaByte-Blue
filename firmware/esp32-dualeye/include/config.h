@@ -30,6 +30,13 @@
 #define KILLERKOALA_COMPANION_BRAIN "Raspberry Pi large-vocabulary Aussie cyberpunk companion engine"
 #define KILLERKOALA_RESPONSE_POLICY "anti-repeat rotating vocabulary with XP/rank-aware Aussie terminology"
 
+// KillerKoala AI koala-face renderer.
+// The ESP32-S3 DualEye board owns only the eyes/HUD. The Heltec screen owns the mouth.
+#define KILLERKOALA_FACE_LEFT_COLOR "#A54BFF"
+#define KILLERKOALA_FACE_RIGHT_COLOR "#32FF71"
+#define KILLERKOALA_FACE_BRIGHTNESS 100
+#define KILLERKOALA_FACE_DEFAULT_DURATION_MS 4500
+
 // Feature toggles.
 // Mic wake is enabled by default for the killerkoala build. If audio pins are not configured,
 // the firmware boots safely and reports that the hardware wake backend needs board-specific pin mapping.
