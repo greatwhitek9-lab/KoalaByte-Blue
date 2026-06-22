@@ -1,10 +1,10 @@
 # Heltec Mesh Node T114 v2 color mouth display
 
-This firmware target is for the Heltec Mesh Node T114 v2 / HT-n5262 board with nRF52840, SX1262, USB-C, and the 1.14 inch color TFT display.
+This firmware target is for the Heltec Mesh Node T114 v2 / HT-n5262 board with nRF52840, SX1262, USB-C, the 1.14 inch color TFT display, and the optional L76K GNSS add-on module.
 
 ## Pi connection
 
-Connect the Heltec T114 to the Raspberry Pi with a USB-C data cable. Do not wire the Heltec serial pins to the Pi GPIO header for the KillerKoala face channel.
+Connect the Heltec T114 to the Raspberry Pi with a USB-C data cable. Do not wire the Heltec serial pins to the Pi GPIO header for the KillerKoala face, GNSS, BLE, or LoRa control channel.
 
 The Pi sends newline-delimited JSON face commands over the Heltec USB CDC serial device. The Pi-side bridge checks these environment variables first:
 
@@ -13,6 +13,22 @@ The Pi sends newline-delimited JSON face commands over the Heltec USB CDC serial
 - `HELTEC_PORT`
 
 When none are set, the bridge searches common USB serial paths such as `/dev/serial/by-id/*`, `/dev/ttyACM*`, and `/dev/ttyUSB*`.
+
+## GNSS add-on
+
+The L76K GNSS module plugs into the Heltec T114 8-pin 1.25 mm GNSS connector. That GNSS cable goes from the GNSS module to the T114 board only; it does not go to the Raspberry Pi GPIO header.
+
+The T114 firmware opens the board's GNSS UART with `Serial1.begin(KOALA_GNSS_BAUD)` and forwards NMEA sentences to the Pi over the same USB CDC link as JSON messages:
+
+```json
+{"type":"gnss_nmea","device":"heltec-t114","transport":"usb-cdc","nmea":"$GNRMC,..."}
+```
+
+The Pi can also ask for current GNSS status by sending:
+
+```json
+{"type":"gnss_status"}
+```
 
 ## Build and flash
 
