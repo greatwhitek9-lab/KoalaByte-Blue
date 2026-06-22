@@ -12,6 +12,22 @@ The `heltec` branch uses the Heltec Mesh Node T114 v2 / HT-n5262 nRF52840 as the
 
 The Pi companion merges events and resolves duplicate observations in favor of the Heltec T114.
 
+## One-shot install path
+
+The normal Heltec branch one-shot command now flashes the Heltec BLE-primary firmware and installs/starts the Pi-side node manager service automatically:
+
+```bash
+HELTEC_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --install-firmware
+```
+
+That service is named:
+
+```text
+koalabyte-ble-node-manager.service
+```
+
+It launches `scripts/run_ble_node_manager.py --duration 0`, starts the Heltec as the primary BLE node, and writes logs under `logs/ble_nodes/`.
+
 ## Heltec USB JSON commands
 
 Start passive primary scanning:
@@ -44,7 +60,9 @@ Set a non-primary node to secondary:
 {"type":"ble_adv_seen","device":"heltec-t114","source":"heltec-t114","role":"primary","transport":"usb-cdc","addr":"AA:BB:CC:DD:EE:FF","addr_type":"random","rssi":-61,"active_scan":false}
 ```
 
-## Pi runner
+## Manual Pi runner
+
+The service is installed by the one-shot flow. For bench testing only, the manager can also be run manually:
 
 ```bash
 KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0 PYTHONPATH=pi-companion python3 scripts/run_ble_node_manager.py --duration 30
@@ -57,6 +75,8 @@ Logs are written to:
 ```text
 logs/ble_nodes/ble_events.jsonl
 logs/ble_nodes/ble_state.json
+logs/ble_nodes/service.log
+logs/ble_nodes/service.err
 ```
 
 ## Safety boundary
