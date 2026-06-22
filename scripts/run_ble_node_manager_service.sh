@@ -13,8 +13,15 @@ export KOALABYTE_ESP32_FACE_PORT="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-}}"
 
 mkdir -p "${REPO_ROOT}/logs/ble_nodes"
 
-exec "${PYTHON_BIN}" "${REPO_ROOT}/scripts/run_ble_node_manager.py" \
-  --duration 0 \
-  --heltec-port "${KOALABYTE_HELTEC_USB_PORT}" \
-  ${KOALABYTE_ESP32_FACE_PORT:+--esp32-port "${KOALABYTE_ESP32_FACE_PORT}"} \
+args=(
+  "${REPO_ROOT}/scripts/run_ble_node_manager.py"
+  --duration 0
+  --heltec-port "${KOALABYTE_HELTEC_USB_PORT}"
   --log-dir "${REPO_ROOT}/logs/ble_nodes"
+)
+
+if [[ -n "${KOALABYTE_ESP32_FACE_PORT}" ]]; then
+  args+=(--esp32-port "${KOALABYTE_ESP32_FACE_PORT}")
+fi
+
+exec "${PYTHON_BIN}" "${args[@]}"
