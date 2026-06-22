@@ -52,9 +52,15 @@ if ! STRICT_NCS_TOOLCHAIN="${STRICT_TOOLS}" bash scripts/setup_nrf_connect_sdk_t
 fi
 
 if command -v west >/dev/null 2>&1; then
-  echo "Building nRF52840 Dongle KoalaByte Lab firmware..."
-  bash scripts/build_nrf52840_dongle_lab.sh
+  echo "Building nRF52840 Dongle BLE-primary firmware..."
+  bash scripts/build_nrf52840_dongle_ble_primary.sh
   BUILT_ANY=1
+  if [[ "${BUILD_LEGACY_NRF_LAB:-0}" == "1" ]]; then
+    echo "Building legacy nRF52840 Dongle KoalaByte Lab firmware..."
+    bash scripts/build_nrf52840_dongle_lab.sh
+  else
+    echo "Skipping legacy KoalaByte Lab build. Set BUILD_LEGACY_NRF_LAB=1 to build it."
+  fi
   if [[ "${BUILD_KOALA_KONNECT:-0}" == "1" ]]; then
     echo "Building optional Koala Konnect external Bluetooth adapter firmware..."
     bash scripts/build_nrf52840_dongle_hci_usb_adapter.sh
