@@ -60,16 +60,19 @@ The Heltec T114 firmware is written around the correct board profile:
 - Solid orange animated mouth, black nose, fuzzy grey cheeks.
 - USB CDC JSON command channel from the Pi.
 - Optional L76K GNSS UART readout forwarded to the Pi over USB as `gnss_nmea` JSON.
+- Primary BLE advertisement observation from the T114 nRF52840, emitted to the Pi as `ble_adv_seen` JSON.
 
 ### Raspberry Pi
 
 The Pi remains the orchestrator. It sends face/action state to the ESP32 and Heltec over their USB serial ports. The Pi bridge prefers `KOALABYTE_HELTEC_USB_PORT`, then `KOALABYTE_HELTEC_FACE_PORT`, then `HELTEC_PORT`, and can auto-search common Linux/macOS USB serial paths.
 
+The Pi-side BLE node manager runs as `koalabyte-ble-node-manager.service` after one-shot install. It starts the Heltec T114 as the primary passive BLE node, treats ESP32-S3 and Pi BlueZ as secondary/fallback observers, deduplicates observations, and writes logs under `logs/ble_nodes/`.
+
 ---
 
 ## One-script install
 
-The Heltec branch now folds the manual firmware sequence into a single command:
+The Heltec branch now folds the manual firmware and BLE node-manager sequence into a single command:
 
 ```bash
 HELTEC_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --install-firmware
@@ -82,9 +85,10 @@ git checkout heltec
 python3 scripts/check_repo_readiness.py
 BUILD_ONLY=1 bash scripts/flash_all_components.sh --all
 HELTEC_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --heltec-t114
+KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0 bash scripts/install_ble_node_manager_service.sh
 ```
 
-It checks out the `heltec` branch, runs the readiness check, does a build-only preflight, installs/updates the Pi companion, flashes the ESP32-S3 DualEye if connected/configured, flashes the Heltec T114 over USB-C, and runs the CAN manifest check.
+It checks out the `heltec` branch, runs the readiness check, does a build-only preflight, installs/updates the Pi companion, flashes the ESP32-S3 DualEye if connected/configured, flashes the Heltec T114 BLE-primary firmware over USB-C, installs/enables/starts the BLE node manager service, and runs the CAN manifest check.
 
 ---
 
@@ -103,7 +107,7 @@ git checkout heltec
 python3 scripts/check_repo_readiness.py
 ```
 
-Build everything without flashing:
+Build everything without flashing or installing services:
 
 ```bash
 bash scripts/flash_all_components.sh --all --build-only
@@ -115,10 +119,16 @@ Flash the ESP32-S3 DualEye only:
 ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
 ```
 
-Flash the Heltec T114 color mouth/GNSS firmware over USB-C:
+Flash the Heltec T114 color mouth/GNSS/BLE-primary firmware over USB-C:
 
 ```bash
 HELTEC_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --heltec-t114
+```
+
+Install/start only the BLE node manager service:
+
+```bash
+KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --ble-node-manager
 ```
 
 Flash the legacy separate nRF52840 Dongle profile only when you are using that extra dongle:
@@ -169,6 +179,12 @@ GNSS NMEA forwarding from the T114 to the Pi uses this JSON shape:
 {"type":"gnss_nmea","device":"heltec-t114","transport":"usb-cdc","nmea":"$GNRMC,..."}
 ```
 
+BLE advertisement events from the T114 primary node use this JSON shape:
+
+```json
+{"type":"ble_adv_seen","device":"heltec-t114","source":"heltec-t114","role":"primary","transport":"usb-cdc","addr":"AA:BB:CC:DD:EE:FF","addr_type":"random","rssi":-61,"active_scan":false}
+```
+
 ---
 
 ## Main actions and safe scope
@@ -197,9 +213,15 @@ firmware/heltec-mouth/variants/Heltec_T114_Board/variant.cpp
 firmware/heltec-mouth/include/config.h
 firmware/heltec-mouth/src/main.cpp
 firmware/heltec-mouth/README.md
+docs/HELTEC_BLE_NODE_ROLES.md
+pi-companion/koalablue/ble_event_log.py
+pi-companion/koalablue/ble_node_manager.py
+pi-companion/koalablue/killerkoala_face_bridge.py
 scripts/flash_heltec_mouth.sh
 scripts/flash_all_components.sh
-pi-companion/koalablue/killerkoala_face_bridge.py
+scripts/install_ble_node_manager_service.sh
+scripts/run_ble_node_manager.py
+scripts/run_ble_node_manager_service.sh
 scripts/run_killerkoala_face_demo.py
 ```
 
