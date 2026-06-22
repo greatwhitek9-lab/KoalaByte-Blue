@@ -12,12 +12,9 @@ from koalablue.menu_catalog import leaf_menu_entries
 from koalablue.menu_ui import MenuEvent, MenuItem, MenuSelectionScreen
 
 try:
-    from koalblue.gpio_buttons import GPIOButtonManager  # type: ignore
+    from koalablue.gpio_buttons import GPIOButtonManager
 except Exception:
-    try:
-        from koalablue.gpio_buttons import GPIOButtonManager
-    except Exception:
-        GPIOButtonManager = None  # type: ignore
+    GPIOButtonManager = None  # type: ignore
 
 KEY_MAP = {"w":"up","s":"down","a":"move_left","d":"move_right","":"select","m":"main_menu","q":"quit"}
 
