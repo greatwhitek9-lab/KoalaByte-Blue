@@ -14,6 +14,7 @@ RUN_NRF_LAB=0
 RUN_NRF_KONNECT=0
 RUN_CAN_CHECK=0
 RUN_AI_VOICE=0
+RUN_GREATWHITE_SUPPORT=0
 BUILD_ONLY=0
 CHECK_ONLY=0
 RUN_SMOKE=0
@@ -33,6 +34,7 @@ Usage:
   bash scripts/flash_all_components.sh --ble-node-manager
   bash scripts/flash_all_components.sh --ai-voice
   bash scripts/flash_all_components.sh --can-check
+  bash scripts/flash_all_components.sh --greatwhite
   bash scripts/flash_all_components.sh --nrf-konnect
   WIFI_INTERACTIVE=1 bash scripts/flash_all_components.sh --install-firmware
   WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword" bash scripts/flash_all_components.sh --install-firmware
@@ -42,13 +44,14 @@ Usage:
   T114_BOARD=heltec_t114_v2/nrf52840 bash scripts/flash_all_components.sh --nrf-konnect
 
 Targets:
-  --install-firmware  One-script Heltec Edition install: checkout ${CANONICAL_HELTEC_BRANCH}, readiness check, build-only preflight, then install/flash Pi companion, ESP32 DualEye, Heltec T114, BLE node manager service, CAN setup/checks, and CAN manifest/status checks
-  --all               Install Pi companion, prepare KillerKoala AI voice, flash ESP32 DualEye, flash Heltec T114 color mouth/GNSS/BLE firmware, install/start BLE node manager service, set up/check can0, and run Koala Kan checks
+  --install-firmware  One-script Heltec Edition install: checkout ${CANONICAL_HELTEC_BRANCH}, readiness check, build-only preflight, then install/flash Pi companion, ESP32 DualEye, Heltec T114, BLE node manager service, Greatwhite/tshark support, CAN setup/checks, and CAN manifest/status checks
+  --all               Install Pi companion, prepare KillerKoala AI voice, flash ESP32 DualEye, flash Heltec T114 color mouth/GNSS/BLE firmware, install/start BLE node manager service, prepare Greatwhite/tshark support, set up/check can0, and run Koala Kan checks
   --pi                Install/update Raspberry Pi companion environment
   --ai-voice          Prepare/verify KillerKoala phrase-first companion config and optional TinyLlama/Ollama settings
   --esp32             Build and flash ESP32-S3 DualEye firmware with PlatformIO
   --heltec-t114       Build and flash Heltec Mesh Node T114 v2 nRF52840 color TFT mouth/GNSS/BLE-primary firmware over USB-C
   --ble-node-manager  Install/enable/start the Pi-side BLE node manager service with Heltec T114 as primary BLE node
+  --greatwhite        Install/check Greatwhite Wireshark/tshark support and nRF Sniffer host-side status
   --nrf-lab           Optional: build/package/flash separate nRF52840 Dongle KoalaByte Lab firmware
   --nrf-konnect       Optional Koala Konnect action: build/flash the Heltec T114 USB HCI profile for supported BlueZ host use
   --can-check         Load Linux CAN modules, optionally bring up can0, then run Koala Kan Kommander manifest/inventory/status checks
@@ -90,6 +93,12 @@ Environment:
   STRICT_NRF_TOOLS        1 fails if west/nrfutil are unavailable before separate nRF dongle or T114 HCI USB build/flash.
   INSTALL_NCS_TOOLCHAIN   auto/1/0. Default: auto. Downloads/updates full nRF Connect SDK/Zephyr toolchain.
   STRICT_NCS_TOOLCHAIN    1 fails if the full NCS/Zephyr toolchain cannot be prepared.
+  STRICT_GREATWHITE_SUPPORT 1 fails if Greatwhite/tshark support status generation fails. Default: 0.
+  INSTALL_NRF_SNIFFER     auto/1/0. Default: auto. If NRF_SNIFFER_ZIP, NRF_SNIFFER_DIR, or NRF_SNIFFER_URL is provided, one-shot install attempts host-side setup.
+  STRICT_NRF_SNIFFER      1 fails if nRF Sniffer host-side setup is requested but cannot complete. Default: 0.
+  NRF_SNIFFER_ZIP         Optional path to Nordic nRF Sniffer for Bluetooth LE ZIP downloaded by the operator.
+  NRF_SNIFFER_DIR         Optional path to an already extracted Nordic nRF Sniffer package.
+  NRF_SNIFFER_URL         Optional authorized URL to the Nordic sniffer ZIP. Not set by default.
   NCS_WORKSPACE           Default: \$HOME/ncs
   NCS_REVISION            Default: v2.9.0
   ZEPHYR_SDK_VERSION      Default: 0.17.0
@@ -108,6 +117,8 @@ One-script install flow:
     BUILD_ONLY=1 bash scripts/flash_all_components.sh --all
     HELTEC_PORT=\${HELTEC_PORT:-/dev/ttyACM0} bash scripts/flash_all_components.sh --heltec-t114
     KOALABYTE_HELTEC_USB_PORT=\${KOALABYTE_HELTEC_USB_PORT:-\${HELTEC_PORT:-/dev/ttyACM0}} bash scripts/install_ble_node_manager_service.sh
+    python3 scripts/run_gw.py status
+    bash scripts/setup_nrf_sniffer_ble.sh --check-only
     CAN_INTERFACE=\${CAN_INTERFACE:-can0} CAN_BITRATE=\${CAN_BITRATE:-500000} bash scripts/setup_can0.sh
 
 Notes:
@@ -115,13 +126,15 @@ Notes:
   - The Heltec Mesh Node T114 v2 is treated as a USB-C connected nRF52840 board.
   - Heltec GPS, LoRa/SX1262, BLE, and color mouth display use the T114 hardware and communicate to the Pi over USB CDC.
   - The BLE node manager service starts the Heltec T114 as the primary passive BLE scanner automatically after one-shot install.
+  - Greatwhite/tshark support and nRF Sniffer host-side status are prepared by --install-firmware and --all.
+  - If NRF_SNIFFER_ZIP, NRF_SNIFFER_DIR, NRF_SNIFFER_URL, or INSTALL_NRF_SNIFFER=1 is provided, one-shot install attempts host-side nRF Sniffer extcap setup; otherwise it records check-only status.
   - Do not wire Heltec TX/RX pins to the Raspberry Pi GPIO header for the KillerKoala face/GNSS/LoRa/BLE channel.
   - The InnoMaker CAN adapter does not get flashed; KoalaByte uses Linux SocketCAN, can-utils, python-can, and Koala Kan Kommander scripts.
   - --install-firmware and --all run setup_can0.sh, then Koala Kan Kommander manifest, inventory, and status checks.
   - The separate Nordic nRF52840 Dongle is optional/legacy on this branch; it is not flashed by --all.
   - --nrf-konnect is the optional Koala Konnect action for the Heltec T114 USB HCI profile; flashing it replaces the normal Heltec mouth/GNSS/BLE-primary firmware until that profile is flashed back.
   - WiFi/internet can be configured first so the Pi can download SDK/toolchain dependencies.
-  - System packages, PlatformIO, west, nrfutil, and the full NCS/Zephyr toolchain are checked/prepared before relevant flashing steps.
+  - System packages, PlatformIO, west, nrfutil, the full NCS/Zephyr toolchain, tshark, Wireshark host pieces, and unzip are checked/prepared before relevant flashing steps.
   - Pi system package setup also installs AI voice/TTS dependencies: espeak-ng, espeak, ALSA tools, PulseAudio CLI utilities, PortAudio, and python3-pyaudio.
   - KillerKoala AI voice setup keeps the anti-repeat phrase engine as the fast default and only uses TinyLlama/Ollama for flexible banter when enabled.
   - KillerKoala boot welcome speech runs after the mode selector and before the splash/menu unless KILLERKOALA_BOOT_WELCOME=0.
@@ -146,6 +159,7 @@ while [[ $# -gt 0 ]]; do
       RUN_ESP32=1
       RUN_HELTEC_T114=1
       RUN_BLE_NODE_MANAGER=1
+      RUN_GREATWHITE_SUPPORT=1
       RUN_CAN_CHECK=1
       ;;
     --all)
@@ -154,6 +168,7 @@ while [[ $# -gt 0 ]]; do
       RUN_ESP32=1
       RUN_HELTEC_T114=1
       RUN_BLE_NODE_MANAGER=1
+      RUN_GREATWHITE_SUPPORT=1
       RUN_CAN_CHECK=1
       ;;
     --pi) RUN_PI=1 ;;
@@ -161,6 +176,7 @@ while [[ $# -gt 0 ]]; do
     --esp32) RUN_ESP32=1 ;;
     --heltec-t114) RUN_HELTEC_T114=1 ;;
     --ble-node-manager) RUN_PI=1; RUN_BLE_NODE_MANAGER=1 ;;
+    --greatwhite) RUN_GREATWHITE_SUPPORT=1 ;;
     --nrf-lab) RUN_NRF_LAB=1 ;;
     --nrf-konnect) RUN_NRF_KONNECT=1 ;;
     --can-check) RUN_CAN_CHECK=1 ;;
@@ -221,8 +237,12 @@ if [[ "${RUN_NRF_LAB}" == "1" && "${RUN_NRF_KONNECT}" == "1" && "${BUILD_ONLY}" 
   exit 2
 fi
 
+any_selected_for_network_or_packages() {
+  [[ "${RUN_PI}" == "1" || "${RUN_AI_VOICE}" == "1" || "${RUN_ESP32}" == "1" || "${RUN_HELTEC_T114}" == "1" || "${RUN_BLE_NODE_MANAGER}" == "1" || "${RUN_GREATWHITE_SUPPORT}" == "1" || "${RUN_NRF_LAB}" == "1" || "${RUN_NRF_KONNECT}" == "1" || "${RUN_CAN_CHECK}" == "1" ]]
+}
+
 setup_wifi_for_selected_mode() {
-  if [[ "${RUN_PI}" != "1" && "${RUN_AI_VOICE}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_HELTEC_T114}" != "1" && "${RUN_BLE_NODE_MANAGER}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
+  if ! any_selected_for_network_or_packages; then
     return 0
   fi
   echo
@@ -231,11 +251,11 @@ setup_wifi_for_selected_mode() {
 }
 
 setup_system_packages_for_selected_mode() {
-  if [[ "${RUN_PI}" != "1" && "${RUN_AI_VOICE}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_HELTEC_T114}" != "1" && "${RUN_BLE_NODE_MANAGER}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
+  if ! any_selected_for_network_or_packages; then
     return 0
   fi
   echo
-  echo "== Raspberry Pi/system package dependency setup, including CAN, python-can, and AI voice/TTS packages =="
+  echo "== Raspberry Pi/system package dependency setup, including CAN, python-can, Greatwhite/tshark, and AI voice/TTS packages =="
   STRICT_SYSTEM_PACKAGES="${STRICT_SYSTEM_PACKAGES:-0}" bash scripts/setup_system_packages.sh
 }
 
@@ -291,6 +311,39 @@ JSON
     PYTHONPATH=pi-companion python3 scripts/run_killerkoala_hybrid.py status --xp 100 --no-history > logs/killerkoala/flash_all_ai_voice_preview.json
   echo "KillerKoala AI voice config written to logs/killerkoala/flash_all_ai_voice_config.json"
   echo "Phrase-first preview written to logs/killerkoala/flash_all_ai_voice_preview.json"
+}
+
+setup_greatwhite_support_for_selected_mode() {
+  if [[ "${RUN_GREATWHITE_SUPPORT}" != "1" && "${RUN_SMOKE}" != "1" ]]; then
+    return 0
+  fi
+  echo
+  echo "== Greatwhite Wireshark/tshark and nRF Sniffer host-side support =="
+  mkdir -p logs/greatwhite logs/hardware_validation
+
+  local install_sniffer_requested=0
+  case "${INSTALL_NRF_SNIFFER:-auto}" in
+    1|true|True|yes|YES) install_sniffer_requested=1 ;;
+  esac
+  if [[ -n "${NRF_SNIFFER_ZIP:-}" || -n "${NRF_SNIFFER_DIR:-}" || -n "${NRF_SNIFFER_URL:-}" ]]; then
+    install_sniffer_requested=1
+  fi
+
+  if [[ "${install_sniffer_requested}" == "1" ]]; then
+    echo "nRF Sniffer package source provided/requested; attempting host-side extcap setup."
+    if ! STRICT_NRF_SNIFFER="${STRICT_NRF_SNIFFER:-0}" bash scripts/setup_nrf_sniffer_ble.sh; then
+      echo "warning: nRF Sniffer host-side setup reported an issue" >&2
+      [[ "${STRICT_NRF_SNIFFER:-0}" == "1" ]] && exit 1
+    fi
+  else
+    echo "No Nordic nRF Sniffer package provided; recording check-only status."
+    bash scripts/setup_nrf_sniffer_ble.sh --check-only || true
+  fi
+
+  if ! python3 scripts/run_gw.py status; then
+    echo "warning: Greatwhite status check reported an issue" >&2
+    [[ "${STRICT_GREATWHITE_SUPPORT:-0}" == "1" ]] && exit 1
+  fi
 }
 
 install_ble_node_manager_for_selected_mode() {
@@ -349,6 +402,7 @@ if [[ "${RUN_PI}" == "1" ]]; then
 fi
 
 setup_killerkoala_ai_voice_for_selected_mode
+setup_greatwhite_support_for_selected_mode
 setup_platformio_for_selected_mode
 setup_nrf_tools_for_selected_mode
 
@@ -420,6 +474,8 @@ if [[ "${RUN_SMOKE}" == "1" ]]; then
   PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status --xp 100
   PYTHONPATH=pi-companion python3 scripts/run_killerkoala_hybrid.py banter --xp 100 --flexible --text "flash all smoke check" --no-history || true
   PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest --interface "${CAN_INTERFACE:-can0}"
+  python3 scripts/run_gw.py status || true
+  bash scripts/setup_nrf_sniffer_ble.sh --check-only || true
   PYTHONPATH=pi-companion python3 scripts/check_killerkoala_boot_welcome.py
   KOALABYTE_TTS=0 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py preview --event boomerang_xp --xp 100 >/dev/null
   PYTHONPATH=pi-companion python3 scripts/check_eucalyptus_cyberpet.py
