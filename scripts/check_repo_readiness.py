@@ -16,8 +16,11 @@ NEEDED=[
 "pi-companion/koalablue/killerkoala_voice_face_control.py",
 "scripts/run_killerkoala_face_demo.py",
 "scripts/flash_heltec_mouth.sh",
+"scripts/flash_all_components.sh",
+"scripts/build_firmware_all.sh",
 ]
 TEXT={
+"README.md":["Heltec Mesh Node T114 v2","USB-C data cable","KOALABYTE_HELTEC_USB_PORT","--heltec-t114"],
 "firmware/esp32-dualeye/src/killerkoala_ai_face.cpp":["drawEye","eyes only"],
 "firmware/heltec-mouth/README.md":["USB-C data cable","Do not wire","L76K GNSS","gnss_nmea"],
 "firmware/heltec-mouth/platformio.ini":["board = heltec_t114","board_build.variants_dir = variants","Adafruit ST7735 and ST7789"],
@@ -26,6 +29,9 @@ TEXT={
 "firmware/heltec-mouth/include/config.h":["KOALA_GNSS_ENABLED","KOALA_GNSS_BAUD","KOALA_GNSS_REPORT_MS"],
 "firmware/heltec-mouth/src/main.cpp":["Adafruit_ST7789","Serial.begin","Serial1.begin","gnss_nmea","drawSnout","drawSolidMouth"],
 "pi-companion/koalablue/killerkoala_face_bridge.py":["KOALABYTE_HELTEC_USB_PORT","heltec_connection","usb-cdc"],
+"scripts/run_killerkoala_face_demo.py":["Heltec T114 color TFT","emit_face"],
+"scripts/flash_all_components.sh":["--heltec-t114","RUN_HELTEC_T114","scripts/flash_heltec_mouth.sh"],
+"scripts/build_firmware_all.sh":["firmware/heltec-mouth","Heltec Mesh Node T114 v2"],
 "scripts/run_menu_screen.py":["emit_selected_action_face"],
 }
 def main():
