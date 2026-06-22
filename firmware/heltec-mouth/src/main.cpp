@@ -11,11 +11,58 @@ static bool active=false, ready=false;
 static char stateName[18]="idle";
 static char lineText[64]="";
 static uint8_t frameNo=0;
-static uint32_t untilMs=0,lastMs=0,startMs=0;
+static uint32_t untilMs=0,lastMs=0,startMs=0,lastGnssMs=0;
+static char gnssLine[128]="", lastGnss[128]="";
+static uint8_t gnssPos=0;
 
 static bool eq(const char*a,const char*b){return a&&b&&!strcasecmp(a,b);} 
 static uint8_t phase(){return (uint8_t)(((millis()-startMs)/80)%24);}  // same beat as DualEye eyes
 static int beat(){return frameNo<12?frameNo:24-frameNo;}
+
+static void sendGnssLine(const char* nmea){
+#if KOALA_GNSS_ENABLED
+  if(!nmea||!nmea[0])return;
+  StaticJsonDocument<256> doc;
+  doc["type"]="gnss_nmea"; doc["device"]="heltec-t114"; doc["transport"]="usb-cdc"; doc["nmea"]=nmea;
+  serializeJson(doc,Serial); Serial.println();
+#endif
+}
+
+static void beginGnss(){
+#if KOALA_GNSS_ENABLED
+  Serial1.begin(KOALA_GNSS_BAUD);
+#endif
+}
+
+static void pollGnss(){
+#if KOALA_GNSS_ENABLED
+  while(Serial1.available()){
+    char ch=(char)Serial1.read();
+    if(ch=='\n'){
+      gnssLine[gnssPos]='\0';
+      if(gnssPos>6 && gnssLine[0]=='$'){
+        snprintf(lastGnss,sizeof(lastGnss),"%s",gnssLine);
+        uint32_t now=millis();
+        if(now-lastGnssMs>=KOALA_GNSS_REPORT_MS){lastGnssMs=now; sendGnssLine(lastGnss);}      
+      }
+      gnssPos=0;
+    }else if(ch!='\r'){
+      if(gnssPos<sizeof(gnssLine)-1)gnssLine[gnssPos++]=ch; else gnssPos=0;
+    }
+  }
+#endif
+}
+
+static void sendGnssStatus(){
+  StaticJsonDocument<256> doc;
+  doc["type"]="gnss_status"; doc["device"]="heltec-t114"; doc["transport"]="usb-cdc";
+#if KOALA_GNSS_ENABLED
+  doc["enabled"]=true; doc["baud"]=KOALA_GNSS_BAUD; doc["last_nmea"]=lastGnss;
+#else
+  doc["enabled"]=false;
+#endif
+  serializeJson(doc,Serial); Serial.println();
+}
 
 static void powerPanel(bool on){
   pinMode(KOALA_TFT_VDD_CTL,OUTPUT); pinMode(KOALA_TFT_BL,OUTPUT); pinMode(KOALA_TFT_RST,OUTPUT);
@@ -126,7 +173,7 @@ static void showFace(const char*state,const char*msg,int duration){
 }
 
 static void sendAck(const char*state){
-  StaticJsonDocument<160> ack; ack["type"]="killerkoala_tft_ack"; ack["device"]="heltec-t114-color"; ack["state"]=state; ack["active"]=isActive(); serializeJson(ack,Serial); Serial.println();
+  StaticJsonDocument<192> ack; ack["type"]="killerkoala_tft_ack"; ack["device"]="heltec-t114-color"; ack["state"]=state; ack["active"]=isActive(); ack["gnss_enabled"]=KOALA_GNSS_ENABLED; serializeJson(ack,Serial); Serial.println();
 }
 
 static void handleJson(const String&line){
@@ -136,6 +183,8 @@ static void handleJson(const String&line){
     bool enabled=doc["enabled"]|true; const char*state=doc["state"]|"listening";
     if(!enabled){active=false;beginTft();tft.fillScreen(KOALA_COLOR_BG);sendAck("hidden");return;}
     showFace(state,doc["message"]|"",doc["duration_ms"]|KOALA_FACE_DEFAULT_DURATION_MS); sendAck(state);
+  }else if(!strcmp(type,"gnss_status")){
+    sendGnssStatus();
   }else if(!strcmp(type,"screen")){
     active=false; beginTft(); tft.fillScreen(KOALA_COLOR_BG); sendAck("suppressed_for_app");
   }
@@ -157,8 +206,8 @@ static void tick(){
 
 void setup(){
   Serial.begin(KOALA_TFT_SERIAL_BAUD); delay(300);
-  beginTft(); showFace("idle","color mouth ready",2200);
-  StaticJsonDocument<160> boot; boot["type"]="boot"; boot["device"]="heltec-t114-color"; boot["fw"]=KOALA_TFT_FW_VERSION; serializeJson(boot,Serial); Serial.println();
+  beginTft(); beginGnss(); showFace("idle","color mouth + GNSS ready",2200);
+  StaticJsonDocument<192> boot; boot["type"]="boot"; boot["device"]="heltec-t114-color"; boot["fw"]=KOALA_TFT_FW_VERSION; boot["transport"]="usb-cdc"; boot["gnss_enabled"]=KOALA_GNSS_ENABLED; serializeJson(boot,Serial); Serial.println();
 }
 
-void loop(){pollSerial();tick();delay(10);} 
+void loop(){pollSerial();pollGnss();tick();delay(10);} 
