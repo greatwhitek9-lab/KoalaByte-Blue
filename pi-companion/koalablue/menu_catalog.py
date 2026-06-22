@@ -15,51 +15,13 @@ MENU_GROUPS: List[str] = [
 _GROUP_ORDER = {name: index for index, name in enumerate(MENU_GROUPS)}
 
 MAIN_MENU_ITEMS: List[dict[str, object]] = [
-    {"group": "Bluetooth Tools", "label": "Scan", "command": "scan", "description": "Run a safe local BLE inventory scan"},
-    {"group": "Bluetooth Tools", "label": "Summary", "command": "summary", "description": "Summarize observed local BLE devices"},
-    {"group": "Bluetooth Tools", "label": "Show Devices", "command": "show", "description": "Show the current local BLE device table"},
     {"group": "Bluetooth Tools", "label": "Eucalyptus", "command": "submenu:eucalyptus", "description": "Open the eucalyptus canopy submenu for passive BLE logger controls"},
-    {"group": "Bluetooth Tools", "label": "Koala Kapture", "command": "koala_kapture", "description": "Record authorized lab observation metadata"},
-    {"group": "Bluetooth Tools", "label": "Koala Kry", "command": "koala_kry", "description": "Replay local saved metadata into the report pipeline"},
-    {"group": "Reports & Reviews", "label": "Koala Kry RF Review", "command": "koala_kry_transmit_review", "description": "Write RF bench isolation and authorization review; no RF is sent"},
-    {"group": "Bluetooth Tools", "label": "Ear Tag", "command": "ear_tag", "description": "Named lab BLE beacon"},
-    {"group": "Bluetooth Tools", "label": "KoalaByte Lab", "command": "ear_tag_tx_lab", "description": "Synthetic owned-device BLE lab advertisement"},
-    {"group": "System / Companion", "label": "Koala Mode Switcher", "command": "koala_mode_switcher", "description": "Build/package/select KoalaByte Lab or Koala Konnect for the nRF52840 Dongle"},
-    {"group": "System / Companion", "label": "Canopy Konnect T114", "command": "koala_konnect_t114", "description": "Optional Heltec T114 USB HCI profile; replaces mouth/GNSS mode until flashed back"},
-    {"group": "System / Companion", "label": "Canopy Konnect Build Check", "command": "koala_konnect_t114_build_only", "description": "Build-only T114 HCI check before the optional Koala Konnect flash"},
-    {"group": "CAN Bench Tools", "label": "Koala Kan Kommander", "command": "koala_kan_kommander", "description": "InnoMaker USB-to-CAN listen and gated bench-simulator transmit plug-in"},
-    {"group": "Bluetooth Tools", "label": "Gumleaf Gear Check", "command": "koala_bluez_inventory", "description": "Inventory local BlueZ helpers"},
-    {"group": "Bluetooth Tools", "label": "Eucalyptus Bus Scout", "command": "koala_bluez_status", "description": "Collect local adapter and controller status"},
-    {"group": "Bluetooth Tools", "label": "Dropbear Discovery Sweep", "command": "koala_bluez_scan", "description": "Run bounded local discovery with safe defaults"},
-    {"group": "Bluetooth Tools", "label": "Billabong HCI Watch", "command": "koala_bluez_monitor", "description": "Run bounded local HCI capture"},
-    {"group": "Bluetooth Tools", "label": "Kookaburra Safe Nest Run", "command": "koala_bluez_all_safe", "description": "Run local inventory, status, and bounded discovery"},
-    {"group": "Bluetooth Tools", "label": "T114 Vine HCI Check", "command": "t114_bluez_controller_check", "description": "Check whether the Heltec T114 appears as a USB Bluetooth HCI controller"},
-    {"group": "Bluetooth Tools", "label": "T114 Canopy Safe Sweep", "command": "t114_bluez_all_safe", "description": "Run local T114 HCI inventory/status/bounded scan checks"},
-    {"group": "Bluetooth Tools", "label": "Meshtastic Gumleaf Status", "command": "meshtastic_status", "description": "Show protected Meshtastic helper status for the T114 trail node"},
-    {"group": "Bluetooth Tools", "label": "Meshtastic Billabong Nodes", "command": "meshtastic_nodes", "description": "List authorized mesh nodes through the T114 helper"},
-    {"group": "Bluetooth Tools", "label": "that’s not a knife", "command": "thats_not_a_knife", "description": "that’s not a knife defensive local BLE pressure guard"},
-    {"group": "Bluetooth Tools", "label": "AntEater", "command": "anteater", "description": "Passive BLE payment-terminal risk triage with redacted reports"},
-    {"group": "Reports & Reviews", "label": "Greatwhite Reef Patrol", "command": "greatwhite_status", "description": "Check jungle-lab tshark/Wireshark readiness and local capture tooling"},
-    {"group": "Reports & Reviews", "label": "Greatwhite Interface Lagoon", "command": "greatwhite_interfaces", "description": "List owned lab packet-review interfaces before any bounded capture"},
-    {"group": "Reports & Reviews", "label": "nRF Sniffer Nest Check", "command": "nrf_sniffer_check", "description": "Check host-side Nordic nRF Sniffer extcap status without redistributing Nordic files"},
-    {"group": "System / Companion", "label": "KillerKoala Voice", "command": "killerkoala_voice", "description": "Preview event reactions and vocabulary by XP rank"},
-    {"group": "Bluetooth Tools", "label": "Urban Poaching", "command": "urban_poaching", "description": "Authorized BLE RSSI lab game"},
-    {"group": "System / Companion", "label": "Buttons", "command": "buttons", "description": "Show/check GPIO front-panel button status"},
-    {"group": "System / Companion", "label": "Level / Status", "command": "level/status", "description": "Show XP and rank"},
-    {"group": "Reports & Reviews", "label": "Report", "command": "report", "description": "Write a Markdown session report"},
-    {"group": "Reports & Reviews", "label": "Boomerang", "command": "boomerang", "description": "Boomerang camera-awareness logbook; manual public observations; stays open until quit"},
-    {"group": "System / Companion", "label": "Wake killerkoala", "command": "wake killerkoala", "description": "Test wake-word flow"},
-    {"group": "Reports & Reviews", "label": "Authorized BLE Inventory", "command": "authorized_ble_inventory", "description": "Create a lab inventory from local observations"},
-    {"group": "Reports & Reviews", "label": "GATT Readiness Checklist", "command": "gatt_readiness_checklist", "description": "Generate a pre-test checklist for owned-device GATT review"},
-    {"group": "Reports & Reviews", "label": "Pairing Security Review", "command": "pairing_security_review", "description": "Review owned-device pairing/access-control posture"},
-    {"group": "Reports & Reviews", "label": "Lab Beacon Plan", "command": "lab_beacon_plan", "description": "Create a safe ESP32 demo beacon/peripheral testing plan"},
-    {"group": "Reports & Reviews", "label": "Packet Capture Notes", "command": "packet_capture_notes", "description": "Create protocol-analysis notes"},
-    {"group": "Reports & Reviews", "label": "Defensive Lab Report", "command": "defensive_report", "description": "Generate a defensive lab report template"},
-    {"group": "System / Companion", "label": "Restricted Placeholder", "command": "restricted_placeholder", "description": "Reserved locked slot; intentionally non-operational", "enabled": False},
-    {"group": "System / Companion", "label": "Settings", "command": "settings", "description": "Device and companion settings"},
+    {"group": "Bluetooth Tools", "label": "Bluetooth Tools", "command": "submenu:bluetooth", "description": "Open the jungle Bluetooth tool chest"},
+    {"group": "CAN Bench Tools", "label": "CAN Bench Tools", "command": "submenu:can_bench", "description": "Open isolated Koala Kan bench and simulator checks"},
+    {"group": "Reports & Reviews", "label": "Reports & Reviews", "command": "submenu:reports", "description": "Open reports, reviews, Greatwhite, and defensive notes"},
+    {"group": "System / Companion", "label": "System / Companion", "command": "submenu:system", "description": "Open companion, voice, buttons, settings, and mode helpers"},
     {"group": "System / Companion", "label": "Lab", "command": "submenu:lab", "description": "Open the password-gated Authorized Lab Use submenu"},
-    {"group": "System / Companion", "label": "Shutdown", "command": "shutdown_confirm", "description": "Confirm safe shutdown"},
-    {"group": "System / Companion", "label": "Quit", "command": "quit", "description": "Exit the Pi companion UI"},
+    {"group": "System / Companion", "label": "Power & Exit", "command": "submenu:power", "description": "Open shutdown and quit controls"},
 ]
 
 SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
@@ -70,6 +32,60 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         {"group": "Bluetooth Tools", "label": "Eucalyptus Canopy Restart", "command": "eucalyptus restart", "description": "Restart always-on passive BLE logging"},
         {"group": "Bluetooth Tools", "label": "Eucalyptus Upload Trail", "command": "eucalyptus upload-status", "description": "Show upload readiness/status"},
         {"group": "Bluetooth Tools", "label": "Eucalyptus Koalagotchi Mode", "command": "eucalyptus_mode", "description": "Open the Koalagotchi always-on Bluetooth scanner/logger screen"},
+        {"group": "System / Companion", "label": "Back to Main Canopy", "command": "submenu:main", "description": "Return to the main KoalaByte Blue menu"},
+    ],
+    "bluetooth": [
+        {"group": "Bluetooth Tools", "label": "Scan", "command": "scan", "description": "Run a safe local BLE inventory scan"},
+        {"group": "Bluetooth Tools", "label": "Summary", "command": "summary", "description": "Summarize observed local BLE devices"},
+        {"group": "Bluetooth Tools", "label": "Show Devices", "command": "show", "description": "Show the current local BLE device table"},
+        {"group": "Bluetooth Tools", "label": "Koala Kapture", "command": "koala_kapture", "description": "Record authorized lab observation metadata"},
+        {"group": "Bluetooth Tools", "label": "Koala Kry", "command": "koala_kry", "description": "Replay local saved metadata into the report pipeline"},
+        {"group": "Bluetooth Tools", "label": "Ear Tag", "command": "ear_tag", "description": "Named lab BLE beacon"},
+        {"group": "Bluetooth Tools", "label": "KoalaByte Lab", "command": "ear_tag_tx_lab", "description": "Synthetic owned-device BLE lab advertisement"},
+        {"group": "Bluetooth Tools", "label": "Gumleaf Gear Check", "command": "koala_bluez_inventory", "description": "Inventory local BlueZ helpers"},
+        {"group": "Bluetooth Tools", "label": "Eucalyptus Bus Scout", "command": "koala_bluez_status", "description": "Collect local adapter and controller status"},
+        {"group": "Bluetooth Tools", "label": "Dropbear Discovery Sweep", "command": "koala_bluez_scan", "description": "Run bounded local discovery with safe defaults"},
+        {"group": "Bluetooth Tools", "label": "Billabong HCI Watch", "command": "koala_bluez_monitor", "description": "Run bounded local HCI capture"},
+        {"group": "Bluetooth Tools", "label": "Kookaburra Safe Nest Run", "command": "koala_bluez_all_safe", "description": "Run local inventory, status, and bounded discovery"},
+        {"group": "Bluetooth Tools", "label": "T114 Vine HCI Check", "command": "t114_bluez_controller_check", "description": "Check whether the Heltec T114 appears as a USB Bluetooth HCI controller"},
+        {"group": "Bluetooth Tools", "label": "T114 Canopy Safe Sweep", "command": "t114_bluez_all_safe", "description": "Run local T114 HCI inventory/status/bounded scan checks"},
+        {"group": "Bluetooth Tools", "label": "Meshtastic Gumleaf Status", "command": "meshtastic_status", "description": "Show protected Meshtastic helper status for the T114 trail node"},
+        {"group": "Bluetooth Tools", "label": "Meshtastic Billabong Nodes", "command": "meshtastic_nodes", "description": "List authorized mesh nodes through the T114 helper"},
+        {"group": "Bluetooth Tools", "label": "that’s not a knife", "command": "thats_not_a_knife", "description": "that’s not a knife defensive local BLE pressure guard"},
+        {"group": "Bluetooth Tools", "label": "AntEater", "command": "anteater", "description": "Passive BLE payment-terminal risk triage with redacted reports"},
+        {"group": "Bluetooth Tools", "label": "Urban Poaching", "command": "urban_poaching", "description": "Authorized BLE RSSI lab game"},
+        {"group": "System / Companion", "label": "Back to Main Canopy", "command": "submenu:main", "description": "Return to the main KoalaByte Blue menu"},
+    ],
+    "can_bench": [
+        {"group": "CAN Bench Tools", "label": "Koala Kan Kommander", "command": "koala_kan_kommander", "description": "InnoMaker USB-to-CAN listen and gated bench-simulator transmit plug-in"},
+        {"group": "CAN Bench Tools", "label": "CAN Bench Safety Check", "command": "koala_kan_kommander", "description": "Open Koala Kan safe manifest/inventory/status workflow"},
+        {"group": "System / Companion", "label": "Back to Main Canopy", "command": "submenu:main", "description": "Return to the main KoalaByte Blue menu"},
+    ],
+    "reports": [
+        {"group": "Reports & Reviews", "label": "Koala Kry RF Review", "command": "koala_kry_transmit_review", "description": "Write RF bench isolation and authorization review; no RF is sent"},
+        {"group": "Reports & Reviews", "label": "Greatwhite Reef Patrol", "command": "greatwhite_status", "description": "Check jungle-lab tshark/Wireshark readiness and local capture tooling"},
+        {"group": "Reports & Reviews", "label": "Greatwhite Interface Lagoon", "command": "greatwhite_interfaces", "description": "List owned lab packet-review interfaces before any bounded capture"},
+        {"group": "Reports & Reviews", "label": "nRF Sniffer Nest Check", "command": "nrf_sniffer_check", "description": "Check host-side Nordic nRF Sniffer extcap status without redistributing Nordic files"},
+        {"group": "Reports & Reviews", "label": "Report", "command": "report", "description": "Write a Markdown session report"},
+        {"group": "Reports & Reviews", "label": "Boomerang", "command": "boomerang", "description": "Boomerang camera-awareness logbook; manual public observations; stays open until quit"},
+        {"group": "Reports & Reviews", "label": "Authorized BLE Inventory", "command": "authorized_ble_inventory", "description": "Create a lab inventory from local observations"},
+        {"group": "Reports & Reviews", "label": "GATT Readiness Checklist", "command": "gatt_readiness_checklist", "description": "Generate a pre-test checklist for owned-device GATT review"},
+        {"group": "Reports & Reviews", "label": "Pairing Security Review", "command": "pairing_security_review", "description": "Review owned-device pairing/access-control posture"},
+        {"group": "Reports & Reviews", "label": "Lab Beacon Plan", "command": "lab_beacon_plan", "description": "Create a safe ESP32 demo beacon/peripheral testing plan"},
+        {"group": "Reports & Reviews", "label": "Packet Capture Notes", "command": "packet_capture_notes", "description": "Create protocol-analysis notes"},
+        {"group": "Reports & Reviews", "label": "Defensive Lab Report", "command": "defensive_report", "description": "Generate a defensive lab report template"},
+        {"group": "System / Companion", "label": "Back to Main Canopy", "command": "submenu:main", "description": "Return to the main KoalaByte Blue menu"},
+    ],
+    "system": [
+        {"group": "System / Companion", "label": "Koala Mode Switcher", "command": "koala_mode_switcher", "description": "Build/package/select KoalaByte Lab or Koala Konnect for the nRF52840 Dongle"},
+        {"group": "System / Companion", "label": "Canopy Konnect T114", "command": "koala_konnect_t114", "description": "Optional Heltec T114 USB HCI profile; replaces mouth/GNSS mode until flashed back"},
+        {"group": "System / Companion", "label": "Canopy Konnect Build Check", "command": "koala_konnect_t114_build_only", "description": "Build-only T114 HCI check before the optional Koala Konnect flash"},
+        {"group": "System / Companion", "label": "KillerKoala Voice", "command": "killerkoala_voice", "description": "Preview event reactions and vocabulary by XP rank"},
+        {"group": "System / Companion", "label": "Buttons", "command": "buttons", "description": "Show/check GPIO front-panel button status"},
+        {"group": "System / Companion", "label": "Level / Status", "command": "level/status", "description": "Show XP and rank"},
+        {"group": "System / Companion", "label": "Wake killerkoala", "command": "wake killerkoala", "description": "Test wake-word flow"},
+        {"group": "System / Companion", "label": "Restricted Placeholder", "command": "restricted_placeholder", "description": "Reserved locked slot; intentionally non-operational", "enabled": False},
+        {"group": "System / Companion", "label": "Settings", "command": "settings", "description": "Device and companion settings"},
         {"group": "System / Companion", "label": "Back to Main Canopy", "command": "submenu:main", "description": "Return to the main KoalaByte Blue menu"},
     ],
     "lab": [
@@ -84,6 +100,11 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         {"group": "CAN Bench Tools", "label": "CAN Bench Safety Check", "command": "koala_kan_kommander", "description": "Open Koala Kan safe manifest/inventory/status workflow"},
         {"group": "System / Companion", "label": "Back to Main Canopy", "command": "submenu:main", "description": "Return to the main KoalaByte Blue menu"},
     ],
+    "power": [
+        {"group": "System / Companion", "label": "Shutdown", "command": "shutdown_confirm", "description": "Confirm safe shutdown"},
+        {"group": "System / Companion", "label": "Quit", "command": "quit", "description": "Exit the Pi companion UI"},
+        {"group": "System / Companion", "label": "Back to Main Canopy", "command": "submenu:main", "description": "Return to the main KoalaByte Blue menu"},
+    ],
 }
 
 FUNCTION_MENU_ITEMS = MAIN_MENU_ITEMS
@@ -94,12 +115,32 @@ def submenu_name_from_command(command: str) -> str:
 
 
 def submenu_title(menu_name: str) -> str:
-    titles = {"main": "Main Canopy", "eucalyptus": "Eucalyptus", "lab": "Authorized Lab"}
+    titles = {
+        "main": "Main Canopy",
+        "eucalyptus": "Eucalyptus",
+        "bluetooth": "Bluetooth Tools",
+        "can_bench": "CAN Bench Tools",
+        "reports": "Reports & Reviews",
+        "system": "System / Companion",
+        "lab": "Authorized Lab",
+        "power": "Power & Exit",
+    }
     return titles.get(menu_name, menu_name.replace("_", " ").title())
 
 
 def _entries_for_menu(menu_name: str = "main") -> List[dict[str, object]]:
     return MAIN_MENU_ITEMS if menu_name == "main" else SUBMENU_ITEMS.get(menu_name, [])
+
+
+def all_menu_entries() -> List[dict[str, object]]:
+    entries: List[dict[str, object]] = list(MAIN_MENU_ITEMS)
+    for submenu_entries in SUBMENU_ITEMS.values():
+        entries.extend(submenu_entries)
+    return entries
+
+
+def leaf_menu_entries() -> List[dict[str, object]]:
+    return [entry for entry in all_menu_entries() if not str(entry.get("command", "")).startswith("submenu:") and bool(entry.get("enabled", True))]
 
 
 def _entry_group(entry: dict[str, object]) -> str:
