@@ -31,7 +31,7 @@ TEXT={
 "pi-companion/koalablue/killerkoala_face_bridge.py":["KOALABYTE_HELTEC_USB_PORT","heltec_connection","usb-cdc"],
 "scripts/run_killerkoala_face_demo.py":["Heltec T114 color TFT","emit_face"],
 "scripts/flash_heltec_mouth.sh":["KOALABYTE_HELTEC_USB_PORT","heltec_t114.json","firmware/heltec-mouth"],
-"scripts/flash_all_components.sh":["--heltec-t114","RUN_HELTEC_T114","scripts/flash_heltec_mouth.sh"],
+"scripts/flash_all_components.sh":["--install-firmware","git checkout heltec","PREFLIGHT_BUILD","--heltec-t114","RUN_HELTEC_T114","scripts/flash_heltec_mouth.sh"],
 "scripts/build_firmware_all.sh":["firmware/heltec-mouth","Heltec Mesh Node T114 v2"],
 "scripts/run_menu_screen.py":["emit_selected_action_face"],
 }
