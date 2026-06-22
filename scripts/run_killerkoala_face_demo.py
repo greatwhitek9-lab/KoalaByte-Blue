@@ -9,7 +9,7 @@ from koalablue.killerkoala_face_bridge import emit_face
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Preview the split KillerKoala koala face on ESP32 DualEye plus Heltec OLED")
+    parser = argparse.ArgumentParser(description="Preview split KillerKoala face: ESP32-S3 DualEye eyes plus Heltec T114 color TFT mouth over USB")
     parser.add_argument("--state", choices=["wake", "listening", "thinking", "speaking", "action", "success", "error"], help="Send one state only")
     parser.add_argument("--message", default="killerkoala online")
     parser.add_argument("--duration-ms", type=int, default=2500)
