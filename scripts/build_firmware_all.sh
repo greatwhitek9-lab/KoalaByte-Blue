@@ -29,7 +29,7 @@ if command -v pio >/dev/null 2>&1; then
   pio run -d firmware/esp32-dualeye
   BUILT_ANY=1
 
-  echo "Building Heltec Mesh Node T114 v2 color mouth/GNSS firmware..."
+  echo "Building Heltec Mesh Node T114 v2 color mouth/GNSS/BLE-primary firmware..."
   pio run -d firmware/heltec-mouth
   BUILT_ANY=1
 else
@@ -40,7 +40,7 @@ else
 fi
 
 if [[ "${BUILD_SEPARATE_NRF:-0}" == "1" || "${BUILD_KOALA_KONNECT:-0}" == "1" ]]; then
-  echo "Checking/preparing west for optional separate nRF52840 Dongle Zephyr builds..."
+  echo "Checking/preparing west for optional nRF/T114 Zephyr builds..."
   if ! STRICT_NRF_TOOLS="${STRICT_TOOLS}" bash scripts/setup_nrf_tools.sh --west-only; then
     echo "west setup/check failed." >&2
     if [[ "${STRICT_TOOLS}" == "1" ]]; then
@@ -63,23 +63,23 @@ if [[ "${BUILD_SEPARATE_NRF:-0}" == "1" || "${BUILD_KOALA_KONNECT:-0}" == "1" ]]
       BUILT_ANY=1
     fi
     if [[ "${BUILD_KOALA_KONNECT:-0}" == "1" ]]; then
-      echo "Building optional Koala Konnect external Bluetooth adapter firmware..."
-      bash scripts/build_nrf52840_dongle_hci_usb_adapter.sh
+      echo "Building optional Koala Konnect Heltec T114 USB HCI firmware..."
+      T114_BOARD="${T114_BOARD:-heltec_t114_v2/nrf52840}" bash scripts/build_nrf52840_t114_hci_usb.sh
       BUILT_ANY=1
     fi
   else
-    echo "Skipping optional separate nRF52840 Zephyr builds: west not found." >&2
+    echo "Skipping optional Zephyr builds: west not found." >&2
     if [[ "${STRICT_TOOLS}" == "1" ]]; then
       exit 1
     fi
   fi
 else
-  echo "Skipping optional separate nRF52840 Dongle builds. Set BUILD_SEPARATE_NRF=1 or BUILD_KOALA_KONNECT=1 to build them."
+  echo "Skipping optional Zephyr builds. Set BUILD_SEPARATE_NRF=1 or BUILD_KOALA_KONNECT=1 to build them."
 fi
 
 if [[ "${BUILT_ANY}" == "0" ]]; then
   echo "No firmware was built because PlatformIO was not found." >&2
-  echo "Install PlatformIO for ESP32/Heltec T114 builds. Optional separate nRF dongle builds also require west/NCS." >&2
+  echo "Install PlatformIO for ESP32/Heltec T114 builds. Optional Koala Konnect T114 HCI builds also require west/NCS." >&2
   exit 1
 fi
 
