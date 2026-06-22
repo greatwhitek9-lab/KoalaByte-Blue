@@ -5,6 +5,9 @@ NEEDED=[
 "README.md",
 "firmware/esp32-dualeye/src/killerkoala_ai_face.h",
 "firmware/esp32-dualeye/src/killerkoala_ai_face.cpp",
+"firmware/heltec-mouth/boards/heltec_t114.json",
+"firmware/heltec-mouth/variants/Heltec_T114_Board/variant.h",
+"firmware/heltec-mouth/variants/Heltec_T114_Board/variant.cpp",
 "firmware/heltec-mouth/platformio.ini",
 "firmware/heltec-mouth/include/config.h",
 "firmware/heltec-mouth/src/main.cpp",
@@ -15,7 +18,9 @@ NEEDED=[
 ]
 TEXT={
 "firmware/esp32-dualeye/src/killerkoala_ai_face.cpp":["drawEye","eyes only"],
-"firmware/heltec-mouth/platformio.ini":["nordicnrf52","Adafruit ST7735 and ST7789"],
+"firmware/heltec-mouth/platformio.ini":["board = heltec_t114","board_build.variants_dir = variants","Adafruit ST7735 and ST7789"],
+"firmware/heltec-mouth/boards/heltec_t114.json":["HT-n5262","Heltec Mesh Node T114 v2","Heltec_T114_Board"],
+"firmware/heltec-mouth/variants/Heltec_T114_Board/variant.h":["PIN_TFT_CS","SX126X_DIO1","PIN_SPI1_SCK"],
 "firmware/heltec-mouth/src/main.cpp":["Adafruit_ST7789","drawSnout","drawSolidMouth","KOALA_COLOR_MOUTH"],
 "scripts/run_menu_screen.py":["emit_selected_action_face"],
 }
