@@ -5,6 +5,8 @@ NEEDED=[
 "README.md",
 "firmware/esp32-dualeye/src/killerkoala_ai_face.h",
 "firmware/esp32-dualeye/src/killerkoala_ai_face.cpp",
+"firmware/heltec-mouth/platformio.ini",
+"firmware/heltec-mouth/include/config.h",
 "firmware/heltec-mouth/src/main.cpp",
 "pi-companion/koalablue/killerkoala_face_bridge.py",
 "pi-companion/koalablue/killerkoala_voice_face_control.py",
@@ -13,7 +15,8 @@ NEEDED=[
 ]
 TEXT={
 "firmware/esp32-dualeye/src/killerkoala_ai_face.cpp":["drawEye","eyes only"],
-"firmware/heltec-mouth/src/main.cpp":["drawSnout","drawMouthShape"],
+"firmware/heltec-mouth/platformio.ini":["nordicnrf52","Adafruit ST7735 and ST7789"],
+"firmware/heltec-mouth/src/main.cpp":["Adafruit_ST7789","drawSnout","drawSolidMouth","KOALA_COLOR_MOUTH"],
 "scripts/run_menu_screen.py":["emit_selected_action_face"],
 }
 def main():
