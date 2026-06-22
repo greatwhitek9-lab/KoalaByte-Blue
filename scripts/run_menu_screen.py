@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import time
@@ -92,7 +93,28 @@ def run_terminal() -> int:
             buttons.close()
 
 
+def run_graphical(*, fullscreen: bool = True, width: int = 800, height: int = 480) -> int:
+    try:
+        from koalablue.menu_theme import JungleMenuRenderer, JungleMenuUnavailable
+    except Exception as exc:
+        print(f"Graphical jungle menu unavailable: {exc}")
+        return run_terminal()
+    try:
+        return JungleMenuRenderer(menu=make_menu(), fullscreen=fullscreen, width=width, height=height).run()
+    except JungleMenuUnavailable as exc:
+        print(f"Graphical jungle menu unavailable: {exc}")
+        return run_terminal()
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Run the KoalaByte Blue menu screen")
+    parser.add_argument("--graphical", action="store_true", help="Run the touchscreen jungle menu")
+    parser.add_argument("--windowed", action="store_true", help="Use a window instead of fullscreen for graphical mode")
+    parser.add_argument("--width", type=int, default=800, help="Window width for --windowed")
+    parser.add_argument("--height", type=int, default=480, help="Window height for --windowed")
+    args = parser.parse_args()
+    if args.graphical:
+        return run_graphical(fullscreen=not args.windowed, width=args.width, height=args.height)
     return run_terminal()
 
 
