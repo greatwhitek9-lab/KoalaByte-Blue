@@ -5,6 +5,7 @@ NEEDED=[
 "README.md",
 "firmware/esp32-dualeye/src/killerkoala_ai_face.h",
 "firmware/esp32-dualeye/src/killerkoala_ai_face.cpp",
+"firmware/heltec-mouth/README.md",
 "firmware/heltec-mouth/boards/heltec_t114.json",
 "firmware/heltec-mouth/variants/Heltec_T114_Board/variant.h",
 "firmware/heltec-mouth/variants/Heltec_T114_Board/variant.cpp",
@@ -18,6 +19,7 @@ NEEDED=[
 ]
 TEXT={
 "firmware/esp32-dualeye/src/killerkoala_ai_face.cpp":["drawEye","eyes only"],
+"firmware/heltec-mouth/README.md":["USB-C data cable","Do not wire","KOALABYTE_HELTEC_USB_PORT"],
 "firmware/heltec-mouth/platformio.ini":["board = heltec_t114","board_build.variants_dir = variants","Adafruit ST7735 and ST7789"],
 "firmware/heltec-mouth/boards/heltec_t114.json":["HT-n5262","Heltec Mesh Node T114 v2","Heltec_T114_Board"],
 "firmware/heltec-mouth/variants/Heltec_T114_Board/variant.h":["PIN_TFT_CS","SX126X_DIO1","PIN_SPI1_SCK"],
