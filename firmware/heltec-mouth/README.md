@@ -14,6 +14,42 @@ The Pi sends newline-delimited JSON face commands over the Heltec USB CDC serial
 
 When none are set, the bridge searches common USB serial paths such as `/dev/serial/by-id/*`, `/dev/ttyACM*`, and `/dev/ttyUSB*`.
 
+## BLE primary node
+
+The Heltec branch uses the T114 board's nRF52840 as the **primary BLE node**. ESP32-S3 BLE and Raspberry Pi BlueZ can be used later as secondary observers, but Heltec-origin BLE events are the canonical source of truth when duplicate observations are merged.
+
+The T114 firmware accepts these USB CDC JSON commands:
+
+```json
+{"type":"ble_start","role":"primary","active_scan":false}
+```
+
+```json
+{"type":"ble_stop"}
+```
+
+```json
+{"type":"ble_status"}
+```
+
+```json
+{"type":"ble_set_role","role":"secondary"}
+```
+
+When scanning, the Heltec emits passive BLE advertisement observations in this shape:
+
+```json
+{"type":"ble_adv_seen","device":"heltec-t114","source":"heltec-t114","role":"primary","transport":"usb-cdc","addr":"AA:BB:CC:DD:EE:FF","addr_type":"random","rssi":-61,"active_scan":false}
+```
+
+Run the Pi-side node manager after flashing the Heltec firmware:
+
+```bash
+KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0 PYTHONPATH=pi-companion python3 scripts/run_ble_node_manager.py --duration 30
+```
+
+Use `--active-scan` only for owned-device lab testing where scan-response collection is allowed. The default is passive scanning.
+
 ## GNSS add-on
 
 The L76K GNSS module plugs into the Heltec T114 8-pin 1.25 mm GNSS connector. That GNSS cable goes from the GNSS module to the T114 board only; it does not go to the Raspberry Pi GPIO header.
