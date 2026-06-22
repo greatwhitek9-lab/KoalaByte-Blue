@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <string.h>
 #include <ArduinoJson.h>
 #include <SPI.h>
 #include <Adafruit_GFX.h>
