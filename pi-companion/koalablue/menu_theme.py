@@ -51,6 +51,15 @@ _TERMINAL_BRANCH = "🌿"
 _MODE_BADGES = {
     "eucalyptus_mode": "EUCALYPTUS MODE // Koalagotchi BLE canopy screen",
     "boomerang": "BOOMERANG MODE // Camera-awareness logbook",
+    "koala_konnect_t114": "CANOPY KONNECT // T114 USB-HCI vine bridge",
+    "koala_konnect_t114_build_only": "CANOPY CHECK // Zephyr trail build only",
+    "t114_bluez_controller_check": "T114 VINE HCI // controller-check trail marker",
+    "t114_bluez_all_safe": "T114 CANOPY SWEEP // local safe checks only",
+    "meshtastic_status": "GUMLEAF MESH // protected status trail",
+    "meshtastic_nodes": "BILLABONG NODES // authorized mesh view",
+    "greatwhite_status": "GREATWHITE REEF // tshark readiness patrol",
+    "greatwhite_interfaces": "INTERFACE LAGOON // choose owned lab waters",
+    "nrf_sniffer_check": "SNIFFER NEST // Nordic extcap host-side check",
 }
 
 
@@ -295,140 +304,115 @@ class JungleMenuRenderer:
         assert screen is not None
         w, h = screen.get_size()
         margin = max(15, int(min(w, h) * 0.033))
-        stem_width = max(5, int(min(w, h) * 0.013))
-        pygame.draw.line(screen, self.theme.bark, (margin, margin), (w - margin, margin), stem_width)
-        pygame.draw.line(screen, self.theme.bark, (margin, h - margin), (w - margin, h - margin), stem_width)
-        pygame.draw.line(screen, self.theme.bark, (margin, margin), (margin, h - margin), stem_width)
-        pygame.draw.line(screen, self.theme.bark, (w - margin, margin), (w - margin, h - margin), stem_width)
-        pygame.draw.line(screen, self.theme.bark_highlight, (margin, margin - 2), (w - margin, margin - 2), 2)
-        spacing = max(36, int(w * 0.06))
-        for x in range(margin + 18, w - margin, spacing):
-            self._leaf((x, margin - 3), 17, -25)
-            self._leaf((x + spacing // 3, h - margin + 2), 17, 155)
-        spacing_y = max(34, int(h * 0.095))
-        for y in range(margin + 22, h - margin, spacing_y):
-            self._leaf((margin - 2, y), 17, 65)
-            self._leaf((w - margin + 2, y + spacing_y // 3), 17, 245)
+        bark = self.theme.bark
+        hi = self.theme.bark_highlight
+        leaf = self.theme.leaf
+        leaf_glow = self.theme.leaf_glow
+        for i in range(3):
+            pygame.draw.rect(screen, bark if i == 0 else hi, (margin - i * 2, margin - i * 2, w - 2 * margin + i * 4, h - 2 * margin + i * 4), max(2, margin // 5), border_radius=20)
+        for i in range(18):
+            angle = (i / 18.0) * math.tau
+            x = int(w / 2 + math.cos(angle) * (w / 2 - margin * 1.5))
+            y = int(h / 2 + math.sin(angle) * (h / 2 - margin * 1.5))
+            pygame.draw.ellipse(screen, leaf_darken(leaf, 0.75), (x - 12, y - 6, 24, 12))
+            pygame.draw.ellipse(screen, leaf_glow if i % 5 == 0 else leaf, (x - 8, y - 4, 16, 8))
 
-    def _leaf(self, center: Tuple[int, int], size: int, angle_deg: float) -> None:
+    def _draw_title(self) -> None:
         pygame = self.pygame
         screen = self.screen
         assert screen is not None
-        angle = math.radians(angle_deg)
-        sx = math.cos(angle) * size * 0.45
-        sy = math.sin(angle) * size * 0.45
-        rect = pygame.Rect(0, 0, int(size * 1.45), int(size * 0.78))
-        rect.center = center
-        pygame.draw.ellipse(screen, self.theme.leaf_dark, rect)
-        pygame.draw.line(screen, self.theme.leaf_glow, (int(center[0] - sx), int(center[1] - sy)), (int(center[0] + sx), int(center[1] + sy)), 2)
-        inner = rect.inflate(-max(2, size // 5), -max(2, size // 5))
-        pygame.draw.ellipse(screen, self.theme.leaf, inner)
-
-    def _draw_title(self) -> None:
-        screen = self.screen
-        assert screen is not None
-        w, h = screen.get_size()
-        self._chunky_text(self.theme.title, w // 2, int(h * 0.115), self.title_font, self.theme.title_fill, self.theme.title_outline, self.theme.title_shadow, outline_size=5)
-        if self.desc_font is not None:
-            subtitle = "MAIN MENU"
-            surf = self.desc_font.render(subtitle, True, self.theme.boomerang_accent)
-            screen.blit(surf, surf.get_rect(center=(w // 2, int(h * 0.185))))
+        font = self.title_font
+        assert font is not None
+        w, _h = screen.get_size()
+        text = self.theme.title
+        surf_shadow = font.render(text, True, self.theme.title_shadow)
+        surf_outline = font.render(text, True, self.theme.title_outline)
+        surf_fill = font.render(text, True, self.theme.title_fill)
+        x = (w - surf_fill.get_width()) // 2
+        y = 22
+        for dx, dy in [(-3, 0), (3, 0), (0, -3), (0, 3), (-2, -2), (2, 2)]:
+            screen.blit(surf_outline, (x + dx, y + dy))
+        screen.blit(surf_shadow, (x + 5, y + 6))
+        screen.blit(surf_fill, (x, y))
+        inner = font.render("BLUE", True, self.theme.title_inner)
+        screen.blit(inner, (x + max(0, surf_fill.get_width() - inner.get_width()) // 2, y + int(surf_fill.get_height() * 0.44)))
 
     def _draw_group_label(self) -> None:
         pygame = self.pygame
         screen = self.screen
         assert screen is not None
-        w, h = screen.get_size()
-        selected_group = getattr(self.menu, "selected_group", getattr(self.menu.selected_item, "group", "System / Companion"))
-        panel = pygame.Rect(int(w * 0.25), int(h * 0.205), int(w * 0.50), max(28, int(h * 0.055)))
-        pygame.draw.rect(screen, (12, 60, 28), panel, border_radius=panel.height // 2)
-        pygame.draw.rect(screen, self.theme.boomerang_accent, panel, 3, border_radius=panel.height // 2)
-        surf = self.group_font.render(selected_group.upper(), True, self.theme.leaf_glow)
-        screen.blit(surf, surf.get_rect(center=panel.center))
+        font = self.group_font
+        assert font is not None
+        w, _h = screen.get_size()
+        group = getattr(self.menu.selected_item, "group", "System / Companion")
+        label = f"🌿 {group.upper()} 🌿"
+        surf = font.render(label, True, self.theme.leaf_glow)
+        rect = surf.get_rect(center=(w // 2, 116))
+        pygame.draw.rect(screen, (2, 35, 18), rect.inflate(28, 12), border_radius=14)
+        pygame.draw.rect(screen, self.theme.selected_outline, rect.inflate(28, 12), 2, border_radius=14)
+        screen.blit(surf, rect)
 
     def _draw_items(self) -> None:
         pygame = self.pygame
         screen = self.screen
         assert screen is not None
-        assert self.item_font is not None
-        assert self.desc_font is not None
+        item_font = self.item_font
+        desc_font = self.desc_font
+        assert item_font is not None and desc_font is not None
         w, h = screen.get_size()
-        start_y = int(h * 0.285)
-        row_h = self.menu.touch_config.row_height_px
-        left = int(w * 0.11)
-        right = int(w * 0.89)
-        width = right - left
-        for row, (absolute_index, item) in enumerate(self.menu.visible_items()):
+        start_y = 146
+        row_h = max(70, int(h * 0.13))
+        visible = self.menu.visible_items()
+        for absolute_index, item in visible:
+            row = absolute_index - self.menu.scroll_offset
             y = start_y + row * row_h
             selected = absolute_index == self.menu.selected_index
-            command = getattr(item, "command", "")
-            is_boomerang = command == "boomerang"
-            is_eucalyptus = command == "eucalyptus_mode"
-            rect = pygame.Rect(left, y, width, int(row_h * 0.84))
-            fill = self.theme.selected_fill if selected else self.theme.item_fill
-            outline_color = self.theme.selected_outline if selected else self.theme.item_outline
-            if is_boomerang:
-                outline_color = self.theme.boomerang_accent if selected else (167, 94, 28)
-            if not item.enabled:
-                fill = self.theme.disabled_fill
+            x = max(34, int(w * 0.06))
+            width = w - x * 2
             if selected:
-                glow = rect.inflate(18, 14)
-                pygame.draw.rect(screen, self.theme.selected_glow, glow, border_radius=max(20, glow.height // 2), width=3)
-                self._leaf((rect.left - 26, rect.centery), 22, 0)
-                self._leaf((rect.right + 26, rect.centery), 22, 180)
-            pygame.draw.rect(screen, fill, rect, border_radius=max(20, rect.height // 2))
-            pygame.draw.rect(screen, outline_color, rect, width=max(3, int(row_h * 0.045)), border_radius=max(20, rect.height // 2))
-
-            label = f"{absolute_index + 1:02d}. {item.label}"
-            if not item.enabled:
-                label += "  LOCKED"
-            if is_eucalyptus:
-                label = f"🌿 {label}"
-            elif is_boomerang:
-                label = f"🪃 {label}"
-
-            text_fill = self.theme.item_outline if selected else self.theme.item_shadow
-            label_y = rect.centery if not selected else rect.top + int(rect.height * 0.35)
-            self._chunky_text(label, rect.centerx, label_y, self.item_font, text_fill, fill, self.theme.title_shadow, outline_size=2)
-
-            if selected:
-                badge = _mode_badge(command)
-                desc = str(getattr(item, "description", "") or "")
-                detail = f"{badge} — {desc}" if badge and desc else (badge or desc)
-                for idx, line in enumerate(_wrap_for_width(self.desc_font, detail, int(width * 0.82), max_lines=2)):
-                    surf = self.desc_font.render(line, True, self.theme.item_shadow)
-                    screen.blit(surf, surf.get_rect(center=(rect.centerx, rect.top + int(rect.height * 0.62) + idx * (self.desc_font.get_height() + 2))))
+                pulse = (math.sin(time.time() * 4) + 1) / 2
+                glow = tuple(min(255, int(self.theme.selected_glow[i] * (0.35 + 0.65 * pulse))) for i in range(3))
+                pygame.draw.rect(screen, glow, (x - 8, y - 5, width + 16, row_h - 8), border_radius=22)
+                pygame.draw.rect(screen, self.theme.selected_outline, (x, y, width, row_h - 16), 4, border_radius=18)
+                fill_color = self.theme.selected_fill
+            else:
+                pygame.draw.rect(screen, (3, 30, 15), (x, y, width, row_h - 16), border_radius=16)
+                pygame.draw.rect(screen, self.theme.item_outline, (x, y, width, row_h - 16), 2, border_radius=16)
+                fill_color = self.theme.item_fill if item.enabled else self.theme.disabled_fill
+            label = f"{absolute_index + 1:02d}  {item.label}"
+            shadow = item_font.render(label, True, self.theme.item_shadow)
+            surf = item_font.render(label, True, fill_color)
+            screen.blit(shadow, (x + 18 + 3, y + 9 + 3))
+            screen.blit(surf, (x + 18, y + 9))
+            if selected and item.description:
+                for idx, desc in enumerate(_wrap_for_width(desc_font, str(item.description), width - 36, max_lines=2)):
+                    d = desc_font.render(desc, True, self.theme.blue_accent)
+                    screen.blit(d, (x + 22, y + 42 + idx * 20))
 
     def _draw_footer(self) -> None:
         pygame = self.pygame
         screen = self.screen
         assert screen is not None
-        assert self.desc_font is not None
         w, h = screen.get_size()
-        footer = "B1 MENU   B2 BACK   B3 SELECT   B4 NEXT   B5 UP   B6 DOWN"
-        rect = pygame.Rect(int(w * 0.13), int(h * 0.91), int(w * 0.74), max(30, int(h * 0.055)))
-        pygame.draw.rect(screen, (7, 34, 22), rect, border_radius=rect.height // 2)
-        pygame.draw.rect(screen, self.theme.leaf_glow, rect, 2, border_radius=rect.height // 2)
-        surf = self.desc_font.render(footer, True, self.theme.leaf_glow)
-        screen.blit(surf, surf.get_rect(center=rect.center))
-
-    def _chunky_text(self, text: str, x: int, y: int, font: Any, fill: Color, outline_color: Color, shadow_color: Color, outline_size: int = 3) -> None:
-        screen = self.screen
-        assert screen is not None
-        shadow_surf = font.render(text, True, shadow_color)
-        outline_surf = font.render(text, True, outline_color)
-        fill_surf = font.render(text, True, fill)
-        screen.blit(shadow_surf, shadow_surf.get_rect(center=(x + outline_size + 2, y + outline_size + 3)))
-        for dx in range(-outline_size, outline_size + 1):
-            for dy in range(-outline_size, outline_size + 1):
-                if dx * dx + dy * dy <= outline_size * outline_size:
-                    screen.blit(outline_surf, outline_surf.get_rect(center=(x + dx, y + dy)))
-        screen.blit(fill_surf, fill_surf.get_rect(center=(x, y)))
+        font = self.desc_font
+        assert font is not None
+        text = "B1 menu  B2 back  B3 select/hold shutdown  B4 next  B5 up  B6 down  |  Touch: drag canopy / long-press select"
+        surf = font.render(text, True, self.theme.leaf_glow)
+        screen.blit(surf, ((w - surf.get_width()) // 2, h - 34))
 
 
-def _selected_quit(event: Optional[Any]) -> bool:
-    return event is not None and event.event_type in {"select", "touch_long_press_select"} and event.command == "quit"
+def leaf_darken(color: Color, factor: float) -> Color:
+    return tuple(max(0, int(c * factor)) for c in color)  # type: ignore[return-value]
 
 
-def run_jungle_menu(*, fullscreen: bool = True, width: int = 800, height: int = 480) -> int:
-    return JungleMenuRenderer(fullscreen=fullscreen, width=width, height=height).run()
+def _selected_quit(event: Any) -> bool:
+    return event is not None and getattr(event, "event_type", "") in {"select", "touch_long_press_select"} and getattr(event, "command", "") == "quit"
+
+
+def main() -> int:
+    renderer = JungleMenuRenderer(fullscreen=False)
+    return renderer.run()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
