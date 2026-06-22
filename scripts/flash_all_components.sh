@@ -28,6 +28,7 @@ Usage:
   bash scripts/flash_all_components.sh --pi --esp32 --nrf-ble-primary
   bash scripts/flash_all_components.sh --ble-node-manager
   bash scripts/flash_all_components.sh --ai-voice
+  bash scripts/flash_all_components.sh --can-check
   WIFI_INTERACTIVE=1 bash scripts/flash_all_components.sh --install-firmware
   WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword" bash scripts/flash_all_components.sh --install-firmware
   NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --install-firmware
@@ -35,7 +36,7 @@ Usage:
   ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
 
 Targets:
-  --install-firmware  One-shot main install: Pi companion, AI voice, ESP32 DualEye, nRF52840 Dongle BLE-primary firmware, BLE node manager service, and CAN manifest check
+  --install-firmware  One-shot main install: Pi companion, AI voice, ESP32 DualEye, nRF52840 Dongle BLE-primary firmware, BLE node manager service, CAN setup/checks, and CAN manifest/status checks
   --all               Same target set as --install-firmware, without changing branches
   --pi                Install/update Raspberry Pi companion environment
   --ai-voice          Prepare/verify KillerKoala phrase-first companion config and optional TinyLlama/Ollama settings
@@ -44,10 +45,10 @@ Targets:
   --ble-node-manager  Install/enable/start the Pi-side BLE node manager service with nRF52840 Dongle as primary BLE node
   --nrf-lab           Optional legacy: build/package/flash nRF52840 Dongle KoalaByte Lab peripheral firmware
   --nrf-konnect       Optional: build/package/flash Koala Konnect USB HCI profile instead of the BLE-primary profile
-  --can-check         Write Koala Kan Kommander InnoMaker manifest artifact; no CAN traffic is sent
+  --can-check         Load Linux CAN modules, optionally bring up can0, then run Koala Kan Kommander manifest/inventory/status checks
 
 Modes:
-  --build-only        Build/package only; do not upload/flash firmware or install services
+  --build-only        Build/package only; do not upload/flash firmware, install services, or configure can0
   --check-only        Run repo readiness check only
   --smoke             After selected actions, run safe local Pi companion smoke checks
   --monitor           Open ESP32 serial monitor after flash
@@ -63,10 +64,13 @@ Environment:
   KOALABYTE_NRF_BLE_PORT  Optional runtime serial port for the flashed nRF52840 BLE-primary firmware. Default: /dev/ttyACM0
   KOALABYTE_ESP32_FACE_PORT Optional ESP32 runtime serial port for eyes and secondary BLE observations.
   KOALABYTE_PI_BLUEZ_NODE 1/0. Default: 1. Enables Raspberry Pi onboard BlueZ as a secondary BLE node.
+  CAN_INTERFACE           SocketCAN interface for Koala Kan Kommander. Default: can0
+  CAN_BITRATE             CAN bitrate for setup_can0.sh. Default: 500000
+  STRICT_CAN_SETUP        1 fails if can0 setup cannot complete. Default: 0.
   INSTALL_BLE_NODE_MANAGER_SERVICE auto/1/0. Default: auto. Installs/enables the BLE node manager service on systemd systems.
   STRICT_BLE_NODE_MANAGER_SERVICE 1 fails if the BLE node manager service cannot be installed/started.
   INSTALL_SYSTEM_PACKAGES auto/1/0. Default: auto. Attempts apt install on Raspberry Pi OS.
-  STRICT_SYSTEM_PACKAGES  1 fails if system packages cannot be checked/installed.
+  STRICT_SYSTEM_PACKAGES  1 fails if packages cannot be checked/installed.
   INSTALL_ESP32_TOOLS     auto/1/0. Default: auto. Attempts to install missing PlatformIO.
   STRICT_ESP32_TOOLS      1 fails if PlatformIO is unavailable before ESP32 build/flash.
   INSTALL_NRF_TOOLS       auto/1/0. Default: auto. Attempts to install missing west/nrfutil when possible.
@@ -86,6 +90,8 @@ Environment:
 Notes:
   - The Nordic nRF52840 Dongle is the default primary BLE observer on main.
   - ESP32-S3 DualEye and Raspberry Pi onboard BlueZ are secondary/fallback BLE nodes.
+  - The InnoMaker CAN adapter does not get flashed; KoalaByte uses Linux SocketCAN, can-utils, python-can, and Koala Kan Kommander scripts.
+  - --install-firmware and --all run setup_can0.sh, then Koala Kan Kommander manifest, inventory, and status checks.
   - The legacy KoalaByte Lab and Koala Konnect profiles remain available, but only one nRF52840 Dongle profile can be active at a time.
   - WiFi/internet can be configured first so the Pi can download SDK/toolchain dependencies.
   - System packages, PlatformIO, west, nrfutil, and the full NCS/Zephyr toolchain are checked/prepared before relevant flashing steps.
@@ -93,7 +99,7 @@ Notes:
   - KillerKoala AI voice setup keeps the anti-repeat phrase engine as the fast default and only uses TinyLlama/Ollama for flexible banter when enabled.
   - KillerKoala boot welcome speech runs after the mode selector and before the splash/menu unless KILLERKOALA_BOOT_WELCOME=0.
   - If NRF_DFU_PORT is unset, the nRF helper creates the DFU ZIP but does not flash.
-  - Koala Kan Kommander remains gated for isolated bench CAN transmit; this script only writes a manifest/check artifact.
+  - Koala Kan Kommander transmit remains gated for isolated bench CAN use; this script only sets up/checks can0 and writes safe status artifacts.
 EOF
 }
 
@@ -174,7 +180,7 @@ setup_system_packages_for_selected_mode() {
     return 0
   fi
   echo
-  echo "== Raspberry Pi/system package dependency setup, including AI voice/TTS packages =="
+  echo "== Raspberry Pi/system package dependency setup, including CAN, python-can, and AI voice/TTS packages =="
   STRICT_SYSTEM_PACKAGES="${STRICT_SYSTEM_PACKAGES:-0}" bash scripts/setup_system_packages.sh
 }
 
@@ -250,6 +256,24 @@ install_ble_node_manager_for_selected_mode() {
     bash scripts/install_ble_node_manager_service.sh
 }
 
+run_can_setup_and_checks() {
+  if [[ "${RUN_CAN_CHECK}" != "1" ]]; then
+    return 0
+  fi
+  local iface="${CAN_INTERFACE:-can0}"
+  local bitrate="${CAN_BITRATE:-500000}"
+  echo
+  echo "== Koala Kan Kommander InnoMaker CAN setup and safe checks =="
+  if [[ "${BUILD_ONLY}" == "1" ]]; then
+    echo "Build-only mode: skipping can0 kernel/interface setup."
+  else
+    CAN_INTERFACE="${iface}" CAN_BITRATE="${bitrate}" STRICT_CAN_SETUP="${STRICT_CAN_SETUP:-0}" bash scripts/setup_can0.sh --interface "${iface}" --bitrate "${bitrate}"
+  fi
+  PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest --interface "${iface}"
+  PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py inventory --interface "${iface}"
+  PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py status --interface "${iface}"
+}
+
 echo "== KoalaByte Blue readiness check =="
 python3 scripts/check_repo_readiness.py
 
@@ -320,11 +344,7 @@ if [[ "${RUN_NRF_KONNECT}" == "1" ]]; then
   fi
 fi
 
-if [[ "${RUN_CAN_CHECK}" == "1" ]]; then
-  echo
-  echo "== Koala Kan Kommander InnoMaker CAN manifest check =="
-  PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
-fi
+run_can_setup_and_checks
 
 if [[ "${RUN_SMOKE}" == "1" ]]; then
   echo
@@ -333,7 +353,7 @@ if [[ "${RUN_SMOKE}" == "1" ]]; then
   PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py inventory
   PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status --xp 100
   PYTHONPATH=pi-companion python3 scripts/run_killerkoala_hybrid.py banter --xp 100 --flexible --text "flash all smoke check" --no-history || true
-  PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
+  PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest --interface "${CAN_INTERFACE:-can0}"
   PYTHONPATH=pi-companion python3 scripts/check_killerkoala_boot_welcome.py
   KOALABYTE_TTS=0 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py preview --event boomerang_xp --xp 100 >/dev/null
   PYTHONPATH=pi-companion python3 scripts/check_eucalyptus_cyberpet.py
