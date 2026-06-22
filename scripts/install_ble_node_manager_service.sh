@@ -8,43 +8,14 @@ ENV_PATH="/etc/default/koalabyte-ble-node-manager"
 INSTALL_BLE_NODE_MANAGER_SERVICE="${INSTALL_BLE_NODE_MANAGER_SERVICE:-auto}"
 STRICT_BLE_NODE_MANAGER_SERVICE="${STRICT_BLE_NODE_MANAGER_SERVICE:-0}"
 PYTHON_BIN="${PYTHON_BIN:-${REPO_ROOT}/pi-companion/.venv/bin/python}"
-HELTEC_RUNTIME_PORT="${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-/dev/ttyACM0}}"
+
+if [[ -e /dev/koalabyte-heltec ]]; then
+  DEFAULT_HELTEC_PORT="/dev/koalabyte-heltec"
+else
+  DEFAULT_HELTEC_PORT="/dev/ttyACM0"
+fi
+HELTEC_RUNTIME_PORT="${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-${DEFAULT_HELTEC_PORT}}}"
 ESP32_RUNTIME_PORT="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-}}"
-
-usage() {
-  cat <<'EOF'
-KoalaByte BLE node manager service installer
-
-Usage:
-  bash scripts/install_ble_node_manager_service.sh
-  INSTALL_BLE_NODE_MANAGER_SERVICE=1 bash scripts/install_ble_node_manager_service.sh
-  INSTALL_BLE_NODE_MANAGER_SERVICE=0 bash scripts/install_ble_node_manager_service.sh
-
-Environment:
-  KOALABYTE_HELTEC_USB_PORT       Heltec T114 runtime USB CDC port. Default: /dev/ttyACM0
-  HELTEC_PORT                     Fallback Heltec port.
-  KOALABYTE_ESP32_FACE_PORT       Optional ESP32 secondary node serial port.
-  ESP32_PORT                      Fallback ESP32 port.
-  PYTHON_BIN                      Python executable. Default: pi-companion/.venv/bin/python
-  INSTALL_BLE_NODE_MANAGER_SERVICE auto/1/0. Default: auto.
-  STRICT_BLE_NODE_MANAGER_SERVICE 1 fails if service cannot be installed. Default: 0.
-EOF
-}
-
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "Unknown argument: $1" >&2
-      usage >&2
-      exit 2
-      ;;
-  esac
-  shift
-done
 
 case "${INSTALL_BLE_NODE_MANAGER_SERVICE}" in
   0|false|False|no|NO|skip|SKIP)
@@ -53,10 +24,7 @@ case "${INSTALL_BLE_NODE_MANAGER_SERVICE}" in
     ;;
   auto|AUTO|1|true|True|yes|YES)
     ;;
-  *)
-    echo "Unknown INSTALL_BLE_NODE_MANAGER_SERVICE value: ${INSTALL_BLE_NODE_MANAGER_SERVICE}" >&2
-    exit 2
-    ;;
+  *) echo "Unknown INSTALL_BLE_NODE_MANAGER_SERVICE value: ${INSTALL_BLE_NODE_MANAGER_SERVICE}" >&2; exit 2 ;;
 esac
 
 if ! command -v systemctl >/dev/null 2>&1; then
@@ -91,20 +59,22 @@ else
   exit 0
 fi
 
-mkdir -p "${REPO_ROOT}/logs/ble_nodes"
+mkdir -p "${REPO_ROOT}/logs/ble_nodes" "${REPO_ROOT}/logs/preflight"
 chmod +x "${REPO_ROOT}/scripts/run_ble_node_manager_service.sh"
+PYTHONPATH="${REPO_ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}" python3 "${REPO_ROOT}/scripts/discover_koalabyte_ports.py" --profile heltec --output-dir "${REPO_ROOT}/logs/preflight" || true
 
 cat > /tmp/koalabyte-ble-node-manager.env <<ENVEOF
 KOALABYTE_HELTEC_USB_PORT=${HELTEC_RUNTIME_PORT}
 KOALABYTE_ESP32_FACE_PORT=${ESP32_RUNTIME_PORT}
 PYTHON_BIN=${PYTHON_BIN}
+KOALABYTE_PORT_ENV_FILE=${REPO_ROOT}/logs/preflight/koalabyte_ports.env
 ENVEOF
 
 cat > /tmp/${SERVICE_NAME} <<SERVICEEOF
 [Unit]
 Description=KoalaByte BLE Node Manager - Heltec T114 primary BLE node
-After=network-online.target dev-ttyACM0.device
-Wants=network-online.target
+After=network-online.target bluetooth.service systemd-udev-settle.service
+Wants=network-online.target bluetooth.service systemd-udev-settle.service
 
 [Service]
 Type=simple
