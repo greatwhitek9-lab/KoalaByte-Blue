@@ -74,7 +74,7 @@ REQUIRED_TEXT = {
         "firmware/heltec-mouth/",
         "heltec_t114_v2/nrf52840",
         "KOALABYTE_HELTEC_USB_PORT",
-        "Do not use this old dongle-only path",
+        "This branch does **not** use a separate Nordic USB Dongle lab firmware flow.",
     ],
     "docs/MINED_HELTEC_V2_FEATURES.md": ["Old-koalabyte-blue-v2-heltec-edition", "Greatwhite"],
     "docs/GREATWHITE_WIRESHARK_TSHARK.md": ["Greatwhite", "run_gw.py", "setup_nrf_sniffer_ble.sh"],
@@ -89,8 +89,8 @@ FORBIDDEN_TEXT = {
         "nRF52840 Dongle KoalaByte Lab firmware",
         "Nordic nRF52840 Dongle / PCA10059 / NRF52840-DONGLE",
         "bash scripts/build_nrf52840_dongle_lab.sh",
-        "cd firmware/nrf52840-dongle-ear-tag-tx-lab",
-        "west build -b nrf52840dongle_nrf52840 .",
+        "firmware/nrf52840-dongle-ear-tag-tx-lab",
+        "nrf52840dongle_nrf52840",
     ],
 }
 
@@ -143,13 +143,10 @@ def check_shell_helpers(failures: list[str]) -> None:
 
 def check_executable_submenus(failures: list[str]) -> None:
     try:
-        from koalblue.menu_catalog import SUBMENU_ITEMS, leaf_menu_entries  # type: ignore
-    except Exception:
-        try:
-            from koalablue.menu_catalog import SUBMENU_ITEMS, leaf_menu_entries
-        except Exception as exc:
-            failures.append(f"failed to import submenu catalog: {exc}")
-            return
+        from koalablue.menu_catalog import SUBMENU_ITEMS, leaf_menu_entries
+    except Exception as exc:
+        failures.append(f"failed to import submenu catalog: {exc}")
+        return
 
     leaf_commands: set[str] = set()
     for submenu_name, entries in SUBMENU_ITEMS.items():
