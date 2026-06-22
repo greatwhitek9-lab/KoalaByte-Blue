@@ -1,6 +1,6 @@
 #pragma once
 
-#define KOALA_TFT_FW_VERSION "0.3.0-heltec-t114-usb-gnss-mouth"
+#define KOALA_TFT_FW_VERSION "0.4.0-heltec-t114-ble-primary"
 #define KOALA_TFT_SERIAL_BAUD 115200
 #define KOALA_FACE_DEFAULT_DURATION_MS 4500
 #define KOALA_FACE_NAME "killerkoala"
@@ -31,6 +31,21 @@
 #define KOALA_GNSS_ENABLED 1
 #define KOALA_GNSS_BAUD 9600
 #define KOALA_GNSS_REPORT_MS 1000
+
+// BLE primary-node profile.
+// The Heltec T114 nRF52840 is the canonical BLE scanner for the heltec branch.
+// ESP32-S3 BLE and Raspberry Pi BlueZ can be secondary observers, but they should
+// not override Heltec-origin BLE observations in the Pi event merger.
+#define KOALA_BLE_PRIMARY_ENABLED 1
+#define KOALA_BLE_AUTOSTART 0
+#define KOALA_BLE_DEFAULT_ACTIVE_SCAN 0
+#define KOALA_BLE_DEVICE_NAME "KoalaByte-Heltec-Primary"
+#define KOALA_BLE_SCAN_INTERVAL_UNITS 160
+#define KOALA_BLE_SCAN_WINDOW_UNITS 80
+#define KOALA_BLE_DUPLICATE_SUPPRESS_MS 5000
+#define KOALA_BLE_RSSI_CHANGE_DB 8
+#define KOALA_BLE_CACHE_SIZE 24
+#define KOALA_BLE_STATUS_REPORT_MS 15000
 
 // RGB565 color palette.
 #define KOALA_COLOR_BG 0x0000
