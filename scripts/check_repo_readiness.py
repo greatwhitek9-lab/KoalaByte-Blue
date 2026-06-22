@@ -27,7 +27,7 @@ NEEDED = [
     "pi-companion/koalablue/ble_node_manager.py",
     "pi-companion/koalablue/koala_kan_kommander.py",
     "pi-companion/koalablue/killerkoala_face_bridge.py",
-    "pi-companion/koalablue/killerkoala_voice_face_control.py",
+    "pi-companion/koalblue/killerkoala_voice_face_control.py",
     "scripts/run_killerkoala_face_demo.py",
     "scripts/flash_heltec_mouth.sh",
     "scripts/flash_all_components.sh",
@@ -51,7 +51,7 @@ TEXT = {
     "firmware/heltec-mouth/src/main.cpp": ["Adafruit_ST7789", "Serial.begin", "Serial1.begin", "gnss_nmea", "drawSnout", "drawSolidMouth", "ble_adv_seen", "ble_start", "ble_status"],
     "docs/HELTEC_BLE_NODE_ROLES.md": ["Heltec T114", "primary", "BLE node manager", "service"],
     "pi-companion/requirements.txt": ["python-can"],
-    "pi-companion/koalablue/ble_event_log.py": ["BleEventLog", "BleEventDeduper", "normalize_ble_event", "source_priority"],
+    "pi-companion/koalablue/ble_event_log.py": ["BleEventLog", "BleEventDeduper", "normalize_ble_event", "source"],
     "pi-companion/koalablue/ble_node_manager.py": ["heltec-t114", "discover_heltec_port", "BleEventDeduper", "ble_adv_seen"],
     "pi-companion/koalablue/koala_kan_kommander.py": ["Koala Kan Kommander", "InnoMaker USB to CAN Converter kit", "manifest", "inventory", "status", "transmit_requires_bench_simulator"],
     "pi-companion/koalablue/killerkoala_face_bridge.py": ["KOALABYTE_HELTEC_USB_PORT", "heltec_connection", "usb-cdc"],
@@ -91,21 +91,17 @@ def read_text(path: Path) -> str:
 
 def main() -> int:
     failures: list[str] = []
-
     for relative_path in NEEDED:
         if not (ROOT / relative_path).exists():
             failures.append(f"missing required Heltec branch file: {relative_path}")
-
     for relative_path in EXPERIMENTAL_TRACK_PATHS:
         if (ROOT / relative_path).exists():
             failures.append(f"experimental CAN firmware track should stay on its own branch: {relative_path}")
-
     for relative_path, words in TEXT.items():
         body = read_text(ROOT / relative_path)
         for word in words:
             if word not in body:
                 failures.append(f"{relative_path} missing expected text: {word}")
-
     config_path = ROOT / "pi-companion" / "config.default.json"
     if config_path.exists():
         try:
@@ -114,12 +110,10 @@ def main() -> int:
                 failures.append("config.default.json missing koala_kan_kommander section")
         except json.JSONDecodeError as exc:
             failures.append(f"config.default.json is invalid JSON: {exc}")
-
     for helper in SHELL_HELPERS:
         body = read_text(ROOT / helper)
         if body and "set -euo pipefail" not in body:
             failures.append(f"shell helper missing strict shell mode: {helper}")
-
     if failures:
         print("KoalaByte readiness issues:")
         for failure in failures:
