@@ -39,42 +39,47 @@ else
   fi
 fi
 
-echo "Checking/preparing west for separate nRF52840 Dongle Zephyr builds..."
-if ! STRICT_NRF_TOOLS="${STRICT_TOOLS}" bash scripts/setup_nrf_tools.sh --west-only; then
-  echo "west setup/check failed." >&2
-  if [[ "${STRICT_TOOLS}" == "1" ]]; then
-    exit 1
+if [[ "${BUILD_SEPARATE_NRF:-0}" == "1" || "${BUILD_KOALA_KONNECT:-0}" == "1" ]]; then
+  echo "Checking/preparing west for optional separate nRF52840 Dongle Zephyr builds..."
+  if ! STRICT_NRF_TOOLS="${STRICT_TOOLS}" bash scripts/setup_nrf_tools.sh --west-only; then
+    echo "west setup/check failed." >&2
+    if [[ "${STRICT_TOOLS}" == "1" ]]; then
+      exit 1
+    fi
   fi
-fi
 
-echo "Checking/preparing full nRF Connect SDK / Zephyr toolchain..."
-if ! STRICT_NCS_TOOLCHAIN="${STRICT_TOOLS}" bash scripts/setup_nrf_connect_sdk_toolchain.sh; then
-  echo "Full NCS/Zephyr toolchain setup/check failed." >&2
-  if [[ "${STRICT_TOOLS}" == "1" ]]; then
-    exit 1
+  echo "Checking/preparing full nRF Connect SDK / Zephyr toolchain..."
+  if ! STRICT_NCS_TOOLCHAIN="${STRICT_TOOLS}" bash scripts/setup_nrf_connect_sdk_toolchain.sh; then
+    echo "Full NCS/Zephyr toolchain setup/check failed." >&2
+    if [[ "${STRICT_TOOLS}" == "1" ]]; then
+      exit 1
+    fi
   fi
-fi
 
-if command -v west >/dev/null 2>&1; then
-  echo "Building separate nRF52840 Dongle KoalaByte Lab firmware..."
-  bash scripts/build_nrf52840_dongle_lab.sh
-  BUILT_ANY=1
-  if [[ "${BUILD_KOALA_KONNECT:-0}" == "1" ]]; then
-    echo "Building optional Koala Konnect external Bluetooth adapter firmware..."
-    bash scripts/build_nrf52840_dongle_hci_usb_adapter.sh
+  if command -v west >/dev/null 2>&1; then
+    if [[ "${BUILD_SEPARATE_NRF:-0}" == "1" ]]; then
+      echo "Building optional separate nRF52840 Dongle KoalaByte Lab firmware..."
+      bash scripts/build_nrf52840_dongle_lab.sh
+      BUILT_ANY=1
+    fi
+    if [[ "${BUILD_KOALA_KONNECT:-0}" == "1" ]]; then
+      echo "Building optional Koala Konnect external Bluetooth adapter firmware..."
+      bash scripts/build_nrf52840_dongle_hci_usb_adapter.sh
+      BUILT_ANY=1
+    fi
   else
-    echo "Skipping optional Koala Konnect build. Set BUILD_KOALA_KONNECT=1 to build it."
+    echo "Skipping optional separate nRF52840 Zephyr builds: west not found." >&2
+    if [[ "${STRICT_TOOLS}" == "1" ]]; then
+      exit 1
+    fi
   fi
 else
-  echo "Skipping separate nRF52840 Zephyr builds: west not found." >&2
-  if [[ "${STRICT_TOOLS}" == "1" ]]; then
-    exit 1
-  fi
+  echo "Skipping optional separate nRF52840 Dongle builds. Set BUILD_SEPARATE_NRF=1 or BUILD_KOALA_KONNECT=1 to build them."
 fi
 
 if [[ "${BUILT_ANY}" == "0" ]]; then
-  echo "No firmware was built because PlatformIO and west were not found." >&2
-  echo "Install PlatformIO for ESP32/Heltec T114 and use scripts/setup_nrf_tools.sh plus scripts/setup_nrf_connect_sdk_toolchain.sh for separate nRF/Zephyr builds." >&2
+  echo "No firmware was built because PlatformIO was not found." >&2
+  echo "Install PlatformIO for ESP32/Heltec T114 builds. Optional separate nRF dongle builds also require west/NCS." >&2
   exit 1
 fi
 
