@@ -2,13 +2,13 @@
 
 This branch is the **KoalaByte Blue v2 Heltec Edition**. It targets the **Heltec Mesh Node T114 v2 onboard nRF52840** plus the Raspberry Pi 3B+, ESP32-S3 DualEye display, InnoMaker USB-CAN adapter, and companion software.
 
-It does **not** use the separate Nordic nRF52840 USB Dongle lab firmware path.
+This branch does **not** use a separate Nordic USB Dongle lab firmware flow.
 
 Current component set:
 
 1. **ESP32-S3 DualEye firmware** under `firmware/esp32-dualeye/`.
 2. **Heltec T114 mouth/BLE/GNSS firmware** under `firmware/heltec-mouth/`.
-3. **Optional Heltec T114 Koala Konnect USB-HCI profile** built for the T114 onboard nRF52840, not the Nordic USB Dongle.
+3. **Optional Heltec T114 Koala Konnect USB-HCI profile** built for the T114 onboard nRF52840.
 4. **Raspberry Pi 3B+ companion tools** under `pi-companion/` and `scripts/`.
 5. **Koala Kan Kommander support for the InnoMaker USB to CAN Converter kit** through the Pi companion.
 6. **Greatwhite Wireshark/tshark wrapper** for owned-lab packet review.
@@ -61,19 +61,7 @@ KOALABYTE_TTS=1 PYTHONPATH=pi-companion python3 scripts/run_boomerang.py
 
 Use the **Heltec T114 onboard nRF52840** for this branch.
 
-Do not use this old dongle-only path on `koalabyte_blue_v2_heltec_edition`:
-
-```text
-firmware/nrf52840-dongle-ear-tag-tx-lab/
-```
-
-Do not use this old dongle board target for this branch:
-
-```text
-nrf52840dongle_nrf52840
-```
-
-Use the Heltec T114 target instead:
+Do not use the old Nordic USB Dongle board target for this branch. Use the Heltec T114 board target instead:
 
 ```text
 heltec_t114_v2/nrf52840
