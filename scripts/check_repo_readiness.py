@@ -78,7 +78,7 @@ NEEDED = [
 TEXT = {
     "README.md": ["Heltec Mesh Node T114 v2", "USB-C data cable", "KOALABYTE_HELTEC_USB_PORT", "--heltec-t114"],
     "docs/CANONICAL_BRANCH.md": [CANONICAL_BRANCH, "Delete command for maintainers", "git push origin --delete heltec"],
-    "docs/MINED_HELTEC_V2_FEATURES.md": ["koalabyte-blue-v2-heltec-edition", "not a blind merge", "--nrf-konnect", "build_nrf52840_t114_hci_usb.sh"],
+    "docs/MINED_HELTEC_V2_FEATURES.md": ["Old-koalabyte-blue-v2-heltec-edition", "not a blind merge", "--nrf-konnect", "Greatwhite capture requires"],
     "docs/KOALA_KONNECT_HELTEC_T114.md": ["Koala Konnect", "T114 USB HCI", "flash_all_components.sh --nrf-konnect", "flash_heltec_mouth.sh"],
     "docs/T114_HARDWARE_VALIDATION.md": ["hardware validation", "check_repo_readiness.py", "setup_can0.sh", "flash_all_components.sh --install-firmware"],
     "docs/T114_BLUEZ_WRAPPER.md": ["run_t114_bluez.py", "controller-check", "all-safe", "does not implement pairing bypass"],
@@ -101,13 +101,24 @@ TEXT = {
     "pi-companion/koalablue/koala_kan_kommander.py": ["Koala Kan Kommander", "InnoMaker USB to CAN Converter kit", "manifest", "inventory", "status"],
     "pi-companion/koalablue/killerkoala_face_bridge.py": ["KOALABYTE_HELTEC_USB_PORT", "heltec_connection", "usb-cdc"],
     "pi-companion/koalablue/t114_bluez.py": ["T114BluezResult", "controller-check", "blocked_missing_hci_controller", "authorized_lab_use_only"],
+    "pi-companion/koalblue/location_password_gate.py": [],
     "pi-companion/koalablue/location_password_gate.py": ["KOALABYTE_LOCATION_UNLOCKED", "password_sha256", "ensure_unlocked"],
     "pi-companion/koalablue/gnss_location.py": ["authorized password-protected location logging only", "parse_meshtastic_info_text", "write_current_fix"],
     "pi-companion/koalablue/meshtastic_app.py": ["--confirm-send is required", "protected-actions password required", "MeshtasticProfile"],
     "pi-companion/koalablue/greatwhite.py": ["GreatwhiteResult", "--confirm-owned-lab", "MAX_CAPTURE_SECONDS", "does_not_transmit_packets"],
     "scripts/run_killerkoala_face_demo.py": ["Heltec T114 color TFT", "emit_face"],
     "scripts/flash_heltec_mouth.sh": ["KOALABYTE_HELTEC_USB_PORT", "heltec_t114.json", "firmware/heltec-mouth"],
-    "scripts/flash_all_components.sh": ["--install-firmware", "CANONICAL_HELTEC_BRANCH", CANONICAL_BRANCH, "KOALABYTE_HELTEC_BRANCH", "--nrf-konnect", "build_nrf52840_t114_hci_usb.sh", "flash_nrf52840_t114_hci_usb.sh", "PREFLIGHT_BUILD", "--heltec-t114", "RUN_HELTEC_T114", "scripts/flash_heltec_mouth.sh", "RUN_BLE_NODE_MANAGER", "--ble-node-manager", "RUN_CAN_CHECK", "--can-check", "setup_can0.sh", "run_koala_kan_kommander.py manifest", "run_koala_kan_kommander.py inventory", "run_koala_kan_kommander.py status", "CAN_INTERFACE", "CAN_BITRATE", "STRICT_CAN_SETUP"],
+    "scripts/flash_all_components.sh": [
+        "--install-firmware", "CANONICAL_HELTEC_BRANCH", CANONICAL_BRANCH, "KOALABYTE_HELTEC_BRANCH",
+        "RUN_GREATWHITE_SUPPORT", "--greatwhite", "setup_greatwhite_support_for_selected_mode",
+        "python3 scripts/run_gw.py status", "scripts/setup_nrf_sniffer_ble.sh --check-only",
+        "NRF_SNIFFER_ZIP", "NRF_SNIFFER_DIR", "NRF_SNIFFER_URL", "STRICT_GREATWHITE_SUPPORT",
+        "--nrf-konnect", "build_nrf52840_t114_hci_usb.sh", "flash_nrf52840_t114_hci_usb.sh",
+        "PREFLIGHT_BUILD", "--heltec-t114", "RUN_HELTEC_T114", "scripts/flash_heltec_mouth.sh",
+        "RUN_BLE_NODE_MANAGER", "--ble-node-manager", "RUN_CAN_CHECK", "--can-check", "setup_can0.sh",
+        "run_koala_kan_kommander.py manifest", "run_koala_kan_kommander.py inventory", "run_koala_kan_kommander.py status",
+        "CAN_INTERFACE", "CAN_BITRATE", "STRICT_CAN_SETUP"
+    ],
     "scripts/build_firmware_all.sh": ["firmware/heltec-mouth", "Heltec Mesh Node T114 v2", "BUILD_KOALA_KONNECT", "build_nrf52840_t114_hci_usb.sh", "setup_nrf_connect_sdk_toolchain.sh"],
     "scripts/setup_system_packages.sh": ["can-utils", "python3-can", "cansend", "udev", "iproute2", "tshark", "wireshark-common", "unzip"],
     "scripts/install_koalabyte_udev_rules.sh": ["/dev/koalabyte-nrf-ble", "/dev/koalabyte-esp32-eyes", "/dev/koalabyte-heltec", "99-koalabyte.rules"],
@@ -183,6 +194,8 @@ def main() -> int:
         if (ROOT / relative_path).exists():
             failures.append(f"experimental CAN firmware track should stay on its own branch: {relative_path}")
     for relative_path, words in TEXT.items():
+        if not words:
+            continue
         body = read_text(ROOT / relative_path)
         for word in words:
             if word not in body:
