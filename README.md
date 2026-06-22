@@ -67,6 +67,27 @@ The Pi remains the orchestrator. It sends face/action state to the ESP32 and Hel
 
 ---
 
+## One-script install
+
+The Heltec branch now folds the manual firmware sequence into a single command:
+
+```bash
+HELTEC_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --install-firmware
+```
+
+That option performs the equivalent of:
+
+```bash
+git checkout heltec
+python3 scripts/check_repo_readiness.py
+BUILD_ONLY=1 bash scripts/flash_all_components.sh --all
+HELTEC_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --heltec-t114
+```
+
+It checks out the `heltec` branch, runs the readiness check, does a build-only preflight, installs/updates the Pi companion, flashes the ESP32-S3 DualEye if connected/configured, flashes the Heltec T114 over USB-C, and runs the CAN manifest check.
+
+---
+
 ## Fast flashing and build path
 
 Start with Raspberry Pi OS Lite 64-bit, enable SSH, clone the repo, and run the readiness check:
@@ -100,13 +121,13 @@ Flash the Heltec T114 color mouth/GNSS firmware over USB-C:
 HELTEC_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --heltec-t114
 ```
 
-Flash the main branch legacy separate nRF52840 Dongle profile only when you are using that extra dongle:
+Flash the legacy separate nRF52840 Dongle profile only when you are using that extra dongle:
 
 ```bash
 NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
 ```
 
-Run the full branch flow:
+Run the full branch flow without the checkout/build preflight wrapper:
 
 ```bash
 bash scripts/flash_all_components.sh --all
@@ -177,6 +198,7 @@ firmware/heltec-mouth/include/config.h
 firmware/heltec-mouth/src/main.cpp
 firmware/heltec-mouth/README.md
 scripts/flash_heltec_mouth.sh
+scripts/flash_all_components.sh
 pi-companion/koalablue/killerkoala_face_bridge.py
 scripts/run_killerkoala_face_demo.py
 ```
