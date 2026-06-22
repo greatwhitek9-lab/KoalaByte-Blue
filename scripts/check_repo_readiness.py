@@ -29,6 +29,7 @@ MAIN_REQUIRED_FILES = [
     "docs/KILLERKOALA_LORA_TRAINING.md",
     "docs/ESP32_CUSTOM_ANIMATED_EYES.md",
     "docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md",
+    "docs/MAIN_BLE_NODE_ROLES.md",
     "production/WIRING_DIAGRAM_ANTENNAS.md",
     "production/WIRING_DIAGRAM_ANTENNAS.svg",
     "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv",
@@ -43,16 +44,31 @@ MAIN_REQUIRED_FILES = [
     "firmware/esp32-dualeye/voice_commands/README.md",
     "firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv",
     "firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt",
+    "firmware/nrf52840-dongle-ble-primary/CMakeLists.txt",
+    "firmware/nrf52840-dongle-ble-primary/prj.conf",
+    "firmware/nrf52840-dongle-ble-primary/src/main.c",
     "pi-companion/config.default.json",
     "pi-companion/requirements.txt",
+    "pi-companion/koalablue/__init__.py",
     "pi-companion/koalablue/menu_catalog.py",
     "pi-companion/koalablue/killerkoala_vocabulary.py",
     "pi-companion/koalablue/killerkoala_hybrid_companion.py",
     "pi-companion/koalablue/anteater.py",
+    "pi-companion/koalablue/ble_event_log.py",
+    "pi-companion/koalablue/ble_node_manager.py",
+    "pi-companion/koalablue/koala_kan_kommander.py",
     "scripts/configure_esp32s3_dualeye_2g4_antenna.sh",
     "scripts/flash_all_components.sh",
     "scripts/build_firmware_all.sh",
     "scripts/install_pi.sh",
+    "scripts/setup_system_packages.sh",
+    "scripts/setup_can0.sh",
+    "scripts/build_nrf52840_dongle_ble_primary.sh",
+    "scripts/flash_nrf52840_dongle_ble_primary_dfu.sh",
+    "scripts/run_ble_node_manager.py",
+    "scripts/run_ble_node_manager_service.sh",
+    "scripts/install_ble_node_manager_service.sh",
+    "scripts/run_koala_kan_kommander.py",
     "scripts/run_killerkoala_voice.py",
     "scripts/run_killerkoala_hybrid.py",
     "scripts/set_esp32_eyes.py",
@@ -67,6 +83,9 @@ BRANCH_ONLY_PATHS = [
     "docs/" + "T" + "114_WHOLE_FIRMWARE_TEST.md",
     "scripts/run_" + "didgeri" + "doo.py",
     "pi-companion/koalblue/killerkoala_hybrid_companion.py",
+    "pi-companion/koalablue/koala_kan_firmware.py",
+    "scripts/run_koala_kan_firmware.py",
+    "firmware/innomaker-can-commander/README.md",
 ]
 
 BRANCH_ONLY_TERMS = [
@@ -99,10 +118,24 @@ REQUIRED_TEXT = {
     "firmware/esp32-dualeye/src/koalagotchi_mode_screens.cpp": ["EyeState", "drawOneEye", "tickKoalagotchiEyes", "scan", "glitch"],
     "firmware/esp32-dualeye/voice_commands/README.md": ["WakeNet9", "MultiNet7 Q8 English", "Large Aussie/cyberpunk vocabulary pack"],
     "firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv": ["give the air a squiz", "suss the bluetooth stack", "bag the beacons"],
+    "firmware/nrf52840-dongle-ble-primary/CMakeLists.txt": ["project(koalabyte_blue_nrf52840_dongle_ble_primary)", "target_sources(app PRIVATE src/main.c)"],
+    "firmware/nrf52840-dongle-ble-primary/prj.conf": ["CONFIG_BT=y", "CONFIG_BT_OBSERVER=y", "CONFIG_USB_DEVICE_STACK=y", "CONFIG_USB_CDC_ACM=y"],
+    "firmware/nrf52840-dongle-ble-primary/src/main.c": ["nRF52840 Dongle BLE-primary observer", "bt_le_scan_start", "ble_adv_seen", "does not pair, connect, write, spoof, disrupt, or replay"],
+    "pi-companion/requirements.txt": ["python-can"],
     "pi-companion/koalablue/killerkoala_vocabulary.py": ["RECENT_HISTORY_WINDOW", "AUSSIE_TERMS", "anti_repeat_policy", "estimated_total_lines"],
     "pi-companion/koalablue/killerkoala_hybrid_companion.py": ["killerkoala-tinyllama:latest", "phrase_engine", "fallback_reason", "KILLERKOALA_LLM_MODE"],
     "pi-companion/koalablue/anteater.py": ["ACTION_NAME = \"AntEater\"", "BLEAK", "advertisement", "skimmer"],
+    "pi-companion/koalablue/ble_event_log.py": ["BleEventLog", "BleEventDeduper", "normalize_ble_event", "source_priority"],
+    "pi-companion/koalablue/ble_node_manager.py": ["nrf52840-dongle", "PiBluezSecondaryScanner", "BleEventDeduper", "ble_adv_seen"],
+    "pi-companion/koalablue/koala_kan_kommander.py": ["Koala Kan Kommander", "InnoMaker USB to CAN Converter kit", "manifest", "inventory", "status", "transmit_requires_bench_simulator"],
     "scripts/run_anteater.py": ["koalablue.anteater", "run_cli"],
+    "scripts/run_koala_kan_kommander.py": ["koalablue.koala_kan_kommander", "run_cli"],
+    "scripts/run_ble_node_manager.py": ["--dongle-port", "--esp32-port", "--no-pi-bluez", "BleNodeManager"],
+    "scripts/run_ble_node_manager_service.sh": ["KOALABYTE_NRF_BLE_PORT", "--duration", "0", "run_ble_node_manager.py"],
+    "scripts/install_ble_node_manager_service.sh": ["koalabyte-ble-node-manager.service", "run_ble_node_manager_service.sh", "KOALABYTE_NRF_BLE_PORT"],
+    "scripts/build_nrf52840_dongle_ble_primary.sh": ["nrf52840-dongle-ble-primary", "west build", "firmware/nrf52840-dongle-ble-primary"],
+    "scripts/flash_nrf52840_dongle_ble_primary_dfu.sh": ["koalabyte-blue-nrf52840-dongle-ble-primary-dfu.zip", "NRF_DFU_PORT", "nrfutil"],
+    "docs/MAIN_BLE_NODE_ROLES.md": ["nRF52840 Dongle", "primary", "ESP32-S3", "Raspberry Pi"],
     "docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md": ["AntEater", "BLE Card Skimmer", "advertisement-only", "no pairing"],
     "docs/ESP32_CUSTOM_ANIMATED_EYES.md": ["Supported looks", "Supported animations", "scripts/set_esp32_eyes.py", "PlatformIO"],
     "docs/KILLERKOALA_VOCABULARY_REVA17.md": ["large vocabulary engine", "anti-repeat phrase rotation", "killerkoala_multinet_aliases.csv"],
@@ -110,7 +143,9 @@ REQUIRED_TEXT = {
     "scripts/run_killerkoala_voice.py": ["killerkoala_voice_control", "run_cli"],
     "scripts/run_killerkoala_hybrid.py": ["killerkoala_hybrid_companion", "run_cli"],
     "scripts/set_esp32_eyes.py": ["PRESETS", "pyserial", "eye_style", "preview-only"],
-    "scripts/flash_all_components.sh": ["RUN_AI_VOICE", "--ai-voice", "setup_esp32_tools.sh", "flash_all_ai_voice_preview.json"],
+    "scripts/flash_all_components.sh": ["RUN_AI_VOICE", "--ai-voice", "setup_esp32_tools.sh", "flash_all_ai_voice_preview.json", "RUN_NRF_BLE_PRIMARY", "--nrf-ble-primary", "RUN_BLE_NODE_MANAGER", "--ble-node-manager", "RUN_CAN_CHECK", "--can-check", "setup_can0.sh", "run_koala_kan_kommander.py manifest", "run_koala_kan_kommander.py inventory", "run_koala_kan_kommander.py status"],
+    "scripts/setup_can0.sh": ["for module in can can_raw can_dev", "ip link set \"${INTERFACE}\" type can bitrate", "firmware_flash_required", "Koala Kan Kommander CAN setup"],
+    "scripts/setup_system_packages.sh": ["can-utils", "python3-can", "cansend"],
     "training/killerkoala_lora/Modelfile.killerkoala-tinyllama": ["FROM tinyllama:1.1b", "PARAMETER num_ctx 1024", "KillerKoala"],
     "scripts/flash_esp32.sh": ["configure_esp32s3_dualeye_2g4_antenna.sh", "voice_stack", "MultiNet7 Q8 English"],
     "scripts/setup_esp32_tools.sh": ["PlatformIO", "pip install", "platformio"],
@@ -136,7 +171,7 @@ def check_required_files(failures: list[str]) -> None:
             failures.append(f"missing required main file: {relative_path}")
     for relative_path in BRANCH_ONLY_PATHS:
         if (REPO_ROOT / relative_path).exists():
-            failures.append(f"branch-only file still present on main: {relative_path}")
+            failures.append(f"experimental/branch-only file still present on main: {relative_path}")
 
 
 def check_required_text(failures: list[str]) -> None:
@@ -176,8 +211,9 @@ def check_config(failures: list[str]) -> None:
         failures.append("menu groups do not match main branch layout")
     if menu.get("items") != EXPECTED_MENU_LABELS:
         failures.append("menu items do not match main branch ordering")
-    if "killerkoala_companion" not in config or "koala_kan_kommander" not in config or "anteater" not in config:
-        failures.append("main config missing required companion, CAN plug-in, or AntEater section")
+    for section in ["killerkoala_companion", "koala_kan_kommander", "anteater"]:
+        if section not in config:
+            failures.append(f"main config missing required section: {section}")
 
 
 def check_menu_catalog(failures: list[str]) -> None:
@@ -207,7 +243,19 @@ def check_bom(failures: list[str]) -> None:
 
 
 def check_helpers(failures: list[str]) -> None:
-    for helper in ["scripts/flash_all_components.sh", "scripts/build_firmware_all.sh", "scripts/setup_system_packages.sh", "scripts/setup_esp32_tools.sh", "scripts/configure_esp32s3_dualeye_2g4_antenna.sh"]:
+    shell_helpers = [
+        "scripts/flash_all_components.sh",
+        "scripts/build_firmware_all.sh",
+        "scripts/setup_system_packages.sh",
+        "scripts/setup_esp32_tools.sh",
+        "scripts/configure_esp32s3_dualeye_2g4_antenna.sh",
+        "scripts/setup_can0.sh",
+        "scripts/build_nrf52840_dongle_ble_primary.sh",
+        "scripts/flash_nrf52840_dongle_ble_primary_dfu.sh",
+        "scripts/run_ble_node_manager_service.sh",
+        "scripts/install_ble_node_manager_service.sh",
+    ]
+    for helper in shell_helpers:
         path = REPO_ROOT / helper
         if path.exists() and "set -euo pipefail" not in path.read_text(encoding="utf-8"):
             failures.append(f"shell helper missing strict shell mode: {helper}")
