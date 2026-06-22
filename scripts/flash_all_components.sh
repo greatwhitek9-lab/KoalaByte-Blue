@@ -5,6 +5,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPO_ROOT}"
 ORIGINAL_ARGS=("$@")
 
+CANONICAL_HELTEC_BRANCH="${KOALABYTE_HELTEC_BRANCH:-koalabyte_blue_v2_heltec_edition}"
 RUN_PI=0
 RUN_ESP32=0
 RUN_HELTEC_T114=0
@@ -22,7 +23,7 @@ PREFLIGHT_BUILD=0
 ONE_SCRIPT_INSTALL=0
 
 usage() {
-  cat <<'EOF'
+  cat <<EOF
 KoalaByte Blue all-component flash/install helper
 
 Usage:
@@ -41,7 +42,7 @@ Usage:
   T114_BOARD=heltec_t114_v2/nrf52840 bash scripts/flash_all_components.sh --nrf-konnect
 
 Targets:
-  --install-firmware  One-script Heltec branch install: git checkout heltec, readiness check, build-only preflight, then install/flash Pi companion, ESP32 DualEye, Heltec T114, BLE node manager service, CAN setup/checks, and CAN manifest/status checks
+  --install-firmware  One-script Heltec Edition install: checkout ${CANONICAL_HELTEC_BRANCH}, readiness check, build-only preflight, then install/flash Pi companion, ESP32 DualEye, Heltec T114, BLE node manager service, CAN setup/checks, and CAN manifest/status checks
   --all               Install Pi companion, prepare KillerKoala AI voice, flash ESP32 DualEye, flash Heltec T114 color mouth/GNSS/BLE firmware, install/start BLE node manager service, set up/check can0, and run Koala Kan checks
   --pi                Install/update Raspberry Pi companion environment
   --ai-voice          Prepare/verify KillerKoala phrase-first companion config and optional TinyLlama/Ollama settings
@@ -55,13 +56,14 @@ Targets:
 Modes:
   --build-only        Build/package only; do not upload/flash firmware, install services, or configure can0
   --preflight-build   Run the all-firmware build helper before flashing selected targets
-  --checkout-heltec   Checkout the heltec branch before continuing
+  --checkout-heltec   Compatibility alias: checkout the canonical Heltec Edition branch before continuing
   --check-only        Run repo readiness check only
   --smoke             After selected actions, run safe local Pi companion smoke checks
   --monitor           Open ESP32/Heltec serial monitor after flash where supported
   -h, --help          Show this help
 
 Environment:
+  KOALABYTE_HELTEC_BRANCH Canonical Heltec Edition branch to checkout. Default: koalabyte_blue_v2_heltec_edition
   WIFI_SSID               Optional WiFi SSID used before download/install steps.
   WIFI_PASSWORD           Optional WiFi password. Never printed by the WiFi helper.
   WIFI_INTERACTIVE        1 prompts for SSID/password during first startup.
@@ -88,7 +90,7 @@ Environment:
   STRICT_NRF_TOOLS        1 fails if west/nrfutil are unavailable before separate nRF dongle or T114 HCI USB build/flash.
   INSTALL_NCS_TOOLCHAIN   auto/1/0. Default: auto. Downloads/updates full nRF Connect SDK/Zephyr toolchain.
   STRICT_NCS_TOOLCHAIN    1 fails if the full NCS/Zephyr toolchain cannot be prepared.
-  NCS_WORKSPACE           Default: $HOME/ncs
+  NCS_WORKSPACE           Default: \$HOME/ncs
   NCS_REVISION            Default: v2.9.0
   ZEPHYR_SDK_VERSION      Default: 0.17.0
   NRFUTIL_INSTALL_CMD     Optional custom nrfutil install command for scripts/setup_nrf_tools.sh.
@@ -101,15 +103,16 @@ Environment:
 
 One-script install flow:
   --install-firmware folds this manual sequence into one command:
-    git checkout heltec
+    git checkout ${CANONICAL_HELTEC_BRANCH}
     python3 scripts/check_repo_readiness.py
     BUILD_ONLY=1 bash scripts/flash_all_components.sh --all
-    HELTEC_PORT=${HELTEC_PORT:-/dev/ttyACM0} bash scripts/flash_all_components.sh --heltec-t114
-    KOALABYTE_HELTEC_USB_PORT=${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-/dev/ttyACM0}} bash scripts/install_ble_node_manager_service.sh
-    CAN_INTERFACE=${CAN_INTERFACE:-can0} CAN_BITRATE=${CAN_BITRATE:-500000} bash scripts/setup_can0.sh
+    HELTEC_PORT=\${HELTEC_PORT:-/dev/ttyACM0} bash scripts/flash_all_components.sh --heltec-t114
+    KOALABYTE_HELTEC_USB_PORT=\${KOALABYTE_HELTEC_USB_PORT:-\${HELTEC_PORT:-/dev/ttyACM0}} bash scripts/install_ble_node_manager_service.sh
+    CAN_INTERFACE=\${CAN_INTERFACE:-can0} CAN_BITRATE=\${CAN_BITRATE:-500000} bash scripts/setup_can0.sh
 
 Notes:
-  - The Heltec branch treats the Heltec Mesh Node T114 v2 as a USB-C connected nRF52840 board.
+  - The canonical Heltec Edition branch is ${CANONICAL_HELTEC_BRANCH}.
+  - The Heltec Mesh Node T114 v2 is treated as a USB-C connected nRF52840 board.
   - Heltec GPS, LoRa/SX1262, BLE, and color mouth display use the T114 hardware and communicate to the Pi over USB CDC.
   - The BLE node manager service starts the Heltec T114 as the primary passive BLE scanner automatically after one-shot install.
   - Do not wire Heltec TX/RX pins to the Raspberry Pi GPIO header for the KillerKoala face/GNSS/LoRa/BLE channel.
@@ -194,20 +197,20 @@ checkout_heltec_if_requested() {
     exit 1
   fi
   if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    echo "Not inside a git checkout; cannot switch to the heltec branch." >&2
+    echo "Not inside a git checkout; cannot switch to ${CANONICAL_HELTEC_BRANCH}." >&2
     exit 1
   fi
   local current_branch
   current_branch="$(git rev-parse --abbrev-ref HEAD)"
-  if [[ "${current_branch}" == "heltec" ]]; then
-    echo "Already on heltec branch."
+  if [[ "${current_branch}" == "${CANONICAL_HELTEC_BRANCH}" ]]; then
+    echo "Already on ${CANONICAL_HELTEC_BRANCH}."
     return 0
   fi
-  echo "Checking out heltec branch..."
-  git fetch origin heltec || true
-  git checkout heltec
+  echo "Checking out canonical Heltec Edition branch: ${CANONICAL_HELTEC_BRANCH}"
+  git fetch origin "${CANONICAL_HELTEC_BRANCH}" || true
+  git checkout "${CANONICAL_HELTEC_BRANCH}"
   if [[ "${KOALABYTE_FLASH_ALL_REEXECED:-0}" != "1" ]]; then
-    echo "Re-running flash helper from the heltec branch copy..."
+    echo "Re-running flash helper from the canonical Heltec Edition branch copy..."
     exec env KOALABYTE_FLASH_ALL_REEXECED=1 bash scripts/flash_all_components.sh "${ORIGINAL_ARGS[@]}"
   fi
 }
@@ -351,7 +354,7 @@ setup_nrf_tools_for_selected_mode
 
 if [[ "${PREFLIGHT_BUILD}" == "1" ]]; then
   echo
-  echo "== Build-only preflight for selected Heltec branch firmware =="
+  echo "== Build-only preflight for selected Heltec Edition firmware =="
   STRICT_TOOLS="${STRICT_TOOLS:-0}" bash scripts/build_firmware_all.sh
 fi
 
