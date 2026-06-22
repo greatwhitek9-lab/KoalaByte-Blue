@@ -19,11 +19,12 @@ NEEDED=[
 ]
 TEXT={
 "firmware/esp32-dualeye/src/killerkoala_ai_face.cpp":["drawEye","eyes only"],
-"firmware/heltec-mouth/README.md":["USB-C data cable","Do not wire","KOALABYTE_HELTEC_USB_PORT"],
+"firmware/heltec-mouth/README.md":["USB-C data cable","Do not wire","L76K GNSS","gnss_nmea"],
 "firmware/heltec-mouth/platformio.ini":["board = heltec_t114","board_build.variants_dir = variants","Adafruit ST7735 and ST7789"],
 "firmware/heltec-mouth/boards/heltec_t114.json":["HT-n5262","Heltec Mesh Node T114 v2","Heltec_T114_Board"],
-"firmware/heltec-mouth/variants/Heltec_T114_Board/variant.h":["PIN_TFT_CS","SX126X_DIO1","PIN_SPI1_SCK"],
-"firmware/heltec-mouth/src/main.cpp":["Adafruit_ST7789","Serial.begin","drawSnout","drawSolidMouth","KOALA_COLOR_MOUTH"],
+"firmware/heltec-mouth/variants/Heltec_T114_Board/variant.h":["PIN_TFT_CS","SX126X_DIO1","PIN_SERIAL1_RX"],
+"firmware/heltec-mouth/include/config.h":["KOALA_GNSS_ENABLED","KOALA_GNSS_BAUD","KOALA_GNSS_REPORT_MS"],
+"firmware/heltec-mouth/src/main.cpp":["Adafruit_ST7789","Serial.begin","Serial1.begin","gnss_nmea","drawSnout","drawSolidMouth"],
 "pi-companion/koalablue/killerkoala_face_bridge.py":["KOALABYTE_HELTEC_USB_PORT","heltec_connection","usb-cdc"],
 "scripts/run_menu_screen.py":["emit_selected_action_face"],
 }
