@@ -25,31 +25,45 @@ static void header(){
 static void drawLineText(){
   oled.setFont(u8g2_font_5x7_tr);
   char clipped[23];
-  snprintf(clipped,sizeof(clipped),"%s",lineText[0]?lineText:"AI koala display");
+  snprintf(clipped,sizeof(clipped),"%s",lineText[0]?lineText:"AI koala mouth");
   oled.drawStr(5,59,clipped);
+}
+
+static void drawMouthShape(int cx,int cy){
+  if(eq(stateName,"speaking")){
+    int open=5+(frameNo%8);
+    int width=44+((frameNo%3)*4);
+    oled.drawRBox(cx-width/2,cy-open,width,open*2,6);
+    oled.setDrawColor(0); oled.drawHLine(cx-width/2+6,cy,width-12); oled.setDrawColor(1);
+  }else if(eq(stateName,"wake")||eq(stateName,"listening")){
+    int nudge=(frameNo%6)-3;
+    oled.drawHLine(cx-26,cy+nudge,52);
+    oled.drawPixel(cx-31,cy+nudge); oled.drawPixel(cx+31,cy+nudge);
+  }else if(eq(stateName,"thinking")){
+    for(int x=-32;x<=32;x+=10)oled.drawDisc(cx+x,cy+(((x/10+frameNo)%2)?3:-3),2);
+  }else if(eq(stateName,"action")){
+    int sweep=(frameNo%16)-8;
+    oled.drawHLine(cx-34,cy,68);
+    for(int x=-28;x<=28;x+=14)oled.drawVLine(cx+x+sweep/3,cy-7,14);
+  }else if(eq(stateName,"success")){
+    int lift=(frameNo%6<3)?0:2;
+    oled.drawLine(cx-28,cy-lift,cx-12,cy+7-lift); oled.drawLine(cx-12,cy+7-lift,cx+12,cy+7-lift); oled.drawLine(cx+12,cy+7-lift,cx+28,cy-lift);
+  }else if(eq(stateName,"error")||eq(stateName,"blocked")){
+    int dip=(frameNo%6<3)?0:2;
+    oled.drawLine(cx-28,cy+6+dip,cx-12,cy-1+dip); oled.drawLine(cx-12,cy-1+dip,cx+12,cy-1+dip); oled.drawLine(cx+12,cy-1+dip,cx+28,cy+6+dip);
+  }else{
+    oled.drawHLine(cx-24,cy,48);
+  }
 }
 
 static void drawSnout(){
   int cx=64, cy=35;
-  oled.drawRFrame(cx-50,cy-20,100,36,12);
-  oled.drawRFrame(cx-16,cy-22,32,13,6);
-  oled.drawBox(cx-4,cy-10,8,3);
-  oled.drawRFrame(cx-38,cy-8,76,20,6);
-  if(eq(stateName,"speaking")){
-    int open=6+(frameNo%7);
-    oled.drawRBox(cx-26,cy-open,52,open*2,6);
-    oled.setDrawColor(0); oled.drawHLine(cx-20,cy,40); oled.setDrawColor(1);
-  }else if(eq(stateName,"thinking")){
-    for(int x=-30;x<=30;x+=10)oled.drawDisc(cx+x,cy+(((x/10+frameNo)%2)?3:-3),2);
-  }else if(eq(stateName,"action")){
-    oled.drawHLine(cx-34,cy,68); for(int x=-28;x<=28;x+=14)oled.drawVLine(cx+x,cy-7,14);
-  }else if(eq(stateName,"success")){
-    oled.drawLine(cx-26,cy+1,cx-12,cy+7); oled.drawLine(cx-12,cy+7,cx+18,cy+7); oled.drawLine(cx+18,cy+7,cx+30,cy+1);
-  }else if(eq(stateName,"error")||eq(stateName,"blocked")){
-    oled.drawLine(cx-28,cy+6,cx-12,cy-1); oled.drawLine(cx-12,cy-1,cx+12,cy-1); oled.drawLine(cx+12,cy-1,cx+28,cy+6);
-  }else{
-    oled.drawHLine(cx-24,cy,48);
-  }
+  int bob=(eq(stateName,"speaking")||eq(stateName,"wake"))?((frameNo%6)-3)/2:0;
+  oled.drawRFrame(cx-50,cy-20+bob,100,36,12);
+  oled.drawRFrame(cx-16,cy-22+bob,32,13,6);
+  oled.drawBox(cx-4,cy-10+bob,8,3);
+  oled.drawRFrame(cx-38,cy-8+bob,76,20,6);
+  drawMouthShape(cx,cy+bob);
 }
 
 static void drawFace(){
@@ -101,15 +115,14 @@ static void pollSerial(){
 
 static void tick(){
   if(!isActive())return;
-  uint32_t now=millis(); if(now-lastMs<120)return;
-  lastMs=now; frameNo=(frameNo+1)%24;
-  if(eq(stateName,"speaking")||eq(stateName,"thinking")||eq(stateName,"wake"))drawFace();
+  uint32_t now=millis(); if(now-lastMs<90)return;
+  lastMs=now; frameNo=(frameNo+1)%24; drawFace();
 }
 
 void setup(){
   Serial.begin(KOALA_OLED_SERIAL_BAUD); delay(300);
   Wire.begin(KOALA_OLED_SDA,KOALA_OLED_SCL); oled.begin(); oled.setContrast(180);
-  showFace("idle","display ready",2200);
+  showFace("idle","mouth ready",2200);
   StaticJsonDocument<160> boot; boot["type"]="boot"; boot["device"]="heltec-oled"; boot["fw"]=KOALA_OLED_FW_VERSION; serializeJson(boot,Serial); Serial.println();
 }
 
