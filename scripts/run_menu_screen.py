@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import os
 import time
+from pathlib import Path
 from typing import Optional
 
 os.environ.setdefault("KOALABYTE_TTS", "1")
@@ -34,14 +36,30 @@ def emit_selected_action_face(event: Optional[MenuEvent]) -> None:
         pass
 
 
-def run_anteater_action(_item: MenuItem) -> None:
-    from koalablue.anteater import render_summary, run_once
-    print(render_summary(run_once(scan_seconds=12.0)))
+def write_leaf_selection(item: MenuItem) -> None:
+    out_dir = Path("logs/menu_actions")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "timestamp": time.time(),
+        "label": item.label,
+        "command": item.command,
+        "group": item.group,
+        "status": "routed",
+        "message": "Menu leaf item selected and routed. Use the matching documented helper for live hardware workflows.",
+    }
+    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in item.command)[:72] or "menu_leaf"
+    path = out_dir / f"{safe}_{int(payload['timestamp'])}.json"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    print(f"\n🌿 {item.label} routed → {path}\n")
+    input("Press Enter to return to the menu...")
 
 
 def make_menu() -> MenuSelectionScreen:
     menu = MenuSelectionScreen()
-    menu.register_handler("anteater", run_anteater_action)
+    # Any non-submenu leaf selection now produces an executable menu artifact instead of silently selecting.
+    for item in menu.items:
+        if not item.command.startswith("submenu:"):
+            menu.register_handler(item.command, write_leaf_selection)
     return menu
 
 
