@@ -16,7 +16,7 @@ STRICT_SYSTEM_PACKAGES="${STRICT_TOOLS}" bash scripts/setup_system_packages.sh |
   fi
 }
 
-echo "Checking/preparing PlatformIO for ESP32 build..."
+echo "Checking/preparing PlatformIO for ESP32 and Heltec T114 builds..."
 if ! STRICT_ESP32_TOOLS="${STRICT_TOOLS}" bash scripts/setup_esp32_tools.sh; then
   echo "PlatformIO setup/check failed." >&2
   if [[ "${STRICT_TOOLS}" == "1" ]]; then
@@ -28,14 +28,18 @@ if command -v pio >/dev/null 2>&1; then
   echo "Building ESP32-S3 DualEye firmware..."
   pio run -d firmware/esp32-dualeye
   BUILT_ANY=1
+
+  echo "Building Heltec Mesh Node T114 v2 color mouth/GNSS firmware..."
+  pio run -d firmware/heltec-mouth
+  BUILT_ANY=1
 else
-  echo "Skipping ESP32 build: PlatformIO not found." >&2
+  echo "Skipping ESP32/Heltec PlatformIO builds: PlatformIO not found." >&2
   if [[ "${STRICT_TOOLS}" == "1" ]]; then
     exit 1
   fi
 fi
 
-echo "Checking/preparing west for nRF52840 Zephyr builds..."
+echo "Checking/preparing west for separate nRF52840 Dongle Zephyr builds..."
 if ! STRICT_NRF_TOOLS="${STRICT_TOOLS}" bash scripts/setup_nrf_tools.sh --west-only; then
   echo "west setup/check failed." >&2
   if [[ "${STRICT_TOOLS}" == "1" ]]; then
@@ -52,7 +56,7 @@ if ! STRICT_NCS_TOOLCHAIN="${STRICT_TOOLS}" bash scripts/setup_nrf_connect_sdk_t
 fi
 
 if command -v west >/dev/null 2>&1; then
-  echo "Building nRF52840 Dongle KoalaByte Lab firmware..."
+  echo "Building separate nRF52840 Dongle KoalaByte Lab firmware..."
   bash scripts/build_nrf52840_dongle_lab.sh
   BUILT_ANY=1
   if [[ "${BUILD_KOALA_KONNECT:-0}" == "1" ]]; then
@@ -62,7 +66,7 @@ if command -v west >/dev/null 2>&1; then
     echo "Skipping optional Koala Konnect build. Set BUILD_KOALA_KONNECT=1 to build it."
   fi
 else
-  echo "Skipping nRF52840 Zephyr builds: west not found." >&2
+  echo "Skipping separate nRF52840 Zephyr builds: west not found." >&2
   if [[ "${STRICT_TOOLS}" == "1" ]]; then
     exit 1
   fi
@@ -70,7 +74,7 @@ fi
 
 if [[ "${BUILT_ANY}" == "0" ]]; then
   echo "No firmware was built because PlatformIO and west were not found." >&2
-  echo "Install PlatformIO for ESP32 and use scripts/setup_nrf_tools.sh plus scripts/setup_nrf_connect_sdk_toolchain.sh for nRF/Zephyr." >&2
+  echo "Install PlatformIO for ESP32/Heltec T114 and use scripts/setup_nrf_tools.sh plus scripts/setup_nrf_connect_sdk_toolchain.sh for separate nRF/Zephyr builds." >&2
   exit 1
 fi
 
