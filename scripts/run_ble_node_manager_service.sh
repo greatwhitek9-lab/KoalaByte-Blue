@@ -8,7 +8,19 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
 fi
 
 export PYTHONPATH="${REPO_ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}"
-export KOALABYTE_HELTEC_USB_PORT="${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-/dev/ttyACM0}}"
+ENV_FILE="${KOALABYTE_PORT_ENV_FILE:-${REPO_ROOT}/logs/preflight/koalabyte_ports.env}"
+if [[ -f "${ENV_FILE}" ]]; then
+  # shellcheck disable=SC1090
+  source "${ENV_FILE}"
+fi
+
+if [[ -e /dev/koalabyte-heltec ]]; then
+  DEFAULT_HELTEC_PORT="/dev/koalabyte-heltec"
+else
+  DEFAULT_HELTEC_PORT="/dev/ttyACM0"
+fi
+
+export KOALABYTE_HELTEC_USB_PORT="${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-${DEFAULT_HELTEC_PORT}}}"
 export KOALABYTE_ESP32_FACE_PORT="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-}}"
 
 mkdir -p "${REPO_ROOT}/logs/ble_nodes"
