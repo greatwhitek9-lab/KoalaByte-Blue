@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional
 
-from .menu_catalog import make_menu_items
+from .menu_catalog import make_menu_items, submenu_name_from_command, submenu_title
 
 
 @dataclass
@@ -53,6 +53,7 @@ class MenuSelectionScreen:
     - GPIO button commands from gpio_buttons.py: left/right/up/down/select/main_menu/back.
     - Touch scrolling through on_touch_down/on_touch_move/on_touch_up.
     - Touch long-press select.
+    - Hierarchical submenus through commands like submenu:eucalyptus and submenu:lab.
 
     This class is display-backend agnostic. The ESP32-S3 display, terminal UI,
     or Pi touchscreen process can all render the same grouped state. The default
@@ -66,6 +67,7 @@ class MenuSelectionScreen:
         touch_config: Optional[TouchConfig] = None,
         log_path: str | Path = "logs/menu_events.jsonl",
     ) -> None:
+        self.menu_name = "main"
         self.items: List[MenuItem] = list(items or DEFAULT_MENU_ITEMS)
         if not self.items:
             raise ValueError("menu requires at least one item")
@@ -76,6 +78,10 @@ class MenuSelectionScreen:
         self.touch = TouchState()
         self.log_path = Path(log_path)
         self._handlers: Dict[str, Callable[[MenuItem], None]] = {}
+
+    @property
+    def menu_title(self) -> str:
+        return submenu_title(self.menu_name)
 
     @property
     def selected_item(self) -> MenuItem:
@@ -97,15 +103,15 @@ class MenuSelectionScreen:
             self.move(1)
             return self._event("move", "down")
         if normalized in {"move_left", "left", "back"}:
+            if self.menu_name != "main":
+                return self._open_menu("main", "submenu_back", "submenu:main")
             self.move(-1)
             return self._event("move", "left")
         if normalized in {"move_right", "right", "forward"}:
             self.move(1)
             return self._event("move", "right")
         if normalized in {"main_menu", "home"}:
-            self.selected_index = 0
-            self.scroll_offset = 0
-            return self._event("home", "main_menu")
+            return self._open_menu("main", "home", "main_menu")
         if normalized in {"select", "enter"}:
             return self.select()
         if normalized == "shutdown":
@@ -116,7 +122,6 @@ class MenuSelectionScreen:
     def move(self, delta: int) -> None:
         if not self.items:
             return
-        # Wrap around so the six front-panel buttons can browse the whole function list quickly.
         self.selected_index = (self.selected_index + delta) % len(self.items)
         self._clamp_scroll_to_selection()
 
@@ -124,6 +129,9 @@ class MenuSelectionScreen:
         item = self.selected_item
         if not item.enabled:
             return self._event("disabled", item.command)
+        submenu = submenu_name_from_command(item.command)
+        if submenu:
+            return self._open_menu(submenu, "submenu_open" if submenu != "main" else "submenu_back", item.command)
         event = self._event("select", item.command)
         handler = self._handlers.get(item.command)
         if handler:
@@ -168,7 +176,6 @@ class MenuSelectionScreen:
     def render_text(self) -> str:
         try:
             from .menu_theme import render_terminal_jungle_menu
-
             return render_terminal_jungle_menu(self)
         except Exception:
             return self._render_plain_text()
@@ -176,7 +183,7 @@ class MenuSelectionScreen:
     def _render_plain_text(self) -> str:
         visible = self.visible_items()
         total = len(self.items)
-        lines = ["KoalaByte Blue", f"{self.selected_group} ({self.selected_index + 1}/{total})", ""]
+        lines = ["KoalaByte Blue", f"{self.menu_title} / {self.selected_group} ({self.selected_index + 1}/{total})", ""]
         previous_group: Optional[str] = None
         for absolute_index, item in visible:
             if item.group != previous_group:
@@ -195,6 +202,19 @@ class MenuSelectionScreen:
     def visible_items(self) -> List[tuple[int, MenuItem]]:
         end = min(len(self.items), self.scroll_offset + self.visible_rows)
         return list(enumerate(self.items[self.scroll_offset:end], start=self.scroll_offset))
+
+    def _open_menu(self, menu_name: str, event_type: str, command: str) -> MenuEvent:
+        event = self._event(event_type, command)
+        target = "main" if menu_name == "main" else menu_name
+        new_items = make_menu_items(MenuItem, target)
+        if not new_items:
+            return event
+        self.menu_name = target
+        self.items = new_items
+        self.selected_index = 0
+        self.scroll_offset = 0
+        self.touch = TouchState()
+        return event
 
     def _select_by_command(self, command: str) -> None:
         for idx, item in enumerate(self.items):
