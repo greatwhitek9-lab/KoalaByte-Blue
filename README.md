@@ -92,6 +92,142 @@ It checks out the `heltec` branch, runs the readiness check, does a build-only p
 
 ---
 
+## Boot / DFU / flash mode instructions
+
+Use this before running the one-shot install or any individual flash target.
+
+| Hardware | Needs manual boot/DFU mode? | When to do it |
+|---|---|---|
+| **Heltec Mesh Node T114 v2** | Usually no. Try normal USB-C upload first. Manual bootloader mode may be needed if PlatformIO cannot open/upload to the port. | Before `--install-firmware` or `--heltec-t114` only if normal upload fails or the port does not appear. |
+| **ESP32-S3 DualEye** | Usually no. The USB serial bridge normally auto-enters download mode. Manual BOOT mode may be needed if upload stalls at `Connecting...`. | Before `--install-firmware` or `--esp32` only if auto-upload fails. |
+| **Nordic nRF52840 USB Dongle / PCA10059** | Yes, when flashing the optional legacy dongle profile. It must be in DFU/bootloader mode for `nrfutil dfu`. | Before `--nrf-lab` or `--nrf-konnect` if you are flashing the optional dongle on this branch. |
+| **InnoMaker USB-to-CAN Converter kit** | No. KoalaByte does not flash firmware to it. | Never for KoalaByte setup. Plug it in by USB only after the Pi is running, or before install if you only want manifest/status checks. |
+| **Raspberry Pi onboard BLE / BlueZ** | No. | Never. It is configured by Linux packages/services, not board boot mode. |
+
+### Heltec T114 normal flashing path
+
+1. Connect the Heltec T114 to the Raspberry Pi with a real USB-C **data** cable.
+2. Check which serial device appeared:
+
+```bash
+ls /dev/ttyACM* /dev/ttyUSB* 2>/dev/null
+```
+
+3. Use that port for the one-shot install:
+
+```bash
+HELTEC_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --install-firmware
+```
+
+4. If the upload works, do not press any boot buttons.
+
+### Heltec T114 manual bootloader recovery
+
+Use this only if PlatformIO cannot upload, the port disappears, or the upload helper cannot find the board.
+
+1. Keep the Heltec T114 plugged into the Pi by USB-C.
+2. Open a second SSH window and watch USB serial changes:
+
+```bash
+dmesg -w
+```
+
+3. Try the reset-only method first: tap **RESET/RST** once.
+4. Run the port check again:
+
+```bash
+ls /dev/ttyACM* /dev/ttyUSB* 2>/dev/null
+```
+
+5. If reset-only does not expose a bootloader/upload port, use the button-combo method:
+   - Hold **BOOT**, **USER**, or **PRG**. The exact label depends on the T114 board revision.
+   - While holding it, tap **RESET/RST** once.
+   - Release **RESET/RST**.
+   - Wait two seconds.
+   - Release **BOOT/USER/PRG**.
+6. Re-run the flash command with the newly visible port:
+
+```bash
+HELTEC_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --heltec-t114
+```
+
+7. After a successful flash, tap **RESET/RST** once to boot the new firmware if it does not restart by itself.
+
+### ESP32-S3 DualEye normal flashing path
+
+1. Connect the ESP32-S3 DualEye to the Pi with a USB **data** cable.
+2. Check the port:
+
+```bash
+ls /dev/ttyACM* /dev/ttyUSB* 2>/dev/null
+```
+
+3. Flash normally:
+
+```bash
+ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
+```
+
+4. If upload works, do not use BOOT mode.
+
+### ESP32-S3 DualEye manual BOOT/download mode
+
+Use this only if the ESP32 upload stalls at `Connecting...`, fails to sync, or repeatedly resets without accepting firmware.
+
+1. Hold the **BOOT** button.
+2. Tap **RESET/EN** once while still holding **BOOT**.
+3. Release **RESET/EN**.
+4. Keep holding **BOOT** for about two seconds.
+5. Release **BOOT**.
+6. Run the flash command again:
+
+```bash
+ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
+```
+
+7. After flashing, tap **RESET/EN** once to boot the app if the board stays in download mode.
+
+### Optional nRF52840 Dongle DFU mode
+
+The Heltec branch normally uses the Heltec T114 as the main BLE device. Only follow this section if you are also flashing the optional separate Nordic nRF52840 Dongle.
+
+1. Plug the nRF52840 Dongle into the Pi or powered USB hub.
+2. Put the Dongle into bootloader/DFU mode by pressing the Dongle **RESET** button once. If your enclosure covers the button, use the reset access hole you designed into the case.
+3. Watch for the DFU serial port:
+
+```bash
+ls /dev/ttyACM* 2>/dev/null
+dmesg | tail -40
+```
+
+4. Set the DFU port and flash the optional profile:
+
+```bash
+NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
+```
+
+5. After DFU completes, the Dongle reboots into the flashed profile. If the runtime serial port changes, update the relevant runtime port variable.
+
+### InnoMaker USB-to-CAN kit
+
+The InnoMaker USB-to-CAN kit does **not** need a boot mode for KoalaByte. Do not press, short, or reflash anything on the CAN adapter for this project.
+
+1. Plug the InnoMaker adapter into the Pi by USB.
+2. Confirm Linux sees it:
+
+```bash
+lsusb
+ip link
+```
+
+3. Use KoalaByte only for manifest/status or isolated bench-simulator workflows:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
+```
+
+---
+
 ## Fast flashing and build path
 
 Start with Raspberry Pi OS Lite 64-bit, enable SSH, clone the repo, and run the readiness check:
@@ -215,7 +351,7 @@ firmware/heltec-mouth/src/main.cpp
 firmware/heltec-mouth/README.md
 docs/HELTEC_BLE_NODE_ROLES.md
 pi-companion/koalablue/ble_event_log.py
-pi-companion/koalablue/ble_node_manager.py
+pi-companion/koalblue/ble_node_manager.py
 pi-companion/koalablue/killerkoala_face_bridge.py
 scripts/flash_heltec_mouth.sh
 scripts/flash_all_components.sh
