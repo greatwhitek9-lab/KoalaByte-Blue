@@ -21,7 +21,8 @@ TEXT={
 "firmware/heltec-mouth/platformio.ini":["board = heltec_t114","board_build.variants_dir = variants","Adafruit ST7735 and ST7789"],
 "firmware/heltec-mouth/boards/heltec_t114.json":["HT-n5262","Heltec Mesh Node T114 v2","Heltec_T114_Board"],
 "firmware/heltec-mouth/variants/Heltec_T114_Board/variant.h":["PIN_TFT_CS","SX126X_DIO1","PIN_SPI1_SCK"],
-"firmware/heltec-mouth/src/main.cpp":["Adafruit_ST7789","drawSnout","drawSolidMouth","KOALA_COLOR_MOUTH"],
+"firmware/heltec-mouth/src/main.cpp":["Adafruit_ST7789","Serial.begin","drawSnout","drawSolidMouth","KOALA_COLOR_MOUTH"],
+"pi-companion/koalablue/killerkoala_face_bridge.py":["KOALABYTE_HELTEC_USB_PORT","heltec_connection","usb-cdc"],
 "scripts/run_menu_screen.py":["emit_selected_action_face"],
 }
 def main():
