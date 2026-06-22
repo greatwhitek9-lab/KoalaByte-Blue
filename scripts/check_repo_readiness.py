@@ -16,6 +16,7 @@ CANONICAL_BRANCH = "koalabyte_blue_v2_heltec_edition"
 NEEDED = [
     "README.md",
     "docs/CANONICAL_BRANCH.md",
+    "docs/FLASHING.md",
     "docs/MINED_HELTEC_V2_FEATURES.md",
     "docs/KOALA_KONNECT_HELTEC_T114.md",
     "docs/T114_HARDWARE_VALIDATION.md",
@@ -67,12 +68,30 @@ SHELL_HELPERS = [
 
 REQUIRED_TEXT = {
     "docs/CANONICAL_BRANCH.md": [CANONICAL_BRANCH],
+    "docs/FLASHING.md": [
+        "KoalaByte Blue Flashing and Installation Guide - Heltec T114 Edition",
+        "Heltec Mesh Node T114 v2 onboard nRF52840",
+        "firmware/heltec-mouth/",
+        "heltec_t114_v2/nrf52840",
+        "KOALABYTE_HELTEC_USB_PORT",
+        "Do not use this old dongle-only path",
+    ],
     "docs/MINED_HELTEC_V2_FEATURES.md": ["Old-koalabyte-blue-v2-heltec-edition", "Greatwhite"],
     "docs/GREATWHITE_WIRESHARK_TSHARK.md": ["Greatwhite", "run_gw.py", "setup_nrf_sniffer_ble.sh"],
     "pi-companion/koalablue/menu_catalog.py": ["SUBMENU_ITEMS", "leaf_menu_entries", "Greatwhite Reef Patrol", "AntEater"],
     "pi-companion/koalablue/menu_theme.py": ["JungleMenuTheme", "GREATWHITE REEF", "SNIFFER NEST"],
     "scripts/run_menu_screen.py": ["leaf_menu_entries", "menu.register_handler", "Touchscreen: long press=select"],
     "scripts/run_location_password_gate.py": ["koalablue.location_password_gate", "run_cli"],
+}
+
+FORBIDDEN_TEXT = {
+    "docs/FLASHING.md": [
+        "nRF52840 Dongle KoalaByte Lab firmware",
+        "Nordic nRF52840 Dongle / PCA10059 / NRF52840-DONGLE",
+        "bash scripts/build_nrf52840_dongle_lab.sh",
+        "cd firmware/nrf52840-dongle-ear-tag-tx-lab",
+        "west build -b nrf52840dongle_nrf52840 .",
+    ],
 }
 
 
@@ -92,6 +111,14 @@ def check_required_text(failures: list[str]) -> None:
         for word in words:
             if word not in body:
                 failures.append(f"{relative_path} missing expected text: {word}")
+
+
+def check_forbidden_text(failures: list[str]) -> None:
+    for relative_path, words in FORBIDDEN_TEXT.items():
+        body = read_text(ROOT / relative_path)
+        for word in words:
+            if word in body:
+                failures.append(f"{relative_path} still contains stale dongle-only flashing text: {word}")
 
 
 def check_config(failures: list[str]) -> None:
@@ -116,10 +143,13 @@ def check_shell_helpers(failures: list[str]) -> None:
 
 def check_executable_submenus(failures: list[str]) -> None:
     try:
-        from koalablue.menu_catalog import SUBMENU_ITEMS, leaf_menu_entries
-    except Exception as exc:
-        failures.append(f"failed to import submenu catalog: {exc}")
-        return
+        from koalblue.menu_catalog import SUBMENU_ITEMS, leaf_menu_entries  # type: ignore
+    except Exception:
+        try:
+            from koalablue.menu_catalog import SUBMENU_ITEMS, leaf_menu_entries
+        except Exception as exc:
+            failures.append(f"failed to import submenu catalog: {exc}")
+            return
 
     leaf_commands: set[str] = set()
     for submenu_name, entries in SUBMENU_ITEMS.items():
@@ -165,6 +195,7 @@ def main() -> int:
     failures: list[str] = []
     check_required_files(failures)
     check_required_text(failures)
+    check_forbidden_text(failures)
     check_config(failures)
     check_executable_submenus(failures)
     check_shell_helpers(failures)
