@@ -1,9 +1,40 @@
 #pragma once
 
-#define KOALA_OLED_FW_VERSION "0.1.0-heltec-koala-display"
-#define KOALA_OLED_SERIAL_BAUD 115200
-#define KOALA_OLED_SDA 17
-#define KOALA_OLED_SCL 18
-#define KOALA_OLED_RST 21
+#define KOALA_TFT_FW_VERSION "0.2.0-heltec-t114-color-mouth"
+#define KOALA_TFT_SERIAL_BAUD 115200
 #define KOALA_FACE_DEFAULT_DURATION_MS 4500
 #define KOALA_FACE_NAME "killerkoala"
+
+// Heltec Mesh Node T114 v2 / HT-n5262 color LCD.
+// The panel is a 1.14 in ST7789-class TFT with a 240 x 135 landscape window.
+#define KOALA_TFT_W 240
+#define KOALA_TFT_H 135
+#define KOALA_TFT_NATIVE_W 135
+#define KOALA_TFT_NATIVE_H 240
+#define KOALA_TFT_ROTATION 3
+#define KOALA_TFT_SPI_HZ 40000000
+
+// Raw nRF52840 GPIO numbers used by common T114 Arduino variants.
+#define KOALA_TFT_RST 2
+#define KOALA_TFT_VDD_CTL 3
+#define KOALA_TFT_CS 11
+#define KOALA_TFT_DC 12
+#define KOALA_TFT_BL 15
+
+// T114 panel power/backlight gates are active-low.
+#define KOALA_TFT_POWER_ON_LEVEL LOW
+#define KOALA_TFT_BACKLIGHT_ON_LEVEL LOW
+
+// RGB565 color palette.
+#define KOALA_COLOR_BG 0x0000
+#define KOALA_COLOR_TEXT 0xEFFF
+#define KOALA_COLOR_CYAN 0x07FF
+#define KOALA_COLOR_GREEN 0x07E0
+#define KOALA_COLOR_UV 0xA81F
+#define KOALA_COLOR_GREY 0x8410
+#define KOALA_COLOR_FUZZ 0xBDF7
+#define KOALA_COLOR_NOSE 0x0000
+#define KOALA_COLOR_MOUTH 0xFA60
+#define KOALA_COLOR_MOUTH_DARK 0x4004
+#define KOALA_COLOR_WARNING 0xFD20
+#define KOALA_COLOR_ERROR 0xF800
