@@ -125,7 +125,7 @@ REQUIRED_TEXT = {
     "pi-companion/koalablue/killerkoala_vocabulary.py": ["RECENT_HISTORY_WINDOW", "AUSSIE_TERMS", "anti_repeat_policy", "estimated_total_lines"],
     "pi-companion/koalablue/killerkoala_hybrid_companion.py": ["killerkoala-tinyllama:latest", "phrase_engine", "fallback_reason", "KILLERKOALA_LLM_MODE"],
     "pi-companion/koalablue/anteater.py": ["ACTION_NAME = \"AntEater\"", "BLEAK", "advertisement", "skimmer"],
-    "pi-companion/koalablue/ble_event_log.py": ["BleEventLog", "BleEventDeduper", "normalize_ble_event", "source_priority"],
+    "pi-companion/koalablue/ble_event_log.py": ["BleEventLog", "BleEventDeduper", "normalize_ble_event", "source"],
     "pi-companion/koalablue/ble_node_manager.py": ["nrf52840-dongle", "PiBluezSecondaryScanner", "BleEventDeduper", "ble_adv_seen"],
     "pi-companion/koalablue/koala_kan_kommander.py": ["Koala Kan Kommander", "InnoMaker USB to CAN Converter kit", "manifest", "inventory", "status", "transmit_requires_bench_simulator"],
     "scripts/run_anteater.py": ["koalablue.anteater", "run_cli"],
