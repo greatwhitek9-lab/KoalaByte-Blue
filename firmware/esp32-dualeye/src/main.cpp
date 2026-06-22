@@ -3,6 +3,7 @@
 #include <NimBLEDevice.h>
 #include "boot_animation.h"
 #include "config.h"
+#include "killerkoala_ai_face.h"
 #include "koalagotchi_mode_screens.h"
 
 struct ButtonDef {
@@ -77,6 +78,16 @@ void emitEyeStyleStatus(const char *statusType = "eye_style") {
   sendJson(doc);
 }
 
+void emitKillerKoalaFaceAck(const char *state, const char *renderer = "killerkoala_ai_face") {
+  StaticJsonDocument<224> ack;
+  ack["type"] = "killerkoala_face_ack";
+  ack["device"] = "esp32-dualeye";
+  ack["state"] = state;
+  ack["renderer"] = renderer;
+  ack["active"] = isKillerKoalaAiFaceActive();
+  sendJson(ack);
+}
+
 void emitBoot() {
   StaticJsonDocument<768> doc;
   doc["type"] = "boot";
@@ -89,6 +100,7 @@ void emitBoot() {
   doc["display_stub"] = ENABLE_DISPLAY_STUB;
   doc["boot_animation"] = ENABLE_DISPLAY_BOOT_ANIMATION;
   doc["custom_animated_eyes"] = 1;
+  doc["killerkoala_ai_face"] = 1;
   doc["voice_front_end"] = ESP32S3_VOICE_FRONTEND_STACK;
   doc["command_model"] = ESP32S3_COMMAND_MODEL;
   doc["companion_brain"] = KILLERKOALA_COMPANION_BRAIN;
@@ -173,7 +185,6 @@ void runBleScanCycle() {
 #endif
 
 float sampleMicRms() {
-  // Hardware-specific placeholder. Enable only after setting the correct I2S pins and audio driver.
   return 0.0f;
 }
 
@@ -182,6 +193,7 @@ void pollVoiceWake() {
   float rms = sampleMicRms();
   if (rms >= MIC_WAKE_RMS_THRESHOLD && millis() - lastVoiceWake > MIC_WAKE_COOLDOWN_MS) {
     lastVoiceWake = millis();
+    showKillerKoalaAiFace("wake", "wake word heard", KILLERKOALA_FACE_LEFT_COLOR, KILLERKOALA_FACE_RIGHT_COLOR, KILLERKOALA_FACE_BRIGHTNESS, KILLERKOALA_FACE_DEFAULT_DURATION_MS);
     StaticJsonDocument<160> doc;
     doc["type"] = "voice_wake";
     doc["name"] = COMPANION_NAME;
@@ -192,6 +204,24 @@ void pollVoiceWake() {
     sendJson(doc);
   }
 #endif
+}
+
+void handleKillerKoalaFaceCommand(JsonDocument &doc) {
+  const bool enabled = doc["enabled"] | true;
+  const char *state = doc["state"] | "";
+  if (!state || !state[0]) state = doc["phase"] | "listening";
+  if (!enabled) {
+    hideKillerKoalaAiFace();
+    emitKillerKoalaFaceAck("hidden", "killerkoala_ai_face");
+    return;
+  }
+  const char *message = doc["message"] | "";
+  const char *left = doc["left_eye"] | KILLERKOALA_FACE_LEFT_COLOR;
+  const char *right = doc["right_eye"] | KILLERKOALA_FACE_RIGHT_COLOR;
+  const int brightness = doc["brightness"] | KILLERKOALA_FACE_BRIGHTNESS;
+  const int duration = doc["duration_ms"] | KILLERKOALA_FACE_DEFAULT_DURATION_MS;
+  showKillerKoalaAiFace(state, message, left, right, brightness, duration);
+  emitKillerKoalaFaceAck(state);
 }
 
 void handlePiCommand(const String &line) {
@@ -206,7 +236,10 @@ void handlePiCommand(const String &line) {
     ack["type"] = "display_ack";
     ack["message"] = msg;
     sendJson(ack);
+  } else if (!strcmp(type, "killerkoala_face") || !strcmp(type, "ai_face") || !strcmp(type, "ai_interaction")) {
+    handleKillerKoalaFaceCommand(doc);
   } else if (!strcmp(type, "screen")) {
+    hideKillerKoalaAiFace();
     if (doc["eye_look"].is<const char*>() || doc["left_eye"].is<const char*>() || doc["right_eye"].is<const char*>()) {
       setKoalagotchiEyeStyle(
         doc["eye_look"] | getKoalagotchiEyeLook(),
@@ -247,6 +280,7 @@ void handlePiCommand(const String &line) {
   } else if (!strcmp(type, "simulate_voice_wake")) {
     const char *phrase = doc["phrase"] | "";
     if (strstr(phrase, WAKE_WORD) != nullptr) {
+      showKillerKoalaAiFace("wake", "wake word heard", KILLERKOALA_FACE_LEFT_COLOR, KILLERKOALA_FACE_RIGHT_COLOR, KILLERKOALA_FACE_BRIGHTNESS, KILLERKOALA_FACE_DEFAULT_DURATION_MS);
       StaticJsonDocument<192> wake;
       wake["type"] = "voice_wake";
       wake["name"] = COMPANION_NAME;
@@ -275,12 +309,13 @@ void pollSerial() {
 void heartbeat() {
   if (millis() - lastHeartbeat < 5000) return;
   lastHeartbeat = millis();
-  StaticJsonDocument<192> doc;
+  StaticJsonDocument<224> doc;
   doc["type"] = "heartbeat";
   doc["uptime_ms"] = millis();
   doc["free_heap"] = ESP.getFreeHeap();
   doc["eye_look"] = getKoalagotchiEyeLook();
   doc["eye_animation"] = getKoalagotchiEyeAnimation();
+  doc["killerkoala_face_active"] = isKillerKoalaAiFaceActive();
   sendJson(doc);
 }
 
@@ -303,7 +338,10 @@ void loop() {
   pollSerial();
   pollButtons();
   pollVoiceWake();
-  tickKoalagotchiEyes();
+  if (!isKillerKoalaAiFaceActive()) {
+    tickKoalagotchiEyes();
+  }
+  tickKillerKoalaAiFace();
 #if ENABLE_LOCAL_BLE_SCAN
   runBleScanCycle();
 #endif
