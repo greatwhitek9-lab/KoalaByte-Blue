@@ -8,7 +8,19 @@ if [[ ! -x "${PY}" ]]; then
 fi
 
 export PYTHONPATH="${ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}"
-PORT="${KOALABYTE_NRF_BLE_PORT:-${NRF_BLE_PORT:-/dev/ttyACM0}}"
+ENV_FILE="${KOALABYTE_PORT_ENV_FILE:-${ROOT}/logs/preflight/koalabyte_ports.env}"
+if [[ -f "${ENV_FILE}" ]]; then
+  # shellcheck disable=SC1090
+  source "${ENV_FILE}"
+fi
+
+if [[ -e /dev/koalabyte-nrf-ble ]]; then
+  DEFAULT_NRF_PORT="/dev/koalabyte-nrf-ble"
+else
+  DEFAULT_NRF_PORT="/dev/ttyACM0"
+fi
+
+PORT="${KOALABYTE_NRF_BLE_PORT:-${NRF_BLE_PORT:-${DEFAULT_NRF_PORT}}}"
 ESP="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-}}"
 mkdir -p "${ROOT}/logs/ble_nodes"
 
