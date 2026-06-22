@@ -1,9 +1,9 @@
 #pragma once
 
-// killerkoala ESP32-S3 DualEye config RevA23
-// Confirm exact DualEye audio/display pins against your board revision before relying on hardware wake-word capture or display output.
+// killerkoala ESP32-S3 DualEye config RevA24
+// Confirm exact DualEye audio/display/touch pins against your board revision before relying on hardware wake-word capture or direct touch-controller reads.
 
-#define KOALABLUE_FW_VERSION "0.5.0-jungle-theme"
+#define KOALABLUE_FW_VERSION "0.6.0-touch-menu"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define SERIAL_BAUD 115200
@@ -39,11 +39,29 @@
 #define ENABLE_DISPLAY_STUB   0
 #define ENABLE_DISPLAY_BOOT_ANIMATION 1
 #define ENABLE_AUDIO_SPEAKER  1
+#define ENABLE_TOUCH_MENU     1
 
 // Boot animation behavior.
 #define BOOT_ANIMATION_TOTAL_MS 2500
 #define BOOT_ANIMATION_FRAME_MS 50
 #define DISPLAY_ROTATION 0
+
+// ESP32-side touch menu bridge.
+// Default backend is serial_calibrated because the DualEye touch controller/pins vary by board revision.
+// When exact touch-controller wiring is confirmed, feed raw samples as raw_touch JSON or replace the backend reader.
+#define TOUCH_MENU_BACKEND "serial_calibrated"
+#define TOUCH_MENU_SCREEN_W 240
+#define TOUCH_MENU_SCREEN_H 240
+#define TOUCH_MENU_RAW_MIN_X 0
+#define TOUCH_MENU_RAW_MAX_X 4095
+#define TOUCH_MENU_RAW_MIN_Y 0
+#define TOUCH_MENU_RAW_MAX_Y 4095
+#define TOUCH_MENU_INVERT_X 0
+#define TOUCH_MENU_INVERT_Y 0
+#define TOUCH_MENU_SWAP_XY 0
+#define TOUCH_MENU_ROW_HEIGHT 40
+#define TOUCH_MENU_VISIBLE_ROWS 6
+#define TOUCH_MENU_LONG_PRESS_MS 750
 
 // Buttons. Use -1 to disable a button.
 #define BTN_BACK_PIN    0
