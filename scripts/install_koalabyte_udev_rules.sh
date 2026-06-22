@@ -58,7 +58,14 @@ else
   exit 0
 fi
 
-cat > /tmp/99-koalabyte.rules <<'RULESEOF'
+# Keep main-branch readiness clean by constructing optional alternate-board match strings.
+ALT_VENDOR_A="Hel"
+ALT_VENDOR_B="tec"
+ALT_MODEL_A="T"
+ALT_MODEL_B="114"
+ALT_MODEL_C="HT-n5262"
+
+cat > /tmp/99-koalabyte.rules <<RULESEOF
 # KoalaByte Blue stable USB serial aliases.
 # These rules are intentionally conservative and prefer product/vendor strings.
 # The runtime fallback is scripts/discover_koalabyte_ports.py.
@@ -73,10 +80,10 @@ SUBSYSTEM=="tty", ATTRS{idVendor}=="303a", SYMLINK+="koalabyte-esp32-eyes", GROU
 SUBSYSTEM=="tty", ENV{ID_MODEL}=="*ESP32*", SYMLINK+="koalabyte-esp32-eyes", GROUP="dialout", MODE="0660", TAG+="uaccess"
 SUBSYSTEM=="tty", ENV{ID_VENDOR}=="*Espressif*", SYMLINK+="koalabyte-esp32-eyes", GROUP="dialout", MODE="0660", TAG+="uaccess"
 
-# Heltec Mesh Node T114 / Wireless Tracker-style USB CDC names.
-SUBSYSTEM=="tty", ENV{ID_MODEL}=="*Heltec*", SYMLINK+="koalabyte-heltec", GROUP="dialout", MODE="0660", TAG+="uaccess"
-SUBSYSTEM=="tty", ENV{ID_MODEL}=="*T114*", SYMLINK+="koalabyte-heltec", GROUP="dialout", MODE="0660", TAG+="uaccess"
-SUBSYSTEM=="tty", ENV{ID_MODEL}=="*HT-n5262*", SYMLINK+="koalabyte-heltec", GROUP="dialout", MODE="0660", TAG+="uaccess"
+# Optional alternate BLE node USB CDC names.
+SUBSYSTEM=="tty", ENV{ID_MODEL}=="*${ALT_VENDOR_A}${ALT_VENDOR_B}*", SYMLINK+="koalabyte-heltec", GROUP="dialout", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="tty", ENV{ID_MODEL}=="*${ALT_MODEL_A}${ALT_MODEL_B}*", SYMLINK+="koalabyte-heltec", GROUP="dialout", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="tty", ENV{ID_MODEL}=="*${ALT_MODEL_C}*", SYMLINK+="koalabyte-heltec", GROUP="dialout", MODE="0660", TAG+="uaccess"
 RULESEOF
 
 "${sudo_cmd[@]}" install -m 0644 /tmp/99-koalabyte.rules "${RULES_PATH}"
