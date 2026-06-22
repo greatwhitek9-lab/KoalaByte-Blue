@@ -4,8 +4,12 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPO_ROOT}"
 
-echo "== Heltec OLED koala display firmware =="
-STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-1}" bash scripts/setup_esp32_tools.sh
+if ! command -v pio >/dev/null 2>&1; then
+  echo "PlatformIO is required. Install it with: python3 -m pip install -U platformio" >&2
+  exit 1
+fi
+
+echo "== Heltec T114 color KillerKoala mouth firmware =="
 
 if [[ "${BUILD_ONLY:-0}" == "1" || "${1:-}" == "--build-only" ]]; then
   pio run -d firmware/heltec-mouth
