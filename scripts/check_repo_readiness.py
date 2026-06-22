@@ -35,6 +35,8 @@ NEEDED = [
     "docs/HELTEC_BLE_NODE_ROLES.md",
     "pi-companion/requirements.txt",
     "pi-companion/requirements-heltec-v2-extra.txt",
+    "pi-companion/koalablue/menu_catalog.py",
+    "pi-companion/koalablue/menu_theme.py",
     "pi-companion/koalablue/ble_event_log.py",
     "pi-companion/koalablue/ble_node_manager.py",
     "pi-companion/koalablue/koala_kan_kommander.py",
@@ -96,12 +98,21 @@ TEXT = {
     "docs/HELTEC_BLE_NODE_ROLES.md": ["Heltec T114", "primary", "BLE node manager", "service"],
     "pi-companion/requirements.txt": ["python-can"],
     "pi-companion/requirements-heltec-v2-extra.txt": ["meshtastic[cli]", "prompt-toolkit", "spidev"],
+    "pi-companion/koalablue/menu_catalog.py": [
+        "Canopy Konnect T114", "Canopy Konnect Build Check", "T114 Vine HCI Check",
+        "T114 Canopy Safe Sweep", "Meshtastic Gumleaf Status", "Meshtastic Billabong Nodes",
+        "Greatwhite Reef Patrol", "Greatwhite Interface Lagoon", "nRF Sniffer Nest Check",
+    ],
+    "pi-companion/koalablue/menu_theme.py": [
+        "JungleMenuTheme", "cooperblack", "porkchop_style_eucalyptus_branches",
+        "No third-party font files are bundled", "CANOPY KONNECT", "T114 VINE HCI",
+        "GUMLEAF MESH", "BILLABONG NODES", "GREATWHITE REEF", "SNIFFER NEST",
+    ],
     "pi-companion/koalablue/ble_event_log.py": ["BleEventLog", "BleEventDeduper", "normalize_ble_event", "source"],
     "pi-companion/koalablue/ble_node_manager.py": ["heltec-t114", "discover_heltec_port", "BleEventDeduper", "ble_adv_seen"],
     "pi-companion/koalablue/koala_kan_kommander.py": ["Koala Kan Kommander", "InnoMaker USB to CAN Converter kit", "manifest", "inventory", "status"],
     "pi-companion/koalablue/killerkoala_face_bridge.py": ["KOALABYTE_HELTEC_USB_PORT", "heltec_connection", "usb-cdc"],
     "pi-companion/koalablue/t114_bluez.py": ["T114BluezResult", "controller-check", "blocked_missing_hci_controller", "authorized_lab_use_only"],
-    "pi-companion/koalblue/location_password_gate.py": [],
     "pi-companion/koalablue/location_password_gate.py": ["KOALABYTE_LOCATION_UNLOCKED", "password_sha256", "ensure_unlocked"],
     "pi-companion/koalablue/gnss_location.py": ["authorized password-protected location logging only", "parse_meshtastic_info_text", "write_current_fix"],
     "pi-companion/koalablue/meshtastic_app.py": ["--confirm-send is required", "protected-actions password required", "MeshtasticProfile"],
@@ -194,8 +205,6 @@ def main() -> int:
         if (ROOT / relative_path).exists():
             failures.append(f"experimental CAN firmware track should stay on its own branch: {relative_path}")
     for relative_path, words in TEXT.items():
-        if not words:
-            continue
         body = read_text(ROOT / relative_path)
         for word in words:
             if word not in body:
