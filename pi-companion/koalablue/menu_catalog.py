@@ -14,16 +14,11 @@ MENU_GROUPS: List[str] = [
 
 _GROUP_ORDER = {name: index for index, name in enumerate(MENU_GROUPS)}
 
-FUNCTION_MENU_ITEMS: List[dict[str, object]] = [
+MAIN_MENU_ITEMS: List[dict[str, object]] = [
     {"group": "Bluetooth Tools", "label": "Scan", "command": "scan", "description": "Run a safe local BLE inventory scan"},
     {"group": "Bluetooth Tools", "label": "Summary", "command": "summary", "description": "Summarize observed local BLE devices"},
     {"group": "Bluetooth Tools", "label": "Show Devices", "command": "show", "description": "Show the current local BLE device table"},
-    {"group": "Bluetooth Tools", "label": "eucalyptus Status", "command": "eucalyptus status", "description": "Show always-on passive BLE logger status"},
-    {"group": "Bluetooth Tools", "label": "eucalyptus Start", "command": "eucalyptus start", "description": "Start always-on passive BLE logging"},
-    {"group": "Bluetooth Tools", "label": "eucalyptus Stop", "command": "eucalyptus stop", "description": "Stop always-on passive BLE logging"},
-    {"group": "Bluetooth Tools", "label": "eucalyptus Restart", "command": "eucalyptus restart", "description": "Restart always-on passive BLE logging"},
-    {"group": "Bluetooth Tools", "label": "eucalyptus Upload Status", "command": "eucalyptus upload-status", "description": "Show upload readiness/status"},
-    {"group": "Bluetooth Tools", "label": "Eucalyptus Mode", "command": "eucalyptus_mode", "description": "Koalagotchi always-on Bluetooth scanner and logger screen; stays open until quit"},
+    {"group": "Bluetooth Tools", "label": "Eucalyptus", "command": "submenu:eucalyptus", "description": "Open the eucalyptus canopy submenu for passive BLE logger controls"},
     {"group": "Bluetooth Tools", "label": "Koala Kapture", "command": "koala_kapture", "description": "Record authorized lab observation metadata"},
     {"group": "Bluetooth Tools", "label": "Koala Kry", "command": "koala_kry", "description": "Replay local saved metadata into the report pipeline"},
     {"group": "Reports & Reviews", "label": "Koala Kry RF Review", "command": "koala_kry_transmit_review", "description": "Write RF bench isolation and authorization review; no RF is sent"},
@@ -62,10 +57,49 @@ FUNCTION_MENU_ITEMS: List[dict[str, object]] = [
     {"group": "Reports & Reviews", "label": "Defensive Lab Report", "command": "defensive_report", "description": "Generate a defensive lab report template"},
     {"group": "System / Companion", "label": "Restricted Placeholder", "command": "restricted_placeholder", "description": "Reserved locked slot; intentionally non-operational", "enabled": False},
     {"group": "System / Companion", "label": "Settings", "command": "settings", "description": "Device and companion settings"},
-    {"group": "System / Companion", "label": "Lab", "command": "lab", "description": "Password-gated Authorized Lab Use menu"},
+    {"group": "System / Companion", "label": "Lab", "command": "submenu:lab", "description": "Open the password-gated Authorized Lab Use submenu"},
     {"group": "System / Companion", "label": "Shutdown", "command": "shutdown_confirm", "description": "Confirm safe shutdown"},
     {"group": "System / Companion", "label": "Quit", "command": "quit", "description": "Exit the Pi companion UI"},
 ]
+
+SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
+    "eucalyptus": [
+        {"group": "Bluetooth Tools", "label": "Eucalyptus Canopy Status", "command": "eucalyptus status", "description": "Show always-on passive BLE logger status"},
+        {"group": "Bluetooth Tools", "label": "Eucalyptus Canopy Start", "command": "eucalyptus start", "description": "Start always-on passive BLE logging"},
+        {"group": "Bluetooth Tools", "label": "Eucalyptus Canopy Stop", "command": "eucalyptus stop", "description": "Stop always-on passive BLE logging"},
+        {"group": "Bluetooth Tools", "label": "Eucalyptus Canopy Restart", "command": "eucalyptus restart", "description": "Restart always-on passive BLE logging"},
+        {"group": "Bluetooth Tools", "label": "Eucalyptus Upload Trail", "command": "eucalyptus upload-status", "description": "Show upload readiness/status"},
+        {"group": "Bluetooth Tools", "label": "Eucalyptus Koalagotchi Mode", "command": "eucalyptus_mode", "description": "Open the Koalagotchi always-on Bluetooth scanner/logger screen"},
+        {"group": "System / Companion", "label": "Back to Main Canopy", "command": "submenu:main", "description": "Return to the main KoalaByte Blue menu"},
+    ],
+    "lab": [
+        {"group": "System / Companion", "label": "Lab Gate Status", "command": "location_password_status", "description": "Check protected-actions password gate status"},
+        {"group": "System / Companion", "label": "Lab Gate Setup", "command": "location_password_setup", "description": "Set or rotate the local protected-actions password"},
+        {"group": "Bluetooth Tools", "label": "Meshtastic Protected Listen", "command": "meshtastic_listen_protected", "description": "Password-gated authorized mesh listen workflow"},
+        {"group": "Bluetooth Tools", "label": "Meshtastic Protected Send", "command": "meshtastic_send_protected", "description": "Password-gated send workflow requiring explicit confirmation"},
+        {"group": "Bluetooth Tools", "label": "GNSS Protected Fix", "command": "gnss_protected_fix", "description": "Password-gated GNSS/current-fix helper"},
+        {"group": "System / Companion", "label": "Canopy Konnect Build Check", "command": "koala_konnect_t114_build_only", "description": "Build-only T114 HCI check before optional Koala Konnect flash"},
+        {"group": "Bluetooth Tools", "label": "T114 Vine HCI Check", "command": "t114_bluez_controller_check", "description": "Check whether the T114 appears as a USB Bluetooth HCI controller"},
+        {"group": "Reports & Reviews", "label": "Greatwhite Reef Patrol", "command": "greatwhite_status", "description": "Check tshark/Wireshark readiness and local capture tooling"},
+        {"group": "CAN Bench Tools", "label": "CAN Bench Safety Check", "command": "koala_kan_kommander", "description": "Open Koala Kan safe manifest/inventory/status workflow"},
+        {"group": "System / Companion", "label": "Back to Main Canopy", "command": "submenu:main", "description": "Return to the main KoalaByte Blue menu"},
+    ],
+}
+
+FUNCTION_MENU_ITEMS = MAIN_MENU_ITEMS
+
+
+def submenu_name_from_command(command: str) -> str:
+    return command.split(":", 1)[1].strip().lower() if command.startswith("submenu:") else ""
+
+
+def submenu_title(menu_name: str) -> str:
+    titles = {"main": "Main Canopy", "eucalyptus": "Eucalyptus", "lab": "Authorized Lab"}
+    return titles.get(menu_name, menu_name.replace("_", " ").title())
+
+
+def _entries_for_menu(menu_name: str = "main") -> List[dict[str, object]]:
+    return MAIN_MENU_ITEMS if menu_name == "main" else SUBMENU_ITEMS.get(menu_name, [])
 
 
 def _entry_group(entry: dict[str, object]) -> str:
@@ -73,22 +107,22 @@ def _entry_group(entry: dict[str, object]) -> str:
     return group if group in _GROUP_ORDER else "System / Companion"
 
 
-def grouped_entries() -> Dict[str, List[dict[str, object]]]:
+def grouped_entries(menu_name: str = "main") -> Dict[str, List[dict[str, object]]]:
     groups: Dict[str, List[dict[str, object]]] = OrderedDict((name, []) for name in MENU_GROUPS)
-    for entry in FUNCTION_MENU_ITEMS:
+    for entry in _entries_for_menu(menu_name):
         groups[_entry_group(entry)].append(entry)
     return groups
 
 
-def sorted_menu_entries() -> List[dict[str, object]]:
-    indexed = list(enumerate(FUNCTION_MENU_ITEMS))
+def sorted_menu_entries(menu_name: str = "main") -> List[dict[str, object]]:
+    indexed = list(enumerate(_entries_for_menu(menu_name)))
     indexed.sort(key=lambda pair: (_GROUP_ORDER[_entry_group(pair[1])], pair[0]))
     return [entry for _idx, entry in indexed]
 
 
-def make_menu_items(menu_item_cls: Type[T]) -> List[T]:
+def make_menu_items(menu_item_cls: Type[T], menu_name: str = "main") -> List[T]:
     items: List[T] = []
-    for entry in sorted_menu_entries():
+    for entry in sorted_menu_entries(menu_name):
         kwargs = {"label": str(entry["label"]), "command": str(entry["command"]), "description": str(entry.get("description", "")), "enabled": bool(entry.get("enabled", True)), "group": _entry_group(entry)}
         try:
             items.append(menu_item_cls(**kwargs))
@@ -102,9 +136,9 @@ def make_menu_items(menu_item_cls: Type[T]) -> List[T]:
     return items
 
 
-def menu_labels() -> List[str]:
-    return [str(item["label"]) for item in FUNCTION_MENU_ITEMS]
+def menu_labels(menu_name: str = "main") -> List[str]:
+    return [str(item["label"]) for item in _entries_for_menu(menu_name)]
 
 
-def grouped_menu_labels() -> Dict[str, List[str]]:
-    return {group: [str(item["label"]) for item in entries] for group, entries in grouped_entries().items()}
+def grouped_menu_labels(menu_name: str = "main") -> Dict[str, List[str]]:
+    return {group: [str(item["label"]) for item in entries] for group, entries in grouped_entries(menu_name).items()}
