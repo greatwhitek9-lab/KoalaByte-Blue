@@ -39,6 +39,7 @@ def open_submenu(menu: MenuSelectionScreen, command: str) -> bool:
     new_items = make_menu_items(MenuItem, target)
     if not new_items:
         return False
+    menu.menu_name = target
     menu.items = new_items
     menu.selected_index = 0
     menu.scroll_offset = 0
@@ -52,12 +53,18 @@ def open_submenu(menu: MenuSelectionScreen, command: str) -> bool:
 def route_leaf(item: MenuItem) -> None:
     out_dir = Path("logs/menu_actions")
     out_dir.mkdir(parents=True, exist_ok=True)
-    payload = {"timestamp": time.time(), "label": item.label, "command": item.command, "group": item.group, "status": "routed"}
+    payload = {
+        "timestamp": time.time(),
+        "label": item.label,
+        "command": item.command,
+        "group": item.group,
+        "status": "routed",
+        "message": "Menu leaf item selected and routed. Touch long-press, keyboard Enter, and the physical Select button all use this same execution path.",
+    }
     safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in item.command)[:72] or "menu_leaf"
     path = out_dir / f"{safe}_{int(payload['timestamp'])}.json"
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     print(f"\n🌿 {item.label} routed → {path}\n")
-    input("Press Enter to return to the menu...")
 
 
 def run_boomerang_action(_item: MenuItem) -> None:
@@ -82,7 +89,6 @@ def run_anteater_action(_item: MenuItem) -> None:
     print("\n== AntEater ==")
     report = run_once(scan_seconds=12.0)
     print(render_summary(report))
-    input("\nPress Enter to return to the KoalaByte Blue menu...")
 
 
 def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
@@ -124,7 +130,7 @@ def run_terminal() -> int:
                 print("GPIO buttons: active")
             elif buttons is not None and buttons.error:
                 print(f"GPIO buttons: {buttons.error}")
-            print("Keyboard test: w/s/a/d, Enter=select, m=menu, q=quit")
+            print("Keyboard: w/s/a/d, Enter=select, m=menu, q=quit | Touchscreen: long press=select | Button B3/select=select")
             print("Graphical jungle menu: python scripts/run_menu_screen.py --graphical --windowed")
 
             if buttons is not None:
