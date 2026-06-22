@@ -12,9 +12,12 @@ from koalablue.menu_catalog import leaf_menu_entries
 from koalablue.menu_ui import MenuEvent, MenuItem, MenuSelectionScreen
 
 try:
-    from koalablue.gpio_buttons import GPIOButtonManager
+    from koalblue.gpio_buttons import GPIOButtonManager  # type: ignore
 except Exception:
-    GPIOButtonManager = None  # type: ignore
+    try:
+        from koalablue.gpio_buttons import GPIOButtonManager
+    except Exception:
+        GPIOButtonManager = None  # type: ignore
 
 KEY_MAP = {"w":"up","s":"down","a":"move_left","d":"move_right","":"select","m":"main_menu","q":"quit"}
 
@@ -46,18 +49,18 @@ def write_leaf_selection(item: MenuItem) -> None:
         "command": item.command,
         "group": item.group,
         "status": "routed",
-        "message": "Menu leaf item selected and routed. Use the matching documented helper for live hardware workflows.",
+        "message": "Menu leaf item selected and routed. Touch long-press, keyboard Enter, and the physical Select button all use this same execution path.",
     }
     safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in item.command)[:72] or "menu_leaf"
     path = out_dir / f"{safe}_{int(payload['timestamp'])}.json"
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     print(f"\n🌿 {item.label} routed → {path}\n")
-    input("Press Enter to return to the menu...")
 
 
 def make_menu() -> MenuSelectionScreen:
     menu = MenuSelectionScreen()
-    # Register every leaf from every submenu so selecting a submenu action never silently does nothing.
+    # Register every executable leaf from every submenu so touchscreen long-press,
+    # keyboard Enter, and the physical Select button never silently do nothing.
     for entry in leaf_menu_entries():
         command = str(entry.get("command", ""))
         if command:
@@ -72,7 +75,7 @@ def run_terminal() -> int:
         buttons.start()
     try:
         while True:
-            clear(); print(menu.render_text()); print("Keyboard test: w/s/a/d, Enter=select, m=menu, q=quit")
+            clear(); print(menu.render_text()); print("Keyboard: w/s/a/d, Enter=select, m=menu, q=quit | Touchscreen: long press=select | Button B3/select=select")
             if buttons is not None:
                 button_event = buttons.get_event(timeout=0.05)
                 if button_event is not None:
