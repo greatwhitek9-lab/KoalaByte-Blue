@@ -7,3 +7,4 @@ uvicorn>=0.30.0
 requests>=2.32.0
 gpiozero>=2.0.1
 pygame>=2.5.2
+python-can>=4.4.2
