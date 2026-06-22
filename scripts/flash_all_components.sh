@@ -8,6 +8,7 @@ ORIGINAL_ARGS=("$@")
 RUN_PI=0
 RUN_ESP32=0
 RUN_HELTEC_T114=0
+RUN_BLE_NODE_MANAGER=0
 RUN_NRF_LAB=0
 RUN_NRF_KONNECT=0
 RUN_CAN_CHECK=0
@@ -28,6 +29,7 @@ Usage:
   bash scripts/flash_all_components.sh --install-firmware
   bash scripts/flash_all_components.sh --all
   bash scripts/flash_all_components.sh --pi --esp32 --heltec-t114
+  bash scripts/flash_all_components.sh --ble-node-manager
   bash scripts/flash_all_components.sh --ai-voice
   WIFI_INTERACTIVE=1 bash scripts/flash_all_components.sh --install-firmware
   WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword" bash scripts/flash_all_components.sh --install-firmware
@@ -36,18 +38,19 @@ Usage:
   NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
 
 Targets:
-  --install-firmware  One-script Heltec branch install: git checkout heltec, readiness check, build-only preflight, then install/flash Pi companion, ESP32 DualEye, Heltec T114, and CAN manifest checks
-  --all               Install Pi companion, prepare KillerKoala AI voice, flash ESP32 DualEye, flash Heltec T114 color mouth/GNSS firmware, and run CAN manifest check
+  --install-firmware  One-script Heltec branch install: git checkout heltec, readiness check, build-only preflight, then install/flash Pi companion, ESP32 DualEye, Heltec T114, BLE node manager service, and CAN manifest checks
+  --all               Install Pi companion, prepare KillerKoala AI voice, flash ESP32 DualEye, flash Heltec T114 color mouth/GNSS/BLE firmware, install/start BLE node manager service, and run CAN manifest check
   --pi                Install/update Raspberry Pi companion environment
   --ai-voice          Prepare/verify KillerKoala phrase-first companion config and optional TinyLlama/Ollama settings
   --esp32             Build and flash ESP32-S3 DualEye firmware with PlatformIO
-  --heltec-t114       Build and flash Heltec Mesh Node T114 v2 nRF52840 color TFT mouth/GNSS firmware over USB-C
+  --heltec-t114       Build and flash Heltec Mesh Node T114 v2 nRF52840 color TFT mouth/GNSS/BLE-primary firmware over USB-C
+  --ble-node-manager  Install/enable/start the Pi-side BLE node manager service with Heltec T114 as primary BLE node
   --nrf-lab           Optional: build/package/flash separate nRF52840 Dongle KoalaByte Lab firmware
   --nrf-konnect       Optional: build/package/flash separate Koala Konnect USB HCI profile instead of KoalaByte Lab
   --can-check         Write Koala Kan Kommander InnoMaker manifest artifact; no CAN traffic is sent
 
 Modes:
-  --build-only        Build/package only; do not upload/flash firmware
+  --build-only        Build/package only; do not upload/flash firmware or install services
   --preflight-build   Run the all-firmware build helper before flashing selected targets
   --checkout-heltec   Checkout the heltec branch before continuing
   --check-only        Run repo readiness check only
@@ -62,7 +65,10 @@ Environment:
   STRICT_WIFI_FIRST_BOOT  1 fails if WiFi/internet cannot be verified before downloads.
   ESP32_PORT              Optional PlatformIO upload/monitor port, for example /dev/ttyUSB0 or COM5
   HELTEC_PORT             Optional Heltec T114 USB CDC upload/monitor port, for example /dev/ttyACM0 or COM7
-  KOALABYTE_HELTEC_USB_PORT Optional Pi runtime USB CDC port for T114 face/GNSS JSON bridge.
+  KOALABYTE_HELTEC_USB_PORT Optional Pi runtime USB CDC port for T114 face/GNSS/BLE JSON bridge.
+  KOALABYTE_ESP32_FACE_PORT Optional ESP32 runtime serial port for eyes and optional secondary BLE node.
+  INSTALL_BLE_NODE_MANAGER_SERVICE auto/1/0. Default: auto. Installs/enables the BLE node manager service on systemd systems.
+  STRICT_BLE_NODE_MANAGER_SERVICE 1 fails if the BLE node manager service cannot be installed/started.
   NRF_DFU_PORT           Optional separate nRF52840 Dongle bootloader serial port, for example /dev/ttyACM0 or COM7
   INSTALL_SYSTEM_PACKAGES auto/1/0. Default: auto. Attempts apt install on Raspberry Pi OS.
   STRICT_SYSTEM_PACKAGES  1 fails if system packages cannot be checked/installed.
@@ -89,10 +95,12 @@ One-script install flow:
     python3 scripts/check_repo_readiness.py
     BUILD_ONLY=1 bash scripts/flash_all_components.sh --all
     HELTEC_PORT=${HELTEC_PORT:-/dev/ttyACM0} bash scripts/flash_all_components.sh --heltec-t114
+    KOALABYTE_HELTEC_USB_PORT=${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-/dev/ttyACM0}} bash scripts/install_ble_node_manager_service.sh
 
 Notes:
   - The Heltec branch treats the Heltec Mesh Node T114 v2 as a USB-C connected nRF52840 board.
   - Heltec GPS, LoRa/SX1262, BLE, and color mouth display use the T114 hardware and communicate to the Pi over USB CDC.
+  - The BLE node manager service starts the Heltec T114 as the primary passive BLE scanner automatically after one-shot install.
   - Do not wire Heltec TX/RX pins to the Raspberry Pi GPIO header for the KillerKoala face/GNSS/LoRa/BLE channel.
   - The separate Nordic nRF52840 Dongle is optional/legacy on this branch; it is not flashed by --all.
   - WiFi/internet can be configured first so the Pi can download SDK/toolchain dependencies.
@@ -120,6 +128,7 @@ while [[ $# -gt 0 ]]; do
       RUN_AI_VOICE=1
       RUN_ESP32=1
       RUN_HELTEC_T114=1
+      RUN_BLE_NODE_MANAGER=1
       RUN_CAN_CHECK=1
       ;;
     --all)
@@ -127,12 +136,14 @@ while [[ $# -gt 0 ]]; do
       RUN_AI_VOICE=1
       RUN_ESP32=1
       RUN_HELTEC_T114=1
+      RUN_BLE_NODE_MANAGER=1
       RUN_CAN_CHECK=1
       ;;
     --pi) RUN_PI=1 ;;
     --ai-voice) RUN_PI=1; RUN_AI_VOICE=1 ;;
     --esp32) RUN_ESP32=1 ;;
     --heltec-t114) RUN_HELTEC_T114=1 ;;
+    --ble-node-manager) RUN_PI=1; RUN_BLE_NODE_MANAGER=1 ;;
     --nrf-lab) RUN_NRF_LAB=1 ;;
     --nrf-konnect) RUN_NRF_KONNECT=1 ;;
     --can-check) RUN_CAN_CHECK=1 ;;
@@ -157,6 +168,7 @@ done
 
 if [[ "${ONE_SCRIPT_INSTALL}" == "1" ]]; then
   export HELTEC_PORT="${HELTEC_PORT:-/dev/ttyACM0}"
+  export KOALABYTE_HELTEC_USB_PORT="${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT}}"
 fi
 
 checkout_heltec_if_requested() {
@@ -193,7 +205,7 @@ if [[ "${RUN_NRF_LAB}" == "1" && "${RUN_NRF_KONNECT}" == "1" && "${BUILD_ONLY}" 
 fi
 
 setup_wifi_for_selected_mode() {
-  if [[ "${RUN_PI}" != "1" && "${RUN_AI_VOICE}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_HELTEC_T114}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
+  if [[ "${RUN_PI}" != "1" && "${RUN_AI_VOICE}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_HELTEC_T114}" != "1" && "${RUN_BLE_NODE_MANAGER}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
     return 0
   fi
   echo
@@ -202,7 +214,7 @@ setup_wifi_for_selected_mode() {
 }
 
 setup_system_packages_for_selected_mode() {
-  if [[ "${RUN_PI}" != "1" && "${RUN_AI_VOICE}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_HELTEC_T114}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
+  if [[ "${RUN_PI}" != "1" && "${RUN_AI_VOICE}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_HELTEC_T114}" != "1" && "${RUN_BLE_NODE_MANAGER}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
     return 0
   fi
   echo
@@ -264,6 +276,24 @@ JSON
   echo "Phrase-first preview written to logs/killerkoala/flash_all_ai_voice_preview.json"
 }
 
+install_ble_node_manager_for_selected_mode() {
+  if [[ "${RUN_BLE_NODE_MANAGER}" != "1" ]]; then
+    return 0
+  fi
+  echo
+  echo "== KoalaByte BLE node manager service: Heltec T114 primary BLE node =="
+  if [[ "${BUILD_ONLY}" == "1" ]]; then
+    echo "Build-only mode: skipping BLE node manager service install/start."
+    return 0
+  fi
+  KOALABYTE_HELTEC_USB_PORT="${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-/dev/ttyACM0}}" \
+  KOALABYTE_ESP32_FACE_PORT="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-}}" \
+  PYTHON_BIN="${REPO_ROOT}/pi-companion/.venv/bin/python" \
+  INSTALL_BLE_NODE_MANAGER_SERVICE="${INSTALL_BLE_NODE_MANAGER_SERVICE:-auto}" \
+  STRICT_BLE_NODE_MANAGER_SERVICE="${STRICT_BLE_NODE_MANAGER_SERVICE:-0}" \
+    bash scripts/install_ble_node_manager_service.sh
+}
+
 checkout_heltec_if_requested
 
 echo "== KoalaByte Blue readiness check =="
@@ -309,7 +339,7 @@ fi
 
 if [[ "${RUN_HELTEC_T114}" == "1" ]]; then
   echo
-  echo "== Heltec Mesh Node T114 v2 color mouth/GNSS firmware =="
+  echo "== Heltec Mesh Node T114 v2 color mouth/GNSS/BLE-primary firmware =="
   if [[ "${BUILD_ONLY}" == "1" ]]; then
     BUILD_ONLY=1 bash scripts/flash_heltec_mouth.sh --build-only
   else
@@ -320,6 +350,8 @@ if [[ "${RUN_HELTEC_T114}" == "1" ]]; then
     fi
   fi
 fi
+
+install_ble_node_manager_for_selected_mode
 
 if [[ "${RUN_NRF_LAB}" == "1" ]]; then
   echo
