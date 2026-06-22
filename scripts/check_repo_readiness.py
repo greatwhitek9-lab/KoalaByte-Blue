@@ -27,7 +27,7 @@ NEEDED = [
     "pi-companion/koalablue/ble_node_manager.py",
     "pi-companion/koalablue/koala_kan_kommander.py",
     "pi-companion/koalablue/killerkoala_face_bridge.py",
-    "pi-companion/koalblue/killerkoala_voice_face_control.py",
+    "pi-companion/koalablue/killerkoala_voice_face_control.py",
     "scripts/run_killerkoala_face_demo.py",
     "scripts/flash_heltec_mouth.sh",
     "scripts/flash_all_components.sh",
