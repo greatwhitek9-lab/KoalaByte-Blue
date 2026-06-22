@@ -32,11 +32,13 @@ Usage:
   bash scripts/flash_all_components.sh --ble-node-manager
   bash scripts/flash_all_components.sh --ai-voice
   bash scripts/flash_all_components.sh --can-check
+  bash scripts/flash_all_components.sh --nrf-konnect
   WIFI_INTERACTIVE=1 bash scripts/flash_all_components.sh --install-firmware
   WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword" bash scripts/flash_all_components.sh --install-firmware
   ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
   HELTEC_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --heltec-t114
   NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
+  T114_BOARD=heltec_t114_v2/nrf52840 bash scripts/flash_all_components.sh --nrf-konnect
 
 Targets:
   --install-firmware  One-script Heltec branch install: git checkout heltec, readiness check, build-only preflight, then install/flash Pi companion, ESP32 DualEye, Heltec T114, BLE node manager service, CAN setup/checks, and CAN manifest/status checks
@@ -47,7 +49,7 @@ Targets:
   --heltec-t114       Build and flash Heltec Mesh Node T114 v2 nRF52840 color TFT mouth/GNSS/BLE-primary firmware over USB-C
   --ble-node-manager  Install/enable/start the Pi-side BLE node manager service with Heltec T114 as primary BLE node
   --nrf-lab           Optional: build/package/flash separate nRF52840 Dongle KoalaByte Lab firmware
-  --nrf-konnect       Optional: build/package/flash separate Koala Konnect USB HCI profile instead of KoalaByte Lab
+  --nrf-konnect       Optional Koala Konnect action: build/flash the Heltec T114 USB HCI profile for supported BlueZ host use
   --can-check         Load Linux CAN modules, optionally bring up can0, then run Koala Kan Kommander manifest/inventory/status checks
 
 Modes:
@@ -68,6 +70,10 @@ Environment:
   HELTEC_PORT             Optional Heltec T114 USB CDC upload/monitor port, for example /dev/ttyACM0 or COM7
   KOALABYTE_HELTEC_USB_PORT Optional Pi runtime USB CDC port for T114 face/GNSS/BLE JSON bridge.
   KOALABYTE_ESP32_FACE_PORT Optional ESP32 runtime serial port for eyes and optional secondary BLE node.
+  T114_BOARD              Optional Zephyr board target for --nrf-konnect. Recommended: heltec_t114_v2/nrf52840
+  T114_FLASH_METHOD       west or uf2 for --nrf-konnect. Default: west
+  T114_PORT               Mounted UF2 bootloader path when T114_FLASH_METHOD=uf2
+  T114_2G4_ANTENNA        connector/external/hardware/onboard/disabled for T114 2.4 GHz antenna handling. Default: connector
   CAN_INTERFACE           SocketCAN interface for Koala Kan Kommander. Default: can0
   CAN_BITRATE             CAN bitrate for setup_can0.sh. Default: 500000
   STRICT_CAN_SETUP        1 fails if can0 setup cannot complete. Default: 0.
@@ -79,7 +85,7 @@ Environment:
   INSTALL_ESP32_TOOLS     auto/1/0. Default: auto. Attempts to install missing PlatformIO.
   STRICT_ESP32_TOOLS      1 fails if PlatformIO is unavailable before ESP32/Heltec build/flash.
   INSTALL_NRF_TOOLS       auto/1/0. Default: auto. Attempts to install missing west/nrfutil when possible.
-  STRICT_NRF_TOOLS        1 fails if west/nrfutil are unavailable before separate nRF dongle build/flash.
+  STRICT_NRF_TOOLS        1 fails if west/nrfutil are unavailable before separate nRF dongle or T114 HCI USB build/flash.
   INSTALL_NCS_TOOLCHAIN   auto/1/0. Default: auto. Downloads/updates full nRF Connect SDK/Zephyr toolchain.
   STRICT_NCS_TOOLCHAIN    1 fails if the full NCS/Zephyr toolchain cannot be prepared.
   NCS_WORKSPACE           Default: $HOME/ncs
@@ -110,6 +116,7 @@ Notes:
   - The InnoMaker CAN adapter does not get flashed; KoalaByte uses Linux SocketCAN, can-utils, python-can, and Koala Kan Kommander scripts.
   - --install-firmware and --all run setup_can0.sh, then Koala Kan Kommander manifest, inventory, and status checks.
   - The separate Nordic nRF52840 Dongle is optional/legacy on this branch; it is not flashed by --all.
+  - --nrf-konnect is the optional Koala Konnect action for the Heltec T114 USB HCI profile; flashing it replaces the normal Heltec mouth/GNSS/BLE-primary firmware until that profile is flashed back.
   - WiFi/internet can be configured first so the Pi can download SDK/toolchain dependencies.
   - System packages, PlatformIO, west, nrfutil, and the full NCS/Zephyr toolchain are checked/prepared before relevant flashing steps.
   - Pi system package setup also installs AI voice/TTS dependencies: espeak-ng, espeak, ALSA tools, PulseAudio CLI utilities, PortAudio, and python3-pyaudio.
@@ -206,7 +213,7 @@ checkout_heltec_if_requested() {
 }
 
 if [[ "${RUN_NRF_LAB}" == "1" && "${RUN_NRF_KONNECT}" == "1" && "${BUILD_ONLY}" != "1" ]]; then
-  echo "Refusing to flash both separate nRF dongle profiles in one run. The dongle can hold only one active profile." >&2
+  echo "Refusing to flash both optional nRF profiles in one run. The selected nRF target can hold only one active profile." >&2
   echo "Run one of: --nrf-lab or --nrf-konnect. Use --build-only if you only want to build/package both." >&2
   exit 2
 fi
@@ -243,7 +250,7 @@ setup_nrf_tools_for_selected_mode() {
     return 0
   fi
   echo
-  echo "== west/nrfutil setup for optional separate nRF52840 dongle workflows =="
+  echo "== west/nrfutil setup for optional nRF workflows, including T114 Koala Konnect HCI USB =="
   if [[ "${BUILD_ONLY}" == "1" ]]; then
     STRICT_NRF_TOOLS="${STRICT_NRF_TOOLS:-1}" bash scripts/setup_nrf_tools.sh --west-only
   else
@@ -266,8 +273,8 @@ setup_killerkoala_ai_voice_for_selected_mode() {
   "mode": "${KILLERKOALA_LLM_MODE:-fast_default}",
   "model": "${KILLERKOALA_LLM_MODEL:-killerkoala-tinyllama:latest}",
   "timeout_seconds": "${KILLERKOALA_LLM_TIMEOUT_SECONDS:-2.5}",
-  "fast_default": "pi-companion/koalablue/killerkoala_vocabulary.py",
-  "hybrid_companion": "pi-companion/koalablue/killerkoala_hybrid_companion.py",
+  "fast_default": "pi-companion/koalblue/killerkoala_vocabulary.py",
+  "hybrid_companion": "pi-companion/koalblue/killerkoala_hybrid_companion.py",
   "runner": "scripts/run_killerkoala_hybrid.py",
   "training_doc": "docs/KILLERKOALA_LORA_TRAINING.md",
   "ollama_modelfile": "training/killerkoala_lora/Modelfile.killerkoala-tinyllama",
@@ -391,12 +398,12 @@ fi
 
 if [[ "${RUN_NRF_KONNECT}" == "1" ]]; then
   echo
-  echo "== Optional separate nRF52840 Dongle Koala Konnect firmware =="
-  bash scripts/build_koala_konnect.sh
+  echo "== Optional Koala Konnect: Heltec T114 USB HCI profile =="
+  T114_BOARD="${T114_BOARD:-heltec_t114_v2/nrf52840}" bash scripts/build_nrf52840_t114_hci_usb.sh
   if [[ "${BUILD_ONLY}" != "1" ]]; then
-    bash scripts/flash_koala_konnect.sh
+    T114_FLASH_METHOD="${T114_FLASH_METHOD:-west}" bash scripts/flash_nrf52840_t114_hci_usb.sh
   else
-    echo "Build-only mode: skipping Koala Konnect DFU package/flash step."
+    echo "Build-only mode: skipping T114 Koala Konnect flash step."
   fi
 fi
 
