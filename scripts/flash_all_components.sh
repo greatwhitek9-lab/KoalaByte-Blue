@@ -189,7 +189,7 @@ setup_killerkoala_ai_voice_for_selected_mode() {
   "mode": "${KILLERKOALA_LLM_MODE:-fast_default}",
   "model": "${KILLERKOALA_LLM_MODEL:-killerkoala-tinyllama:latest}",
   "timeout_seconds": "${KILLERKOALA_LLM_TIMEOUT_SECONDS:-2.5}",
-  "fast_default": "pi-companion/koalblue/killerkoala_vocabulary.py",
+  "fast_default": "pi-companion/koalablue/killerkoala_vocabulary.py",
   "hybrid_companion": "pi-companion/koalablue/killerkoala_hybrid_companion.py",
   "runner": "scripts/run_killerkoala_hybrid.py",
   "training_doc": "docs/KILLERKOALA_LORA_TRAINING.md",
