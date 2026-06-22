@@ -23,7 +23,7 @@ Environment:
 Packages covered:
   Python venv/pip/dev headers, build tools, PlatformIO/USB runtime dependencies,
   nRF/Zephyr helper build tools, WiFi/NetworkManager/wpa_supplicant, BlueZ tools,
-  SD card formatter tools, CAN tools, SDL2 runtime, SQLite, USB utilities,
+  SD card formatter tools, CAN tools, python-can, SDL2 runtime, SQLite, USB utilities,
   Raspberry Pi GPIO support, and AI voice/TTS audio support.
 EOF
 }
@@ -81,7 +81,7 @@ packages=(
   util-linux parted dosfstools exfatprogs libusb-1.0-0 libusb-1.0-0-dev
   libsdl2-2.0-0 network-manager wpasupplicant wireless-tools iw dhcpcd-base
   dnsutils iputils-ping bluetooth bluez bluez-tools rfkill sqlite3 iproute2
-  can-utils gpiod libgpiod2 espeak-ng espeak alsa-utils libasound2
+  can-utils python3-can gpiod libgpiod2 espeak-ng espeak alsa-utils libasound2
   libasound2-plugins pulseaudio-utils portaudio19-dev python3-pyaudio
 )
 
@@ -100,4 +100,7 @@ else
 fi
 if command -v aplay >/dev/null 2>&1; then
   echo "  ALSA aplay: $(command -v aplay)"
+fi
+if command -v cansend >/dev/null 2>&1; then
+  echo "  can-utils cansend: $(command -v cansend)"
 fi
