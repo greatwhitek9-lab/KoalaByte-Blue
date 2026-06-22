@@ -10,9 +10,10 @@ static bool active=false;
 static char stateName[18]="idle";
 static char lineText[64]="";
 static uint8_t frameNo=0;
-static uint32_t untilMs=0,lastMs=0;
+static uint32_t untilMs=0,lastMs=0,startMs=0;
 
 static bool eq(const char*a,const char*b){return a&&b&&!strcasecmp(a,b);} 
+static uint8_t phase(){return (uint8_t)(((millis()-startMs)/80)%24);}  // same beat as DualEye eye renderer
 
 static void header(){
   oled.setFont(u8g2_font_5x7_tr);
@@ -30,46 +31,63 @@ static void drawLineText(){
 }
 
 static void drawMouthShape(int cx,int cy){
+  int beat=(frameNo<12?frameNo:24-frameNo);
   if(eq(stateName,"speaking")){
-    int open=5+(frameNo%8);
-    int width=44+((frameNo%3)*4);
+    int open=4+beat;
+    int width=44+(beat/2);
     oled.drawRBox(cx-width/2,cy-open,width,open*2,6);
-    oled.setDrawColor(0); oled.drawHLine(cx-width/2+6,cy,width-12); oled.setDrawColor(1);
+    oled.setDrawColor(0);
+    oled.drawRBox(cx-width/2+6,cy-open/2,width-12,max(3,open),4);
+    oled.setDrawColor(1);
+    oled.drawHLine(cx-width/2+5,cy,width-10);
   }else if(eq(stateName,"wake")||eq(stateName,"listening")){
     int nudge=(frameNo%6)-3;
-    oled.drawHLine(cx-26,cy+nudge,52);
-    oled.drawPixel(cx-31,cy+nudge); oled.drawPixel(cx+31,cy+nudge);
+    oled.drawHLine(cx-28,cy+nudge,56);
+    oled.drawPixel(cx-34,cy+nudge); oled.drawPixel(cx+34,cy+nudge);
   }else if(eq(stateName,"thinking")){
-    for(int x=-32;x<=32;x+=10)oled.drawDisc(cx+x,cy+(((x/10+frameNo)%2)?3:-3),2);
+    for(int x=-36;x<=36;x+=12)oled.drawDisc(cx+x,cy+(((x/12+frameNo)%2)?3:-3),2);
   }else if(eq(stateName,"action")){
     int sweep=(frameNo%16)-8;
-    oled.drawHLine(cx-34,cy,68);
-    for(int x=-28;x<=28;x+=14)oled.drawVLine(cx+x+sweep/3,cy-7,14);
+    oled.drawHLine(cx-38,cy,76);
+    for(int x=-32;x<=32;x+=16)oled.drawVLine(cx+x+sweep/3,cy-8,16);
   }else if(eq(stateName,"success")){
-    int lift=(frameNo%6<3)?0:2;
-    oled.drawLine(cx-28,cy-lift,cx-12,cy+7-lift); oled.drawLine(cx-12,cy+7-lift,cx+12,cy+7-lift); oled.drawLine(cx+12,cy+7-lift,cx+28,cy-lift);
+    int lift=(beat>6)?2:0;
+    oled.drawLine(cx-34,cy-lift,cx-15,cy+8-lift); oled.drawLine(cx-15,cy+8-lift,cx+15,cy+8-lift); oled.drawLine(cx+15,cy+8-lift,cx+34,cy-lift);
   }else if(eq(stateName,"error")||eq(stateName,"blocked")){
-    int dip=(frameNo%6<3)?0:2;
-    oled.drawLine(cx-28,cy+6+dip,cx-12,cy-1+dip); oled.drawLine(cx-12,cy-1+dip,cx+12,cy-1+dip); oled.drawLine(cx+12,cy-1+dip,cx+28,cy+6+dip);
+    int dip=(beat>6)?2:0;
+    oled.drawLine(cx-34,cy+7+dip,cx-15,cy-2+dip); oled.drawLine(cx-15,cy-2+dip,cx+15,cy-2+dip); oled.drawLine(cx+15,cy-2+dip,cx+34,cy+7+dip);
   }else{
-    oled.drawHLine(cx-24,cy,48);
+    oled.drawHLine(cx-26,cy,52);
   }
 }
 
-static void drawSnout(){
+static void drawDefinedSnout(){
   int cx=64, cy=35;
-  int bob=(eq(stateName,"speaking")||eq(stateName,"wake"))?((frameNo%6)-3)/2:0;
-  oled.drawRFrame(cx-50,cy-20+bob,100,36,12);
-  oled.drawRFrame(cx-16,cy-22+bob,32,13,6);
-  oled.drawBox(cx-4,cy-10+bob,8,3);
-  oled.drawRFrame(cx-38,cy-8+bob,76,20,6);
-  drawMouthShape(cx,cy+bob);
+  int beat=(frameNo<12?frameNo:24-frameNo);
+  int bob=(eq(stateName,"speaking")||eq(stateName,"wake"))?(beat/5-1):0;
+
+  // Outer muzzle pads and bridge: stronger koala snout definition.
+  oled.drawRFrame(cx-55,cy-22+bob,110,40,13);
+  oled.drawEllipse(cx-24,cy-2+bob,28,18,U8G2_DRAW_ALL);
+  oled.drawEllipse(cx+24,cy-2+bob,28,18,U8G2_DRAW_ALL);
+  oled.drawRFrame(cx-18,cy-25+bob,36,16,7);
+  oled.drawBox(cx-9,cy-17+bob,18,7);
+  oled.setDrawColor(0);
+  oled.drawPixel(cx-4,cy-14+bob); oled.drawPixel(cx+4,cy-14+bob);
+  oled.setDrawColor(1);
+  oled.drawVLine(cx,cy-10+bob,9);
+  oled.drawRFrame(cx-43,cy-9+bob,86,25,7);
+  drawMouthShape(cx,cy+3+bob);
+
+  // Small cheek ticks make the snout easier to read on the tiny OLED.
+  oled.drawPixel(cx-46,cy+5+bob); oled.drawPixel(cx-50,cy+1+bob); oled.drawPixel(cx-46,cy-3+bob);
+  oled.drawPixel(cx+46,cy+5+bob); oled.drawPixel(cx+50,cy+1+bob); oled.drawPixel(cx+46,cy-3+bob);
 }
 
 static void drawFace(){
   oled.clearBuffer();
   header();
-  drawSnout();
+  drawDefinedSnout();
   drawLineText();
   oled.sendBuffer();
 }
@@ -83,7 +101,7 @@ static bool isActive(){
 static void showFace(const char*state,const char*msg,int duration){
   snprintf(stateName,sizeof(stateName),"%s",state&&state[0]?state:"listening");
   snprintf(lineText,sizeof(lineText),"%s",msg?msg:"");
-  active=true; frameNo=0; lastMs=0; untilMs=millis()+(uint32_t)(duration>0?duration:KOALA_FACE_DEFAULT_DURATION_MS);
+  active=true; startMs=millis(); frameNo=0; lastMs=0; untilMs=millis()+(uint32_t)(duration>0?duration:KOALA_FACE_DEFAULT_DURATION_MS);
   drawFace();
 }
 
@@ -115,13 +133,13 @@ static void pollSerial(){
 
 static void tick(){
   if(!isActive())return;
-  uint32_t now=millis(); if(now-lastMs<90)return;
-  lastMs=now; frameNo=(frameNo+1)%24; drawFace();
+  uint32_t now=millis(); if(now-lastMs<80)return;
+  lastMs=now; frameNo=phase(); drawFace();
 }
 
 void setup(){
   Serial.begin(KOALA_OLED_SERIAL_BAUD); delay(300);
-  Wire.begin(KOALA_OLED_SDA,KOALA_OLED_SCL); oled.begin(); oled.setContrast(180);
+  Wire.begin(KOALA_OLED_SDA,KOALA_OLED_SCL); oled.begin(); oled.setContrast(200);
   showFace("idle","mouth ready",2200);
   StaticJsonDocument<160> boot; boot["type"]="boot"; boot["device"]="heltec-oled"; boot["fw"]=KOALA_OLED_FW_VERSION; serializeJson(boot,Serial); Serial.println();
 }
