@@ -77,7 +77,7 @@ static void sanitize_ascii(char *text)
 
 static bool same_addr(const bt_addr_le_t *a, const bt_addr_le_t *b)
 {
-    return bt_addr_le_cmp(a, b) == 0;
+    return a && b && a->type == b->type && memcmp(&a->a, &b->a, sizeof(a->a)) == 0;
 }
 
 static bool should_emit(const bt_addr_le_t *addr, int8_t rssi)
