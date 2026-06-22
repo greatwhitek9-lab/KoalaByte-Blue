@@ -23,8 +23,9 @@ Environment:
 Packages covered:
   Python venv/pip/dev headers, build tools, PlatformIO/USB runtime dependencies,
   nRF/Zephyr helper build tools, WiFi/NetworkManager/wpa_supplicant, BlueZ tools,
-  SD card formatter tools, CAN tools, python-can, kmod/modprobe, SDL2 runtime,
-  SQLite, USB utilities, Raspberry Pi GPIO support, and AI voice/TTS audio support.
+  Wireshark/tshark capture tooling, SD card formatter tools, CAN tools, python-can,
+  kmod/modprobe, SDL2 runtime, SQLite, USB utilities, Raspberry Pi GPIO support,
+  and AI voice/TTS audio support.
 EOF
 }
 
@@ -77,12 +78,13 @@ fi
 packages=(
   git python3 python3-venv python3-pip python3-dev python3-gpiozero python3-lgpio
   build-essential pkg-config cmake ninja-build gperf ccache device-tree-compiler
-  wget curl xz-utils file make gcc g++ libffi-dev libssl-dev usbutils udev kmod
+  wget curl unzip xz-utils file make gcc g++ libffi-dev libssl-dev usbutils udev kmod
   util-linux parted dosfstools exfatprogs libusb-1.0-0 libusb-1.0-0-dev
   libsdl2-2.0-0 network-manager wpasupplicant wireless-tools iw dhcpcd-base
   dnsutils iputils-ping bluetooth bluez bluez-tools rfkill sqlite3 iproute2
-  can-utils python3-can gpiod libgpiod2 espeak-ng espeak alsa-utils libasound2
-  libasound2-plugins pulseaudio-utils portaudio19-dev python3-pyaudio
+  can-utils python3-can gpiod libgpiod2 tshark wireshark-common
+  espeak-ng espeak alsa-utils libasound2 libasound2-plugins pulseaudio-utils
+  portaudio19-dev python3-pyaudio
 )
 
 echo "Installing/checking Raspberry Pi system packages..."
@@ -106,4 +108,7 @@ if command -v cansend >/dev/null 2>&1; then
 fi
 if command -v modprobe >/dev/null 2>&1; then
   echo "  kmod modprobe: $(command -v modprobe)"
+fi
+if command -v tshark >/dev/null 2>&1; then
+  echo "  tshark: $(command -v tshark)"
 fi
