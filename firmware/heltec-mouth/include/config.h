@@ -1,6 +1,6 @@
 #pragma once
 
-#define KOALA_TFT_FW_VERSION "0.2.0-heltec-t114-color-mouth"
+#define KOALA_TFT_FW_VERSION "0.3.0-heltec-t114-usb-gnss-mouth"
 #define KOALA_TFT_SERIAL_BAUD 115200
 #define KOALA_FACE_DEFAULT_DURATION_MS 4500
 #define KOALA_FACE_NAME "killerkoala"
@@ -14,7 +14,8 @@
 #define KOALA_TFT_ROTATION 3
 #define KOALA_TFT_SPI_HZ 40000000
 
-// Raw nRF52840 GPIO numbers used by common T114 Arduino variants.
+// Raw nRF52840 GPIO numbers used by the local Heltec_T114_Board variant.
+// These are internal T114 board connections, not Raspberry Pi GPIO wiring.
 #define KOALA_TFT_RST 2
 #define KOALA_TFT_VDD_CTL 3
 #define KOALA_TFT_CS 11
@@ -24,6 +25,12 @@
 // T114 panel power/backlight gates are active-low.
 #define KOALA_TFT_POWER_ON_LEVEL LOW
 #define KOALA_TFT_BACKLIGHT_ON_LEVEL LOW
+
+// Optional Heltec L76K GNSS add-on on the T114 8-pin 1.25 mm GNSS connector.
+// The Pi still connects to the T114 over USB CDC only; GNSS data is forwarded over USB.
+#define KOALA_GNSS_ENABLED 1
+#define KOALA_GNSS_BAUD 9600
+#define KOALA_GNSS_REPORT_MS 1000
 
 // RGB565 color palette.
 #define KOALA_COLOR_BG 0x0000
