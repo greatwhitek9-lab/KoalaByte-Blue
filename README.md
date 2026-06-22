@@ -1,203 +1,75 @@
-# KoalaByte Blue / killerkoala AI Companion Firmware RevA25
+# KoalaByte Blue / KillerKoala Heltec T114 Branch
 
 <p align="center">
-  <strong>Your Bluetooth sidekick in the wild.</strong><br>
-  A Raspberry Pi 3B+ + ESP32-S3 DualEye + Nordic nRF52840 Dongle build for safe Bluetooth research, passive logging, menu-driven lab workflows, defensive monitoring, game-style Koalagotchi companion behavior, simplified USB power-bank power, and optional isolated CAN bench work.
-</p>
-
-<p align="center">
-  <img src="docs/images/koalabyte-blue-menu-overview.svg" alt="KoalaByte Blue jungle eucalyptus menu overview" width="760">
+  <strong>Raspberry Pi host + ESP32-S3 DualEye eyes + Heltec Mesh Node T114 v2 color mouth/GNSS/LoRa/BLE.</strong><br>
+  This branch is tuned for the Heltec Mesh Node T114 v2 / HT-n5262 board with nRF52840, SX1262, USB-C, 1.14 inch color TFT, and optional L76K GNSS add-on.
 </p>
 
 > **Use it right:** KoalaByte Blue is for lawful education, owned-device research, defensive testing, and authorized Bluetooth/CAN assessment only. Keep scans, captures, reviews, and bench tests inside your own lab, your own devices, or written scope.
 
 ---
 
-## What is KoalaByte Blue?
+## What this branch targets
 
-KoalaByte Blue is a dongle-only, no-custom-PCB Bluetooth companion build with a jungle/eucalyptus menu, a little attitude, and a practical lab workflow. The `main` branch is intentionally scoped to the Raspberry Pi 3B+, ESP32-S3 DualEye, Nordic nRF52840 USB Dongle, optional InnoMaker USB-to-CAN adapter, and USB power-bank production path.
+The `heltec` branch is the KoalaByte Blue hardware profile for a USB-connected Heltec T114 board. The Heltec board is **not wired to the Raspberry Pi GPIO header** for GPS, LoRa, BLE, or the KillerKoala mouth display. It connects to the Pi by USB-C data cable and talks over USB CDC serial.
 
-It brings together:
+Core hardware in this branch:
 
-- A **Raspberry Pi 3B+** as the Linux companion host.
-- An **ESP32-S3 DualEye display** for the boot splash, menu, and front-panel experience.
-- A **Nordic nRF52840 Dongle** for KoalaByte Lab Mode or Koala Konnect Mode.
-- A **PIFFA-style 50000 mAh USB portable power bank, 22.5 W class** as the simplified production power source.
-- The **killerkoala** companion for status, spoken alerts, voice-style reactions, XP, rank progression, and lab personality.
-- **Eucalyptus Mode**, a Koalagotchi-style always-on Bluetooth scanner/logger screen where killerkoala patrols a branch, eats eucalyptus Bluetooth data, and reacts to activity.
-- The **that’s not a knife** always-on BLE defensive monitor suite.
-- **Boomerang**, the camera-awareness logbook action with separate verbal alerts and XP reward for successful manual records.
-- Optional **Koala Kan Kommander** support with the **InnoMaker USB to CAN Converter kit** for isolated bench-simulator or owned-harness CAN work.
+| Component | Exact model / type | Connection to Pi | Purpose |
+|---|---|---|---|
+| Main SBC | Raspberry Pi 3 Model B+ | Main host | Linux companion, menu/actions, logs, voice/AI wrapper. |
+| Eye display | Waveshare ESP32-S3-DualEye-LCD-1.28 | USB data cable | Animated KillerKoala eyes and KoalaByte UI screens. |
+| Mouth / radio / GNSS board | Heltec Mesh Node T114 v2 / HT-n5262 | USB-C data cable | nRF52840 BLE, SX1262 LoRa, 1.14 inch ST7789 color TFT mouth, optional L76K GNSS forwarding. |
+| GNSS add-on | Heltec L76K GNSS module | T114 8-pin 1.25 mm GNSS connector | GPS/GNSS data into the T114; forwarded to Pi over USB. |
+| CAN adapter | InnoMaker USB to CAN Converter kit | USB data cable | Optional isolated bench-simulator or owned-harness CAN work. |
+| BLE dongle | Nordic nRF52840 USB Dongle / PCA10059 | Optional USB | Legacy/alternate KoalaByte Lab or Koala Konnect target if you still want a separate BLE dongle. |
 
-In plain English: it is a pocketable Bluetooth lab buddy that can help you inventory devices, monitor local BLE activity, collect notes, create reports, switch dongle modes, and keep your Bluetooth workflows wrapped in a fun KoalaByte interface instead of a pile of raw commands.
+The clean physical wiring model is:
+
+```text
+Raspberry Pi USB port or powered USB hub
+  -> ESP32-S3 DualEye USB data cable
+  -> Heltec T114 USB-C data cable
+  -> optional InnoMaker USB-to-CAN adapter
+  -> optional separate Nordic nRF52840 USB Dongle
+
+Heltec T114 GNSS connector
+  -> L76K GNSS module cable
+
+Heltec T114 RF connector
+  -> correct LoRa antenna
+```
+
+Do **not** wire Heltec TX/RX to the Pi GPIO header for the KillerKoala face, GNSS, LoRa, BLE, or Meshtastic-style control path.
 
 ---
 
-## What can it do?
+## Board roles
 
-### Bluetooth and BLE lab workflows
+### ESP32-S3 DualEye
 
-- Run safe local BLE inventory scans.
-- Start, stop, restart, and check the **eucalyptus** passive BLE logger.
-- Open **Eucalyptus Mode**, the full-color Koalagotchi always-on Bluetooth scanner/logger screen.
-- Capture and archive BLE advertisement metadata for review.
-- Summarize observed devices and build authorized inventories.
-- Use BlueZ helper wrappers with KoalaByte-themed names.
-- Generate safe packet-capture notes and owned-device review checklists.
-- Switch the nRF52840 Dongle between **KoalaByte Lab Mode** and **Koala Konnect Mode**.
+The ESP32-S3 DualEye firmware renders **eyes only** for the KillerKoala AI face. The physical case forms the koala head and ears. Koalagotchi applications such as Eucalyptus Mode can still use the display for their own UI, and the AI face is suppressed while those app screens are active.
 
-### Eucalyptus Mode: Koalagotchi Bluetooth game screen
+### Heltec Mesh Node T114 v2
 
-**Eucalyptus Mode** is the game-style always-on Bluetooth scanner/logger action. It turns passive Eucalyptus Bluetooth observations into a cyber-pet status screen instead of a plain log window.
+The Heltec T114 firmware is written around the correct board profile:
 
-The screen shows killerkoala on a long eucalyptus branch that stretches across the display. killerkoala walks back and forth, stops to eat eucalyptus leaves when new Bluetooth data appears, and uses that activity to drive a **contentment** meter.
+- nRF52840 target using the local `heltec_t114` PlatformIO board definition.
+- Local `Heltec_T114_Board` Arduino variant with the T114 raw GPIO identity map.
+- ST7789 color TFT renderer for the lower koala face channel.
+- Solid orange animated mouth, black nose, fuzzy grey cheeks.
+- USB CDC JSON command channel from the Pi.
+- Optional L76K GNSS UART readout forwarded to the Pi over USB as `gnss_nmea` JSON.
 
-| Game element | What it means |
-|---|---|
-| Branch walk | killerkoala is patrolling the passive Eucalyptus Bluetooth log stream. |
-| Eucalyptus leaves | New passive Bluetooth/BLE observations waiting to be “eaten.” |
-| Eating animation | Logged Bluetooth data has been noticed by the Koalagotchi screen. |
-| Contentment | Rises when new Bluetooth observations appear; falls when the log goes quiet. |
-| 3-minute dormancy | If no new Bluetooth devices/observations appear for 3 minutes, killerkoala gets cranky. |
-| Boomerang throw | Idle grumble animation when the Bluetooth canopy is quiet. |
-| Aussie grumbles | Spoken/printed killerkoala attitude when no new Bluetooth data is showing up. |
+### Raspberry Pi
 
-Eucalyptus Mode uses the same safety boundary as the passive logger: it visualizes local logs and status. It does **not** start pairing, probing, disruption, access, or offensive Bluetooth workflows.
-
-Run it directly:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_eucalyptus_cyberpet.py
-```
-
-Run it in a desktop test window:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_eucalyptus_cyberpet.py --windowed --width 800 --height 480
-```
-
-Terminal fallback:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_eucalyptus_cyberpet.py --terminal
-```
-
-### killerkoala XP and levels
-
-killerkoala has a shared companion XP/rank system across the Pi companion experience. XP is used to make the device feel more like a cyber-pet: successful approved actions and defensive wins can move killerkoala through levels while keeping unsafe behavior out of scope.
-
-| Rank | XP threshold | Personality style |
-|---|---:|---|
-| **Noob** | 0 XP | Rough beginner, cautious, scoped. |
-| **Hacker** | 75 XP | Sharper, more confident, dry humor. |
-| **Legend** | 250 XP | Cocky, controlled, veteran lab operator. |
-
-Important distinction:
-
-- **Contentment** is the Eucalyptus Mode Koalagotchi mood meter.
-- **XP/rank** is killerkoala’s broader companion progression system.
-- **Boomerang** awards XP after a public/manual camera record is successfully saved.
-- **that’s not a knife** awards XP only after a successful defensive local block.
-
-Check current level/status:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py
-# then select: Level / Status
-```
-
-### Defensive monitor suite: “that’s not a knife”
-
-<p align="center">
-  <img src="docs/images/koalabyte-blue-defense-monitor.svg" alt="that’s not a knife BLE defensive monitor menu" width="760">
-</p>
-
-The **that’s not a knife** action is an always-on local defensive monitor suite. It watches for local signs of BLE pressure or suspicious access patterns and then blocks KoalaByte Blue’s own local BLE workflows when a defensive condition trips.
-
-| Monitor | Default | Purpose |
-|---|---:|---|
-| `dos_pressure` | On | Repeated connection/controller pressure patterns. |
-| `bluesnarfing` | On | Suspicious local OBEX/PBAP/contact-card/file-pull style access patterns. |
-| `bluebugging` | On | Suspicious local RFCOMM, AT-command, handsfree, call-control, or serial-control patterns. |
-| `mitm_guard` | On | Suspicious pairing, authorization, key-change, weak-pairing, or authentication-failure patterns. |
-
-Each monitor can be turned on or off individually:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife.py status
-PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife.py disable bluesnarfing
-PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife.py enable bluesnarfing
-PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife.py threshold mitm_guard 5
-```
-
-Need raw output for scripting?
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife.py status --json
-```
-
-killerkoala earns XP **only after a successful defensive local block**. Monitoring, detection, and failed block attempts award `0 XP`.
-
-### Boomerang camera-awareness logbook
-
-**Boomerang** is the manual camera-awareness logbook action. It records public/visible camera details, assigns local IDs, exports reports, and stays open until the operator quits.
-
-Boomerang has separate killerkoala alerts for:
-
-| Event | Alert behavior |
-|---|---|
-| Start | killerkoala says `BOOMerang!` |
-| Camera found/logged | killerkoala confirms the record in gruff Aussie style. |
-| XP gained | killerkoala announces the XP gain as a separate alert. |
-
-Boomerang XP behavior:
-
-- `+10 XP` per successfully saved manual/public camera-awareness record.
-- Rejected records do not earn XP.
-- It rejects MAC-like values, IP addresses, Bluetooth identifiers, RF fingerprints, and network scan output.
-
-Run it directly:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_boomerang.py
-```
-
-### Reports and review helpers
-
-- Authorized BLE inventory reports.
-- GATT readiness checklist.
-- Pairing security review.
-- Lab beacon plan.
-- Packet capture notes.
-- Defensive lab report template.
-- Session report output.
-
-### Optional CAN bench work
-
-Koala Kan Kommander supports the **InnoMaker USB to CAN Converter kit** for isolated bench-simulator or owned-harness workflows. CAN transmit remains gated behind explicit safety flags and is intended only for a simulator or owned bench harness.
+The Pi remains the orchestrator. It sends face/action state to the ESP32 and Heltec over their USB serial ports. The Pi bridge prefers `KOALABYTE_HELTEC_USB_PORT`, then `KOALABYTE_HELTEC_FACE_PORT`, then `HELTEC_PORT`, and can auto-search common Linux/macOS USB serial paths.
 
 ---
 
-## Fast flashing and install path
+## Fast flashing and build path
 
-Start with a normal Raspberry Pi OS install. KoalaByte Blue does **not** replace Raspberry Pi OS; the repo scripts install the Pi companion, helper tools, firmware build/flash helpers, ESP32 menu assets, nRF52840 Dongle profiles, service wrappers, and smoke checks after the Pi can already boot Linux.
-
-Recommended base image:
-
-```text
-Raspberry Pi OS Lite 64-bit
-```
-
-Recommended Raspberry Pi Imager options before first boot:
-
-```text
-Enable SSH
-Set username and password
-Set WiFi SSID/password if available
-Set WiFi country, locale, and timezone
-```
-
-Clone the repo on the Pi:
+Start with Raspberry Pi OS Lite 64-bit, enable SSH, clone the repo, and run the readiness check:
 
 ```bash
 sudo apt update
@@ -205,287 +77,108 @@ sudo apt install -y git
 
 git clone https://github.com/greatwhitek9-lab/KoalaByte-Blue.git
 cd KoalaByte-Blue
-```
+git checkout heltec
 
-Run the readiness check:
-
-```bash
 python3 scripts/check_repo_readiness.py
 ```
 
-Then use the one helper for the normal full path:
+Build everything without flashing:
+
+```bash
+bash scripts/flash_all_components.sh --all --build-only
+```
+
+Flash the ESP32-S3 DualEye only:
+
+```bash
+ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
+```
+
+Flash the Heltec T114 color mouth/GNSS firmware over USB-C:
+
+```bash
+HELTEC_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --heltec-t114
+```
+
+Flash the main branch legacy separate nRF52840 Dongle profile only when you are using that extra dongle:
+
+```bash
+NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
+```
+
+Run the full branch flow:
 
 ```bash
 bash scripts/flash_all_components.sh --all
 ```
 
-That one action runs the readiness check, installs/updates the Pi companion, prepares firmware tooling, handles ESP32/nRF helper flows, refreshes service wiring, and keeps gated bench actions behind explicit flags.
-
-Useful variants:
+The Heltec T114 target also has its own helper:
 
 ```bash
-# Pi companion only
-bash scripts/flash_all_components.sh --pi
-
-# ESP32-S3 DualEye only
-ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
-
-# nRF52840 Dongle KoalaByte Lab profile only
-NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
-
-# Optional Koala Konnect USB HCI profile only
-NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-konnect
-
-# Build/package without flashing
-bash scripts/flash_all_components.sh --all --build-only
-
-# Safe smoke checks after selected actions
-bash scripts/flash_all_components.sh --all --smoke
+BUILD_ONLY=1 scripts/flash_heltec_mouth.sh
+HELTEC_PORT=/dev/ttyACM0 scripts/flash_heltec_mouth.sh
 ```
 
 ---
 
-## Boot flow
+## USB runtime ports
 
-Normal startup order:
+Set ports explicitly when the Pi has multiple serial devices:
+
+```bash
+export KOALABYTE_ESP32_FACE_PORT=/dev/ttyUSB0
+export KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0
+```
+
+Then test the synchronized eyes and mouth:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_killerkoala_face_demo.py --sequence
+```
+
+Ask the Heltec for GNSS status over USB by sending JSON to the Heltec port:
+
+```json
+{"type":"gnss_status"}
+```
+
+GNSS NMEA forwarding from the T114 to the Pi uses this JSON shape:
+
+```json
+{"type":"gnss_nmea","device":"heltec-t114","transport":"usb-cdc","nmea":"$GNRMC,..."}
+```
+
+---
+
+## Main actions and safe scope
+
+KoalaByte Blue keeps the same safe companion workflow from the main branch:
+
+- Safe local BLE inventory and passive observation.
+- Eucalyptus Mode Koalagotchi Bluetooth scanner/logger screen.
+- KillerKoala XP and ranks: Noob, Hacker, Legend.
+- “that’s not a knife” defensive monitor suite.
+- Boomerang camera-awareness logbook.
+- Authorized BLE inventory and report helpers.
+- Optional InnoMaker USB-to-CAN bench-simulator workflows.
+
+Eucalyptus Mode visualizes passive logs only. It does not start pairing, probing, disruption, access, or offensive Bluetooth workflows. CAN transmit remains gated for isolated bench-simulator or owned-harness use only.
+
+---
+
+## Heltec-specific files
 
 ```text
-Pre-boot mode selector -> KillerKoala mode-aware welcome -> KoalaByte Blue boot splash -> grouped main menu
-```
-
-Run the Pi-side boot wrapper:
-
-```bash
-bash scripts/koalabyte_blue_boot.sh
-```
-
-Preview the splash/menu from a desktop session:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
-PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
-```
-
----
-
-## nRF52840 Dongle modes
-
-The nRF52840 Dongle can hold one active profile at a time. The pre-boot mode selector lets you decide what the dongle should be before the normal menu starts.
-
-| Mode | What it is for |
-|---|---|
-| **KoalaByte Blue Lab Mode** | Default lab profile. The dongle advertises as KoalaByte Lab for controlled owned-device signal and menu workflows. |
-| **Koala Konnect Mode** | Alternate USB HCI adapter profile for host-side Bluetooth work. |
-
-Prepare cached DFU packages:
-
-```bash
-bash scripts/prepare_dongle_firmware_cache.sh
-PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py cache-status
-```
-
-Interactive selector:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py
-```
-
-Direct selection:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koalabyte_lab
-PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koala_konnect
-```
-
----
-
-## Complete menu map
-
-The grouped menu comes from `pi-companion/koalablue/menu_catalog.py`. Current groups are:
-
-```text
-Bluetooth Tools
-CAN Bench Tools
-Reports & Reviews
-System / Companion
-```
-
-### Bluetooth Tools
-
-| # | Menu item | Command | Capability |
-|---:|---|---|---|
-| 1 | Scan | `scan` | Run a safe local BLE inventory scan. |
-| 2 | Summary | `summary` | Summarize observed BLE devices. |
-| 3 | Show Devices | `show` | Show the current BLE device table. |
-| 4 | eucalyptus Status | `eucalyptus status` | Show always-on passive BLE logger status. |
-| 5 | eucalyptus Start | `eucalyptus start` | Start always-on passive BLE logging. |
-| 6 | eucalyptus Stop | `eucalyptus stop` | Stop always-on passive BLE logging. |
-| 7 | eucalyptus Restart | `eucalyptus restart` | Restart always-on passive BLE logging. |
-| 8 | eucalyptus Upload Status | `eucalyptus upload-status` | Show WiGLE upload readiness/status. |
-| 9 | Eucalyptus Mode | `eucalyptus_mode` | Koalagotchi always-on Bluetooth scanner/logger screen with contentment and idle boomerang grumbles. |
-| 10 | Koala Kapture | `koala_kapture` | Capture and archive BLE advertisement metadata. |
-| 11 | Koala Kry | `koala_kry` | Review captured metadata offline in the report/XP pipeline. |
-| 12 | Ear Tag | `ear_tag` | Named lab BLE beacon workflow. |
-| 13 | KoalaByte Lab | `ear_tag_tx_lab` | Synthetic owned-device BLE advertisement for signal-integrity observation. |
-| 14 | Gumleaf Gear Check | `koala_bluez_inventory` | Inventory installed BlueZ helpers under KoalaByte themed names. |
-| 15 | Eucalyptus Bus Scout | `koala_bluez_status` | Collect local adapter, controller, rfkill, and optional D-Bus status. |
-| 16 | Dropbear Discovery Sweep | `koala_bluez_scan` | Run bounded Bluetooth discovery and save redacted results by default. |
-| 17 | Billabong HCI Watch | `koala_bluez_monitor` | Run bounded local HCI capture and save lab artifacts. |
-| 18 | Kookaburra Safe Nest Run | `koala_bluez_all_safe` | Run BlueZ inventory, status, and bounded discovery with safe defaults. |
-| 19 | that’s not a knife | `thats_not_a_knife` | Always-on defensive BLE monitor suite for DoS pressure, bluesnarfing, bluebugging, and MITM-risk indicators. |
-| 20 | Urban Poaching | `urban_poaching` | Authorized BLE RSSI lab game. |
-
-### CAN Bench Tools
-
-| # | Menu item | Command | Capability |
-|---:|---|---|---|
-| 21 | Koala Kan Kommander | `koala_kan_kommander` | InnoMaker USB-to-CAN listen and gated bench-simulator workflow. |
-
-CAN actions are intended for an isolated simulator or owned bench harness. Do not connect CAN_H or CAN_L directly to Raspberry Pi GPIO.
-
-### Reports & Reviews
-
-| # | Menu item | Command | Capability |
-|---:|---|---|---|
-| 22 | Koala Kry RF Review | `koala_kry_transmit_review` | Write RF bench-isolation, authorization, and test-plan manifest; no RF is sent by Koala Kry. |
-| 23 | Report | `report` | Write a Markdown session report. |
-| 24 | Boomerang | `boomerang` | Camera-awareness logbook with verbal alerts and +10 XP per successful manual/public record. |
-| 25 | Authorized BLE Inventory | `authorized_ble_inventory` | Create a lab inventory from passive BLE observations. |
-| 26 | GATT Readiness Checklist | `gatt_readiness_checklist` | Generate a pre-test checklist for owned-device GATT review. |
-| 27 | Pairing Security Review | `pairing_security_review` | Review pairing/access-control posture for owned lab devices. |
-| 28 | Lab Beacon Plan | `lab_beacon_plan` | Create a safe ESP32 demo beacon/peripheral testing plan. |
-| 29 | Packet Capture Notes | `packet_capture_notes` | Create safe protocol-analysis notes. |
-| 30 | Defensive Lab Report | `defensive_report` | Generate a defensive lab report template. |
-
-### System / Companion
-
-| # | Menu item | Command | Capability |
-|---:|---|---|---|
-| 31 | Koala Mode Switcher | `koala_mode_switcher` | Build/package/select KoalaByte Lab or Koala Konnect for the nRF52840 Dongle. |
-| 32 | KillerKoala Voice | `killerkoala_voice` | Preview event reactions and inquiry vocabulary by XP rank. |
-| 33 | Buttons | `buttons` | Show/check GPIO front-panel button status. |
-| 34 | Level / Status | `level/status` | Show killerkoala XP and rank. |
-| 35 | Wake killerkoala | `wake killerkoala` | Test wake-word flow. |
-| 36 | Restricted Placeholder | `restricted_placeholder` | Reserved locked slot; intentionally non-operational. |
-| 37 | Settings | `settings` | Device and companion settings. |
-| 38 | Lab | `lab` | Password-gated Authorized Lab Use menu. |
-| 39 | Shutdown | `shutdown_confirm` | Confirm safe shutdown. |
-| 40 | Quit | `quit` | Exit the Pi companion UI. |
-
----
-
-## Theme and menu look
-
-KoalaByte Blue uses a shared jungle/eucalyptus theme so the boot splash, menu, defensive monitor screens, Eucalyptus Mode, and Boomerang feel like one device.
-
-Theme highlights:
-
-- Big rounded adventure-style font metadata: `cooperblack,arialroundedmsbold,dejavusans`.
-- Dark teal/black background.
-- Eucalyptus branch border: `eucalyptus_branches`.
-- Leaf accents around highlighted rows.
-- Yellow/green glow for selected actions.
-- Full-color Eucalyptus Mode Koalagotchi renderer.
-- Terminal-safe preview cards for SSH sessions.
-
----
-
-## Hardware profile
-
-KoalaByte Blue is designed as a dongle-only build using common modules and cables instead of a custom PCB. The main branch now uses a USB portable power bank instead of the old hand-wired 2x18650 power stack.
-
-### Core components
-
-| Component | Exact model / type | Qty | Purpose |
-|---|---|---:|---|
-| Main SBC | Raspberry Pi 3 Model B+ | 1 | Main Linux computer and Pi companion host. |
-| Display/UI board | Waveshare ESP32-S3-DualEye-LCD-1.28 | 1 | Boot splash, menu UI, mic/front-end, serial companion bridge. |
-| BLE dongle | Nordic nRF52840 Dongle / PCA10059 / NRF52840-DONGLE | 1 | BLE lab firmware profile or Koala Konnect USB HCI profile. |
-| USB power bank | PIFFA-style 50000 mAh USB portable power bank, 22.5 W class | 1 | Main simplified power source. |
-| Pi power cable | Short USB-A or USB-C to micro-USB cable | 1 | Power from power bank to Raspberry Pi 3B+. |
-| USB/data cables | Short data-capable USB cables | as needed | Pi, ESP32, dongle, and optional CAN data connections. |
-| Optional powered USB hub | Small powered USB hub | 0-1 | Helpful if USB load is tight or Pi undervoltage appears. |
-| Speaker | Small 8 ohm speaker, optional | 0-1 | Alerts and companion output. |
-| Standoffs/frame | M2.5 standoffs plus acrylic/printed frame plates | 1 set | Physical assembly. |
-
-### Optional components
-
-| Component | Exact model / type | Qty | Purpose |
-|---|---|---:|---|
-| CAN adapter | InnoMaker USB to CAN Converter kit | 0-1 | Optional Koala Kan Kommander bench workflow. |
-| ESP32 antenna | 2.4 GHz antenna matched to the ESP32-S3 DualEye IPEX1/U.FL path | 1 | Wi-Fi/Bluetooth antenna for the ESP32-S3 DualEye only. |
-| USB mic fallback | CM108-style USB sound adapter | 0-1 | Fallback if DualEye mic mapping is not complete. |
-
-Power path:
-
-```text
-PIFFA-style USB power bank
-  -> regulated USB-A or USB-C output
-  -> short quality USB power cable
-  -> Raspberry Pi 3B+ micro-USB power input
-
-Raspberry Pi USB ports or optional powered USB hub
-  -> Nordic nRF52840 USB Dongle
-  -> ESP32-S3 DualEye
-  -> optional InnoMaker USB-to-CAN adapter
-```
-
-Do **not** add the old loose 18650 cells, 2S holder, BMS wiring, inline fuse, DC switch, 5 V buck converter, USB-C PD trigger board, or raw battery rails to the main production build.
-
-Wiring diagram:
-
-<p align="center">
-  <img src="docs/POWER_BANK_WIRING_MAIN.svg" alt="KoalaByte Blue USB power bank wiring diagram" width="760">
-</p>
-
-Optional CAN path:
-
-```text
-Raspberry Pi 3B+ USB host
-  -> short internal USB data cable
-  -> InnoMaker USB to CAN Converter kit
-  -> adapter-side CAN_H / CAN_L / GND / optional SHIELD
-  -> isolated CAN bench simulator or owned bench harness
-```
-
----
-
-## Important safety boundaries
-
-KoalaByte Blue is built around safe defaults:
-
-- Authorized lab use only.
-- Eucalyptus Mode visualizes passive Bluetooth logs only.
-- Local defensive monitoring only for `that’s not a knife`.
-- No over-the-air response from the defensive monitor suite.
-- No spoofing, packet replay, or offensive frames from the defensive guard.
-- CAN transmit is gated for isolated bench-simulator or owned-harness use only.
-- Boomerang is manual/public camera-awareness documentation only.
-- Reports and review tools are designed to document posture, readiness, and defensive findings.
-- Power comes from the USB power bank's regulated output only; do not route raw lithium voltage into the device.
-
----
-
-## Branch separation
-
-The `main` branch is the KoalaByte Blue Nordic-dongle production branch. Alternate board-specific work must live in its own branch and should not be merged back into `main` unless the hardware target becomes part of the main production build.
-
----
-
-## Useful docs
-
-```text
-docs/FLASHING.md
-docs/EUCALYPTUS_ALWAYS_ON_BLE_REVA8.md
-docs/CAMERA_AWARENESS_LOGGER.md
-docs/THATS_NOT_A_KNIFE_SERVICE.md
-docs/KOALA_BLUEZ_TOOLS_REVA16.md
-docs/KOALA_KONNECT_REVA20.md
-docs/NRF52840_DONGLE_FLASHING.md
-docs/ORDERABLE_PARTS_LIST.md
-docs/PRODUCTION_FILES.md
-docs/POWER_BANK_WIRING_MAIN.svg
-production/RevA17-dongle-only/BATTERY_POWER_2S_18650.md
+firmware/heltec-mouth/platformio.ini
+firmware/heltec-mouth/boards/heltec_t114.json
+firmware/heltec-mouth/variants/Heltec_T114_Board/variant.h
+firmware/heltec-mouth/variants/Heltec_T114_Board/variant.cpp
+firmware/heltec-mouth/include/config.h
+firmware/heltec-mouth/src/main.cpp
+firmware/heltec-mouth/README.md
+scripts/flash_heltec_mouth.sh
+pi-companion/koalablue/killerkoala_face_bridge.py
+scripts/run_killerkoala_face_demo.py
 ```
 
 ---
@@ -494,6 +187,7 @@ production/RevA17-dongle-only/BATTERY_POWER_2S_18650.md
 
 ```bash
 python3 scripts/check_repo_readiness.py
+PYTHONPATH=pi-companion python3 scripts/run_killerkoala_face_demo.py --sequence
 PYTHONPATH=pi-companion python3 scripts/check_eucalyptus_cyberpet.py
 PYTHONPATH=pi-companion python3 scripts/check_thats_not_a_knife_monitors.py
 PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife_loop.py --once
@@ -503,4 +197,4 @@ PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife_loop.py --once
 
 ## Project vibe
 
-KoalaByte Blue is supposed to feel like a real little cyber field companion: practical enough for a bench, weird enough to be memorable, and safe enough to demo without turning your lab into chaos. killerkoala watches the canopy, eats Bluetooth eucalyptus data in Eucalyptus Mode, keeps a contentment meter, gains XP through approved successful actions, and only celebrates behavior that stays inside the lab scope.
+KoalaByte Blue is supposed to feel like a real little cyber field companion: practical enough for a bench, weird enough to be memorable, and safe enough to demo without turning your lab into chaos. KillerKoala watches the canopy, eats Bluetooth eucalyptus data in Eucalyptus Mode, keeps a contentment meter, gains XP through approved successful actions, and only celebrates behavior that stays inside the lab scope.
