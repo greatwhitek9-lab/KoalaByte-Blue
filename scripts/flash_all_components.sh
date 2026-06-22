@@ -31,6 +31,7 @@ Usage:
   bash scripts/flash_all_components.sh --pi --esp32 --heltec-t114
   bash scripts/flash_all_components.sh --ble-node-manager
   bash scripts/flash_all_components.sh --ai-voice
+  bash scripts/flash_all_components.sh --can-check
   WIFI_INTERACTIVE=1 bash scripts/flash_all_components.sh --install-firmware
   WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword" bash scripts/flash_all_components.sh --install-firmware
   ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
@@ -38,8 +39,8 @@ Usage:
   NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
 
 Targets:
-  --install-firmware  One-script Heltec branch install: git checkout heltec, readiness check, build-only preflight, then install/flash Pi companion, ESP32 DualEye, Heltec T114, BLE node manager service, and CAN manifest checks
-  --all               Install Pi companion, prepare KillerKoala AI voice, flash ESP32 DualEye, flash Heltec T114 color mouth/GNSS/BLE firmware, install/start BLE node manager service, and run CAN manifest check
+  --install-firmware  One-script Heltec branch install: git checkout heltec, readiness check, build-only preflight, then install/flash Pi companion, ESP32 DualEye, Heltec T114, BLE node manager service, CAN setup/checks, and CAN manifest/status checks
+  --all               Install Pi companion, prepare KillerKoala AI voice, flash ESP32 DualEye, flash Heltec T114 color mouth/GNSS/BLE firmware, install/start BLE node manager service, set up/check can0, and run Koala Kan checks
   --pi                Install/update Raspberry Pi companion environment
   --ai-voice          Prepare/verify KillerKoala phrase-first companion config and optional TinyLlama/Ollama settings
   --esp32             Build and flash ESP32-S3 DualEye firmware with PlatformIO
@@ -47,10 +48,10 @@ Targets:
   --ble-node-manager  Install/enable/start the Pi-side BLE node manager service with Heltec T114 as primary BLE node
   --nrf-lab           Optional: build/package/flash separate nRF52840 Dongle KoalaByte Lab firmware
   --nrf-konnect       Optional: build/package/flash separate Koala Konnect USB HCI profile instead of KoalaByte Lab
-  --can-check         Write Koala Kan Kommander InnoMaker manifest artifact; no CAN traffic is sent
+  --can-check         Load Linux CAN modules, optionally bring up can0, then run Koala Kan Kommander manifest/inventory/status checks
 
 Modes:
-  --build-only        Build/package only; do not upload/flash firmware or install services
+  --build-only        Build/package only; do not upload/flash firmware, install services, or configure can0
   --preflight-build   Run the all-firmware build helper before flashing selected targets
   --checkout-heltec   Checkout the heltec branch before continuing
   --check-only        Run repo readiness check only
@@ -67,6 +68,9 @@ Environment:
   HELTEC_PORT             Optional Heltec T114 USB CDC upload/monitor port, for example /dev/ttyACM0 or COM7
   KOALABYTE_HELTEC_USB_PORT Optional Pi runtime USB CDC port for T114 face/GNSS/BLE JSON bridge.
   KOALABYTE_ESP32_FACE_PORT Optional ESP32 runtime serial port for eyes and optional secondary BLE node.
+  CAN_INTERFACE           SocketCAN interface for Koala Kan Kommander. Default: can0
+  CAN_BITRATE             CAN bitrate for setup_can0.sh. Default: 500000
+  STRICT_CAN_SETUP        1 fails if can0 setup cannot complete. Default: 0.
   INSTALL_BLE_NODE_MANAGER_SERVICE auto/1/0. Default: auto. Installs/enables the BLE node manager service on systemd systems.
   STRICT_BLE_NODE_MANAGER_SERVICE 1 fails if the BLE node manager service cannot be installed/started.
   NRF_DFU_PORT           Optional separate nRF52840 Dongle bootloader serial port, for example /dev/ttyACM0 or COM7
@@ -96,12 +100,15 @@ One-script install flow:
     BUILD_ONLY=1 bash scripts/flash_all_components.sh --all
     HELTEC_PORT=${HELTEC_PORT:-/dev/ttyACM0} bash scripts/flash_all_components.sh --heltec-t114
     KOALABYTE_HELTEC_USB_PORT=${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-/dev/ttyACM0}} bash scripts/install_ble_node_manager_service.sh
+    CAN_INTERFACE=${CAN_INTERFACE:-can0} CAN_BITRATE=${CAN_BITRATE:-500000} bash scripts/setup_can0.sh
 
 Notes:
   - The Heltec branch treats the Heltec Mesh Node T114 v2 as a USB-C connected nRF52840 board.
   - Heltec GPS, LoRa/SX1262, BLE, and color mouth display use the T114 hardware and communicate to the Pi over USB CDC.
   - The BLE node manager service starts the Heltec T114 as the primary passive BLE scanner automatically after one-shot install.
   - Do not wire Heltec TX/RX pins to the Raspberry Pi GPIO header for the KillerKoala face/GNSS/LoRa/BLE channel.
+  - The InnoMaker CAN adapter does not get flashed; KoalaByte uses Linux SocketCAN, can-utils, python-can, and Koala Kan Kommander scripts.
+  - --install-firmware and --all run setup_can0.sh, then Koala Kan Kommander manifest, inventory, and status checks.
   - The separate Nordic nRF52840 Dongle is optional/legacy on this branch; it is not flashed by --all.
   - WiFi/internet can be configured first so the Pi can download SDK/toolchain dependencies.
   - System packages, PlatformIO, west, nrfutil, and the full NCS/Zephyr toolchain are checked/prepared before relevant flashing steps.
@@ -109,7 +116,7 @@ Notes:
   - KillerKoala AI voice setup keeps the anti-repeat phrase engine as the fast default and only uses TinyLlama/Ollama for flexible banter when enabled.
   - KillerKoala boot welcome speech runs after the mode selector and before the splash/menu unless KILLERKOALA_BOOT_WELCOME=0.
   - If NRF_DFU_PORT is unset, the optional separate nRF helper creates the DFU ZIP but does not flash.
-  - Koala Kan Kommander remains gated for isolated bench CAN transmit; this script only writes a manifest/check artifact.
+  - Koala Kan Kommander transmit remains gated for isolated bench CAN use; this script only sets up/checks can0 and writes safe status artifacts.
 EOF
 }
 
@@ -218,7 +225,7 @@ setup_system_packages_for_selected_mode() {
     return 0
   fi
   echo
-  echo "== Raspberry Pi/system package dependency setup, including AI voice/TTS packages =="
+  echo "== Raspberry Pi/system package dependency setup, including CAN, python-can, and AI voice/TTS packages =="
   STRICT_SYSTEM_PACKAGES="${STRICT_SYSTEM_PACKAGES:-0}" bash scripts/setup_system_packages.sh
 }
 
@@ -292,6 +299,24 @@ install_ble_node_manager_for_selected_mode() {
   INSTALL_BLE_NODE_MANAGER_SERVICE="${INSTALL_BLE_NODE_MANAGER_SERVICE:-auto}" \
   STRICT_BLE_NODE_MANAGER_SERVICE="${STRICT_BLE_NODE_MANAGER_SERVICE:-0}" \
     bash scripts/install_ble_node_manager_service.sh
+}
+
+run_can_setup_and_checks() {
+  if [[ "${RUN_CAN_CHECK}" != "1" ]]; then
+    return 0
+  fi
+  local iface="${CAN_INTERFACE:-can0}"
+  local bitrate="${CAN_BITRATE:-500000}"
+  echo
+  echo "== Koala Kan Kommander InnoMaker CAN setup and safe checks =="
+  if [[ "${BUILD_ONLY}" == "1" ]]; then
+    echo "Build-only mode: skipping can0 kernel/interface setup."
+  else
+    CAN_INTERFACE="${iface}" CAN_BITRATE="${bitrate}" STRICT_CAN_SETUP="${STRICT_CAN_SETUP:-0}" bash scripts/setup_can0.sh --interface "${iface}" --bitrate "${bitrate}"
+  fi
+  PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest --interface "${iface}"
+  PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py inventory --interface "${iface}"
+  PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py status --interface "${iface}"
 }
 
 checkout_heltec_if_requested
@@ -375,11 +400,7 @@ if [[ "${RUN_NRF_KONNECT}" == "1" ]]; then
   fi
 fi
 
-if [[ "${RUN_CAN_CHECK}" == "1" ]]; then
-  echo
-  echo "== Koala Kan Kommander InnoMaker CAN manifest check =="
-  PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
-fi
+run_can_setup_and_checks
 
 if [[ "${RUN_SMOKE}" == "1" ]]; then
   echo
@@ -388,7 +409,7 @@ if [[ "${RUN_SMOKE}" == "1" ]]; then
   PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py inventory
   PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status --xp 100
   PYTHONPATH=pi-companion python3 scripts/run_killerkoala_hybrid.py banter --xp 100 --flexible --text "flash all smoke check" --no-history || true
-  PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
+  PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest --interface "${CAN_INTERFACE:-can0}"
   PYTHONPATH=pi-companion python3 scripts/check_killerkoala_boot_welcome.py
   KOALABYTE_TTS=0 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py preview --event boomerang_xp --xp 100 >/dev/null
   PYTHONPATH=pi-companion python3 scripts/check_eucalyptus_cyberpet.py
