@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
 from .gpio_buttons import ButtonEvent, GPIOButtonManager
-from .menu_catalog import make_menu_items
+from .menu_catalog import make_menu_items, submenu_name_from_command, submenu_title
 
 
 @dataclass(frozen=True)
@@ -17,6 +17,7 @@ class MenuItem:
     command: str
     description: str = ""
     enabled: bool = True
+    group: str = "System / Companion"
 
 
 @dataclass
@@ -36,10 +37,11 @@ class MenuController:
     """Selection model shared by GPIO, keyboard, and touchscreen front ends."""
 
     def __init__(self, items: Optional[Iterable[MenuItem]] = None, state: Optional[MenuState] = None) -> None:
+        self.menu_name = "main"
         self.items: List[MenuItem] = list(items or DEFAULT_MENU_ITEMS)
         if not self.items:
             raise ValueError("menu requires at least one item")
-        self.state = state or MenuState()
+        self.state = state or MenuState(title="KoalaByte Blue / Main Canopy")
         self._clamp()
 
     @property
@@ -53,6 +55,18 @@ class MenuController:
     @property
     def visible_rows(self) -> int:
         return self.state.visible_rows
+
+    @property
+    def selected_item(self) -> MenuItem:
+        return self.items[self.state.selected_index]
+
+    @property
+    def selected_group(self) -> str:
+        return self.selected_item.group
+
+    @property
+    def menu_title(self) -> str:
+        return submenu_title(self.menu_name)
 
     @property
     def touch_config(self):
@@ -71,17 +85,18 @@ class MenuController:
         elif command in {"down", "move_down", "scroll_down"}:
             self.move(1)
         elif command in {"move_left", "left", "back"}:
-            self.move(-1)
-            self.state.last_action = "move_left"
+            if self.menu_name != "main":
+                self._open_menu("main", "submenu_back")
+            else:
+                self.move(-1)
+                self.state.last_action = "move_left"
         elif command in {"move_right", "right", "forward"}:
             self.move(1)
             self.state.last_action = "move_right"
         elif command in {"select", "enter", "touch_select", "long_press_select"}:
             selected = self.select()
         elif command in {"main_menu", "home"}:
-            self.state.selected_index = 0
-            self.state.scroll_offset = 0
-            self.state.last_action = "main_menu"
+            self._open_menu("main", "main_menu")
         elif command == "shutdown":
             self._select_by_command("shutdown_confirm")
             selected = self.select()
@@ -100,6 +115,10 @@ class MenuController:
         if not item.enabled:
             self.state.last_selected = None
             self.state.last_action = f"disabled:{item.command}"
+            return None
+        submenu = submenu_name_from_command(item.command)
+        if submenu:
+            self._open_menu(submenu, "submenu_open" if submenu != "main" else "submenu_back")
             return None
         self.state.last_selected = item
         self.state.last_action = f"select:{item.command}"
@@ -124,10 +143,14 @@ class MenuController:
             return self._render_plain_text()
 
     def _render_plain_text(self) -> str:
-        lines = [f"=== {self.state.title} ===", f"Function Menu ({self.state.selected_index + 1}/{len(self.items)})", ""]
+        lines = [f"=== {self.state.title} ===", f"{self.menu_title} ({self.state.selected_index + 1}/{len(self.items)})", ""]
+        previous_group: Optional[str] = None
         for index, item in self.visible_items():
             cursor = ">" if index == self.state.selected_index else " "
             disabled = " [locked]" if not item.enabled else ""
+            if item.group != previous_group:
+                lines.append(f"[{item.group}]")
+                previous_group = item.group
             lines.append(f"{cursor} {index + 1:02d}. {item.label}{disabled}")
             if index == self.state.selected_index and item.description:
                 lines.append(f"     {item.description}")
@@ -138,6 +161,20 @@ class MenuController:
             f"Last: {self.state.last_action}",
         ])
         return "\n".join(lines)
+
+    def _open_menu(self, menu_name: str, action: str) -> None:
+        target = "main" if menu_name == "main" else menu_name
+        new_items = make_menu_items(MenuItem, target)
+        if not new_items:
+            self.state.last_action = f"missing_submenu:{target}"
+            return
+        self.menu_name = target
+        self.items = new_items
+        self.state.title = f"KoalaByte Blue / {submenu_title(target)}"
+        self.state.selected_index = 0
+        self.state.scroll_offset = 0
+        self.state.last_selected = None
+        self.state.last_action = action
 
     def _select_by_command(self, command: str) -> None:
         for idx, item in enumerate(self.items):
