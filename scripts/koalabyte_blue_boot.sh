@@ -3,11 +3,12 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
-PREBOOT_SELECTOR="${PREBOOT_SELECTOR:-1}"
-PREBOOT_TIMEOUT="${PREBOOT_TIMEOUT:-8}"
-PREBOOT_DEFAULT_MODE="${PREBOOT_DEFAULT_MODE:-current}"
-PREBOOT_MODE="${PREBOOT_MODE:-}"
-PREBOOT_NO_APPLY="${PREBOOT_NO_APPLY:-0}"
+T114_STARTUP_SELECTOR="${T114_STARTUP_SELECTOR:-1}"
+T114_STARTUP_TIMEOUT="${T114_STARTUP_TIMEOUT:-10}"
+T114_STARTUP_DEFAULT_MODE="${T114_STARTUP_DEFAULT_MODE:-lab}"
+T114_STARTUP_MODE="${T114_STARTUP_MODE:-}"
+T114_STARTUP_NO_APPLY="${T114_STARTUP_NO_APPLY:-0}"
+T114_STARTUP_STATE="${T114_STARTUP_STATE:-logs/t114_profiles/startup_selection.json}"
 KILLERKOALA_BOOT_WELCOME="${KILLERKOALA_BOOT_WELCOME:-1}"
 BOOT_SPLASH="${BOOT_SPLASH:-1}"
 MENU_GRAPHICAL="${MENU_GRAPHICAL:-1}"
@@ -26,16 +27,58 @@ else
   echo "Spoken alerts are muted by KOALABYTE_TTS=${KOALABYTE_TTS}."
 fi
 
-if [[ "${PREBOOT_SELECTOR}" == "1" ]]; then
-  echo "== KoalaByte Blue pre-boot dongle mode selector =="
-  PREBOOT_ARGS=("${REPO_ROOT}/scripts/run_preboot_mode_select.py" --timeout "${PREBOOT_TIMEOUT}" --default-mode "${PREBOOT_DEFAULT_MODE}")
-  if [[ -n "${PREBOOT_MODE}" ]]; then
-    PREBOOT_ARGS+=(--mode "${PREBOOT_MODE}")
+apply_selected_t114_profile() {
+  local state_file="${T114_STARTUP_STATE}"
+  if [[ ! -f "${state_file}" ]]; then
+    echo "T114 startup selector did not create ${state_file}; skipping T114 profile apply." >&2
+    return 0
   fi
-  if [[ "${PREBOOT_NO_APPLY}" == "1" ]]; then
-    PREBOOT_ARGS+=(--no-apply)
+  local selected_mode
+  selected_mode="$(${PYTHON_BIN} - <<PY
+import json
+from pathlib import Path
+path = Path("${state_file}")
+data = json.loads(path.read_text())
+print(data.get("selected_mode", ""))
+PY
+)"
+  case "${selected_mode}" in
+    heltec_lab)
+      echo "== Activating Heltec Lab / mouth / BLE / GNSS profile =="
+      if [[ "${T114_STARTUP_NO_APPLY}" == "1" ]]; then
+        echo "T114_STARTUP_NO_APPLY=1; recorded Lab selection only."
+      else
+        KOALABYTE_HELTEC_USB_PORT="${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-/dev/ttyACM0}}" \
+        HELTEC_PORT="${HELTEC_PORT:-${KOALABYTE_HELTEC_USB_PORT:-/dev/ttyACM0}}" \
+        NO_MONITOR="${NO_MONITOR:-1}" \
+          bash scripts/flash_heltec_mouth.sh
+      fi
+      ;;
+    koala_konnect_t114)
+      echo "== Activating Koala Konnect T114 profile =="
+      if [[ "${T114_STARTUP_NO_APPLY}" == "1" ]]; then
+        echo "T114_STARTUP_NO_APPLY=1; recorded Koala Konnect T114 selection only."
+      else
+        KOALABYTE_HELTEC_USB_PORT="${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-/dev/ttyACM0}}" \
+        HELTEC_PORT="${HELTEC_PORT:-${KOALABYTE_HELTEC_USB_PORT:-/dev/ttyACM0}}" \
+        T114_BOARD="${T114_BOARD:-heltec_t114_v2/nrf52840}" \
+          bash scripts/flash_koala_konnect_t114.sh
+      fi
+      ;;
+    *)
+      echo "Unknown T114 startup profile '${selected_mode}'; leaving current T114 firmware untouched." >&2
+      ;;
+  esac
+}
+
+if [[ "${T114_STARTUP_SELECTOR}" == "1" ]]; then
+  echo "== Heltec T114 startup profile selector =="
+  SELECT_ARGS=("${REPO_ROOT}/scripts/select_t114_startup_mode.py" --timeout "${T114_STARTUP_TIMEOUT}" --default-mode "${T114_STARTUP_DEFAULT_MODE}" --state-path "${T114_STARTUP_STATE}")
+  if [[ -n "${T114_STARTUP_MODE}" ]]; then
+    SELECT_ARGS+=(--mode "${T114_STARTUP_MODE}")
   fi
-  "${PYTHON_BIN}" "${PREBOOT_ARGS[@]}"
+  "${PYTHON_BIN}" "${SELECT_ARGS[@]}"
+  apply_selected_t114_profile
 fi
 
 if [[ "${KILLERKOALA_BOOT_WELCOME}" == "1" ]]; then
