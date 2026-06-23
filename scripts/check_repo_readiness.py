@@ -17,6 +17,7 @@ NEEDED = [
     "README.md",
     "docs/CANONICAL_BRANCH.md",
     "docs/FLASHING.md",
+    "docs/KOALA_MODE_SWITCHER_REVA21.md",
     "docs/MINED_HELTEC_V2_FEATURES.md",
     "docs/KOALA_KONNECT_HELTEC_T114.md",
     "docs/T114_HARDWARE_VALIDATION.md",
@@ -76,6 +77,16 @@ REQUIRED_TEXT = {
         "KOALABYTE_HELTEC_USB_PORT",
         "This branch does **not** use a separate Nordic USB Dongle lab firmware flow.",
     ],
+    "docs/KOALA_MODE_SWITCHER_REVA21.md": [
+        "Koala Mode Switcher - Heltec T114 Edition",
+        "Heltec Mesh Node T114 v2 onboard nRF52840",
+        "not for a separate Nordic nRF52840 USB Dongle",
+        "firmware/heltec-mouth/",
+        "heltec_t114_v2/nrf52840",
+        "KOALABYTE_HELTEC_USB_PORT",
+        "scripts/flash_heltec_mouth.sh",
+        "scripts/flash_koala_konnect_t114.sh",
+    ],
     "docs/MINED_HELTEC_V2_FEATURES.md": ["Old-koalabyte-blue-v2-heltec-edition", "Greatwhite"],
     "docs/GREATWHITE_WIRESHARK_TSHARK.md": ["Greatwhite", "run_gw.py", "setup_nrf_sniffer_ble.sh"],
     "pi-companion/koalablue/menu_catalog.py": ["SUBMENU_ITEMS", "leaf_menu_entries", "Greatwhite Reef Patrol", "AntEater"],
@@ -91,6 +102,15 @@ FORBIDDEN_TEXT = {
         "bash scripts/build_nrf52840_dongle_lab.sh",
         "firmware/nrf52840-dongle-ear-tag-tx-lab",
         "nrf52840dongle_nrf52840",
+    ],
+    "docs/KOALA_MODE_SWITCHER_REVA21.md": [
+        "switching the nRF52840 USB Dongle",
+        "KoalaByte Blue dongle firmware profiles",
+        "Only one firmware can be installed on the dongle at a time",
+        "logs/dongle_mode_state.json",
+        "NRF_DFU_PORT",
+        "nrf52840-dongle",
+        "dongle DFU flow",
     ],
 }
 
@@ -118,7 +138,7 @@ def check_forbidden_text(failures: list[str]) -> None:
         body = read_text(ROOT / relative_path)
         for word in words:
             if word in body:
-                failures.append(f"{relative_path} still contains stale dongle-only flashing text: {word}")
+                failures.append(f"{relative_path} still contains stale dongle-only wording: {word}")
 
 
 def check_config(failures: list[str]) -> None:
