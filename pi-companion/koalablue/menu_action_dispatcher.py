@@ -4,9 +4,9 @@ import json
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, Sequence
+from typing import Callable, Dict, Sequence
 
 from .menu_ui import MenuItem
 
@@ -49,6 +49,17 @@ SAFE_COMMANDS: Dict[str, CommandSpec] = {
 }
 
 
+def _local_action_map() -> Dict[str, Callable[[], object]]:
+    from . import local_actions
+
+    return {
+        "koala_kapture": local_actions.koala_kapture,
+        "urban_poaching": local_actions.urban_poaching,
+        "settings": local_actions.settings,
+        "buttons": local_actions.buttons,
+    }
+
+
 def _artifact_name(command: str) -> Path:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in command)[:72] or "menu_action"
@@ -76,6 +87,24 @@ def _run_subprocess(spec: CommandSpec) -> dict[str, object]:
         return {"argv": argv, "returncode": 124, "stdout": str(exc.stdout or "")[-6000:], "stderr": "timeout", "started_at": started, "ended_at": time.time()}
 
 
+def _run_local_action(command: str) -> dict[str, object] | None:
+    action = _local_action_map().get(command)
+    if action is None:
+        return None
+    started = time.time()
+    try:
+        result = action()
+        return {
+            "returncode": 0,
+            "stdout": json.dumps(asdict(result), indent=2, sort_keys=True),
+            "stderr": "",
+            "started_at": started,
+            "ended_at": time.time(),
+        }
+    except Exception as exc:
+        return {"returncode": 1, "stdout": "", "stderr": str(exc), "started_at": started, "ended_at": time.time()}
+
+
 def fallback_route(item: MenuItem) -> Path:
     path = _artifact_name(item.command)
     payload = {
@@ -92,9 +121,15 @@ def fallback_route(item: MenuItem) -> Path:
 
 def execute_menu_item(item: MenuItem) -> Path:
     spec = SAFE_COMMANDS.get(item.command)
+    runner_description = ""
     if spec is None:
-        return fallback_route(item)
-    result = _run_subprocess(spec)
+        result = _run_local_action(item.command)
+        runner_description = "Local KoalaByte helper action"
+        if result is None:
+            return fallback_route(item)
+    else:
+        result = _run_subprocess(spec)
+        runner_description = spec.description
     path = _artifact_name(item.command)
     payload = {
         "timestamp": time.time(),
@@ -102,7 +137,7 @@ def execute_menu_item(item: MenuItem) -> Path:
         "command": item.command,
         "group": item.group,
         "status": "success" if result.get("returncode") == 0 else "error",
-        "runner_description": spec.description,
+        "runner_description": runner_description,
         "result": result,
     }
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
