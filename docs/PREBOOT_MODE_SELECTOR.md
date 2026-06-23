@@ -1,145 +1,48 @@
-# KoalaByte Blue Pre-Boot Dongle Mode Selector
+# KoalaByte Blue Heltec T114 Mode Selection
 
 ## Purpose
 
-The pre-boot mode selector lets the operator choose the nRF52840 Dongle profile before the normal KoalaByte Blue boot splash and main menu run.
+On `koalabyte_blue_v2_heltec_edition`, mode selection is centered on the **Heltec Mesh Node T114 v2 onboard nRF52840**.
 
-Available choices:
-
-```text
-1) KoalaByte Blue Lab Mode
-   Default production/lab mode. The dongle advertises as KoalaByte Lab for owned-device BLE scan testing.
-
-2) Koala Konnect Mode
-   External USB HCI adapter mode. Replug the dongle into the phone or computer host USB port after switching.
-```
-
-The selector is a Pi-side startup step. It does not change the Raspberry Pi bootloader. It runs before the KillerKoala mode-aware welcome, KoalaByte Blue boot splash, and menu flow. It calls Koala Mode Switcher when a DFU port is available.
-
-## KillerKoala boot welcome
-
-After the selector records the selected mode, the normal startup wrapper runs:
+The supported Heltec profiles are:
 
 ```text
-scripts/run_killerkoala_boot_welcome.py
+1) Heltec Mouth / BLE / GNSS
+   Default branch profile. The T114 provides the KoalaByte mouth display, BLE status path, USB CDC bridge, and optional GNSS forwarding.
+
+2) Koala Konnect T114
+   Optional USB HCI controller profile for local BlueZ checks through the same T114 onboard nRF52840.
 ```
 
-KillerKoala speaks a different gruff Aussie cyberpunk welcome depending on the selected mode.
+This selector concept does not change the Raspberry Pi bootloader. It is a Pi-side startup/menu decision for which Heltec T114 profile should be active.
 
-Lab Mode line:
+## Default branch profile
+
+The default profile is:
 
 ```text
-G'day mate, KillerKoala is online. Lab Mode is loaded — clean scope, clean signals. Select a menu item to get started.
+Heltec Mouth / BLE / GNSS
 ```
 
-External Adaptor / Koala Konnect Mode line:
-
-```text
-G'day mate, KillerKoala is online. External adaptor mode is loaded — plug in the dongle and drive the stack. Select a menu item to get started.
-```
-
-The welcome reads `logs/preboot_mode_selection.json` first, then falls back to `logs/dongle_mode_state.json`. Spoken audio is on by default through `KOALABYTE_TTS=1`.
-
-Useful controls:
+Use the normal Heltec helper when you need to restore the default profile:
 
 ```bash
-# Mute only speech while still logging the welcome
-KOALABYTE_TTS=0 bash scripts/koalabyte_blue_boot.sh
-
-# Disable the boot welcome entirely
-KILLERKOALA_BOOT_WELCOME=0 bash scripts/koalabyte_blue_boot.sh
-
-# Preview without audio
-PYTHONPATH=pi-companion python3 scripts/run_killerkoala_boot_welcome.py --mode koalabyte_lab --no-tts
-PYTHONPATH=pi-companion python3 scripts/run_killerkoala_boot_welcome.py --mode koala_konnect --no-tts
+KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0 bash scripts/flash_heltec_mouth.sh
 ```
 
-Welcome events are logged to:
+## Optional Koala Konnect T114 profile
 
-```text
-logs/killerkoala/boot_welcome_alerts.jsonl
-```
-
-## Offline firmware cache on the Pi
-
-The Raspberry Pi can store both nRF52840 Dongle DFU packages locally so a second computer is not needed for normal mode switching.
-
-During Pi installation, `scripts/install_pi.sh` now tries to prepare both DFU ZIPs automatically when both `west` and `nrfutil` are available. It writes/updates cache status even when the tools are missing.
-
-Install-time controls:
+Build only:
 
 ```bash
-# Default behavior: try when west+nrfutil exist; otherwise warn and continue
-bash scripts/install_pi.sh
-
-# Force install to fail unless both DFU ZIPs are prepared
-STRICT_DONGLE_CACHE=1 bash scripts/install_pi.sh
-
-# Skip cache preparation during install
-PREPARE_DONGLE_CACHE=0 bash scripts/install_pi.sh
+T114_BOARD=heltec_t114_v2/nrf52840 bash scripts/build_koala_konnect_t114.sh
 ```
 
-Prepare both cached firmwares manually:
+Apply Koala Konnect T114 through the all-component helper:
 
 ```bash
-bash scripts/prepare_dongle_firmware_cache.sh
+KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0 T114_BOARD=heltec_t114_v2/nrf52840 bash scripts/flash_all_components.sh --nrf-konnect
 ```
-
-Equivalent Python command:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py prepare-cache
-```
-
-Check cache status without rebuilding:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py cache-status
-```
-
-Cache status file:
-
-```text
-logs/dongle_firmware_cache.json
-```
-
-Cached DFU ZIPs:
-
-```text
-build/nrf52840-dongle-lab/koalabyte-blue-nrf52840-dongle-dfu.zip
-build/nrf52840-dongle-koala-konnect/koala-konnect-nrf52840-dongle-dfu.zip
-```
-
-When those ZIPs exist, the pre-boot selector shows each mode as `READY`. When one is missing, it shows `MISSING` and tells you to run the cache preparation command.
-
-## Runner
-
-Interactive pre-boot selector:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py
-```
-
-Choose Lab directly:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koalabyte_lab
-```
-
-Choose Koala Konnect directly:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koala_konnect
-```
-
-Choose and flash when the nRF52840 Dongle is in DFU bootloader mode:
-
-```bash
-NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koalabyte_lab
-NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koala_konnect
-```
-
-If a cached DFU ZIP is available, the selector flashes that saved package directly from the Pi. If the selected cache is missing, the switcher falls back to the packaging script when possible and tells you what failed if required build/package tools are unavailable.
 
 ## Full boot wrapper
 
@@ -152,51 +55,19 @@ bash scripts/koalabyte_blue_boot.sh
 Boot wrapper order:
 
 ```text
-1. Pre-boot dongle mode selector
-2. KillerKoala mode-aware boot welcome
-3. KoalaByte Blue boot splash
-4. KoalaByte Blue grouped menu
+1. KillerKoala mode-aware boot welcome
+2. KoalaByte Blue boot splash
+3. KoalaByte Blue grouped menu
 ```
 
-Useful environment variables:
+## Checks
 
 ```bash
-# Skip selector and continue to boot welcome/splash/menu
-PREBOOT_SELECTOR=0 bash scripts/koalabyte_blue_boot.sh
-
-# Pick KoalaByte Blue Lab Mode without prompting
-PREBOOT_MODE=koalabyte_lab bash scripts/koalabyte_blue_boot.sh
-
-# Pick Koala Konnect / External Adaptor Mode without prompting
-PREBOOT_MODE=koala_konnect bash scripts/koalabyte_blue_boot.sh
-
-# Record selected mode but do not flash the dongle
-PREBOOT_NO_APPLY=1 PREBOOT_MODE=koala_konnect bash scripts/koalabyte_blue_boot.sh
-
-# Flash selected mode through DFU when the dongle is in bootloader mode
-NRF_DFU_PORT=/dev/ttyACM0 PREBOOT_MODE=koala_konnect bash scripts/koalabyte_blue_boot.sh
+PYTHONPATH=pi-companion python3 scripts/run_t114_bluez.py controller-check
+PYTHONPATH=pi-companion python3 scripts/run_t114_bluez.py all-safe
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
 ```
 
-## Important behavior
+## Scope
 
-The nRF52840 Dongle can hold only one active firmware profile at a time. Switching between KoalaByte Blue Lab Mode and Koala Konnect Mode requires DFU flashing the dongle.
-
-If no DFU port is available, the selector records the requested mode in:
-
-```text
-logs/preboot_mode_selection.json
-```
-
-but it does not claim the physical dongle was switched.
-
-Koala Mode Switcher state and cache files live at:
-
-```text
-logs/dongle_mode_state.json
-logs/dongle_mode_events.jsonl
-logs/dongle_firmware_cache.json
-```
-
-## Safety and scope
-
-KoalaByte Blue Lab Mode remains the default production/lab mode. Koala Konnect is an alternate USB HCI adapter profile. Use only owned or written-scope lab devices and keep testing within authorized environments.
+Koala Konnect T114 is for local, owned-lab, BlueZ readiness checks only.
