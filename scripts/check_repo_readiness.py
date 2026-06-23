@@ -35,6 +35,9 @@ NEEDED = [
     "pi-companion/koalablue/meshtastic_app.py",
     "pi-companion/koalablue/greatwhite.py",
     "scripts/flash_all_components.sh",
+    "scripts/prepare_t114_firmware_profiles.sh",
+    "scripts/select_t114_startup_mode.py",
+    "scripts/koalabyte_blue_boot.sh",
     "scripts/run_menu_screen.py",
     "scripts/run_t114_bluez.py",
     "scripts/run_meshtastic_app.py",
@@ -47,6 +50,7 @@ NEEDED = [
 
 SHELL_HELPERS = [
     "scripts/flash_all_components.sh",
+    "scripts/prepare_t114_firmware_profiles.sh",
     "scripts/build_firmware_all.sh",
     "scripts/setup_system_packages.sh",
     "scripts/setup_can0.sh",
@@ -58,6 +62,7 @@ SHELL_HELPERS = [
     "scripts/run_ble_node_manager_service.sh",
     "scripts/install_ble_node_manager_service.sh",
     "scripts/flash_heltec_mouth.sh",
+    "scripts/koalabyte_blue_boot.sh",
     "scripts/confirm_t114_board_target.sh",
     "scripts/configure_t114_2g4_antenna.sh",
     "scripts/build_nrf52840_t114_hci_usb.sh",
@@ -89,8 +94,13 @@ REQUIRED_TEXT = {
     ],
     "docs/MINED_HELTEC_V2_FEATURES.md": ["Old-koalabyte-blue-v2-heltec-edition", "Greatwhite"],
     "docs/GREATWHITE_WIRESHARK_TSHARK.md": ["Greatwhite", "run_gw.py", "setup_nrf_sniffer_ble.sh"],
+    "pi-companion/koalblue/menu_catalog.py": [],
     "pi-companion/koalablue/menu_catalog.py": ["SUBMENU_ITEMS", "leaf_menu_entries", "Greatwhite Reef Patrol", "AntEater"],
     "pi-companion/koalablue/menu_theme.py": ["JungleMenuTheme", "GREATWHITE REEF", "SNIFFER NEST"],
+    "scripts/flash_all_components.sh": ["RUN_T114_PROFILE_PREP", "--prepare-t114-profiles", "scripts/prepare_t114_firmware_profiles.sh", "scripts/select_t114_startup_mode.py"],
+    "scripts/prepare_t114_firmware_profiles.sh": ["heltec_lab", "koala_konnect_t114", "BUILD_ONLY=1 bash scripts/flash_heltec_mouth.sh", "scripts/build_koala_konnect_t114.sh"],
+    "scripts/select_t114_startup_mode.py": ["Heltec Mesh Node T114 v2 onboard nRF52840", "heltec_lab", "koala_konnect_t114", "startup_selection.json"],
+    "scripts/koalabyte_blue_boot.sh": ["T114_STARTUP_SELECTOR", "scripts/select_t114_startup_mode.py", "flash_heltec_mouth.sh", "flash_koala_konnect_t114.sh"],
     "scripts/run_menu_screen.py": ["leaf_menu_entries", "menu.register_handler", "Touchscreen: long press=select"],
     "scripts/run_location_password_gate.py": ["koalablue.location_password_gate", "run_cli"],
 }
@@ -127,6 +137,8 @@ def check_required_files(failures: list[str]) -> None:
 
 def check_required_text(failures: list[str]) -> None:
     for relative_path, words in REQUIRED_TEXT.items():
+        if not words:
+            continue
         body = read_text(ROOT / relative_path)
         for word in words:
             if word not in body:
