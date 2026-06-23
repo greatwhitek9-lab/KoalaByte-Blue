@@ -31,6 +31,8 @@ NEEDED = [
     "pi-companion/requirements-heltec-v2-extra.txt",
     "pi-companion/koalablue/menu_catalog.py",
     "pi-companion/koalablue/menu_theme.py",
+    "pi-companion/koalablue/menu_action_dispatcher.py",
+    "pi-companion/koalablue/didgeridoo.py",
     "pi-companion/koalablue/location_password_gate.py",
     "pi-companion/koalablue/meshtastic_app.py",
     "pi-companion/koalablue/greatwhite.py",
@@ -39,6 +41,7 @@ NEEDED = [
     "scripts/select_t114_startup_mode.py",
     "scripts/koalabyte_blue_boot.sh",
     "scripts/run_menu_screen.py",
+    "scripts/run_didgeridoo.py",
     "scripts/run_t114_bluez.py",
     "scripts/run_meshtastic_app.py",
     "scripts/run_location_password_gate.py",
@@ -94,14 +97,16 @@ REQUIRED_TEXT = {
     ],
     "docs/MINED_HELTEC_V2_FEATURES.md": ["Old-koalabyte-blue-v2-heltec-edition", "Greatwhite"],
     "docs/GREATWHITE_WIRESHARK_TSHARK.md": ["Greatwhite", "run_gw.py", "setup_nrf_sniffer_ble.sh"],
-    "pi-companion/koalblue/menu_catalog.py": [],
-    "pi-companion/koalablue/menu_catalog.py": ["SUBMENU_ITEMS", "leaf_menu_entries", "Greatwhite Reef Patrol", "AntEater"],
+    "pi-companion/koalablue/menu_catalog.py": ["SUBMENU_ITEMS", "leaf_menu_entries", "Greatwhite Reef Patrol", "AntEater", "Didgeridoo Meshtastic", "didgeridoo"],
     "pi-companion/koalablue/menu_theme.py": ["JungleMenuTheme", "GREATWHITE REEF", "SNIFFER NEST"],
+    "pi-companion/koalablue/menu_action_dispatcher.py": ["SAFE_COMMANDS", "didgeridoo", "run_didgeridoo.py", "run_anteater.py", "run_koala_kry.py", "run_koala_kan_kommander.py"],
+    "pi-companion/koalablue/didgeridoo.py": ["Didgeridoo Meshtastic", "meshtastic_app.status", "meshtastic_app.nodes", "meshtastic_app.gps_info", "does not send messages"],
+    "scripts/run_didgeridoo.py": ["koalablue.didgeridoo", "run_cli"],
     "scripts/flash_all_components.sh": ["RUN_T114_PROFILE_PREP", "--prepare-t114-profiles", "scripts/prepare_t114_firmware_profiles.sh", "scripts/select_t114_startup_mode.py"],
     "scripts/prepare_t114_firmware_profiles.sh": ["heltec_lab", "koala_konnect_t114", "BUILD_ONLY=1 bash scripts/flash_heltec_mouth.sh", "scripts/build_koala_konnect_t114.sh"],
     "scripts/select_t114_startup_mode.py": ["Heltec Mesh Node T114 v2 onboard nRF52840", "heltec_lab", "koala_konnect_t114", "startup_selection.json"],
     "scripts/koalabyte_blue_boot.sh": ["T114_STARTUP_SELECTOR", "scripts/select_t114_startup_mode.py", "flash_heltec_mouth.sh", "flash_koala_konnect_t114.sh"],
-    "scripts/run_menu_screen.py": ["leaf_menu_entries", "menu.register_handler", "Touchscreen: long press=select"],
+    "scripts/run_menu_screen.py": ["leaf_menu_entries", "menu.register_handler", "menu_handler", "Touchscreen: long press=select"],
     "scripts/run_location_password_gate.py": ["koalablue.location_password_gate", "run_cli"],
 }
 
@@ -137,8 +142,6 @@ def check_required_files(failures: list[str]) -> None:
 
 def check_required_text(failures: list[str]) -> None:
     for relative_path, words in REQUIRED_TEXT.items():
-        if not words:
-            continue
         body = read_text(ROOT / relative_path)
         for word in words:
             if word not in body:
