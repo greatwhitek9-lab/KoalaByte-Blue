@@ -4,9 +4,9 @@ import json
 import subprocess
 import sys
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Sequence
+from typing import Dict, Sequence
 
 from .menu_ui import MenuItem
 
@@ -21,10 +21,10 @@ class CommandSpec:
 
 
 SAFE_COMMANDS: Dict[str, CommandSpec] = {
-    "koala_bluez_inventory": CommandSpec(["scripts/run_koala_bluez.py", "manifest"], description="BlueZ helper manifest"),
-    "koala_bluez_status": CommandSpec(["scripts/run_koala_bluez.py", "inventory"], description="BlueZ local inventory"),
+    "koala_bluez_inventory": CommandSpec(["scripts/run_koala_bluez.py", "inventory"], description="BlueZ helper inventory"),
+    "koala_bluez_status": CommandSpec(["scripts/run_koala_bluez.py", "status"], description="BlueZ local status"),
     "koala_bluez_scan": CommandSpec(["scripts/run_koala_bluez.py", "scan"], timeout=60.0, description="Bounded BlueZ discovery"),
-    "koala_bluez_monitor": CommandSpec(["scripts/run_koala_bluez.py", "status"], description="BlueZ status check"),
+    "koala_bluez_monitor": CommandSpec(["scripts/run_koala_bluez.py", "monitor"], timeout=60.0, description="Bounded local HCI monitor"),
     "koala_bluez_all_safe": CommandSpec(["scripts/run_koala_bluez.py", "all-safe"], timeout=90.0, description="BlueZ safe bundle"),
     "t114_bluez_controller_check": CommandSpec(["scripts/run_t114_bluez.py", "controller-check"], description="T114 HCI controller check"),
     "t114_bluez_all_safe": CommandSpec(["scripts/run_t114_bluez.py", "all-safe"], timeout=90.0, description="T114 BlueZ safe bundle"),
@@ -34,7 +34,7 @@ SAFE_COMMANDS: Dict[str, CommandSpec] = {
     "greatwhite_status": CommandSpec(["scripts/run_gw.py", "status"], description="Greatwhite readiness"),
     "greatwhite_interfaces": CommandSpec(["scripts/run_gw.py", "interfaces"], description="Greatwhite local interfaces"),
     "nrf_sniffer_check": CommandSpec(["bash", "scripts/setup_nrf_sniffer_ble.sh", "--check-only"], description="nRF Sniffer host-side check"),
-    "anteater": CommandSpec(["scripts/run_anteater.py", "--once"], timeout=90.0, description="AntEater passive risk triage"),
+    "anteater": CommandSpec(["scripts/run_anteater.py", "scan", "--scan-seconds", "12"], timeout=90.0, description="AntEater passive risk triage"),
     "koala_kry": CommandSpec(["scripts/run_koala_kry.py", "--max-records", "25"], timeout=90.0, description="Koala Kry offline metadata replay"),
     "koala_kry_transmit_review": CommandSpec(["scripts/run_koala_kry.py", "--write-transmit-review", "--max-records", "25"], timeout=90.0, description="Koala Kry RF bench review; no RF sent"),
     "koala_kan_kommander": CommandSpec(["scripts/run_koala_kan_kommander.py", "status"], description="Koala Kan Kommander status"),
