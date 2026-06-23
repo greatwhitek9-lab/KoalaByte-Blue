@@ -1,132 +1,102 @@
-# RevA21 Koala Mode Switcher
+# Koala Mode Switcher - Heltec T114 Edition
 
 ## Purpose
 
-Koala Mode Switcher is the Pi-side controller for switching the nRF52840 USB Dongle between the two supported KoalaByte Blue dongle firmware profiles:
+On `koalabyte_blue_v2_heltec_edition`, **Koala Mode Switcher is the Pi-side controller for the Heltec Mesh Node T114 v2 onboard nRF52840**, not for a separate Nordic nRF52840 USB Dongle.
 
-| Mode | Default? | Purpose |
-|---|---:|---|
-| KoalaByte Lab | Yes | Synthetic owned-device BLE lab advertisement mode |
-| Koala Konnect | No | USB HCI external Bluetooth adapter mode for a compatible phone or computer |
+The switcher tracks and launches the supported Heltec T114 firmware profiles:
 
-Only one firmware can be installed on the dongle at a time. The switcher stores and manages both build/package profiles, then reflashes the selected mode through the dongle DFU flow.
+| Mode | Default? | Hardware target | Purpose |
+|---|---:|---|---|
+| Heltec Mouth / BLE / GNSS | Yes | Heltec T114 onboard nRF52840 | Normal KoalaByte Blue Heltec mode with the T114 mouth display, local BLE observation status, and GNSS path |
+| Koala Konnect T114 | No | Heltec T114 onboard nRF52840 | Optional USB Bluetooth HCI controller profile for local BlueZ-based checks |
+
+Only one firmware profile can be active on the Heltec T114 at a time. Flashing Koala Konnect T114 replaces the normal mouth/BLE/GNSS firmware until `firmware/heltec-mouth/` is flashed back.
 
 ## Default production/lab mode
 
-KoalaByte Lab remains the default production/lab mode.
-
-The default state file is:
+The default mode for this branch is:
 
 ```text
-logs/dongle_mode_state.json
+Heltec Mouth / BLE / GNSS
 ```
 
-If no state file exists yet, the switcher treats the active mode as:
+The normal firmware lives under:
 
 ```text
-KoalaByte Lab
+firmware/heltec-mouth/
 ```
 
-## Build both firmwares and create both DFU ZIPs
-
-From the repo root:
+The normal flash helper is:
 
 ```bash
-PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py prepare-all
+KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0 bash scripts/flash_heltec_mouth.sh
 ```
 
-This runs the build and DFU-package flow for both:
+Through the all-component helper:
+
+```bash
+KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --heltec-t114
+```
+
+## Optional Koala Konnect T114 mode
+
+Koala Konnect T114 is an alternate firmware profile for the **same onboard nRF52840 on the Heltec T114**. It is not a USB Dongle profile.
+
+Use the Heltec T114 Zephyr board target:
 
 ```text
-KoalaByte Lab
-Koala Konnect
+heltec_t114_v2/nrf52840
 ```
 
-Expected DFU package paths:
-
-```text
-build/nrf52840-dongle-lab/koalabyte-blue-nrf52840-dongle-dfu.zip
-build/nrf52840-dongle-koala-konnect/koala-konnect-nrf52840-dongle-dfu.zip
-```
-
-## Show current mode and artifact status
+Build only:
 
 ```bash
-PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py status
+T114_BOARD=heltec_t114_v2/nrf52840 bash scripts/build_koala_konnect_t114.sh
 ```
 
-This writes or refreshes:
-
-```text
-logs/dongle_mode_state.json
-logs/dongle_mode_events.jsonl
-```
-
-## Switch to KoalaByte Lab
-
-Put the dongle into bootloader mode, identify the DFU serial port, then run:
+Build through the all-component helper:
 
 ```bash
-PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py switch koalabyte_lab --dfu-port /dev/ttyACM0
+T114_BOARD=heltec_t114_v2/nrf52840 bash scripts/flash_all_components.sh --nrf-konnect --build-only
 ```
 
-You can also use the environment variable form:
+Flash Koala Konnect T114:
 
 ```bash
-NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py switch koalabyte_lab
+KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0 T114_BOARD=heltec_t114_v2/nrf52840 bash scripts/flash_koala_konnect_t114.sh
 ```
 
-After a successful switch, the state file records:
-
-```text
-active_mode: koalabyte_lab
-active_title: KoalaByte Lab
-killerkoala_line: KoalaByte Lab loaded. Clean beacon, clean scope, and the lab signal is ours.
-```
-
-## Switch to Koala Konnect
-
-Put the dongle into bootloader mode, identify the DFU serial port, then run:
+Flash through the all-component helper:
 
 ```bash
-PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py switch koala_konnect --dfu-port /dev/ttyACM0
+KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0 T114_BOARD=heltec_t114_v2/nrf52840 bash scripts/flash_all_components.sh --nrf-konnect
 ```
 
-After a successful switch, the state file records:
+## Return to normal Heltec mode
 
-```text
-active_mode: koala_konnect
-active_title: Koala Konnect
-killerkoala_line: Koala Konnect loaded. Plug me into the host and let the machine drive the stack.
-```
-
-## Build or package one mode only
-
-Build one mode:
+After testing Koala Konnect T114, flash the normal Heltec firmware back:
 
 ```bash
-PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py build koalabyte_lab
-PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py build koala_konnect
+KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0 bash scripts/flash_heltec_mouth.sh
 ```
 
-Package one mode without flashing:
+## Check current helper readiness
+
+T114 controller check:
 
 ```bash
-PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py package koalabyte_lab
-PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py package koala_konnect
+PYTHONPATH=pi-companion python3 scripts/run_t114_bluez.py controller-check
 ```
 
-Build and package one mode:
+Safe local wrapper check:
 
 ```bash
-PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py prepare koalabyte_lab
-PYTHONPATH=pi-companion python3 scripts/run_koala_mode_switcher.py prepare koala_konnect
+PYTHONPATH=pi-companion python3 scripts/run_t114_bluez.py all-safe
 ```
 
 ## Safety and scope
 
-Koala Mode Switcher does not create a dual-boot dongle. It manages two firmware profiles and flashes one selected profile at a time.
+Koala Mode Switcher does not create a dual-boot system. It tracks and helps launch one selected Heltec T114 profile at a time.
 
-Flashing requires an explicit DFU port. Without `--dfu-port` or `NRF_DFU_PORT`, switch/apply actions are blocked and only metadata is written.
-
-KoalaByte Lab remains the safe default production/lab mode. Koala Konnect should only be used with owned phones/computers or systems where you have permission to attach an external Bluetooth adapter.
+Koala Konnect T114 should only be used with owned systems or systems where you have permission to attach and test a Bluetooth HCI controller. The BlueZ wrapper checks are bounded local readiness and inventory checks; they do not implement pairing bypasses, unauthorized access, or offensive workflows.
