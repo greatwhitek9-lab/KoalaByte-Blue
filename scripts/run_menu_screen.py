@@ -8,7 +8,7 @@ from typing import Optional
 
 os.environ.setdefault("KOALABYTE_TTS", "1")
 from koalablue.menu_action_dispatcher import menu_handler
-from koalblue.menu_catalog import leaf_menu_entries
+from koalablue.menu_catalog import leaf_menu_entries
 from koalablue.menu_ui import MenuEvent, MenuSelectionScreen
 
 try:
