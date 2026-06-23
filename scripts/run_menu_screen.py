@@ -3,8 +3,15 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 import time
+from pathlib import Path
 from typing import Optional
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+PI_ROOT = REPO_ROOT / "pi-companion"
+if str(PI_ROOT) not in sys.path:
+    sys.path.insert(0, str(PI_ROOT))
 
 os.environ.setdefault("KOALABYTE_TTS", "1")
 from koalablue.menu_action_dispatcher import menu_handler
