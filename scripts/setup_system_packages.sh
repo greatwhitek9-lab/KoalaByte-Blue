@@ -8,7 +8,7 @@ CHECK_ONLY=0
 
 usage() {
   cat <<'EOF'
-KoalaByte Blue Raspberry Pi system package setup helper
+KoalaByte Blue V2 Heltec Edition Raspberry Pi system package setup helper
 
 Usage:
   bash scripts/setup_system_packages.sh
@@ -22,9 +22,10 @@ Environment:
 
 Packages covered:
   Python venv/pip/dev headers, build tools, PlatformIO/USB runtime dependencies,
-  nRF/Zephyr helper build tools, WiFi/NetworkManager/wpa_supplicant, BlueZ tools,
+  Heltec T114 USB serial/udev/BlueZ runtime dependencies, nRF/Zephyr helper build
+  tools for optional T114 firmware work, WiFi/NetworkManager/wpa_supplicant,
   SD card formatter tools, CAN tools, python-can, kmod/modprobe, SDL2 runtime,
-  SQLite, USB utilities, Raspberry Pi GPIO support, and AI voice/TTS audio support.
+  SQLite, Raspberry Pi GPIO support, and AI voice/TTS audio support.
 EOF
 }
 
@@ -49,7 +50,7 @@ done
 
 cd "${REPO_ROOT}"
 
-echo "== KoalaByte Blue system package setup =="
+echo "== KoalaByte Blue V2 Heltec Edition system package setup =="
 echo "Repository root: ${REPO_ROOT}"
 echo "INSTALL_SYSTEM_PACKAGES=${INSTALL_SYSTEM_PACKAGES} STRICT_SYSTEM_PACKAGES=${STRICT_SYSTEM_PACKAGES}"
 
@@ -76,11 +77,13 @@ fi
 
 packages=(
   git python3 python3-venv python3-pip python3-dev python3-gpiozero python3-lgpio
+  python3-serial python3-dbus python3-gi
   build-essential pkg-config cmake ninja-build gperf ccache device-tree-compiler
   wget curl xz-utils file make gcc g++ libffi-dev libssl-dev usbutils udev kmod
   util-linux parted dosfstools exfatprogs libusb-1.0-0 libusb-1.0-0-dev
   libsdl2-2.0-0 network-manager wpasupplicant wireless-tools iw dhcpcd-base
   dnsutils iputils-ping bluetooth bluez bluez-tools rfkill sqlite3 iproute2
+  picocom minicom screen
   can-utils python3-can gpiod libgpiod2 espeak-ng espeak alsa-utils libasound2
   libasound2-plugins pulseaudio-utils portaudio19-dev python3-pyaudio
 )
@@ -97,6 +100,15 @@ elif command -v espeak >/dev/null 2>&1; then
 else
   echo "  warning: no espeak-ng/espeak command found after install attempt" >&2
   [[ "${STRICT_SYSTEM_PACKAGES}" == "1" ]] && exit 1
+fi
+if command -v lsusb >/dev/null 2>&1; then
+  echo "  USB utility lsusb: $(command -v lsusb)"
+fi
+if command -v udevadm >/dev/null 2>&1; then
+  echo "  udevadm: $(command -v udevadm)"
+fi
+if command -v bluetoothctl >/dev/null 2>&1; then
+  echo "  BlueZ bluetoothctl: $(command -v bluetoothctl)"
 fi
 if command -v aplay >/dev/null 2>&1; then
   echo "  ALSA aplay: $(command -v aplay)"
