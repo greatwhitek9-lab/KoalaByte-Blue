@@ -13,6 +13,7 @@ RUN_NRF_KONNECT=0
 RUN_CAN_CHECK=0
 RUN_AI_VOICE=0
 RUN_ANTEATER=0
+RUN_MENU_CHECK=0
 BUILD_ONLY=0
 CHECK_ONLY=0
 RUN_SMOKE=0
@@ -27,6 +28,7 @@ Usage:
   bash scripts/flash_all_components.sh --install-firmware
   bash scripts/flash_all_components.sh --all
   bash scripts/flash_all_components.sh --pi --esp32 --ble-node-manager
+  bash scripts/flash_all_components.sh --menu-check
   bash scripts/flash_all_components.sh --anteater
   bash scripts/flash_all_components.sh --ai-voice
   bash scripts/flash_all_components.sh --can-check
@@ -36,10 +38,11 @@ Usage:
   ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
 
 Targets:
-  --install-firmware  One-shot Heltec Edition install: Pi companion, AI voice, ESP32 DualEye, Heltec T114 dependency setup, Heltec-primary BLE node manager service, AntEater readiness, CAN setup/checks, and CAN manifest/status checks
+  --install-firmware  One-shot Heltec Edition install: Pi companion, AI voice, ESP32 DualEye, Heltec T114 dependency setup, Heltec-primary BLE node manager service, full menu readiness manifest, AntEater readiness, CAN setup/checks, and CAN manifest/status checks
   --all               Same target set as --install-firmware, without changing branches
   --pi                Install/update Raspberry Pi companion environment
   --ai-voice          Prepare/verify KillerKoala phrase-first companion config and optional TinyLlama/Ollama settings
+  --menu-check        Validate all menu/submenu/leaf actions and write logs/menu_actions/menu_action_manifest.json without executing menu actions
   --anteater          Prepare/check AntEater passive triage integration without starting a live BLE scan
   --esp32             Build and flash ESP32-S3 DualEye firmware with PlatformIO
   --ble-node-manager  Install/enable/start the Pi-side BLE node manager service with Heltec T114 nRF52840 as primary BLE board, ESP32-S3 as secondary node, and Pi BlueZ as secondary/fallback node
@@ -96,13 +99,14 @@ Environment:
 Notes:
   - The Heltec Mesh Node T114 onboard nRF52840 is the default primary BLE board for the Heltec Edition.
   - The flasher now runs scripts/setup_heltec_t114_tools.sh for Heltec USB serial, udev, pyserial/bleak, and port discovery checks before installing the BLE node manager.
+  - The flasher runs scripts/check_menu_actions.py as part of --install-firmware and --all. This validates every enabled menu item has a handler and every submenu target exists; it does not execute menu actions.
   - The flasher runs AntEater readiness as part of --install-firmware and --all. This writes an ANTEATER_READY status and validates imports/log paths; it does not start a live BLE scan.
   - ESP32-S3 DualEye and Raspberry Pi onboard BlueZ are BLE nodes used for local UI observations, enrichment, and fallback checks.
   - The InnoMaker CAN adapter does not get flashed; KoalaByte uses Linux SocketCAN, can-utils, python-can, and Koala Kan Kommander scripts.
   - --install-firmware and --all run setup_can0.sh, then Koala Kan Kommander manifest, inventory, and status checks.
   - Legacy external dongle firmware targets remain explicit opt-in targets and are not part of the default Heltec Edition install.
   - WiFi/internet can be configured first so the Pi can download SDK/toolchain dependencies.
-  - System packages, Heltec runtime dependencies, AntEater readiness, and PlatformIO are checked/prepared before relevant steps.
+  - System packages, Heltec runtime dependencies, all menu-item readiness, AntEater readiness, and PlatformIO are checked/prepared before relevant steps.
   - Pi system package setup also installs AI voice/TTS dependencies: espeak-ng, espeak, ALSA tools, PulseAudio CLI utilities, PortAudio, and python3-pyaudio.
   - KillerKoala AI voice setup keeps the anti-repeat phrase engine as the fast default and only uses TinyLlama/Ollama for flexible banter when enabled.
   - KillerKoala boot welcome speech runs after the mode selector and before the splash/menu unless KILLERKOALA_BOOT_WELCOME=0.
@@ -123,6 +127,7 @@ while [[ $# -gt 0 ]]; do
       RUN_AI_VOICE=1
       RUN_ESP32=1
       RUN_BLE_NODE_MANAGER=1
+      RUN_MENU_CHECK=1
       RUN_ANTEATER=1
       RUN_CAN_CHECK=1
       ;;
@@ -131,11 +136,13 @@ while [[ $# -gt 0 ]]; do
       RUN_AI_VOICE=1
       RUN_ESP32=1
       RUN_BLE_NODE_MANAGER=1
+      RUN_MENU_CHECK=1
       RUN_ANTEATER=1
       RUN_CAN_CHECK=1
       ;;
     --pi) RUN_PI=1 ;;
     --ai-voice) RUN_PI=1; RUN_AI_VOICE=1 ;;
+    --menu-check) RUN_PI=1; RUN_MENU_CHECK=1 ;;
     --anteater) RUN_PI=1; RUN_ANTEATER=1 ;;
     --esp32) RUN_ESP32=1 ;;
     --nrf-ble-primary) RUN_NRF_BLE_PRIMARY=1 ;;
@@ -182,7 +189,7 @@ if [[ "${active_nrf_profiles}" -gt 1 && "${BUILD_ONLY}" != "1" ]]; then
 fi
 
 setup_wifi_for_selected_mode() {
-  if [[ "${RUN_PI}" != "1" && "${RUN_AI_VOICE}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_NRF_BLE_PRIMARY}" != "1" && "${RUN_BLE_NODE_MANAGER}" != "1" && "${RUN_ANTEATER}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
+  if [[ "${RUN_PI}" != "1" && "${RUN_AI_VOICE}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_NRF_BLE_PRIMARY}" != "1" && "${RUN_BLE_NODE_MANAGER}" != "1" && "${RUN_MENU_CHECK}" != "1" && "${RUN_ANTEATER}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
     return 0
   fi
   echo
@@ -191,7 +198,7 @@ setup_wifi_for_selected_mode() {
 }
 
 setup_system_packages_for_selected_mode() {
-  if [[ "${RUN_PI}" != "1" && "${RUN_AI_VOICE}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_NRF_BLE_PRIMARY}" != "1" && "${RUN_BLE_NODE_MANAGER}" != "1" && "${RUN_ANTEATER}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
+  if [[ "${RUN_PI}" != "1" && "${RUN_AI_VOICE}" != "1" && "${RUN_ESP32}" != "1" && "${RUN_NRF_BLE_PRIMARY}" != "1" && "${RUN_BLE_NODE_MANAGER}" != "1" && "${RUN_MENU_CHECK}" != "1" && "${RUN_ANTEATER}" != "1" && "${RUN_NRF_LAB}" != "1" && "${RUN_NRF_KONNECT}" != "1" && "${RUN_CAN_CHECK}" != "1" ]]; then
     return 0
   fi
   echo
@@ -200,7 +207,7 @@ setup_system_packages_for_selected_mode() {
 }
 
 setup_heltec_t114_tools_for_selected_mode() {
-  if [[ "${RUN_BLE_NODE_MANAGER}" != "1" && "${RUN_PI}" != "1" && "${RUN_ANTEATER}" != "1" && "${RUN_SMOKE}" != "1" ]]; then
+  if [[ "${RUN_BLE_NODE_MANAGER}" != "1" && "${RUN_PI}" != "1" && "${RUN_MENU_CHECK}" != "1" && "${RUN_ANTEATER}" != "1" && "${RUN_SMOKE}" != "1" ]]; then
     return 0
   fi
   echo
@@ -288,6 +295,16 @@ install_ble_node_manager_for_selected_mode() {
   INSTALL_BLE_NODE_MANAGER_SERVICE="${INSTALL_BLE_NODE_MANAGER_SERVICE:-auto}" \
   STRICT_BLE_NODE_MANAGER_SERVICE="${STRICT_BLE_NODE_MANAGER_SERVICE:-0}" \
     bash scripts/install_ble_node_manager_service.sh
+}
+
+setup_menu_items_for_selected_mode() {
+  if [[ "${RUN_MENU_CHECK}" != "1" && "${RUN_SMOKE}" != "1" ]]; then
+    return 0
+  fi
+  echo
+  echo "== Full menu readiness check: all enabled menu items routed, no actions executed =="
+  PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
+  echo "Menu action manifest written to logs/menu_actions/menu_action_manifest.json"
 }
 
 setup_anteater_for_selected_mode() {
@@ -396,6 +413,7 @@ if [[ "${RUN_NRF_BLE_PRIMARY}" == "1" ]]; then
 fi
 
 install_ble_node_manager_for_selected_mode
+setup_menu_items_for_selected_mode
 setup_anteater_for_selected_mode
 
 if [[ "${RUN_NRF_LAB}" == "1" ]]; then
@@ -432,6 +450,8 @@ if [[ "${RUN_SMOKE}" == "1" ]]; then
   PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest --interface "${CAN_INTERFACE:-can0}"
   PYTHONPATH=pi-companion python3 scripts/check_killerkoala_boot_welcome.py
   KOALABYTE_TTS=0 PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py preview --event boomerang_xp --xp 100 >/dev/null
+  PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
+  PYTHONPATH=pi-companion python3 scripts/run_anteater.py status
   PYTHONPATH=pi-companion python3 scripts/check_eucalyptus_cyberpet.py
   PYTHONPATH=pi-companion python3 scripts/check_thats_not_a_knife_monitors.py
   PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife_loop.py --once
