@@ -27,6 +27,8 @@ That one command handles the Pi companion install, Heltec plug-in firmware flash
 
 The InnoMaker CAN kit is optional. If it is not plugged in, the one-shot installer records a non-failing optional CAN status and continues.
 
+Deployment readiness markers: `bash scripts/install_koalabyte_one_shot.sh`; `InnoMaker CAN kit is optional`.
+
 Useful overrides:
 
 ```bash
