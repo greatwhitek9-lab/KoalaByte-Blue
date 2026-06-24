@@ -1,6 +1,6 @@
 # Optional T114 Firmware Artifacts
 
-This document preserves the useful findings from the optional T114 build/flash firmware scripts mined from `Backup_heltec` without making those firmware profiles part of the default KoalaByte Blue V2 Heltec Edition deployment.
+This document preserves the useful findings from the optional T114 build/flash firmware scripts mined from `Backup_heltec` and defines how their artifacts are now generated in the KoalaByte Blue V2 Heltec Edition default paths.
 
 ## Deployment rule
 
@@ -13,7 +13,32 @@ Raspberry Pi BlueZ -> secondary/fallback host Bluetooth stack
 Legacy external nRF52840 Dongle -> explicit opt-in compatibility only
 ```
 
-Optional T114 HCI USB firmware and optional Heltec color-mouth firmware are **not** part of the default one-shot installer, default CI build, or normal `--all` path. They are preserved as opt-in artifacts only.
+The HCI USB, color-mouth, GNSS, face-state, and passive BLE **protocol artifacts** are now part of:
+
+- the one-shot Pi install path through `scripts/install_pi.sh`
+- the normal `bash scripts/flash_all_components.sh --install-firmware` path because it runs `scripts/install_pi.sh`
+- the normal `bash scripts/flash_all_components.sh --all` path because it runs `scripts/install_pi.sh`
+- the default firmware helper through `scripts/build_firmware_all.sh`
+- the default CI firmware build through `.github/workflows/koalabyte-blue-ci.yml`
+
+Actual unattended flashing of optional T114 HCI USB or color-mouth firmware remains guarded. Those firmware profiles change the T114 board role and still require hardware validation before adding automatic flashing.
+
+## Default artifact helper
+
+The default artifact path is:
+
+```bash
+bash scripts/build_default_t114_protocol_artifacts.sh
+```
+
+That helper writes:
+
+```text
+logs/optional_t114_firmware_artifacts.json
+logs/t114_2g4_antenna_status.json
+```
+
+It does not build or flash T114 firmware. It records the protocol schemas, HCI USB build/flash metadata, GNSS message shape, face-state message shape, and passive BLE observation shape so the standard build/install paths always carry the mined artifacts.
 
 ## HCI USB / Koala Konnect artifact schema
 
@@ -85,7 +110,7 @@ T114_FLASH_METHOD=west
 T114_FLASH_METHOD=uf2
 ```
 
-These are useful, but they should remain opt-in because flashing HCI USB changes the T114 from the normal KoalaByte Heltec primary-board profile into a host Bluetooth controller profile.
+These are useful, but automatic flashing should remain guarded because flashing HCI USB changes the T114 from the normal KoalaByte Heltec primary-board profile into a host Bluetooth controller profile.
 
 ## Heltec color-mouth USB CDC protocol
 
@@ -135,7 +160,7 @@ It may acknowledge with:
 }
 ```
 
-This is display-state traffic only. It does not require the optional firmware to be part of default deployment.
+This is display-state traffic only. It does not require automatic T114 firmware flashing.
 
 ## GNSS forwarding shape
 
@@ -156,7 +181,7 @@ The Pi can request status with:
 {"type":"gnss_status"}
 ```
 
-The active branch already keeps GNSS handling password-gated through `pi-companion/koalablue/location_password_gate.py` and `pi-companion/koalablue/gnss_location.py`.
+The active branch keeps GNSS handling password-gated through `pi-companion/koalablue/location_password_gate.py` and `pi-companion/koalablue/gnss_location.py`.
 
 ## Passive BLE event shape
 
@@ -183,22 +208,17 @@ Recommended implementation notes mined from the optional firmware:
 - Use active scan only in owned-device lab testing where scan-response collection is authorized.
 - Keep Heltec-origin observations canonical when duplicate observations are merged.
 
-## Useful optional validation commands
+## Useful default validation commands
 
 ```bash
+bash scripts/build_default_t114_protocol_artifacts.sh
+python scripts/write_optional_t114_firmware_artifacts.py
 bash scripts/configure_t114_2g4_antenna.sh --check-only
 PYTHONPATH=pi-companion python scripts/run_t114_bluez.py controller-check
 PYTHONPATH=pi-companion python scripts/run_killerkoala_face_demo.py --state wake --message "killerkoala online"
 PYTHONPATH=pi-companion python scripts/run_location_password_gate.py status
 ```
 
-## Do not add to default flow yet
+## Default flow status
 
-Do not add optional T114 HCI USB or Heltec color-mouth firmware to these paths until the exact board target, firmware role, and recovery process are validated on hardware:
-
-- `bash scripts/flash_all_components.sh --all`
-- `bash scripts/flash_all_components.sh --install-firmware`
-- default CI firmware builds
-- first-boot unattended deployment
-
-Keeping these artifacts documented but opt-in preserves the useful findings while keeping the active Heltec Edition branch deployable.
+The protocol artifacts are now in the default install/build/CI path. Automatic firmware flashing for optional T114 HCI USB or Heltec color-mouth firmware should not be added until the exact board target, firmware role, and recovery process are validated on hardware.
