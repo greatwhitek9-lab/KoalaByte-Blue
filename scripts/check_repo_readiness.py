@@ -19,6 +19,7 @@ REQUIRED_FILES = [
     "pi-companion/koalablue/menu_catalog.py",
     "pi-companion/koalablue/meshtastic_app.py",
     "pi-companion/koalablue/t114_bluez.py",
+    "pi-companion/koalblue/gnss_location.py",
     "pi-companion/koalablue/gnss_location.py",
     "pi-companion/koalablue/location_password_gate.py",
     "scripts/check_menu_actions.py",
@@ -30,6 +31,7 @@ REQUIRED_FILES = [
     "scripts/configure_koalabyte_external_antennas.sh",
     "scripts/check_external_antenna_readiness.py",
     "scripts/flash_t114_when_plugged.sh",
+    "scripts/install_koalabyte_one_shot.sh",
     "docs/EXTERNAL_ANTENNA_READINESS.md",
     "docs/T114_PLUG_IN_FLASHING.md",
 ]
@@ -37,6 +39,7 @@ REQUIRED_FILES = [
 SHELL_HELPERS = [
     "scripts/configure_koalabyte_external_antennas.sh",
     "scripts/flash_t114_when_plugged.sh",
+    "scripts/install_koalabyte_one_shot.sh",
 ]
 
 
@@ -44,6 +47,19 @@ def check_required_files(failures: list[str]) -> None:
     for relative_path in REQUIRED_FILES:
         if not (REPO_ROOT / relative_path).exists():
             failures.append(f"missing required file: {relative_path}")
+
+
+def check_readme(failures: list[str]) -> None:
+    text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    for needle in [
+        "bash scripts/install_koalabyte_one_shot.sh",
+        "InnoMaker CAN kit is optional",
+        "ESP32-S3 DualEye",
+        "Heltec Mesh Node T114",
+        "Didgeridoo",
+    ]:
+        if needle not in text:
+            failures.append(f"README.md missing expected one-shot text: {needle}")
 
 
 def check_config(failures: list[str]) -> None:
@@ -111,6 +127,7 @@ def check_helpers(failures: list[str]) -> None:
 def main() -> int:
     failures: list[str] = []
     check_required_files(failures)
+    check_readme(failures)
     check_config(failures)
     check_menu_catalog(failures)
     check_helpers(failures)
