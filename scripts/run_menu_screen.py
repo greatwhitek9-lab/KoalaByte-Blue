@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import time
+from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
 
@@ -50,9 +51,21 @@ def open_submenu(menu: MenuSelectionScreen, command: str) -> bool:
     return True
 
 
-def route_leaf(item: MenuItem) -> None:
+def selected_payload_path(command: str, timestamp: float) -> Path:
     out_dir = Path("logs/menu_actions")
     out_dir.mkdir(parents=True, exist_ok=True)
+    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in command)[:72] or "menu_leaf"
+    return out_dir / f"{safe}_{int(timestamp)}.json"
+
+
+def write_action_payload(item: MenuItem, payload: dict[str, object]) -> Path:
+    timestamp = float(payload.get("timestamp", time.time()))
+    path = selected_payload_path(item.command, timestamp)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    return path
+
+
+def route_leaf(item: MenuItem) -> None:
     payload = {
         "timestamp": time.time(),
         "label": item.label,
@@ -61,9 +74,7 @@ def route_leaf(item: MenuItem) -> None:
         "status": "routed",
         "message": "Menu leaf item selected and routed. Touch long-press, keyboard Enter, and the physical Select button all use this same execution path.",
     }
-    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in item.command)[:72] or "menu_leaf"
-    path = out_dir / f"{safe}_{int(payload['timestamp'])}.json"
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    path = write_action_payload(item, payload)
     print(f"\n🌿 {item.label} routed → {path}\n")
 
 
@@ -91,6 +102,81 @@ def run_anteater_action(_item: MenuItem) -> None:
     print(render_summary(report))
 
 
+def run_t114_bluez_controller_check(item: MenuItem) -> None:
+    from koalablue.t114_bluez import check_controller
+
+    result = check_controller()
+    payload = {"timestamp": time.time(), "label": item.label, "command": item.command, "group": item.group, "status": result.status, "result": asdict(result)}
+    path = write_action_payload(item, payload)
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    print(f"\nT114 BlueZ controller check written → {path}\n")
+
+
+def run_t114_bluez_status(item: MenuItem) -> None:
+    from koalablue.t114_bluez import run_wrapped_bluez
+
+    result = run_wrapped_bluez("status", duration_seconds=10)
+    payload = {"timestamp": time.time(), "label": item.label, "command": item.command, "group": item.group, "status": result.status, "result": asdict(result)}
+    path = write_action_payload(item, payload)
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    print(f"\nT114 BlueZ status written → {path}\n")
+
+
+def run_meshtastic_status(item: MenuItem) -> None:
+    from koalablue.meshtastic_app import status
+
+    payload = {"timestamp": time.time(), "label": item.label, "command": item.command, "group": item.group, "status": "complete", "result": status()}
+    path = write_action_payload(item, payload)
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    print(f"\nMeshtastic status written → {path}\n")
+
+
+def run_meshtastic_nodes(item: MenuItem) -> None:
+    from koalablue.meshtastic_app import nodes
+
+    payload = {"timestamp": time.time(), "label": item.label, "command": item.command, "group": item.group, "status": "complete", "result": nodes()}
+    path = write_action_payload(item, payload)
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    print(f"\nMeshtastic nodes written → {path}\n")
+
+
+def run_meshtastic_gps(item: MenuItem) -> None:
+    from koalablue.meshtastic_app import gps_info
+
+    payload = {"timestamp": time.time(), "label": item.label, "command": item.command, "group": item.group, "status": "complete", "result": gps_info()}
+    path = write_action_payload(item, payload)
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    print(f"\nMeshtastic GPS status written → {path}\n")
+
+
+def run_location_gate_status(item: MenuItem) -> None:
+    from koalablue.location_password_gate import PASSWORD_FILE, UNLOCK_ENV, password_exists
+
+    payload = {
+        "timestamp": time.time(),
+        "label": item.label,
+        "command": item.command,
+        "group": item.group,
+        "configured": password_exists(),
+        "unlocked": os.environ.get(UNLOCK_ENV) in {"1", "true", "TRUE", "yes", "YES"},
+        "path": str(PASSWORD_FILE),
+        "status": "complete",
+    }
+    path = write_action_payload(item, payload)
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    print(f"\nProtected location gate status written → {path}\n")
+
+
+def run_gnss_current_fix(item: MenuItem) -> None:
+    from koalablue.gnss_location import current_fix, fix_to_dict
+
+    fix = current_fix(authorized=None, prompt=False)
+    payload = {"timestamp": time.time(), "label": item.label, "command": item.command, "group": item.group, "status": "complete", "fix": fix_to_dict(fix)}
+    path = write_action_payload(item, payload)
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    print(f"\nGNSS current-fix status written → {path}\n")
+
+
 def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
     for entry in leaf_menu_entries():
         command = str(entry.get("command", ""))
@@ -99,6 +185,13 @@ def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
     menu.register_handler("boomerang", run_boomerang_action)
     menu.register_handler("eucalyptus_mode", run_eucalyptus_mode_action)
     menu.register_handler("anteater", run_anteater_action)
+    menu.register_handler("t114_bluez_controller_check", run_t114_bluez_controller_check)
+    menu.register_handler("t114_bluez_status", run_t114_bluez_status)
+    menu.register_handler("meshtastic_status", run_meshtastic_status)
+    menu.register_handler("meshtastic_nodes", run_meshtastic_nodes)
+    menu.register_handler("meshtastic_gps", run_meshtastic_gps)
+    menu.register_handler("location_gate_status", run_location_gate_status)
+    menu.register_handler("gnss_current_fix", run_gnss_current_fix)
 
 
 def make_menu() -> MenuSelectionScreen:
