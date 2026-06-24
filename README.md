@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>Your Bluetooth sidekick in the wild.</strong><br>
-  Raspberry Pi 3B+ + ESP32-S3 DualEye + Nordic nRF52840 Dongle firmware and Pi companion scripts for lawful, owned-device Bluetooth lab work, passive observation, companion UI, reporting, and optional isolated CAN bench work.
+  Raspberry Pi 3B+ + ESP32-S3 DualEye firmware and Pi companion scripts for lawful, owned-device Bluetooth lab work, passive observation, companion UI, reporting, and optional isolated CAN bench work.
 </p>
 
 <p align="center">
@@ -15,13 +15,12 @@
 
 ## Main branch hardware profile
 
-The `main` branch is the dongle-only production branch. It is intentionally scoped to common USB modules and does not require a custom PCB.
+The `main` branch is the USB-module production branch. It is intentionally scoped to common USB modules and does not require a custom PCB.
 
 | Component | Exact model / type | Connection | Purpose |
 |---|---|---|---|
 | Main SBC | Raspberry Pi 3 Model B+ | Main host | Linux companion, menus, logs, reports, voice/AI wrapper. |
-| Display/UI board | Waveshare ESP32-S3-DualEye-LCD-1.28 | USB data cable | Boot splash, menu UI, eyes, buttons, optional secondary BLE observations. |
-| BLE dongle | Nordic nRF52840 Dongle / PCA10059 / NRF52840-DONGLE | USB | Default primary BLE observer. Optional legacy KoalaByte Lab or Koala Konnect profiles. |
+| Display/UI board | Waveshare ESP32-S3-DualEye-LCD-1.28 | USB data cable | Boot splash, menu UI, eyes, buttons, and optional local BLE observations. |
 | CAN adapter | InnoMaker USB to CAN Converter kit | USB | Optional isolated bench-simulator or owned-harness CAN work. |
 | Power | PIFFA-style 50000 mAh USB power bank, 22.5 W class | USB regulated output | Main simplified production power source. |
 
@@ -32,12 +31,11 @@ USB power bank
   -> Raspberry Pi 3B+ micro-USB power input
 
 Raspberry Pi USB ports or optional powered USB hub
-  -> Nordic nRF52840 USB Dongle
   -> ESP32-S3 DualEye
   -> optional InnoMaker USB-to-CAN adapter
 ```
 
-Do **not** route raw lithium battery voltage into the Pi, ESP32-S3, nRF52840 Dongle, or CAN adapter.
+Do **not** route raw lithium battery voltage into the Pi, ESP32-S3, or CAN adapter.
 
 ---
 
@@ -47,9 +45,8 @@ The normal main-branch BLE layout is:
 
 | Node | Role | Notes |
 |---|---|---|
-| nRF52840 USB Dongle | Primary | Canonical passive BLE advertisement observer and source of truth. |
-| ESP32-S3 DualEye BLE | Secondary | Optional local observations from the display/controller board. |
-| Raspberry Pi onboard BlueZ | Secondary / fallback | Linux observer for enrichment or fallback. |
+| ESP32-S3 DualEye BLE | Primary local node | Local display/controller-side BLE observations for the Eucalyptus Mode UI and companion state. |
+| Raspberry Pi onboard BlueZ | Host observer / fallback | Linux observer for enrichment, logging, and fallback BLE status checks. |
 
 The Pi-side service is:
 
@@ -90,10 +87,10 @@ python3 scripts/check_repo_readiness.py
 Normal one-shot install:
 
 ```bash
-NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --install-firmware
+bash scripts/flash_all_components.sh --install-firmware
 ```
 
-That one command installs/updates the Pi companion, prepares firmware tooling, flashes the ESP32-S3 DualEye when connected, flashes the nRF52840 Dongle BLE-primary firmware when the Dongle is in DFU mode, installs/enables the BLE node manager service, and runs the CAN manifest check.
+That one command installs/updates the Pi companion, prepares firmware tooling, flashes the ESP32-S3 DualEye when connected, installs/enables the BLE node manager service, and runs the CAN manifest check.
 
 Useful variants:
 
@@ -104,15 +101,6 @@ bash scripts/flash_all_components.sh --pi
 # ESP32-S3 DualEye only
 ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
 
-# nRF52840 Dongle BLE-primary profile only
-NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-ble-primary
-
-# Legacy nRF52840 Dongle KoalaByte Lab profile only
-NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
-
-# Optional Koala Konnect USB HCI profile only
-NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-konnect
-
 # Build/package without flashing or installing services
 bash scripts/flash_all_components.sh --all --build-only
 
@@ -122,40 +110,15 @@ bash scripts/flash_all_components.sh --all --smoke
 
 ---
 
-## Boot / DFU / flash mode instructions
+## Boot / flash mode instructions
 
 Use this section before running the one-shot install or any individual flash target.
 
-| Hardware | Needs manual boot/DFU mode? | When to do it |
+| Hardware | Needs manual boot mode? | When to do it |
 |---|---|---|
-| **Nordic nRF52840 USB Dongle / PCA10059** | Yes. The Dongle must be in DFU/bootloader mode for `nrfutil dfu`. | Before `--install-firmware`, `--all`, or `--nrf-ble-primary` when the script needs to flash the Dongle. |
 | **ESP32-S3 DualEye** | Usually no. The USB serial bridge normally auto-enters download mode. Manual BOOT mode may be needed if upload stalls at `Connecting...`. | Before `--install-firmware`, `--all`, or `--esp32` only if auto-upload fails. |
 | **InnoMaker USB-to-CAN Converter kit** | No. KoalaByte does not flash firmware to it. | Never for KoalaByte setup. Plug it in by USB only after the Pi is running, or before install if you only want manifest/status checks. |
 | **Raspberry Pi onboard BLE / BlueZ** | No. | Never. It is configured by Linux packages/services, not board boot mode. |
-
-### nRF52840 Dongle DFU mode
-
-1. Plug the nRF52840 Dongle into the Pi or powered USB hub.
-2. Put the Dongle into bootloader/DFU mode by pressing the Dongle **RESET** button once. If your enclosure covers the button, use the reset access hole you designed into the case.
-3. Watch for the DFU serial port:
-
-```bash
-ls /dev/ttyACM* 2>/dev/null
-dmesg | tail -40
-```
-
-4. Use that DFU port with the one-shot installer:
-
-```bash
-NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --install-firmware
-```
-
-5. If the script says no `NRF_DFU_PORT` is set, it will build/package the DFU ZIP but skip the physical flash.
-6. After DFU completes, the Dongle reboots into the BLE-primary firmware. If the runtime serial port changes, set the runtime node-manager port explicitly:
-
-```bash
-export KOALABYTE_NRF_BLE_PORT=/dev/ttyACM0
-```
 
 ### ESP32-S3 DualEye normal flashing path
 
@@ -211,18 +174,6 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
 
 ---
 
-## nRF52840 Dongle modes
-
-The nRF52840 Dongle can hold one active profile at a time.
-
-| Mode | What it is for |
-|---|---|
-| **BLE Primary Mode** | Default main-branch profile. The dongle passively observes BLE advertisements and sends JSON events to the Pi node manager. |
-| **KoalaByte Blue Lab Mode** | Legacy lab profile. The dongle advertises as KoalaByte Lab for controlled owned-device signal and menu workflows. |
-| **Koala Konnect Mode** | Alternate USB HCI adapter profile for host-side Bluetooth work. |
-
----
-
 ## Key safe actions
 
 - Safe local BLE inventory and passive observation.
@@ -246,8 +197,6 @@ docs/EUCALYPTUS_ALWAYS_ON_BLE_REVA8.md
 docs/CAMERA_AWARENESS_LOGGER.md
 docs/THATS_NOT_A_KNIFE_SERVICE.md
 docs/KOALA_BLUEZ_TOOLS_REVA16.md
-docs/KOALA_KONNECT_REVA20.md
-docs/NRF52840_DONGLE_FLASHING.md
 docs/ORDERABLE_PARTS_LIST.md
 docs/PRODUCTION_FILES.md
 docs/POWER_BANK_WIRING_MAIN.svg
