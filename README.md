@@ -109,7 +109,7 @@ Normal one-shot install:
 bash scripts/flash_all_components.sh --install-firmware
 ```
 
-That one command installs/updates the Pi companion, prepares firmware tooling, flashes the ESP32-S3 DualEye when connected, installs/enables the BLE node manager service, and runs the CAN manifest check.
+That one command installs/updates the Pi companion, runs `scripts/setup_heltec_t114_tools.sh`, prepares Heltec T114 USB serial/udev/Python dependencies, flashes the ESP32-S3 DualEye when connected, installs/enables the BLE node manager service, and runs the CAN manifest check.
 
 Useful variants:
 
@@ -119,6 +119,13 @@ bash scripts/flash_all_components.sh --pi
 
 # ESP32-S3 DualEye only
 ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
+
+# Heltec T114 dependency setup/check only
+bash scripts/setup_heltec_t114_tools.sh
+STRICT_HELTEC_T114_TOOLS=1 bash scripts/setup_heltec_t114_tools.sh
+
+# Optional west/nrfutil/NCS prep for future Heltec T114 firmware work
+INSTALL_HELTEC_NRF_TOOLS=1 bash scripts/setup_heltec_t114_tools.sh
 
 # Discover KoalaByte ports with Heltec T114 priority
 python3 scripts/discover_koalabyte_ports.py --profile heltec
@@ -133,7 +140,7 @@ bash scripts/flash_all_components.sh --all --build-only
 bash scripts/flash_all_components.sh --all --smoke
 ```
 
-The Heltec T114 onboard nRF52840 is the primary BLE board for `koalabyte_blue_v2_heltec_edition`. Use the Heltec-specific preflight commands to confirm the Pi sees it before adding or flashing any future T114 firmware target.
+The Heltec T114 onboard nRF52840 is the primary BLE board for `koalabyte_blue_v2_heltec_edition`. The flasher installs/checks Heltec runtime dependencies before starting the BLE node manager. Use the Heltec-specific preflight commands to confirm the Pi sees it before adding or flashing any future T114 firmware target.
 
 ---
 
@@ -191,9 +198,10 @@ ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
 ls /dev/ttyACM* /dev/serial/by-id/* 2>/dev/null
 ```
 
-3. Run KoalaByte's Heltec-priority port discovery:
+3. Run KoalaByte's Heltec dependency check and port discovery:
 
 ```bash
+bash scripts/setup_heltec_t114_tools.sh --check-only
 python3 scripts/discover_koalabyte_ports.py --profile heltec
 ```
 
@@ -268,6 +276,7 @@ docs/POWER_BANK_WIRING_MAIN.svg
 
 ```bash
 python3 scripts/check_repo_readiness.py
+bash scripts/setup_heltec_t114_tools.sh --check-only
 PYTHONPATH=pi-companion python3 scripts/check_eucalyptus_cyberpet.py
 PYTHONPATH=pi-companion python3 scripts/check_thats_not_a_knife_monitors.py
 PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife_loop.py --once
