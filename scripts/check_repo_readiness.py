@@ -13,6 +13,7 @@ if str(PI_ROOT) not in sys.path:
 REQUIRED_FILES = [
     "README.md",
     "docs/MAIN_BLE_NODE_ROLES.md",
+    "docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md",
     "docs/FLASHING.md",
     "docs/EUCALYPTUS_ALWAYS_ON_BLE_REVA8.md",
     "docs/CAMERA_AWARENESS_LOGGER.md",
@@ -30,6 +31,7 @@ REQUIRED_FILES = [
     "pi-companion/requirements.txt",
     "pi-companion/koalablue/__init__.py",
     "pi-companion/koalablue/menu_catalog.py",
+    "pi-companion/koalablue/anteater.py",
     "pi-companion/koalablue/ble_event_log.py",
     "pi-companion/koalablue/ble_node_manager.py",
     "pi-companion/koalablue/koala_kan_kommander.py",
@@ -61,7 +63,8 @@ REQUIRED_TEXT = {
         "KoalaByte Blue V2 Heltec Edition",
         "Heltec Mesh Node T114 nRF52840",
         "primary BLE board",
-        "ESP32-S3 DualEye and Raspberry Pi BlueZ secondary BLE node",
+        "AntEater passive BLE payment-terminal risk triage from the Heltec primary BLE node log",
+        "docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md",
     ],
     "docs/MAIN_BLE_NODE_ROLES.md": [
         "Heltec Mesh Node T114 onboard Nordic nRF52840",
@@ -69,10 +72,30 @@ REQUIRED_TEXT = {
         "ESP32-S3 DualEye BLE",
         "Raspberry Pi onboard BlueZ",
     ],
+    "docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md": [
+        "Heltec Edition data path",
+        "logs/ble_nodes/ble_events.jsonl",
+        "--live-scan",
+        "advertisement-only",
+    ],
     "docs/FLASHING.md": [
         "scripts/setup_heltec_t114_tools.sh",
         "KOALABYTE_PRIMARY_BLE_PORT",
         "INSTALL_HELTEC_NRF_TOOLS=1",
+    ],
+    "pi-companion/koalablue/anteater.py": [
+        "DEFAULT_NODE_LOG_PATH",
+        "logs/ble_nodes/ble_events.jsonl",
+        "heltec_primary_node_log_preferred",
+        "--live-scan",
+    ],
+    "pi-companion/koalablue/menu_catalog.py": [
+        "AntEater",
+        "anteater",
+    ],
+    "scripts/run_menu_screen.py": [
+        "run_anteater_action",
+        "menu.register_handler(\"anteater\"",
     ],
     "pi-companion/koalablue/ble_event_log.py": [
         "PRIMARY_SOURCE = \"heltec-t114-nrf52840\"",
@@ -245,6 +268,8 @@ def check_menu_catalog(failures: list[str]) -> None:
         failures.append("menu catalog missing eucalyptus submenu")
     if "Bluetooth Tools" not in menu_labels("main"):
         failures.append("main menu labels missing Bluetooth Tools")
+    if "AntEater" not in menu_labels("bluetooth"):
+        failures.append("Bluetooth submenu missing AntEater")
 
 
 def check_helpers(failures: list[str]) -> None:
