@@ -56,6 +56,7 @@ def main() -> int:
 
     profile = resolve_profile(args.profile)
     discovery = run([sys.executable, "scripts/discover_koalabyte_ports.py", "--profile", profile, "--output-dir", str(OUT_DIR)])
+    heltec_dependency_check = run(["bash", "scripts/setup_heltec_t114_tools.sh", "--check-only"], timeout=10.0)
     ports = load_json(OUT_DIR / "koalabyte_ports.json")
 
     if args.setup_vcan:
@@ -73,6 +74,8 @@ def main() -> int:
             "python3": command_ok("python3"),
             "systemctl": command_ok("systemctl"),
             "udevadm": command_ok("udevadm"),
+            "bluetoothctl": command_ok("bluetoothctl"),
+            "rfkill": command_ok("rfkill"),
         },
         "python_modules": {
             "can": module_ok("can"),
@@ -82,6 +85,7 @@ def main() -> int:
         "repo_files": {
             "setup_can0": (ROOT / "scripts" / "setup_can0.sh").exists(),
             "setup_vcan0": (ROOT / "scripts" / "setup_vcan0.sh").exists(),
+            "setup_heltec_t114_tools": (ROOT / "scripts" / "setup_heltec_t114_tools.sh").exists(),
             "install_can0_service": (ROOT / "scripts" / "install_can0_service.sh").exists(),
             "install_udev_rules": (ROOT / "scripts" / "install_koalabyte_udev_rules.sh").exists(),
             "ble_node_manager": (ROOT / "scripts" / "run_ble_node_manager.py").exists(),
@@ -96,6 +100,7 @@ def main() -> int:
         "profile": profile,
         "timestamp": time.time(),
         "discovery_command": discovery,
+        "heltec_dependency_check": heltec_dependency_check,
         "ports": port_map,
         "checks": checks,
         "vcan_setup": vcan_setup,
@@ -111,24 +116,31 @@ def main() -> int:
         },
     }
 
-    required_ok = all(checks["commands"][name] for name in ["ip", "python3"]) and checks["repo_files"]["setup_can0"] and checks["repo_files"]["ble_node_manager"]
+    required_ok = (
+        all(checks["commands"][name] for name in ["ip", "python3"])
+        and checks["repo_files"]["setup_can0"]
+        and checks["repo_files"]["ble_node_manager"]
+        and checks["repo_files"]["setup_heltec_t114_tools"]
+    )
+    heltec_runtime_ok = checks["python_modules"]["serial"] and checks["python_modules"]["bleak"] and checks["commands"]["udevadm"]
     primary_found = bool(port_map.get("primary_ble"))
     report["summary"] = {
         "required_repo_tools_present": required_ok,
         "profile_primary_port_found": primary_found,
         "primary_ble_architecture": "heltec-t114-nrf52840",
+        "heltec_runtime_dependencies_present": heltec_runtime_ok,
         "esp32_ble_node": "secondary",
         "raspberry_pi_bluez_node": "secondary_fallback",
         "can_utils_present": checks["commands"]["cansend"] and checks["commands"]["candump"],
         "python_can_present": checks["python_modules"]["can"],
-        "safe_to_attempt_flash_after_review": required_ok and primary_found,
+        "safe_to_attempt_flash_after_review": required_ok and primary_found and heltec_runtime_ok,
     }
 
     out_path = OUT_DIR / "hardware_report.json"
     out_path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
     print(json.dumps({"report": str(out_path), "summary": report["summary"]}, indent=2, sort_keys=True))
 
-    if args.strict and not (required_ok and primary_found and checks["python_modules"]["can"]):
+    if args.strict and not (required_ok and primary_found and checks["python_modules"]["can"] and heltec_runtime_ok):
         return 1
     return 0
 
