@@ -9,7 +9,7 @@ This repo now documents the `koalabyte_blue_v2_heltec_edition` USB-module softwa
 5. **Koala Kan Kommander support for the InnoMaker USB to CAN Converter kit** through the Pi companion.
 6. **Legacy external nRF52840 Dongle firmware targets** remain present as explicit opt-in compatibility targets only. They are not the default BLE architecture for the Heltec Edition.
 
-Readiness keywords: `flash_all_components.sh`, `Heltec Mesh Node T114`, `KOALABYTE_PRIMARY_BLE_PORT`, `ESP32-S3 DualEye`, `InnoMaker USB to CAN Converter kit`.
+Readiness keywords: `flash_all_components.sh`, `scripts/setup_heltec_t114_tools.sh`, `Heltec Mesh Node T114`, `KOALABYTE_PRIMARY_BLE_PORT`, `ESP32-S3 DualEye`, `InnoMaker USB to CAN Converter kit`.
 
 Safety boundary: this code is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, owned-device lab validation, scoped CAN observation, and isolated CAN bench simulator testing only. Koala Kan Kommander transmit requires both `--bench-simulator` and `--confirm-transmit`.
 
@@ -52,7 +52,43 @@ bash scripts/flash_all_components.sh --all --build-only
 bash scripts/flash_all_components.sh --all --smoke
 ```
 
-The helper runs the repo readiness check, installs the Pi companion when requested, flashes the ESP32-S3 DualEye when requested, installs the BLE node manager service with the Heltec T114 nRF52840 as the primary BLE board, and writes Koala Kan Kommander status artifacts for the InnoMaker USB to CAN Converter kit.
+The helper runs the repo readiness check, installs the Pi companion when requested, runs `scripts/setup_heltec_t114_tools.sh`, flashes the ESP32-S3 DualEye when requested, installs the BLE node manager service with the Heltec T114 nRF52840 as the primary BLE board, and writes Koala Kan Kommander status artifacts for the InnoMaker USB to CAN Converter kit.
+
+---
+
+## Heltec T114 dependencies
+
+The Heltec dependency helper is now part of the flasher and Pi installer:
+
+```bash
+bash scripts/setup_heltec_t114_tools.sh
+```
+
+It checks or installs:
+
+- Python runtime modules: `pyserial` and `bleak`.
+- USB/udev/BlueZ commands: `lsusb`, `udevadm`, `bluetoothctl`, and `rfkill`.
+- Stable udev aliases, especially `/dev/koalabyte-heltec`.
+- Heltec-priority port discovery through `scripts/discover_koalabyte_ports.py --profile heltec`.
+- Optional `west`, `nrfutil`, and nRF Connect SDK tooling for future Heltec T114 nRF52840 firmware targets.
+
+Strict runtime dependency check:
+
+```bash
+STRICT_HELTEC_T114_TOOLS=1 bash scripts/setup_heltec_t114_tools.sh
+```
+
+Optional Zephyr/NCS preparation for future Heltec T114 firmware work:
+
+```bash
+INSTALL_HELTEC_NRF_TOOLS=1 bash scripts/setup_heltec_t114_tools.sh
+```
+
+The normal Heltec Edition flasher runs this automatically before the BLE node manager service is installed:
+
+```bash
+bash scripts/flash_all_components.sh --install-firmware
+```
 
 ---
 
@@ -91,11 +127,13 @@ bash scripts/install_ble_node_manager_service.sh
 
 ## Raspberry Pi 3B+ companion install
 
-Recommended Raspberry Pi OS packages:
+Recommended Raspberry Pi OS packages are installed by `scripts/setup_system_packages.sh`, including USB/udev/BlueZ support for the Heltec T114, `python3-serial`, CAN utilities, audio/TTS tools, and GPIO helpers.
+
+Manual package baseline:
 
 ```bash
 sudo apt update
-sudo apt install -y git python3 python3-venv python3-pip bluetooth bluez rfkill sqlite3 libsdl2-2.0-0 iproute2 can-utils espeak-ng espeak alsa-utils libasound2-plugins pulseaudio-utils portaudio19-dev python3-pyaudio
+sudo apt install -y git python3 python3-venv python3-pip python3-serial usbutils udev bluetooth bluez rfkill sqlite3 libsdl2-2.0-0 iproute2 can-utils espeak-ng espeak alsa-utils libasound2-plugins pulseaudio-utils portaudio19-dev python3-pyaudio
 ```
 
 Install/update the companion environment:
@@ -109,6 +147,7 @@ bash scripts/install_pi.sh
 Safe local tests:
 
 ```bash
+bash scripts/setup_heltec_t114_tools.sh --check-only
 python3 scripts/discover_koalabyte_ports.py --profile heltec
 python3 scripts/preflight_all_hardware.py --profile heltec
 PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
@@ -166,6 +205,7 @@ Connect the Heltec T114 to the Raspberry Pi with a USB-C **data** cable, then ru
 
 ```bash
 ls /dev/ttyACM* /dev/serial/by-id/* 2>/dev/null
+bash scripts/setup_heltec_t114_tools.sh --check-only
 python3 scripts/discover_koalabyte_ports.py --profile heltec
 cat logs/preflight/koalabyte_ports.env
 ```
