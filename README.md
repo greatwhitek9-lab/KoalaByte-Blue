@@ -1,39 +1,39 @@
-# KoalaByte Blue / killerkoala AI Companion Firmware RevA25
+# KoalaByte Blue V2 Heltec Edition / killerkoala AI Companion Firmware
 
 <p align="center">
-  <strong>Your Bluetooth sidekick in the wild.</strong><br>
-  Raspberry Pi 3B+ + ESP32-S3 DualEye + Heltec Mesh Node T114 firmware/runtime notes and Pi companion scripts for lawful, owned-device Bluetooth lab work, passive observation, LoRa/Meshtastic-style side-node experiments, companion UI, reporting, and optional isolated CAN bench work.
+  <strong>Your Bluetooth and LoRa sidekick in the wild.</strong><br>
+  `koalabyte_blue_v2_heltec_edition` firmware/runtime notes and Pi companion scripts for the Raspberry Pi 3B+, ESP32-S3 DualEye, Heltec Mesh Node T114, InnoMaker USB-to-CAN kit, companion UI, lawful owned-device Bluetooth observation, LoRa/Meshtastic-style lab work, reporting, and optional isolated CAN bench work.
 </p>
 
 <p align="center">
   <img src="docs/images/koalabyte-blue-menu-overview.svg" alt="KoalaByte Blue jungle eucalyptus menu overview" width="760">
 </p>
 
-> **Use it right:** KoalaByte Blue is for lawful education, owned-device research, defensive testing, and authorized Bluetooth/CAN/LoRa assessment only. Keep scans, captures, reviews, mesh experiments, and bench tests inside your own lab, your own devices, or written scope.
+> **Use it right:** KoalaByte Blue V2 Heltec Edition is for lawful education, owned-device research, defensive testing, and authorized Bluetooth/CAN/LoRa assessment only. Keep scans, captures, reviews, mesh experiments, and bench tests inside your own lab, your own devices, or written scope.
 
 ---
 
-## Main branch hardware profile
+## KoalaByte Blue V2 Heltec Edition hardware profile
 
-The `main` branch is the USB-module production branch. It is intentionally scoped to common USB modules and does not require a custom PCB.
+The `main` branch currently documents the `koalabyte_blue_v2_heltec_edition` USB-module production profile. It is intentionally scoped to common USB modules and does not require a custom PCB.
 
 | Component | Exact model / type | Connection | Purpose |
 |---|---|---|---|
 | Main SBC | Raspberry Pi 3 Model B+ | Main host | Linux companion, menus, logs, reports, voice/AI wrapper. |
-| Display/UI board | Waveshare ESP32-S3-DualEye-LCD-1.28 | USB data cable | Boot splash, menu UI, eyes, buttons, and optional local BLE observations. |
-| LoRa/BLE side node | Heltec Mesh Node T114 Rev. 2.0 / HT-N5262 class board | USB-C data cable / CDC ACM serial | Optional LoRa, Meshtastic-style, GNSS-aware, or BLE-adjacent side-node workflow. |
+| Display/UI board | Waveshare ESP32-S3-DualEye-LCD-1.28 | USB data cable | Boot splash, menu UI, eyes, buttons, and local BLE observations. |
+| Heltec edition radio board | Heltec Mesh Node T114 Rev. 2.0 / HT-N5262 class board | USB-C data cable / CDC ACM serial | Core V2 Heltec Edition LoRa, Meshtastic-style, GNSS-aware, and BLE-adjacent radio board. |
 | CAN adapter | InnoMaker USB to CAN Converter kit | USB | Optional isolated bench-simulator or owned-harness CAN work. |
 | Power | PIFFA-style 50000 mAh USB power bank, 22.5 W class | USB regulated output | Main simplified production power source. |
 
 ### Heltec Mesh Node T114 board notes
 
-The Heltec Mesh Node T114 is an optional KoalaByte Blue side-node board, not the main display/eyes board. Treat it as the LoRa/BLE radio node that can sit above or behind the ESP32-S3 DualEye in the stacked case.
+The Heltec Mesh Node T114 is the core radio board for `koalabyte_blue_v2_heltec_edition`. Treat it as the edition-specific LoRa/BLE radio node that sits in the upper stack with the ESP32-S3 DualEye face/UI board.
 
 | Heltec T114 item | README-level detail |
 |---|---|
 | MCU | Nordic nRF52840, ARM Cortex-M4F, 64 MHz, 256 KB RAM, 1 MB flash. |
 | LoRa radio | Semtech SX1262 sub-GHz LoRa transceiver. |
-| Wireless roles | BLE 5.0, IEEE 802.15.4/OpenThread-capable silicon, and LoRa/Meshtastic-style side-node experiments. |
+| Wireless roles | BLE 5.0, IEEE 802.15.4/OpenThread-capable silicon, and LoRa/Meshtastic-style Heltec Edition radio workflows. |
 | Optional onboard display | 1.14 inch 135×240 TFT, ST7789V over SPI, when using a T114 variant that includes the screen. |
 | GNSS | GNSS module interface using NMEA over UART on supported builds/variants. |
 | USB | USB-C device connection that appears as a CDC ACM serial device. |
@@ -56,14 +56,14 @@ Do **not** route raw lithium battery voltage into the Pi, ESP32-S3, Heltec T114 
 
 ---
 
-## BLE / LoRa node roles on main
+## BLE / LoRa node roles for the Heltec Edition
 
-The normal main-branch wireless layout is:
+The normal `koalabyte_blue_v2_heltec_edition` wireless layout is:
 
 | Node | Role | Notes |
 |---|---|---|
 | ESP32-S3 DualEye BLE | Primary local UI node | Local display/controller-side BLE observations for the Eucalyptus Mode UI and companion state. |
-| Heltec Mesh Node T114 | Optional LoRa/BLE side node | USB-C serial side node for LoRa, Meshtastic-style, GNSS-aware, or supplemental BLE-adjacent workflows. |
+| Heltec Mesh Node T114 | Core LoRa/BLE radio node | USB-C serial radio node for LoRa, Meshtastic-style, GNSS-aware, and supplemental BLE-adjacent workflows. |
 | Raspberry Pi onboard BlueZ | Host observer / fallback | Linux observer for enrichment, logging, and fallback BLE status checks. |
 
 The Pi-side service is:
@@ -132,7 +132,7 @@ bash scripts/flash_all_components.sh --all --build-only
 bash scripts/flash_all_components.sh --all --smoke
 ```
 
-The Heltec T114 is currently documented as a USB-C serial side node in this README. Use the Heltec-specific preflight commands to confirm the Pi sees it before adding or flashing any future T114 firmware target.
+The Heltec T114 is the core USB-C serial radio board for `koalabyte_blue_v2_heltec_edition`. Use the Heltec-specific preflight commands to confirm the Pi sees it before adding or flashing any future T114 firmware target.
 
 ---
 
@@ -234,7 +234,7 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
 
 - Safe local BLE inventory and passive observation.
 - Eucalyptus Mode Koalagotchi Bluetooth scanner/logger screen.
-- Heltec T114 LoRa/Meshtastic-style side-node discovery and preflight.
+- Heltec T114 LoRa/Meshtastic-style radio discovery and preflight.
 - KillerKoala XP and ranks: Noob, Hacker, Legend.
 - Local defensive monitor suite.
 - Boomerang camera-awareness logbook.
@@ -275,4 +275,4 @@ python3 scripts/preflight_all_hardware.py --profile heltec
 
 ## Project vibe
 
-KoalaByte Blue is supposed to feel like a real little cyber field companion: practical enough for a bench, weird enough to be memorable, and safe enough to demo without turning your lab into chaos. killerkoala watches the canopy, eats Bluetooth eucalyptus data in Eucalyptus Mode, keeps a contentment meter, gains XP through approved successful actions, and only celebrates behavior that stays inside the lab scope. The Heltec T114 gives the build a proper long-range radio tail without changing the ESP32-S3 DualEye's job as the face and front-panel UI.
+KoalaByte Blue V2 Heltec Edition is supposed to feel like a real little cyber field companion: practical enough for a bench, weird enough to be memorable, and safe enough to demo without turning your lab into chaos. killerkoala watches the canopy, eats Bluetooth eucalyptus data in Eucalyptus Mode, keeps a contentment meter, gains XP through approved successful actions, and only celebrates behavior that stays inside the lab scope. The Heltec T114 gives this edition a proper long-range radio tail while the ESP32-S3 DualEye stays focused on the face, eyes, buttons, and front-panel UI.
