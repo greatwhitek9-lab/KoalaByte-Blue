@@ -200,7 +200,6 @@ docs/KOALA_BLUEZ_TOOLS_REVA16.md
 docs/ORDERABLE_PARTS_LIST.md
 docs/PRODUCTION_FILES.md
 docs/POWER_BANK_WIRING_MAIN.svg
-production/RevA17-dongle-only/BATTERY_POWER_2S_18650.md
 ```
 
 ---
