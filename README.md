@@ -109,7 +109,7 @@ Normal one-shot install:
 bash scripts/flash_all_components.sh --install-firmware
 ```
 
-That one command installs/updates the Pi companion, runs `scripts/setup_heltec_t114_tools.sh`, prepares Heltec T114 USB serial/udev/Python dependencies, flashes the ESP32-S3 DualEye when connected, installs/enables the BLE node manager service, and runs the CAN manifest check.
+That one command installs/updates the Pi companion, runs `scripts/setup_heltec_t114_tools.sh`, prepares Heltec T114 USB serial/udev/Python dependencies, flashes the ESP32-S3 DualEye when connected, installs/enables the BLE node manager service, runs AntEater readiness without starting a live scan, and runs the CAN manifest check.
 
 Useful variants:
 
@@ -119,6 +119,9 @@ bash scripts/flash_all_components.sh --pi
 
 # ESP32-S3 DualEye only
 ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
+
+# AntEater readiness only, no live BLE scan
+bash scripts/flash_all_components.sh --anteater
 
 # Heltec T114 dependency setup/check only
 bash scripts/setup_heltec_t114_tools.sh
@@ -143,7 +146,7 @@ bash scripts/flash_all_components.sh --all --build-only
 bash scripts/flash_all_components.sh --all --smoke
 ```
 
-The Heltec T114 onboard nRF52840 is the primary BLE board for `koalabyte_blue_v2_heltec_edition`. The flasher installs/checks Heltec runtime dependencies before starting the BLE node manager. Use the Heltec-specific preflight commands to confirm the Pi sees it before adding or flashing any future T114 firmware target.
+The Heltec T114 onboard nRF52840 is the primary BLE board for `koalabyte_blue_v2_heltec_edition`. The flasher installs/checks Heltec runtime dependencies and AntEater readiness before/alongside the BLE node manager path. Use the Heltec-specific preflight commands to confirm the Pi sees it before adding or flashing any future T114 firmware target.
 
 ---
 
