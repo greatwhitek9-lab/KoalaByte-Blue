@@ -9,6 +9,8 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PI_ROOT = ROOT / "pi-companion"
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 if str(PI_ROOT) not in sys.path:
     sys.path.insert(0, str(PI_ROOT))
 
@@ -98,6 +100,7 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
         "menu_count": len(menu_names),
         "menu_names": sorted(menu_names),
         "total_entries": len(rows),
+        "catalog_entry_count": len(all_menu_entries()),
         "enabled_leaf_count": len(leaf_commands),
         "handler_count": len(handler_commands),
         "leaf_commands": leaf_commands,
