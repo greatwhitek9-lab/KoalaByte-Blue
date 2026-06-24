@@ -6,16 +6,22 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-PRIMARY_SOURCE = "nrf52840-dongle"
+PRIMARY_SOURCE = "heltec-t114-nrf52840"
+LEGACY_PRIMARY_SOURCES = {"nrf52840-dongle"}
 
 
 def clean_addr(value: Any) -> str:
     return str(value or "").strip().upper()
 
 
+def is_primary_source(source: str) -> bool:
+    source_l = source.lower()
+    return source == PRIMARY_SOURCE or source in LEGACY_PRIMARY_SOURCES or "heltec" in source_l or "t114" in source_l
+
+
 def normalize_ble_event(payload: dict[str, Any], *, default_source: str = "unknown") -> dict[str, Any]:
     source = str(payload.get("source") or payload.get("device") or default_source)
-    role = str(payload.get("role") or ("primary" if source == PRIMARY_SOURCE else "secondary"))
+    role = str(payload.get("role") or ("primary" if is_primary_source(source) else "secondary"))
     now = time.time()
     return {
         "type": "ble_adv_seen",
@@ -46,11 +52,12 @@ def event_identity(event: dict[str, Any]) -> str:
 
 
 def source_priority(source: str) -> int:
-    if source == PRIMARY_SOURCE:
+    source_l = source.lower()
+    if is_primary_source(source):
         return 0
-    if "esp32" in source:
+    if "esp32" in source_l or "dualeye" in source_l:
         return 1
-    if "bluez" in source or "raspberry-pi" in source:
+    if "bluez" in source_l or "raspberry-pi" in source_l:
         return 2
     return 3
 
