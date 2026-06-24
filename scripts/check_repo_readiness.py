@@ -17,11 +17,13 @@ REQUIRED_FILES = [
     "README.md",
     "pi-companion/config.default.json",
     "pi-companion/koalablue/menu_catalog.py",
+    "pi-companion/koalblue/meshtastic_app.py",
     "pi-companion/koalablue/meshtastic_app.py",
     "pi-companion/koalablue/t114_bluez.py",
     "pi-companion/koalablue/gnss_location.py",
     "pi-companion/koalablue/location_password_gate.py",
     "scripts/check_menu_actions.py",
+    "scripts/check_killerkoala_face_mouth_sync.py",
     "scripts/run_menu_screen.py",
     "scripts/run_didgeridoo.py",
     "scripts/run_meshtastic_app.py",
@@ -56,9 +58,10 @@ def check_readme(failures: list[str]) -> None:
         "ESP32-S3 DualEye",
         "Heltec Mesh Node T114",
         "Didgeridoo",
+        "eyes and mouth",
     ]:
         if needle not in text:
-            failures.append(f"README.md missing expected one-shot text: {needle}")
+            failures.append(f"README.md missing expected deployment text: {needle}")
 
 
 def check_config(failures: list[str]) -> None:
