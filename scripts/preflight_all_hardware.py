@@ -39,19 +39,22 @@ def load_json(path: Path) -> dict[str, object]:
         return {}
 
 
+def resolve_profile(profile: str) -> str:
+    if profile == "auto":
+        return "heltec"
+    return profile
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="KoalaByte full non-flashing hardware/software preflight report")
-    parser.add_argument("--profile", choices=["main", "heltec", "auto"], default="auto")
+    parser = argparse.ArgumentParser(description="KoalaByte Blue V2 Heltec Edition full non-flashing hardware/software preflight report")
+    parser.add_argument("--profile", choices=["main", "heltec", "auto"], default="heltec")
     parser.add_argument("--setup-vcan", action="store_true", help="create vcan0 before running the vcan Koala Kan checks")
     parser.add_argument("--strict", action="store_true", help="exit non-zero when required checks are missing")
     args = parser.parse_args()
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    profile = args.profile
-    if profile == "auto":
-        profile = "heltec" if (ROOT / "firmware" / "heltec-mouth").exists() else "main"
-
+    profile = resolve_profile(args.profile)
     discovery = run([sys.executable, "scripts/discover_koalabyte_ports.py", "--profile", profile, "--output-dir", str(OUT_DIR)])
     ports = load_json(OUT_DIR / "koalabyte_ports.json")
 
@@ -85,14 +88,15 @@ def main() -> int:
         },
     }
 
-    can_iface = str(ports.get("ports", {}).get("can_interface", "can0") if isinstance(ports.get("ports"), dict) else "can0")
-    vcan_iface = str(ports.get("ports", {}).get("vcan_interface", "vcan0") if isinstance(ports.get("ports"), dict) else "vcan0")
+    port_map = ports.get("ports", {}) if isinstance(ports.get("ports"), dict) else {}
+    can_iface = str(port_map.get("can_interface", "can0"))
+    vcan_iface = str(port_map.get("vcan_interface", "vcan0"))
 
     report = {
         "profile": profile,
         "timestamp": time.time(),
         "discovery_command": discovery,
-        "ports": ports.get("ports", {}),
+        "ports": port_map,
         "checks": checks,
         "vcan_setup": vcan_setup,
         "interface_status": {
@@ -108,13 +112,13 @@ def main() -> int:
     }
 
     required_ok = all(checks["commands"][name] for name in ["ip", "python3"]) and checks["repo_files"]["setup_can0"] and checks["repo_files"]["ble_node_manager"]
-    if profile == "heltec":
-        primary_found = bool(ports.get("ports", {}).get("heltec") if isinstance(ports.get("ports"), dict) else False)
-    else:
-        primary_found = bool(ports.get("ports", {}).get("nrf_ble") if isinstance(ports.get("ports"), dict) else False)
+    primary_found = bool(port_map.get("primary_ble"))
     report["summary"] = {
         "required_repo_tools_present": required_ok,
         "profile_primary_port_found": primary_found,
+        "primary_ble_architecture": "heltec-t114-nrf52840",
+        "esp32_ble_node": "secondary",
+        "raspberry_pi_bluez_node": "secondary_fallback",
         "can_utils_present": checks["commands"]["cansend"] and checks["commands"]["candump"],
         "python_can_present": checks["python_modules"]["can"],
         "safe_to_attempt_flash_after_review": required_ok and primary_found,
