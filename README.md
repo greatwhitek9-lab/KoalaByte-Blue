@@ -6,6 +6,48 @@ Use it only on your own equipment, your own lab traffic, or systems you have wri
 
 ---
 
+## Full one-shot install
+
+Plug everything in first:
+
+```text
+Raspberry Pi 3B+ powered from regulated USB
+ESP32-S3 DualEye -> Pi USB data cable
+Heltec Mesh Node T114 -> Pi USB-C data cable
+InnoMaker CAN kit -> optional Pi USB data cable
+```
+
+Then run one command:
+
+```bash
+bash scripts/install_koalabyte_one_shot.sh
+```
+
+That one command handles the Pi companion install, Heltec plug-in firmware flash, ESP32-S3 DualEye firmware flash, BLE node manager service, Didgeridoo/menu readiness, antenna/protocol artifacts, and AntEater passive-readiness status.
+
+The InnoMaker CAN kit is optional. If it is not plugged in, the one-shot installer records a non-failing optional CAN status and continues.
+
+Useful overrides:
+
+```bash
+# Pick ESP32 upload port manually
+ESP32_PORT=/dev/ttyUSB0 bash scripts/install_koalabyte_one_shot.sh
+
+# Default Heltec color-mouth profile
+T114_PLUG_FLASH_PROFILE=color-mouth bash scripts/install_koalabyte_one_shot.sh
+
+# Heltec HCI USB profile instead
+T114_PLUG_FLASH_PROFILE=hci-usb bash scripts/install_koalabyte_one_shot.sh
+
+# Skip optional CAN checks entirely
+INSTALL_INNOMAKER_CAN=0 bash scripts/install_koalabyte_one_shot.sh
+
+# Make optional CAN strict only when you intentionally want CAN to block deployment
+STRICT_INNOMAKER_CAN=1 bash scripts/install_koalabyte_one_shot.sh
+```
+
+---
+
 ## What this branch is for
 
 This branch is the deployable Heltec Edition profile for:
@@ -73,9 +115,15 @@ The mesh stack lives under **Didgeridoo**. That submenu contains T114 controller
 
 ---
 
-## Initial flashing: start here
+## Initial flashing details
 
-Start from Raspberry Pi OS Lite 64-bit with SSH enabled.
+The preferred deployment command is:
+
+```bash
+bash scripts/install_koalabyte_one_shot.sh
+```
+
+That command is stricter than the older component helper: Pi, Heltec, and ESP32-S3 are part of the main install path; only the InnoMaker CAN kit is optional by default.
 
 ### 1. Clone the repo
 
@@ -84,80 +132,19 @@ git clone https://github.com/greatwhitek9-lab/KoalaByte-Blue.git
 cd KoalaByte-Blue
 ```
 
-### 2. Plug in the boards with USB data cables
-
-Connect these before the one-shot flash when possible:
-
-```text
-ESP32-S3 DualEye -> Pi USB
-Heltec Mesh Node T114 -> Pi USB-C data cable
-InnoMaker CAN adapter -> Pi USB, optional
-```
-
-The Heltec board should appear as `/dev/ttyACM*`, `/dev/ttyUSB*`, or the udev alias `/dev/koalabyte-heltec` after setup.
-
-### 3. Run the readiness check
+### 2. Run readiness before flashing
 
 ```bash
 python3 scripts/check_repo_readiness.py
 ```
 
-### 4. Run the one-shot installer / flasher
+### 3. Run the one-shot install
 
 ```bash
-bash scripts/flash_all_components.sh --install-firmware
+bash scripts/install_koalabyte_one_shot.sh
 ```
 
-That command prepares the Pi companion, installs/checks system dependencies, sets up Heltec T114 USB support, builds/flashes the ESP32-S3 DualEye when connected, generates protocol and antenna readiness artifacts, validates the menu, installs the BLE node manager, performs AntEater readiness, and checks CAN bench manifest support.
-
-### 5. Heltec plug-in flashing behavior
-
-During install, the Heltec plug-in helper waits for the T114 USB device and runs the selected T114 profile.
-
-Default profile:
-
-```bash
-T114_PLUG_FLASH_PROFILE=color-mouth bash scripts/flash_t114_when_plugged.sh
-```
-
-HCI USB profile:
-
-```bash
-T114_PLUG_FLASH_PROFILE=hci-usb bash scripts/flash_t114_when_plugged.sh
-```
-
-Skip Heltec plug-in flashing:
-
-```bash
-FLASH_T114_ON_PLUG=0 bash scripts/flash_all_components.sh --install-firmware
-```
-
-Use non-strict mode only when you want the rest of the install to continue if the T114 is not plugged in:
-
-```bash
-STRICT_T114_PLUG_FLASH=0 bash scripts/flash_all_components.sh --install-firmware
-```
-
-### 6. ESP32-S3 manual boot mode, only if needed
-
-Most ESP32-S3 boards auto-enter download mode. Use manual BOOT only if upload stalls at `Connecting...`.
-
-```text
-Hold BOOT
-Tap RESET/EN
-Release RESET/EN
-Wait about 2 seconds
-Release BOOT
-Run the flash command again
-```
-
-Manual ESP32-only flash:
-
-```bash
-ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
-```
-
-### 7. Confirm detected ports
+### 4. Confirm detected ports
 
 ```bash
 python3 scripts/discover_koalabyte_ports.py --profile heltec
@@ -171,20 +158,33 @@ KOALABYTE_PRIMARY_BLE_PORT=/dev/koalabyte-heltec
 KOALABYTE_HELTEC_USB_PORT=/dev/koalabyte-heltec
 ```
 
+### ESP32-S3 manual boot mode, only if needed
+
+Most ESP32-S3 boards auto-enter download mode. Use manual BOOT only if upload stalls at `Connecting...`.
+
+```text
+Hold BOOT
+Tap RESET/EN
+Release RESET/EN
+Wait about 2 seconds
+Release BOOT
+Run the one-shot command again
+```
+
 ---
 
 ## Common commands
 
 ```bash
-# Full check before deployment
+# Full branch readiness
 python3 scripts/check_repo_readiness.py
 PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
 
-# Build/package path without flashing services
-bash scripts/flash_all_components.sh --all --build-only
+# Full one-shot deployment
+bash scripts/install_koalabyte_one_shot.sh
 
-# Safe smoke checks after install
-bash scripts/flash_all_components.sh --all --smoke
+# Older component helper, still available for advanced/manual target work
+bash scripts/flash_all_components.sh --install-firmware
 
 # Didgeridoo mesh app checks
 python3 scripts/run_didgeridoo.py status
@@ -221,7 +221,7 @@ The Didgeridoo app owns the mesh stack. It contains T114 checks, Meshtastic stat
 
 ### Koala Kan Kommander
 
-Optional InnoMaker USB-to-CAN support for isolated bench-simulator or owned-harness workflows only.
+Optional InnoMaker USB-to-CAN support for isolated bench-simulator or owned-harness workflows only. It is the only hardware module in the one-shot path that is optional by default.
 
 ### KillerKoala companion
 
@@ -242,7 +242,7 @@ PYTHONPATH=pi-companion python3 scripts/run_anteater.py status
 python3 scripts/preflight_all_hardware.py --profile heltec
 ```
 
-A missing optional CAN adapter or optional Pi USB wireless adapter should not fail the firmware branch. A missing Heltec T114 matters if plug-in flashing is strict.
+A missing optional InnoMaker CAN kit or optional Pi USB wireless adapter should not fail the firmware branch. A missing Heltec T114 or ESP32-S3 matters for the full one-shot installer.
 
 ---
 
