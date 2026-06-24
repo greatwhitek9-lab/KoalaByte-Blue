@@ -100,6 +100,11 @@ echo "Running repo readiness check..."
 python "${REPO_ROOT}/scripts/check_repo_readiness.py"
 
 echo
+echo "Generating default T114 HCI USB, color-mouth, GNSS, face-state, and passive BLE protocol artifacts..."
+PYTHONPATH="${REPO_ROOT}/pi-companion" python "${REPO_ROOT}/scripts/write_optional_t114_firmware_artifacts.py"
+bash "${REPO_ROOT}/scripts/configure_t114_2g4_antenna.sh" --check-only
+
+echo
 echo "Legacy external nRF52840 Dongle cache policy: PREPARE_DONGLE_CACHE=${PREPARE_DONGLE_CACHE}, STRICT_DONGLE_CACHE=${STRICT_DONGLE_CACHE}"
 case "${PREPARE_DONGLE_CACHE}" in
   0|false|False|no|NO|skip|SKIP)
@@ -166,6 +171,9 @@ echo "  bash ${REPO_ROOT}/scripts/setup_system_packages.sh"
 echo "Heltec T114 dependency helper:"
 echo "  bash ${REPO_ROOT}/scripts/setup_heltec_t114_tools.sh"
 echo "  INSTALL_HELTEC_NRF_TOOLS=1 bash ${REPO_ROOT}/scripts/setup_heltec_t114_tools.sh"
+echo "Optional T114 protocol artifact manifest:"
+echo "  python3 ${REPO_ROOT}/scripts/write_optional_t114_firmware_artifacts.py"
+echo "  bash ${REPO_ROOT}/scripts/configure_t114_2g4_antenna.sh --check-only"
 echo "ESP32 PlatformIO helper:"
 echo "  bash ${REPO_ROOT}/scripts/setup_esp32_tools.sh"
 echo
