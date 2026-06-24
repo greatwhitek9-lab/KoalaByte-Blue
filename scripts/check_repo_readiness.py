@@ -87,7 +87,8 @@ REQUIRED_TEXT = {
     ],
     "scripts/setup_heltec_t114_tools.sh": [
         "Heltec Mesh Node T114 dependency setup helper",
-        "pyserial bleak",
+        "pyserial",
+        "bleak",
         "install_koalabyte_udev_rules.sh",
         "discover_koalabyte_ports.py",
         "INSTALL_HELTEC_NRF_TOOLS",
