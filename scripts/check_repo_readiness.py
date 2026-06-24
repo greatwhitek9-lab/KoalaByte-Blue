@@ -39,6 +39,7 @@ REQUIRED_FILES = [
     "scripts/preflight_all_hardware.py",
     "scripts/setup_heltec_t114_tools.sh",
     "scripts/install_koalabyte_udev_rules.sh",
+    "scripts/check_menu_actions.py",
     "scripts/run_ble_node_manager.py",
     "scripts/run_ble_node_manager_service.sh",
     "scripts/install_ble_node_manager_service.sh",
@@ -65,6 +66,7 @@ REQUIRED_TEXT = {
         "primary BLE board",
         "AntEater passive BLE payment-terminal risk triage from the Heltec primary BLE node log",
         "docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md",
+        "bash scripts/flash_all_components.sh --menu-check",
     ],
     "docs/MAIN_BLE_NODE_ROLES.md": [
         "Heltec Mesh Node T114 onboard Nordic nRF52840",
@@ -83,6 +85,7 @@ REQUIRED_TEXT = {
         "KOALABYTE_PRIMARY_BLE_PORT",
         "INSTALL_HELTEC_NRF_TOOLS=1",
     ],
+    "pi-companion/koalbluelib_missing_guard": [],
     "pi-companion/koalablue/anteater.py": [
         "DEFAULT_NODE_LOG_PATH",
         "logs/ble_nodes/ble_events.jsonl",
@@ -92,6 +95,15 @@ REQUIRED_TEXT = {
     "pi-companion/koalablue/menu_catalog.py": [
         "AntEater",
         "anteater",
+        "leaf_menu_entries",
+        "all_menu_entries",
+    ],
+    "scripts/check_menu_actions.py": [
+        "MENU_ACTIONS_READY",
+        "all_menu_entries",
+        "leaf_menu_entries",
+        "menu_action_manifest.json",
+        "no_menu_actions_executed",
     ],
     "scripts/run_menu_screen.py": [
         "run_anteater_action",
@@ -157,6 +169,11 @@ REQUIRED_TEXT = {
         "PREPARE_DONGLE_CACHE=",
     ],
     "scripts/flash_all_components.sh": [
+        "RUN_MENU_CHECK",
+        "--menu-check",
+        "setup_menu_items_for_selected_mode",
+        "scripts/check_menu_actions.py",
+        "menu_action_manifest.json",
         "RUN_ANTEATER",
         "--anteater",
         "setup_anteater_for_selected_mode",
@@ -231,6 +248,8 @@ def check_required_files(failures: list[str]) -> None:
 
 def check_required_text(failures: list[str]) -> None:
     for relative_path, needles in REQUIRED_TEXT.items():
+        if not needles:
+            continue
         path = REPO_ROOT / relative_path
         text = read_text(path)
         for needle in needles:
@@ -261,7 +280,7 @@ def check_config(failures: list[str]) -> None:
 
 def check_menu_catalog(failures: list[str]) -> None:
     try:
-        from koalablue.menu_catalog import MENU_GROUPS, SUBMENU_ITEMS, menu_labels
+        from koalablue.menu_catalog import MENU_GROUPS, SUBMENU_ITEMS, leaf_menu_entries, menu_labels
     except Exception as exc:
         failures.append(f"failed to import menu catalog: {exc}")
         return
@@ -275,6 +294,8 @@ def check_menu_catalog(failures: list[str]) -> None:
         failures.append("main menu labels missing Bluetooth Tools")
     if "AntEater" not in menu_labels("bluetooth"):
         failures.append("Bluetooth submenu missing AntEater")
+    if not leaf_menu_entries():
+        failures.append("menu catalog has no enabled leaf menu entries")
 
 
 def check_helpers(failures: list[str]) -> None:
