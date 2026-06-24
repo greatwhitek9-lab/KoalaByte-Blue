@@ -9,6 +9,10 @@ BUILT_ANY=0
 
 python3 scripts/check_repo_readiness.py
 
+echo "Generating default T114 protocol artifacts..."
+bash scripts/build_default_t114_protocol_artifacts.sh
+BUILT_ANY=1
+
 echo "Checking/installing system package dependencies when available..."
 STRICT_SYSTEM_PACKAGES="${STRICT_TOOLS}" bash scripts/setup_system_packages.sh || {
   if [[ "${STRICT_TOOLS}" == "1" ]]; then
@@ -35,11 +39,6 @@ else
   fi
 fi
 
-if [[ "${BUILD_HELTEC_T114_FIRMWARE:-0}" == "1" ]]; then
-  echo "Heltec T114 firmware build requested, but no dedicated Heltec firmware target is currently present in this branch." >&2
-  echo "Use the Heltec preflight/runtime path until a reviewed T114 firmware target is added."
-fi
-
 if [[ "${BUILD_LEGACY_NRF_DONGLE:-0}" == "1" || "${BUILD_LEGACY_NRF_LAB:-0}" == "1" || "${BUILD_KOALA_KONNECT:-0}" == "1" ]]; then
   echo "Checking/preparing west for explicit legacy external nRF52840 builds..."
   if ! STRICT_NRF_TOOLS="${STRICT_TOOLS}" bash scripts/setup_nrf_tools.sh --west-only; then
@@ -59,7 +58,7 @@ if [[ "${BUILD_LEGACY_NRF_DONGLE:-0}" == "1" || "${BUILD_LEGACY_NRF_LAB:-0}" == 
 
   if command -v west >/dev/null 2>&1; then
     if [[ "${BUILD_LEGACY_NRF_DONGLE:-0}" == "1" ]]; then
-      echo "Building legacy external nRF52840 Dongle BLE observer firmware..."
+      echo "Building legacy external nRF52840 Dongle observer firmware..."
       bash scripts/build_nrf52840_dongle_ble_primary.sh
       BUILT_ANY=1
     fi
@@ -69,7 +68,7 @@ if [[ "${BUILD_LEGACY_NRF_DONGLE:-0}" == "1" || "${BUILD_LEGACY_NRF_LAB:-0}" == 
       BUILT_ANY=1
     fi
     if [[ "${BUILD_KOALA_KONNECT:-0}" == "1" ]]; then
-      echo "Building optional Koala Konnect external Bluetooth adapter firmware..."
+      echo "Building optional Koala Konnect adapter firmware..."
       bash scripts/build_nrf52840_dongle_hci_usb_adapter.sh
       BUILT_ANY=1
     fi
@@ -84,7 +83,7 @@ else
 fi
 
 if [[ "${BUILT_ANY}" == "0" ]]; then
-  echo "No firmware was built because PlatformIO was not found or no explicit optional firmware target was selected." >&2
+  echo "No firmware artifacts were generated and no firmware was built." >&2
   exit 1
 fi
 
