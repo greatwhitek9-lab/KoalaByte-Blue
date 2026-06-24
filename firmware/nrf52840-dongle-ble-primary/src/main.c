@@ -1,10 +1,9 @@
-/* KoalaByte Blue nRF52840 Dongle BLE-primary observer.
+/* Legacy KoalaByte Blue external nRF52840 Dongle BLE observer.
  *
- * Safe purpose: passively observe BLE advertisements from authorized lab space,
- * emit normalized JSON observations to the Raspberry Pi over USB CDC serial,
- * and act as the canonical BLE source for the main branch node-manager flow.
- *
- * This firmware does not pair, connect, write, spoof, disrupt, or replay BLE traffic.
+ * This target is retained for explicit legacy compatibility testing only.
+ * The KoalaByte Blue V2 Heltec Edition default primary BLE board is the
+ * Heltec Mesh Node T114 onboard nRF52840. This legacy target emits normalized
+ * JSON observations over USB CDC only when intentionally built and flashed.
  */
 
 #include <stdint.h>
@@ -193,7 +192,7 @@ int main(void)
     };
 
     boot_ms = k_uptime_get();
-    printk("{\"type\":\"boot\",\"device\":\"%s\",\"source\":\"%s\",\"role\":\"%s\",\"fw\":\"0.1.0-main-dongle-ble-primary\",\"transport\":\"usb-cdc\",\"scope\":\"passive BLE advertisement observation only\"}\n",
+    printk("{\"type\":\"boot\",\"device\":\"%s\",\"source\":\"%s\",\"role\":\"%s\",\"fw\":\"0.1.0-legacy-external-dongle-ble-observer\",\"transport\":\"usb-cdc\",\"scope\":\"passive BLE advertisement observation only\"}\n",
            KOALA_DEVICE, KOALA_DEVICE, KOALA_ROLE);
 
     err = bt_enable(NULL);
