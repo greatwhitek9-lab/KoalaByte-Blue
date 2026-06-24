@@ -49,6 +49,7 @@ REQUIRED_FILES = [
     "pi-companion/koalablue/meshtastic_app.py",
     "pi-companion/koalablue/t114_bluez.py",
     "pi-companion/koalablue/koala_kan_kommander.py",
+    "scripts/configure_t114_2g4_antenna.sh",
     "scripts/discover_koalabyte_ports.py",
     "scripts/preflight_all_hardware.py",
     "scripts/setup_heltec_t114_tools.sh",
@@ -122,6 +123,7 @@ REQUIRED_TEXT = {
         "Protected Location Gate Status",
         "killerkoala_face_bridge.py",
         "run_killerkoala_face_demo.py",
+        "configure_t114_2g4_antenna.sh",
         "--confirm-send",
     ],
     "docs/ESP32_TOUCH_MENU_CALIBRATION.md": [
@@ -188,6 +190,12 @@ REQUIRED_TEXT = {
         "controller-check",
         "local_hci_controller_check_only",
         "disruptive_actions",
+    ],
+    "scripts/configure_t114_2g4_antenna.sh": [
+        "external 2.4 GHz antenna setup",
+        "Do not attach the LoRa antenna to the 2.4 GHz connector",
+        "requires_hardware_validation",
+        "connector_physical",
     ],
     "scripts/check_menu_actions.py": [
         "MENU_ACTIONS_READY",
@@ -317,6 +325,7 @@ FORBIDDEN_ARCHITECTURE_TEXT = {
 }
 
 SHELL_HELPERS = [
+    "scripts/configure_t114_2g4_antenna.sh",
     "scripts/flash_all_components.sh",
     "scripts/build_firmware_all.sh",
     "scripts/install_pi.sh",
