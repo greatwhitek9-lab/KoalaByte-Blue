@@ -27,6 +27,11 @@ Second pass:
 - `scripts/run_killerkoala_face_demo.py` — optional demo runner for wake/thinking/action/speaking/success face states.
 - `scripts/configure_t114_2g4_antenna.sh` — non-flashing T114 2.4 GHz antenna status/helper script that documents the external connector path and writes `logs/t114_2g4_antenna_status.json`.
 
+Optional firmware artifact pass:
+
+- `docs/OPTIONAL_T114_FIRMWARE_ARTIFACTS.md` — preserves the useful HCI USB, color-mouth, GNSS, face-state, and passive BLE protocol artifacts from the optional build/flash scripts without adding those firmware profiles to the default installer.
+- `scripts/write_optional_t114_firmware_artifacts.py` — writes `logs/optional_t114_firmware_artifacts.json` with the same useful metadata and message schemas without building or flashing firmware.
+
 ## Wired into the current branch
 
 The mined Heltec/Meshtastic/location features are exposed through the KoalaByte menu under:
@@ -57,6 +62,12 @@ The T114 2.4 GHz antenna helper is validation/documentation only. Use it manuall
 bash scripts/configure_t114_2g4_antenna.sh --check-only
 ```
 
+The optional T114 firmware artifact manifest is documentation/metadata only. Use it manually with:
+
+```bash
+python scripts/write_optional_t114_firmware_artifacts.py
+```
+
 ## Safety and deployment rules
 
 - The Heltec Mesh Node T114 onboard nRF52840 remains the primary BLE board for the Heltec Edition.
@@ -67,6 +78,7 @@ bash scripts/configure_t114_2g4_antenna.sh --check-only
 - Optional extra dependencies are not forced into the base install; use `pi-companion/requirements-heltec-v2-extra.txt` when enabling those workflows.
 - KillerKoala face bridge commands are JSON display-state messages only. They do not run BLE scans, transmit radio packets, or alter the current one-shot install path.
 - The T114 antenna helper does not transmit and does not guess RF-switch GPIOs; a hardware-validated overlay is required before any switch overlay is used.
+- Optional T114 HCI USB and Heltec color-mouth firmware stay out of `--all`, `--install-firmware`, default CI firmware builds, and first-boot unattended deployment until the exact board target, firmware role, and recovery flow are validated on hardware.
 
 ## Useful validation commands
 
@@ -79,6 +91,7 @@ PYTHONPATH=pi-companion python scripts/run_t114_bluez.py controller-check
 PYTHONPATH=pi-companion python scripts/run_meshtastic_app.py status
 PYTHONPATH=pi-companion python scripts/run_killerkoala_face_demo.py --state wake --message "killerkoala online"
 bash scripts/configure_t114_2g4_antenna.sh --check-only
+python scripts/write_optional_t114_firmware_artifacts.py
 ```
 
 The T114 BlueZ and Meshtastic commands are allowed to report missing hardware or missing CLI tools. That is not a repo failure; it means the optional hardware/tooling path is not active on that Pi yet.
