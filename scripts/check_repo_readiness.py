@@ -157,7 +157,12 @@ REQUIRED_TEXT = {
         "PREPARE_DONGLE_CACHE=",
     ],
     "scripts/flash_all_components.sh": [
-        "setup_heltec_t114_tools.sh",
+        "RUN_ANTEATER",
+        "--anteater",
+        "setup_anteater_for_selected_mode",
+        "ANTEATER_READY",
+        "no_live_scan_during_flash",
+        "scripts/run_anteater.py status",
         "INSTALL_HELTEC_T114_TOOLS",
         "STRICT_HELTEC_T114_TOOLS",
         "INSTALL_HELTEC_NRF_TOOLS",
