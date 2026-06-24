@@ -14,9 +14,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "logs" / "preflight"
 
 STABLE_PATHS = {
-    "nrf_ble": "/dev/koalabyte-nrf-ble",
-    "esp32_eyes": "/dev/koalabyte-esp32-eyes",
+    "primary_ble": "/dev/koalabyte-heltec",
     "heltec": "/dev/koalabyte-heltec",
+    "nrf_ble": "/dev/koalabyte-nrf-ble",  # legacy external dongle alias only
+    "esp32_eyes": "/dev/koalabyte-esp32-eyes",
 }
 
 SERIAL_PATTERNS = [
@@ -28,9 +29,10 @@ SERIAL_PATTERNS = [
 ]
 
 HINTS = {
+    "primary_ble": ("koalabyte-heltec", "heltec", "t114", "ht-n5262", "wireless_tracker", "wireless-tracker", "nrf52840"),
+    "heltec": ("koalabyte-heltec", "heltec", "t114", "ht-n5262", "wireless_tracker", "wireless-tracker", "nrf52840"),
     "nrf_ble": ("koalabyte-nrf-ble", "nrf52840", "pca10059", "nordic", "adafruit", "jlink"),
     "esp32_eyes": ("koalabyte-esp32-eyes", "esp32", "esp32-s3", "espressif", "cp210", "ch340", "wchusb", "usb-serial"),
-    "heltec": ("koalabyte-heltec", "heltec", "t114", "ht-n5262", "wireless_tracker", "wireless-tracker"),
 }
 
 
@@ -91,7 +93,7 @@ def choose_port(entries: list[dict[str, str]], role: str, avoid: set[str]) -> st
                 score += 10
         if role == "esp32_eyes" and ("ttyusb" in label or "usbserial" in label):
             score += 3
-        if role in {"nrf_ble", "heltec"} and ("ttyacm" in label or "usbmodem" in label):
+        if role in {"primary_ble", "heltec", "nrf_ble"} and ("ttyacm" in label or "usbmodem" in label):
             score += 3
         if score:
             scored.append((score, path))
@@ -114,7 +116,14 @@ def write_env(path: Path, values: dict[str, str]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def resolve_profile(profile: str) -> str:
+    if profile == "auto":
+        return "heltec"
+    return profile
+
+
 def discover(profile: str) -> dict[str, object]:
+    profile = resolve_profile(profile)
     entries = serial_candidates()
     avoid: set[str] = set()
 
@@ -122,15 +131,17 @@ def discover(profile: str) -> dict[str, object]:
         heltec = choose_port(entries, "heltec", avoid)
         if heltec:
             avoid.add(heltec)
-        nrf = choose_port(entries, "nrf_ble", avoid)
+        primary_ble = heltec
+        legacy_nrf = choose_port(entries, "nrf_ble", avoid)
     else:
-        nrf = choose_port(entries, "nrf_ble", avoid)
-        if nrf:
-            avoid.add(nrf)
+        legacy_nrf = choose_port(entries, "nrf_ble", avoid)
+        if legacy_nrf:
+            avoid.add(legacy_nrf)
         heltec = choose_port(entries, "heltec", avoid)
+        primary_ble = legacy_nrf or heltec
 
-    if nrf:
-        avoid.add(nrf)
+    if legacy_nrf:
+        avoid.add(legacy_nrf)
     if heltec:
         avoid.add(heltec)
     esp32 = choose_port(entries, "esp32_eyes", avoid)
@@ -139,12 +150,15 @@ def discover(profile: str) -> dict[str, object]:
     vcan_interface = os.environ.get("VCAN_INTERFACE", "vcan0")
 
     env = {
-        "KOALABYTE_NRF_BLE_PORT": nrf,
-        "NRF_BLE_PORT": nrf,
-        "KOALABYTE_ESP32_FACE_PORT": esp32,
-        "ESP32_PORT": esp32,
+        "KOALABYTE_PRIMARY_BLE_PORT": primary_ble,
+        "KOALABYTE_PRIMARY_BLE_SOURCE": "heltec-t114-nrf52840" if profile == "heltec" else "legacy-nrf52840-dongle",
         "KOALABYTE_HELTEC_USB_PORT": heltec,
         "HELTEC_PORT": heltec,
+        # Backward-compatible aliases. In the Heltec Edition these point at the Heltec T114 onboard nRF52840.
+        "KOALABYTE_NRF_BLE_PORT": primary_ble,
+        "NRF_BLE_PORT": primary_ble,
+        "KOALABYTE_ESP32_FACE_PORT": esp32,
+        "ESP32_PORT": esp32,
         "CAN_INTERFACE": can_interface,
         "CAN_BITRATE": os.environ.get("CAN_BITRATE", "500000"),
         "VCAN_INTERFACE": vcan_interface,
@@ -156,9 +170,11 @@ def discover(profile: str) -> dict[str, object]:
         "serial_candidates": entries,
         "stable_paths": STABLE_PATHS,
         "ports": {
-            "nrf_ble": nrf,
-            "esp32_eyes": esp32,
+            "primary_ble": primary_ble,
+            "primary_ble_source": env["KOALABYTE_PRIMARY_BLE_SOURCE"],
             "heltec": heltec,
+            "legacy_nrf_ble": legacy_nrf,
+            "esp32_eyes": esp32,
             "can_interface": can_interface,
             "can_present": ip_link_exists(can_interface),
             "vcan_interface": vcan_interface,
@@ -173,16 +189,13 @@ def discover(profile: str) -> dict[str, object]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Discover KoalaByte USB/CAN ports and write stable runtime env files.")
-    parser.add_argument("--profile", choices=["main", "heltec", "auto"], default="auto")
+    parser = argparse.ArgumentParser(description="Discover KoalaByte Blue V2 Heltec Edition USB/CAN ports and write stable runtime env files.")
+    parser.add_argument("--profile", choices=["main", "heltec", "auto"], default="heltec")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--strict", action="store_true", help="fail if the profile's primary runtime port is not found")
     args = parser.parse_args()
 
-    profile = args.profile
-    if profile == "auto":
-        profile = "heltec" if (REPO_ROOT / "firmware" / "heltec-mouth").exists() else "main"
-
+    profile = resolve_profile(args.profile)
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     report = discover(profile)
@@ -195,7 +208,7 @@ def main() -> int:
 
     if args.strict:
         ports = report["ports"]  # type: ignore[assignment]
-        primary = ports.get("heltec") if profile == "heltec" else ports.get("nrf_ble")
+        primary = ports.get("primary_ble") if isinstance(ports, dict) else ""
         if not primary:
             return 1
     return 0
