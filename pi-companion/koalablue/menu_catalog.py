@@ -7,7 +7,6 @@ T = TypeVar("T")
 
 MENU_GROUPS: List[str] = [
     "Bluetooth Tools",
-    "Heltec / Mesh",
     "Didgeridoo",
     "CAN Bench Tools",
     "Reports & Reviews",
@@ -19,8 +18,7 @@ _GROUP_ORDER = {name: index for index, name in enumerate(MENU_GROUPS)}
 MAIN_MENU_ITEMS: List[dict[str, object]] = [
     {"group": "Bluetooth Tools", "label": "Eucalyptus", "command": "submenu:eucalyptus", "description": "Open the eucalyptus canopy submenu for passive BLE logger controls"},
     {"group": "Bluetooth Tools", "label": "Bluetooth Tools", "command": "submenu:bluetooth", "description": "Open the jungle Bluetooth tool chest"},
-    {"group": "Heltec / Mesh", "label": "Heltec / Mesh", "command": "submenu:heltec_mesh", "description": "Open Heltec T114 board, controller, and protected GNSS helpers"},
-    {"group": "Didgeridoo", "label": "Didgeridoo", "command": "submenu:didgeridoo", "description": "Open the Didgeridoo Meshtastic app for mesh status, nodes, and GPS info"},
+    {"group": "Didgeridoo", "label": "Didgeridoo", "command": "submenu:didgeridoo", "description": "Open the Didgeridoo mesh app for T114, Meshtastic, GPS, and protected GNSS helpers"},
     {"group": "CAN Bench Tools", "label": "CAN Bench Tools", "command": "submenu:can_bench", "description": "Open isolated Koala Kan bench and simulator checks"},
     {"group": "Reports & Reviews", "label": "Reports & Reviews", "command": "submenu:reports", "description": "Open reports, reviews, and defensive notes"},
     {"group": "System / Companion", "label": "System / Companion", "command": "submenu:system", "description": "Open companion, voice, buttons, settings, and mode helpers"},
@@ -56,18 +54,14 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         {"group": "Bluetooth Tools", "label": "Urban Poaching", "command": "urban_poaching", "description": "Authorized BLE RSSI lab game"},
         {"group": "System / Companion", "label": "Back to Main Canopy", "command": "submenu:main", "description": "Return to the main KoalaByte Blue menu"},
     ],
-    "heltec_mesh": [
-        {"group": "Heltec / Mesh", "label": "T114 BlueZ Controller Check", "command": "t114_bluez_controller_check", "description": "Check whether the Heltec T114 is exposed as a local BlueZ/HCI controller"},
-        {"group": "Heltec / Mesh", "label": "T114 BlueZ Status", "command": "t114_bluez_status", "description": "Run safe T114 BlueZ status wrapper when HCI mode is present"},
-        {"group": "Heltec / Mesh", "label": "Protected Location Gate Status", "command": "location_gate_status", "description": "Show whether the protected-actions password gate is configured/unlocked"},
-        {"group": "Heltec / Mesh", "label": "Protected GNSS Current Fix", "command": "gnss_current_fix", "description": "Show current GNSS fix only when the protected-actions gate is unlocked"},
-        {"group": "System / Companion", "label": "Back to Main Canopy", "command": "submenu:main", "description": "Return to the main KoalaByte Blue menu"},
-    ],
     "didgeridoo": [
+        {"group": "Didgeridoo", "label": "T114 BlueZ Controller Check", "command": "t114_bluez_controller_check", "description": "Check whether the Heltec T114 is exposed as a local BlueZ/HCI controller"},
+        {"group": "Didgeridoo", "label": "T114 BlueZ Status", "command": "t114_bluez_status", "description": "Run safe T114 BlueZ status wrapper when HCI mode is present"},
         {"group": "Didgeridoo", "label": "Didgeridoo Status", "command": "meshtastic_status", "description": "Show local Meshtastic node status through the Didgeridoo app"},
         {"group": "Didgeridoo", "label": "Didgeridoo Nodes", "command": "meshtastic_nodes", "description": "Show the Meshtastic node table through the Didgeridoo app"},
         {"group": "Didgeridoo", "label": "Didgeridoo GPS Info", "command": "meshtastic_gps", "description": "Show GPS/GNSS status from the connected Meshtastic node through the Didgeridoo app"},
-        {"group": "Heltec / Mesh", "label": "Protected Location Gate Status", "command": "location_gate_status", "description": "Show protected-actions password gate state before location-sensitive Didgeridoo actions"},
+        {"group": "Didgeridoo", "label": "Protected Location Gate Status", "command": "location_gate_status", "description": "Show protected-actions password gate state before location-sensitive Didgeridoo actions"},
+        {"group": "Didgeridoo", "label": "Protected GNSS Current Fix", "command": "gnss_current_fix", "description": "Show current GNSS fix only when the protected-actions gate is unlocked"},
         {"group": "System / Companion", "label": "Back to Main Canopy", "command": "submenu:main", "description": "Return to the main KoalaByte Blue menu"},
     ],
     "can_bench": [
@@ -103,7 +97,7 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         {"group": "Reports & Reviews", "label": "Pairing Security Review", "command": "pairing_security_review", "description": "Review owned-device pairing/access-control posture"},
         {"group": "Reports & Reviews", "label": "Lab Beacon Plan", "command": "lab_beacon_plan", "description": "Create a safe ESP32 demo beacon/peripheral testing plan"},
         {"group": "CAN Bench Tools", "label": "CAN Bench Safety Check", "command": "koala_kan_kommander", "description": "Open Koala Kan safe manifest/inventory/status workflow"},
-        {"group": "Heltec / Mesh", "label": "Protected Location Gate Status", "command": "location_gate_status", "description": "Show protected-actions password gate state"},
+        {"group": "Didgeridoo", "label": "Protected Location Gate Status", "command": "location_gate_status", "description": "Show protected-actions password gate state"},
         {"group": "System / Companion", "label": "Back to Main Canopy", "command": "submenu:main", "description": "Return to the main KoalaByte Blue menu"},
     ],
     "power": [
@@ -125,7 +119,6 @@ def submenu_title(menu_name: str) -> str:
         "main": "Main Canopy",
         "eucalyptus": "Eucalyptus",
         "bluetooth": "Bluetooth Tools",
-        "heltec_mesh": "Heltec / Mesh",
         "didgeridoo": "Didgeridoo",
         "can_bench": "CAN Bench Tools",
         "reports": "Reports & Reviews",
