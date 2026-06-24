@@ -10,6 +10,7 @@ Current production references:
 
 - `README.md` - KoalaByte Blue V2 Heltec Edition quick-start and operation index.
 - `docs/FLASHING.md` - Heltec Edition flashing, install, dependency, and node-role guide.
+- `docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md` - AntEater passive BLE payment-terminal risk triage guide using the Heltec primary BLE node log.
 - `docs/ORDERABLE_PARTS_LIST.md` - current orderable hardware list with Heltec T114 as the primary BLE/LoRa board.
 - `docs/MAIN_BLE_NODE_ROLES.md` - BLE node role model: Heltec T114 nRF52840 primary, ESP32-S3 secondary node, Raspberry Pi BlueZ secondary/fallback node.
 - `docs/PRODUCTION_FILES.md` - this current production index.
@@ -23,6 +24,7 @@ Current production references:
 - `firmware/esp32-dualeye/voice_commands/` - WakeNet/MultiNet command alias planning files for ESP32-S3 voice activation.
 - `firmware/esp32-dualeye/themes/` - active theme and approved SVG visual source-of-truth assets.
 - `pi-companion/` - Raspberry Pi companion app, menu, theme, and helper modules.
+- `pi-companion/koalablue/anteater.py` - AntEater passive BLE advertisement risk triage. It prefers `logs/ble_nodes/ble_events.jsonl` from the Heltec T114 primary BLE node manager and falls back to bounded Pi BlueZ/Bleak scanning only when requested or needed.
 - `pi-companion/koalablue/ble_event_log.py` - BLE event normalization and source priority. The Heltec T114 nRF52840 is the primary source.
 - `pi-companion/koalblue/` - not used; keep new code under `pi-companion/koalablue/`.
 - `pi-companion/koalablue/ble_node_manager.py` - Heltec T114 primary BLE node manager with ESP32-S3 and Raspberry Pi BlueZ nodes.
@@ -33,6 +35,7 @@ Current production references:
 - `scripts/discover_koalabyte_ports.py` - Heltec-first USB/CAN port discovery. Writes `KOALABYTE_PRIMARY_BLE_PORT`, `KOALABYTE_HELTEC_USB_PORT`, and secondary node paths.
 - `scripts/preflight_all_hardware.py` - non-flashing Heltec Edition preflight report.
 - `scripts/install_koalabyte_udev_rules.sh` - installs stable `/dev/koalabyte-heltec` and `/dev/koalabyte-esp32-eyes` aliases where udev can identify the devices.
+- `scripts/run_anteater.py` - AntEater CLI runner for scan/analyze/status workflows.
 - `scripts/run_ble_node_manager.py` - manual BLE node manager runner using `--primary-port` for the Heltec T114.
 - `scripts/run_ble_node_manager_service.sh` - systemd service wrapper for continuous BLE node logging.
 - `scripts/install_ble_node_manager_service.sh` - installs the persistent BLE node manager service.
@@ -111,6 +114,17 @@ Raspberry Pi:
 
 The ESP32-S3 records the intended voice front-end stack at boot. The Pi generates the long companion response so KillerKoala does not repeat the same handful of phrases.
 
+## AntEater rule
+
+```text
+Heltec T114 primary BLE node log
+  -> logs/ble_nodes/ble_events.jsonl
+  -> AntEater passive advertisement-only risk triage
+  -> logs/anteater/ reports
+```
+
+AntEater is triage, not proof of a physical skimmer. It uses passive BLE advertisement metadata only, redacts BLE addresses by default, and does not pair, connect, write, spoof, replay, jam, or interfere with devices.
+
 ## CAN mechanical rule
 
 The current Koala Kan Kommander physical option is the InnoMaker USB to CAN Converter kit. Do not use or reintroduce the earlier circular CAN panel port in current case notes or renderings. Use an internal mount or rectangular side/rear service-bay cutout with strain relief.
@@ -132,6 +146,7 @@ The repository is considered current only when:
 3. ESP32 firmware builds with PlatformIO.
 4. `scripts/setup_heltec_t114_tools.sh` is present and wired into the Pi/flasher install path.
 5. Heltec T114 preflight identifies the primary BLE serial path or clearly reports it missing.
-6. Optional Koala Kan Kommander files remain present and passive by default unless explicitly gated for bench simulator work.
-7. `scripts/flash_all_components.sh --all` is documented as the primary all-component helper for the Heltec Edition.
-8. The USB power-bank production guide and orderable parts list remain aligned.
+6. AntEater is present in `pi-companion/koalablue/anteater.py`, `scripts/run_anteater.py`, `docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md`, and the Bluetooth Tools menu.
+7. Optional Koala Kan Kommander files remain present and passive by default unless explicitly gated for bench simulator work.
+8. `scripts/flash_all_components.sh --all` is documented as the primary all-component helper for the Heltec Edition.
+9. The USB power-bank production guide and orderable parts list remain aligned.
