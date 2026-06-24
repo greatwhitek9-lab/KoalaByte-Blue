@@ -1,21 +1,21 @@
-# KoalaByte Blue Flashing and Installation Guide - RevA25
+# KoalaByte Blue V2 Heltec Edition Flashing and Installation Guide
 
-This repo keeps the current dongle-only, no-custom-PCB KoalaByte Blue software set:
+This repo now documents the `koalabyte_blue_v2_heltec_edition` USB-module software set:
 
-1. **ESP32-S3 DualEye firmware** under `firmware/esp32-dualeye/`.
-2. **Raspberry Pi 3B+ companion tools** under `pi-companion/` and `scripts/`.
-3. **nRF Connect SDK / Zephyr firmware for the Nordic nRF52840 Dongle KoalaByte Lab profile** under `firmware/nrf52840-dongle-ear-tag-tx-lab/`.
-4. **Koala Konnect** as an alternate nRF52840 Dongle USB HCI adapter profile.
-5. **Pre-Boot Dongle Mode Selector** to choose KoalaByte Blue Lab Mode or Koala Konnect Mode before the normal boot splash/menu flow.
-6. **Koala Kan Kommander support for the InnoMaker USB to CAN Converter kit** through the Pi companion.
+1. **Raspberry Pi 3B+ companion tools** under `pi-companion/` and `scripts/`.
+2. **ESP32-S3 DualEye firmware** under `firmware/esp32-dualeye/` for the face, eyes, buttons, UI, and secondary BLE node.
+3. **Heltec Mesh Node T114 onboard nRF52840** as the primary BLE board and core Heltec Edition LoRa radio board, discovered over USB-C CDC serial.
+4. **Raspberry Pi onboard BlueZ** as the secondary/fallback host BLE node.
+5. **Koala Kan Kommander support for the InnoMaker USB to CAN Converter kit** through the Pi companion.
+6. **Legacy external nRF52840 Dongle firmware targets** remain present as explicit opt-in compatibility targets only. They are not the default BLE architecture for the Heltec Edition.
 
-Readiness keywords: `flash_all_components.sh`, `KoalaByte Lab`, `InnoMaker USB to CAN Converter kit`.
+Readiness keywords: `flash_all_components.sh`, `Heltec Mesh Node T114`, `KOALABYTE_PRIMARY_BLE_PORT`, `ESP32-S3 DualEye`, `InnoMaker USB to CAN Converter kit`.
 
-Safety boundary: this code is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, synthetic owned-device lab advertising, scoped CAN observation, completely isolated CAN bench simulator testing, and safe lab validation only. Koala Kry remains offline metadata replay/RF bench review only. Koala Kan Kommander transmit requires both `--bench-simulator` and `--confirm-transmit`.
+Safety boundary: this code is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, owned-device lab validation, scoped CAN observation, and isolated CAN bench simulator testing only. Koala Kan Kommander transmit requires both `--bench-simulator` and `--confirm-transmit`.
 
 ---
 
-## Fast path: one helper for all components
+## Fast path: one helper for the Heltec Edition
 
 From the repo root, run the readiness check first:
 
@@ -32,112 +32,60 @@ bash scripts/flash_all_components.sh --all
 Useful variants:
 
 ```bash
+# Pi companion only
 bash scripts/flash_all_components.sh --pi
+
+# ESP32-S3 DualEye only
 ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
-NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
+
+# Install/start the BLE node manager with the Heltec T114 as primary BLE
+KOALABYTE_PRIMARY_BLE_PORT=/dev/koalabyte-heltec bash scripts/flash_all_components.sh --ble-node-manager
+
+# Discover Heltec Edition ports without flashing
+python3 scripts/discover_koalabyte_ports.py --profile heltec
+python3 scripts/preflight_all_hardware.py --profile heltec
+
+# Build/package without flashing or installing services
 bash scripts/flash_all_components.sh --all --build-only
+
+# Safe local smoke checks after selected actions
 bash scripts/flash_all_components.sh --all --smoke
 ```
 
-The helper runs the repo readiness check, installs the Pi companion when requested, checks/prepares `west` and `nrfutil` before nRF workflows, flashes ESP32 when requested, builds/packages/flashes the nRF52840 Dongle when requested, and writes a Koala Kan Kommander manifest check for the InnoMaker USB to CAN Converter kit. If `NRF_DFU_PORT` is not set, the nRF helper creates the DFU ZIP but does not flash.
-
-The same flow now installs KillerKoala voice/TTS support through `scripts/setup_system_packages.sh` when system packages are enabled. Raspberry Pi OS installs `espeak-ng`, `espeak`, ALSA utilities/plugins, PulseAudio CLI utilities, PortAudio, and `python3-pyaudio`. Apple `say` is not installed on Raspberry Pi OS; it remains an automatic fallback only on macOS-style systems where Apple already provides it.
-
-Enable spoken Boomerang/KillerKoala alerts after installation with:
-
-```bash
-KOALABYTE_TTS=1 PYTHONPATH=pi-companion python3 scripts/run_boomerang.py
-```
+The helper runs the repo readiness check, installs the Pi companion when requested, flashes the ESP32-S3 DualEye when requested, installs the BLE node manager service with the Heltec T114 nRF52840 as the primary BLE board, and writes Koala Kan Kommander status artifacts for the InnoMaker USB to CAN Converter kit.
 
 ---
 
-## west and nrfutil setup
+## BLE node manager architecture
 
-The nRF52840 Dongle build/flash path now includes a tool setup helper:
+The Heltec Edition BLE architecture is:
 
-```bash
-bash scripts/setup_nrf_tools.sh
-```
+| Node | Role | Port variable |
+|---|---|---|
+| Heltec Mesh Node T114 onboard nRF52840 | Primary BLE board | `KOALABYTE_PRIMARY_BLE_PORT` / `KOALABYTE_HELTEC_USB_PORT` |
+| ESP32-S3 DualEye | Secondary local UI BLE node | `KOALABYTE_ESP32_FACE_PORT` / `ESP32_PORT` |
+| Raspberry Pi onboard BlueZ | Secondary/fallback host BLE node | `KOALABYTE_PI_BLUEZ_NODE=1` |
 
-It checks:
-
-```text
-west      Zephyr/nRF Connect SDK build tool
-nrfutil   Nordic DFU package/USB serial flashing tool
-```
-
-Strict check:
+Run discovery:
 
 ```bash
-STRICT_NRF_TOOLS=1 bash scripts/setup_nrf_tools.sh
+python3 scripts/discover_koalabyte_ports.py --profile heltec
+cat logs/preflight/koalabyte_ports.env
 ```
 
-Check only, without trying to install anything:
+Manual service runner:
 
 ```bash
-bash scripts/setup_nrf_tools.sh --check-only
+KOALABYTE_PRIMARY_BLE_PORT=/dev/koalabyte-heltec \
+KOALABYTE_ESP32_FACE_PORT=/dev/koalabyte-esp32-eyes \
+PYTHONPATH=pi-companion python3 scripts/run_ble_node_manager.py --duration 30
 ```
 
-Build-only nRF flows require `west`; package/flash/cache flows require both `west` and `nrfutil`. The helper is called automatically by:
-
-```text
-scripts/install_pi.sh
-scripts/flash_all_components.sh
-scripts/prepare_dongle_firmware_cache.sh
-scripts/build_nrf52840_dongle_lab.sh
-scripts/build_nrf52840_dongle_hci_usb_adapter.sh
-scripts/flash_nrf52840_dongle_lab_dfu.sh
-scripts/flash_nrf52840_dongle_koala_konnect_dfu.sh
-```
-
----
-
-## Pre-boot Lab/Konnect selector
-
-The pre-boot selector runs before the normal KoalaByte Blue boot splash and grouped main menu. It lets the operator choose:
-
-```text
-1) KoalaByte Blue Lab Mode
-2) Koala Konnect Mode
-```
-
-Interactive selector:
+Install the persistent service:
 
 ```bash
-PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py
+bash scripts/install_ble_node_manager_service.sh
 ```
-
-Direct mode selection:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koalabyte_lab
-PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koala_konnect
-```
-
-Switch the physical nRF52840 Dongle when it is in DFU bootloader mode:
-
-```bash
-NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koalabyte_lab
-NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --mode koala_konnect
-```
-
-Normal Pi-side startup wrapper:
-
-```bash
-bash scripts/koalabyte_blue_boot.sh
-```
-
-Wrapper order:
-
-```text
-pre-boot mode selector -> KoalaByte Blue boot splash -> grouped main menu
-```
-
-Notes:
-
-- The selector does not change the Raspberry Pi bootloader.
-- The nRF52840 Dongle can hold only one active profile at a time.
-- If no `NRF_DFU_PORT` is available, the selector records the requested mode in `logs/preboot_mode_selection.json` but does not claim the physical dongle was switched.
 
 ---
 
@@ -161,8 +109,8 @@ bash scripts/install_pi.sh
 Safe local tests:
 
 ```bash
-bash scripts/setup_nrf_tools.sh --check-only
-PYTHONPATH=pi-companion python3 scripts/run_preboot_mode_select.py --noninteractive --no-apply
+python3 scripts/discover_koalabyte_ports.py --profile heltec
+python3 scripts/preflight_all_hardware.py --profile heltec
 PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
 PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py --graphical --windowed
 PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py manifest
@@ -212,25 +160,67 @@ Expected serial boot JSON includes:
 
 ---
 
-## nRF52840 Dongle KoalaByte Lab firmware
+## Heltec Mesh Node T114 serial check
 
-Requirements:
-
-- Nordic nRF52840 Dongle / PCA10059 / NRF52840-DONGLE.
-- nRF Connect SDK installed.
-- `west` command available.
-- `nrfutil` available for DFU package/USB serial flashing.
-- Dongle placed into bootloader mode for DFU flashing.
-
-Build only:
+Connect the Heltec T114 to the Raspberry Pi with a USB-C **data** cable, then run:
 
 ```bash
-bash scripts/build_nrf52840_dongle_lab.sh
+ls /dev/ttyACM* /dev/serial/by-id/* 2>/dev/null
+python3 scripts/discover_koalabyte_ports.py --profile heltec
+cat logs/preflight/koalabyte_ports.env
 ```
 
-Manual build:
+Expected environment keys include:
 
 ```bash
-cd firmware/nrf52840-dongle-ear-tag-tx-lab
-west build -b nrf52840dongle_nrf52840 .
+KOALABYTE_PRIMARY_BLE_PORT=/dev/koalabyte-heltec
+KOALABYTE_HELTEC_USB_PORT=/dev/koalabyte-heltec
+```
+
+Use the discovered path if your Pi assigns a different serial device.
+
+---
+
+## Legacy external nRF52840 Dongle targets
+
+The old external dongle firmware folders and scripts are retained for compatibility and bench comparison only. They are **not** the default Heltec Edition BLE architecture.
+
+Build legacy external dongle BLE observer firmware only when explicitly requested:
+
+```bash
+BUILD_LEGACY_NRF_DONGLE=1 bash scripts/build_firmware_all.sh
+# or
+NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-ble-primary
+```
+
+Legacy Lab/Konnect profiles are also explicit opt-in paths:
+
+```bash
+NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-lab
+NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-konnect
+```
+
+---
+
+## CAN bench adapter
+
+The InnoMaker USB-to-CAN kit does not get flashed by KoalaByte. The Pi uses Linux SocketCAN, `can-utils`, `python-can`, and Koala Kan Kommander scripts.
+
+```bash
+bash scripts/setup_can0.sh --interface can0 --bitrate 500000
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest --interface can0
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py inventory --interface can0
+PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py status --interface can0
+```
+
+---
+
+## KillerKoala voice/TTS
+
+The same flow installs KillerKoala voice/TTS support through `scripts/setup_system_packages.sh` when system packages are enabled. Raspberry Pi OS installs `espeak-ng`, `espeak`, ALSA utilities/plugins, PulseAudio CLI utilities, PortAudio, and `python3-pyaudio`.
+
+Enable spoken Boomerang/KillerKoala alerts after installation with:
+
+```bash
+KOALABYTE_TTS=1 PYTHONPATH=pi-companion python3 scripts/run_boomerang.py
 ```
