@@ -8,51 +8,360 @@ Use it only on your own equipment, your own lab traffic, or systems you have wri
 
 ## Full one-shot install
 
-Plug everything in first:
-
-```text
-Raspberry Pi 3B+ powered from regulated USB
-ESP32-S3 DualEye -> Pi USB data cable
-Heltec Mesh Node T114 -> Pi USB-C data cable
-InnoMaker CAN kit -> optional Pi USB data cable
-```
-
-Then run one command:
+The preferred deployment flow is simple: plug the required boards into the Pi, run one command, and let the installer handle Pi setup, Heltec flashing, ESP32-S3 flashing, control checks, services, and readiness artifacts.
 
 ```bash
 bash scripts/install_koalabyte_one_shot.sh
 ```
 
-That one command handles the Pi companion install, Heltec plug-in firmware flash, ESP32-S3 DualEye firmware flash, KillerKoala eyes and mouth sync, menu/submenu/button/control/command readiness, BLE node manager service, Didgeridoo/menu readiness, antenna/protocol artifacts, and AntEater passive-readiness status.
+### Required hardware for the one-shot installer
 
-The eyes and mouth use the same `killerkoala_face` JSON payload: ESP32-S3 DualEye renders the eyes, and the Heltec T114 color-mouth firmware renders the mouth/status face. The one-shot installer sends a sync test before starting services so both sides stay aligned.
+Plug these in before running the command:
 
-The one-shot control check records every menu/submenu route, every enabled command handler, the six-button front-panel GPIO map, required helper commands, antenna path status files, and the shared face protocol in `logs/one_shot/control_surface_status.json`.
+```text
+Raspberry Pi 3B+ powered from regulated USB
+ESP32-S3 DualEye -> Pi USB data cable
+Heltec Mesh Node T114 -> Pi USB-C data cable
+```
+
+Optional hardware:
+
+```text
+InnoMaker CAN kit -> optional Pi USB data cable
+```
 
 The InnoMaker CAN kit is optional. If it is not plugged in, the one-shot installer records a non-failing optional CAN status and continues.
 
-Deployment readiness markers: `bash scripts/install_koalabyte_one_shot.sh`; `InnoMaker CAN kit is optional`; eyes and mouth sync; menu button antenna control command readiness.
+---
 
-Useful overrides:
+## What the one-shot installer flashes and prepares
+
+The one-shot installer runs these phases in order.
+
+### Phase 1 — Repository readiness
+
+Command run by installer:
 
 ```bash
-# Pick ESP32 upload port manually
-ESP32_PORT=/dev/ttyUSB0 bash scripts/install_koalabyte_one_shot.sh
+python3 scripts/check_repo_readiness.py
+```
 
-# Default Heltec color-mouth profile
-T114_PLUG_FLASH_PROFILE=color-mouth bash scripts/install_koalabyte_one_shot.sh
+This confirms the branch has the required installer scripts, Didgeridoo menu wiring, antenna helpers, GPIO button files, face/mouth sync checker, and README deployment markers before touching firmware.
 
-# Heltec HCI USB profile instead
+### Phase 2 — Raspberry Pi companion setup
+
+Command run by installer:
+
+```bash
+bash scripts/install_pi.sh
+```
+
+This prepares the Pi-side companion environment. It installs/checks Python dependencies, creates runtime log folders, prepares service assets, generates protocol artifacts, and sets up the Heltec plug-in flashing flow.
+
+The Pi is not “flashed” like a microcontroller. The installer prepares the Pi filesystem, Python companion app, services, logs, and helper scripts so the Pi can control the ESP32-S3, Heltec T114, menus, buttons, antennas, and companion workflows.
+
+### Phase 3 — Heltec T114 plug-in firmware flash
+
+The Heltec T114 is flashed from the Pi during the Pi install phase through:
+
+```bash
+bash scripts/flash_t114_when_plugged.sh
+```
+
+Default profile:
+
+```bash
+T114_PLUG_FLASH_PROFILE=color-mouth
+```
+
+The default `color-mouth` profile flashes the Heltec T114 color-mouth/status firmware. That firmware listens for the shared `killerkoala_face` USB JSON payload so the Heltec mouth/status face stays in sync with the ESP32-S3 eyes.
+
+Alternative profile:
+
+```bash
 T114_PLUG_FLASH_PROFILE=hci-usb bash scripts/install_koalabyte_one_shot.sh
+```
 
-# Make the eyes/mouth serial write test strict
+Use `hci-usb` only when you intentionally want the Heltec T114 nRF52840 exposed as a USB HCI controller profile instead of the color-mouth profile.
+
+The installer waits for the Heltec on one of the normal USB paths or aliases, such as:
+
+```text
+/dev/koalabyte-heltec
+/dev/ttyACM0
+/dev/ttyACM1
+/dev/ttyUSB0
+/dev/ttyUSB1
+```
+
+Strict Heltec behavior is on by default:
+
+```bash
+STRICT_T114_PLUG_FLASH=1
+```
+
+That means a missing required Heltec T114 can fail the one-shot deployment. To keep the Pi/ESP32 setup moving while debugging a missing Heltec, use:
+
+```bash
+STRICT_T114_PLUG_FLASH=0 bash scripts/install_koalabyte_one_shot.sh
+```
+
+To skip Heltec plug-in flashing entirely:
+
+```bash
+FLASH_T114_ON_PLUG=0 bash scripts/install_koalabyte_one_shot.sh
+```
+
+### Phase 4 — ESP32-S3 DualEye firmware flash
+
+Command run by installer:
+
+```bash
+bash scripts/flash_esp32.sh
+```
+
+This flashes the ESP32-S3 DualEye firmware. The ESP32-S3 handles the eyes, face display, local UI, front-panel integration, secondary local BLE node, and KillerKoala eye rendering.
+
+The installer passes `NO_MONITOR=1` by default so the flash process does not hang by opening a serial monitor after upload.
+
+If the ESP32-S3 port is detected automatically, no override is needed. If you know the port, set it explicitly:
+
+```bash
+ESP32_PORT=/dev/ttyUSB0 bash scripts/install_koalabyte_one_shot.sh
+```
+
+If upload stalls at `Connecting...`, put the ESP32-S3 into manual bootloader mode:
+
+```text
+Hold BOOT
+Tap RESET/EN
+Release RESET/EN
+Wait about 2 seconds
+Release BOOT
+Run the one-shot command again
+```
+
+### Phase 5 — KillerKoala eyes and mouth sync
+
+Command run by installer:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py --emit-test
+```
+
+This sends a short shared `killerkoala_face` payload to both face targets:
+
+```text
+ESP32-S3 DualEye -> renders eyes
+Heltec T114 color-mouth firmware -> renders mouth/status face
+```
+
+The sync checker confirms:
+
+```text
+payload type: killerkoala_face
+transport: usb-cdc
+left eye: UV/purple
+right eye: green
+states: wake, listening, thinking, speaking, action, success, error
+```
+
+By default, the protocol validation is required, but the physical serial write test is non-strict. To make deployment fail if either device does not accept the sync payload, run:
+
+```bash
 STRICT_FACE_MOUTH_SYNC=1 bash scripts/install_koalabyte_one_shot.sh
+```
 
-# Skip optional CAN checks entirely
+Status file:
+
+```text
+logs/killerkoala_face/face_mouth_sync_status.json
+```
+
+### Phase 6 — Menus, submenus, buttons, controls, commands, and antennas
+
+Command run by installer:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
+```
+
+This confirms the deployed control surface is complete. It checks:
+
+```text
+all main menu items
+all submenu routes
+all enabled menu command handlers
+Didgeridoo mesh commands
+T114 helper commands
+Meshtastic helper commands
+location-gate helper commands
+six-button front-panel GPIO map
+required command/control helper scripts
+antenna readiness status files
+shared face/mouth protocol
+```
+
+Status file:
+
+```text
+logs/one_shot/control_surface_status.json
+```
+
+### Phase 7 — BLE node manager service
+
+Command run by installer:
+
+```bash
+bash scripts/install_ble_node_manager_service.sh
+```
+
+This installs or refreshes the Pi service that listens to the Heltec T114 primary BLE serial path, optional ESP32 face path, and Pi BlueZ fallback path. The expected primary Heltec path is usually:
+
+```text
+/dev/koalabyte-heltec
+```
+
+The installer uses environment fallbacks so these also work:
+
+```text
+KOALABYTE_PRIMARY_BLE_PORT
+KOALABYTE_HELTEC_USB_PORT
+HELTEC_PORT
+```
+
+### Phase 8 — Didgeridoo/menu action readiness
+
+Command run by installer:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
+```
+
+This generates the menu action manifest and confirms every enabled menu leaf has a handler and every submenu target exists.
+
+Status files:
+
+```text
+logs/menu_actions/menu_action_manifest.json
+logs/menu_actions/menu_action_status.json
+```
+
+### Phase 9 — External antenna readiness
+
+Command run by installer:
+
+```bash
+bash scripts/configure_koalabyte_external_antennas.sh --check-only
+```
+
+This records the expected antenna routing:
+
+```text
+Heltec T114 LoRa connector -> region-matched LoRa antenna
+Heltec T114 2.4 GHz connector -> additional case-mounted 2.4 GHz antenna
+ESP32-S3 DualEye 2.4 GHz connector -> ESP32-S3 2.4 GHz antenna
+Raspberry Pi 3B+ -> no required external antenna; optional USB wireless adapter only
+```
+
+Status files:
+
+```text
+logs/koalabyte_external_antenna_status.json
+logs/t114_lora_external_antenna_status.json
+logs/t114_2g4_antenna_status.json
+logs/esp32s3_dualeye_2g4_antenna_status.json
+logs/pi_2g4_external_antenna_status.json
+```
+
+### Phase 10 — AntEater passive-readiness status
+
+The installer writes AntEater readiness without starting a live scan.
+
+Status file:
+
+```text
+logs/anteater/status.json
+```
+
+The readiness marker confirms AntEater is passive/ad-only and does not pair, connect, write, jam, spoof, or run live activity during flashing.
+
+### Phase 11 — Optional InnoMaker CAN kit
+
+The installer checks InnoMaker CAN support only as an optional step.
+
+If the CAN kit is missing, deployment continues and the installer writes:
+
+```text
+logs/can/innomaker_optional_status.json
+```
+
+To skip optional CAN checks completely:
+
+```bash
 INSTALL_INNOMAKER_CAN=0 bash scripts/install_koalabyte_one_shot.sh
+```
 
-# Make optional CAN strict only when you intentionally want CAN to block deployment
+To make CAN strict only when you intentionally want it to block deployment:
+
+```bash
 STRICT_INNOMAKER_CAN=1 bash scripts/install_koalabyte_one_shot.sh
+```
+
+---
+
+## Quick deployment command
+
+Use this for normal deployment:
+
+```bash
+bash scripts/install_koalabyte_one_shot.sh
+```
+
+Use this when you need to specify the ESP32 upload port:
+
+```bash
+ESP32_PORT=/dev/ttyUSB0 bash scripts/install_koalabyte_one_shot.sh
+```
+
+Use this when you want the Heltec HCI USB profile instead of the default color-mouth profile:
+
+```bash
+T114_PLUG_FLASH_PROFILE=hci-usb bash scripts/install_koalabyte_one_shot.sh
+```
+
+---
+
+## Manual verification after flashing
+
+After the one-shot installer completes, run:
+
+```bash
+python3 scripts/check_repo_readiness.py
+PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
+PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
+PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py --emit-test
+python3 scripts/run_didgeridoo.py status
+bash scripts/configure_koalabyte_external_antennas.sh --check-only
+PYTHONPATH=pi-companion python3 scripts/run_anteater.py status
+python3 scripts/preflight_all_hardware.py --profile heltec
+```
+
+For physical button testing, run this and press each button once:
+
+```bash
+python3 scripts/test_gpio_buttons.py
+```
+
+The button map is:
+
+```text
+Button 1 -> Main Menu -> GPIO5
+Button 2 -> Move Left / Back -> GPIO6
+Button 3 -> Enter / Select -> GPIO13, hold 3s for shutdown event
+Button 4 -> Move Right / Forward -> GPIO19
+Button 5 -> Up -> GPIO26
+Button 6 -> Down -> GPIO21
 ```
 
 ---
@@ -63,7 +372,7 @@ This branch is the deployable Heltec Edition profile for:
 
 - Raspberry Pi 3B+ as the Linux companion host.
 - Waveshare ESP32-S3-DualEye-LCD-1.28 as the face, eyes, buttons, UI display, and secondary local BLE node.
-- Heltec Mesh Node T114 as the primary BLE board, LoRa board, and Didgeridoo mesh board.
+- Heltec Mesh Node T114 as the primary BLE board, LoRa board, Didgeridoo mesh board, and color-mouth/status face target.
 - InnoMaker USB-to-CAN adapter as an optional isolated CAN bench accessory.
 - USB power bank / regulated USB power, not raw battery voltage.
 
@@ -77,7 +386,7 @@ No custom PCB is required for this profile.
 |---|---|---|
 | Raspberry Pi 3B+ | Main host, menus, logs, voice, services | Pi power + USB devices |
 | ESP32-S3 DualEye | Eyes, face, UI, buttons, secondary BLE | USB data cable |
-| Heltec Mesh Node T114 | Primary BLE, LoRa, Didgeridoo mesh, GNSS-aware workflows | USB-C data cable |
+| Heltec Mesh Node T114 | Primary BLE, LoRa, Didgeridoo mesh, GNSS-aware workflows, mouth/status face | USB-C data cable |
 | InnoMaker USB-to-CAN | Optional isolated bench CAN work | USB data cable |
 | Power bank | Main regulated power source | USB power output |
 
@@ -98,13 +407,6 @@ Raspberry Pi 3B+ -> no required external antenna; optional USB wireless adapter 
 
 The extra 2.4 GHz antenna goes to the **Heltec T114**, not the Pi. A Pi USB wireless adapter is optional only and must not block firmware, installer, CI, or readiness.
 
-Check antenna readiness with:
-
-```bash
-bash scripts/configure_koalabyte_external_antennas.sh --check-only
-python3 scripts/check_external_antenna_readiness.py
-```
-
 ---
 
 ## Menu map
@@ -121,106 +423,6 @@ The main field menus are intentionally simple:
 | System / Companion | KillerKoala voice/status, buttons, settings, and helper controls. |
 
 The mesh stack lives under **Didgeridoo**. That submenu contains T114 controller checks, T114 status, Didgeridoo status, Didgeridoo nodes, Didgeridoo GPS info, protected location gate status, and protected GNSS current fix.
-
----
-
-## Initial flashing details
-
-The preferred deployment command is:
-
-```bash
-bash scripts/install_koalabyte_one_shot.sh
-```
-
-That command is stricter than the older component helper: Pi, Heltec, and ESP32-S3 are part of the main install path; only the InnoMaker CAN kit is optional by default.
-
-### 1. Clone the repo
-
-```bash
-git clone https://github.com/greatwhitek9-lab/KoalaByte-Blue.git
-cd KoalaByte-Blue
-```
-
-### 2. Run readiness before flashing
-
-```bash
-python3 scripts/check_repo_readiness.py
-```
-
-### 3. Run the one-shot install
-
-```bash
-bash scripts/install_koalabyte_one_shot.sh
-```
-
-### 4. Confirm detected ports
-
-```bash
-python3 scripts/discover_koalabyte_ports.py --profile heltec
-cat logs/preflight/koalabyte_ports.env
-```
-
-Expected runtime variables usually look like:
-
-```bash
-KOALABYTE_PRIMARY_BLE_PORT=/dev/koalabyte-heltec
-KOALABYTE_HELTEC_USB_PORT=/dev/koalabyte-heltec
-```
-
-### ESP32-S3 manual boot mode, only if needed
-
-Most ESP32-S3 boards auto-enter download mode. Use manual BOOT only if upload stalls at `Connecting...`.
-
-```text
-Hold BOOT
-Tap RESET/EN
-Release RESET/EN
-Wait about 2 seconds
-Release BOOT
-Run the one-shot command again
-```
-
----
-
-## Common commands
-
-```bash
-# Full branch readiness
-python3 scripts/check_repo_readiness.py
-PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
-
-# Full one-shot deployment
-bash scripts/install_koalabyte_one_shot.sh
-
-# Full one-shot menu/button/antenna/control/command readiness artifact
-PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
-
-# Eyes and mouth sync check
-PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py --emit-test
-
-# Older component helper, still available for advanced/manual target work
-bash scripts/flash_all_components.sh --install-firmware
-
-# Didgeridoo mesh app checks
-python3 scripts/run_didgeridoo.py status
-python3 scripts/run_didgeridoo.py nodes
-python3 scripts/run_didgeridoo.py gps
-
-# Front-panel button mapping check
-PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
-python3 scripts/test_gpio_buttons.py
-
-# AntEater passive report from existing Heltec primary BLE logs
-PYTHONPATH=pi-companion python3 scripts/run_anteater.py status
-PYTHONPATH=pi-companion python3 scripts/run_anteater.py scan
-
-# External antenna readiness
-bash scripts/configure_koalabyte_external_antennas.sh --check-only
-python3 scripts/check_external_antenna_readiness.py
-
-# Hardware preflight
-python3 scripts/preflight_all_hardware.py --profile heltec
-```
 
 ---
 
@@ -245,25 +447,6 @@ Optional InnoMaker USB-to-CAN support for isolated bench-simulator or owned-harn
 ### KillerKoala companion
 
 Voice/status personality, XP/ranks, face state, buttons, and UI feedback. Ranks are Noob, Hacker, and Legend. Its shared face payload keeps the ESP32-S3 eyes and Heltec mouth synced.
-
----
-
-## Deployment smoke test
-
-After flashing, run:
-
-```bash
-python3 scripts/check_repo_readiness.py
-PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
-PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
-PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py --emit-test
-python3 scripts/run_didgeridoo.py status
-bash scripts/configure_koalabyte_external_antennas.sh --check-only
-PYTHONPATH=pi-companion python3 scripts/run_anteater.py status
-python3 scripts/preflight_all_hardware.py --profile heltec
-```
-
-A missing optional InnoMaker CAN kit or optional Pi USB wireless adapter should not fail the firmware branch. A missing Heltec T114 or ESP32-S3 matters for the full one-shot installer.
 
 ---
 
