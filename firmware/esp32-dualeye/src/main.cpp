@@ -194,13 +194,56 @@ void pollVoiceWake() {
 #endif
 }
 
+void handleKillerKoalaFace(JsonDocument &doc) {
+  const char *state = doc["state"] | "listening";
+  const char *left = doc["left_eye"] | "#A54BFF";
+  const char *right = doc["right_eye"] | "#32FF71";
+  int brightness = doc["brightness"] | getKoalagotchiEyeBrightness();
+  const bool enabled = doc["enabled"] | true;
+  const char *look = "round";
+  const char *animation = "idle";
+
+  if (!enabled || !strcmp(state, "hidden")) {
+    animation = "sleepy";
+  } else if (!strcmp(state, "wake")) {
+    animation = "pulse";
+  } else if (!strcmp(state, "thinking")) {
+    animation = "scan";
+  } else if (!strcmp(state, "speaking")) {
+    animation = "blink";
+  } else if (!strcmp(state, "action")) {
+    animation = "glitch";
+  } else if (!strcmp(state, "success")) {
+    look = "star";
+    animation = "pulse";
+  } else if (!strcmp(state, "error")) {
+    look = "angry";
+    animation = "glitch";
+  }
+
+  setKoalagotchiEyeStyle(look, left, right, animation, brightness);
+  drawKoalagotchiModeScreen("killerkoala", state, 85, 92);
+
+  StaticJsonDocument<288> ack;
+  ack["type"] = "killerkoala_eye_ack";
+  ack["device"] = "esp32-dualeye";
+  ack["state"] = state;
+  ack["left_eye"] = left;
+  ack["right_eye"] = right;
+  ack["animation"] = animation;
+  ack["mouth_sync"] = "killerkoala_face";
+  sendJson(ack);
+}
+
 void handlePiCommand(const String &line) {
   StaticJsonDocument<768> doc;
   DeserializationError err = deserializeJson(doc, line);
   if (err) return;
 
   const char *type = doc["type"] | "";
-  if (!strcmp(type, "koala_says")) {
+  if (!strcmp(type, "killerkoala_face") || !strcmp(type, "ai_face")) {
+    handleKillerKoalaFace(doc);
+  } else if (!strcmp(type, "koala_says")) {
     const char *msg = doc["message"] | "";
     StaticJsonDocument<192> ack;
     ack["type"] = "display_ack";
