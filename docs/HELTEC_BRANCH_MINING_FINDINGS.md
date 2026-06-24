@@ -4,16 +4,13 @@ This note records the Heltec branch/history mining pass for the active `koalabyt
 
 ## Source status
 
-A pushed GitHub ref named `backup_Heltec` was not reachable from the installed repository connection. The following refs were also checked and did not resolve:
+The exact pushed GitHub ref `Backup_heltec` was reachable and compared against `main`. The branch had diverged heavily, so it was mined selectively instead of merged wholesale.
 
-- `backup_Heltec`
-- `backup-Heltec`
-- `backup_heltec`
-- `heltec_backup`
-- `backup/Heltec`
-- `backup/heltec`
+Comparison result at mining time:
 
-Because the named backup ref was unavailable, the mining pass used the reachable Heltec commit trail and current Heltec files in `main`.
+- `Backup_heltec` was 122 commits ahead of `main`.
+- `Backup_heltec` was 111 commits behind `main`.
+- The branch included useful Heltec documents, ESP32 touch-menu files, T114 support scripts, GNSS/location helpers, face bridge helpers, Meshtastic helpers, optional T114/HCI firmware helpers, and optional extra requirements.
 
 ## Mined findings applied to the active branch
 
@@ -29,6 +26,9 @@ The useful Heltec findings are now expected to remain true for the active branch
 8. Stable device aliases should prefer `/dev/koalabyte-heltec` for the Heltec primary board and `/dev/koalabyte-esp32-eyes` for the ESP32-S3 DualEye board.
 9. CI/readiness must catch stale architecture text that makes the external nRF52840 USB Dongle look like the default primary BLE board.
 10. Deployability checks should validate shell syntax, required files, menu routing, and one-shot installer hooks.
+11. Protected GNSS/location actions should be password-gated and should not write coordinates unless unlocked.
+12. Meshtastic send/listen actions should be protected, and send must require explicit confirmation.
+13. T114 BlueZ/HCI checks should remain optional and should report missing hardware/tooling cleanly instead of breaking base deployment.
 
 ## Current implementation map
 
@@ -40,12 +40,16 @@ The useful Heltec findings are now expected to remain true for the active branch
 | One-shot Heltec dependency setup | `scripts/setup_heltec_t114_tools.sh`, `scripts/install_pi.sh`, `scripts/flash_all_components.sh` |
 | Full menu readiness | `pi-companion/koalablue/menu_catalog.py`, `scripts/check_menu_actions.py`, `scripts/flash_all_components.sh` |
 | AntEater readiness | `pi-companion/koalablue/anteater.py`, `scripts/run_anteater.py`, `docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md`, `scripts/flash_all_components.sh` |
+| Protected location/GNSS gate | `pi-companion/koalablue/location_password_gate.py`, `pi-companion/koalablue/gnss_location.py`, `scripts/run_location_password_gate.py` |
+| Meshtastic helper | `pi-companion/koalablue/meshtastic_app.py`, `scripts/run_meshtastic_app.py`, `pi-companion/requirements-heltec-v2-extra.txt` |
+| T114 BlueZ/HCI helper | `pi-companion/koalablue/t114_bluez.py`, `scripts/run_t114_bluez.py` |
+| Heltec / Mesh menu | `pi-companion/koalablue/menu_catalog.py`, `scripts/run_menu_screen.py` |
 | Legacy dongle opt-in only | `scripts/build_firmware_all.sh`, `scripts/flash_all_components.sh`, legacy firmware READMEs |
 | Deployability gate | `scripts/check_repo_readiness.py` |
 
 ## Active branch rule
 
-If a future branch or local backup named `backup_Heltec` becomes available, compare it against `main` and only import changes that preserve the current architecture:
+If a future branch or local backup adds more Heltec work, compare it against `main` and only import changes that preserve the current architecture:
 
 ```text
 Heltec Mesh Node T114 onboard nRF52840 -> primary BLE board
