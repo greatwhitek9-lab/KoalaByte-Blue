@@ -21,8 +21,11 @@ REQUIRED_FILES = [
     "pi-companion/koalablue/t114_bluez.py",
     "pi-companion/koalablue/gnss_location.py",
     "pi-companion/koalablue/location_password_gate.py",
+    "pi-companion/koalablue/gpio_buttons.py",
     "scripts/check_menu_actions.py",
     "scripts/check_killerkoala_face_mouth_sync.py",
+    "scripts/check_one_shot_controls.py",
+    "scripts/test_gpio_buttons.py",
     "scripts/run_menu_screen.py",
     "scripts/run_didgeridoo.py",
     "scripts/run_meshtastic_app.py",
@@ -58,6 +61,8 @@ def check_readme(failures: list[str]) -> None:
         "Heltec Mesh Node T114",
         "Didgeridoo",
         "eyes and mouth",
+        "button",
+        "antenna",
     ]:
         if needle not in text:
             failures.append(f"README.md missing expected deployment text: {needle}")
