@@ -17,7 +17,6 @@ REQUIRED_FILES = [
     "README.md",
     "pi-companion/config.default.json",
     "pi-companion/koalablue/menu_catalog.py",
-    "pi-companion/koalblue/meshtastic_app.py",
     "pi-companion/koalablue/meshtastic_app.py",
     "pi-companion/koalablue/t114_bluez.py",
     "pi-companion/koalablue/gnss_location.py",
