@@ -7,9 +7,10 @@ This repo now documents the `koalabyte_blue_v2_heltec_edition` USB-module softwa
 3. **Heltec Mesh Node T114 onboard nRF52840** as the primary BLE board and core Heltec Edition LoRa radio board, discovered over USB-C CDC serial.
 4. **Raspberry Pi onboard BlueZ** as the secondary/fallback host BLE node.
 5. **Koala Kan Kommander support for the InnoMaker USB to CAN Converter kit** through the Pi companion.
-6. **Legacy external nRF52840 Dongle firmware targets** remain present as explicit opt-in compatibility targets only. They are not the default BLE architecture for the Heltec Edition.
+6. **Full menu readiness validation** through `scripts/check_menu_actions.py`, which checks every menu/submenu/leaf item without executing actions.
+7. **Legacy external nRF52840 Dongle firmware targets** remain present as explicit opt-in compatibility targets only. They are not the default BLE architecture for the Heltec Edition.
 
-Readiness keywords: `flash_all_components.sh`, `scripts/setup_heltec_t114_tools.sh`, `Heltec Mesh Node T114`, `KOALABYTE_PRIMARY_BLE_PORT`, `ESP32-S3 DualEye`, `InnoMaker USB to CAN Converter kit`.
+Readiness keywords: `flash_all_components.sh`, `scripts/setup_heltec_t114_tools.sh`, `scripts/check_menu_actions.py`, `Heltec Mesh Node T114`, `KOALABYTE_PRIMARY_BLE_PORT`, `ESP32-S3 DualEye`, `InnoMaker USB to CAN Converter kit`.
 
 Safety boundary: this code is for authorized Bluetooth research, BLE inventory, local logging, AI companion behavior, owned-device lab validation, scoped CAN observation, and isolated CAN bench simulator testing only. Koala Kan Kommander transmit requires both `--bench-simulator` and `--confirm-transmit`.
 
@@ -38,6 +39,10 @@ bash scripts/flash_all_components.sh --pi
 # ESP32-S3 DualEye only
 ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
 
+# Full menu readiness only, no menu actions executed
+bash scripts/flash_all_components.sh --menu-check
+PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
+
 # Install/start the BLE node manager with the Heltec T114 as primary BLE
 KOALABYTE_PRIMARY_BLE_PORT=/dev/koalabyte-heltec bash scripts/flash_all_components.sh --ble-node-manager
 
@@ -52,7 +57,26 @@ bash scripts/flash_all_components.sh --all --build-only
 bash scripts/flash_all_components.sh --all --smoke
 ```
 
-The helper runs the repo readiness check, installs the Pi companion when requested, runs `scripts/setup_heltec_t114_tools.sh`, flashes the ESP32-S3 DualEye when requested, installs the BLE node manager service with the Heltec T114 nRF52840 as the primary BLE board, and writes Koala Kan Kommander status artifacts for the InnoMaker USB to CAN Converter kit.
+The helper runs the repo readiness check, installs the Pi companion when requested, runs `scripts/setup_heltec_t114_tools.sh`, validates the full menu catalog with `scripts/check_menu_actions.py`, flashes the ESP32-S3 DualEye when requested, installs the BLE node manager service with the Heltec T114 nRF52840 as the primary BLE board, and writes Koala Kan Kommander status artifacts for the InnoMaker USB to CAN Converter kit.
+
+---
+
+## Full menu readiness
+
+The one-shot installer includes a menu-readiness pass:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
+```
+
+It writes:
+
+```text
+logs/menu_actions/menu_action_manifest.json
+logs/menu_actions/menu_action_status.json
+```
+
+This checks that every enabled menu leaf has a registered handler and every submenu target exists. It does **not** run scans, open long-running actions, transmit, flash firmware, or start live BLE activity.
 
 ---
 
@@ -148,6 +172,7 @@ Safe local tests:
 
 ```bash
 bash scripts/setup_heltec_t114_tools.sh --check-only
+PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
 python3 scripts/discover_koalabyte_ports.py --profile heltec
 python3 scripts/preflight_all_hardware.py --profile heltec
 PYTHONPATH=pi-companion python3 scripts/run_boot_splash.py --windowed --duration 3
