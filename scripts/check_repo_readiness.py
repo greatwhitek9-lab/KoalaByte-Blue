@@ -85,7 +85,6 @@ REQUIRED_TEXT = {
         "KOALABYTE_PRIMARY_BLE_PORT",
         "INSTALL_HELTEC_NRF_TOOLS=1",
     ],
-    "pi-companion/koalbluelib_missing_guard": [],
     "pi-companion/koalablue/anteater.py": [
         "DEFAULT_NODE_LOG_PATH",
         "logs/ble_nodes/ble_events.jsonl",
@@ -121,7 +120,7 @@ REQUIRED_TEXT = {
         "PiBluezSecondaryScanner",
     ],
     "scripts/setup_heltec_t114_tools.sh": [
-        "Heltec Mesh Node T114 dependency setup helper",
+        "KoalaByte Blue V2 Heltec Edition T114 dependency setup helper",
         "pyserial",
         "bleak",
         "install_koalabyte_udev_rules.sh",
