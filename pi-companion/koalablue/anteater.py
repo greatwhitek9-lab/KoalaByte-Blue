@@ -7,12 +7,13 @@ import json
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 
 ACTION_ID = "anteater"
 ACTION_NAME = "AntEater"
 DEFAULT_OUTPUT_DIR = Path("logs/anteater")
 DEFAULT_STATUS_PATH = Path("logs/anteater/anteater_status.json")
+DEFAULT_NODE_LOG_PATH = Path("logs/ble_nodes/ble_events.jsonl")
 DEFAULT_SCAN_SECONDS = 15.0
 
 PAYMENT_NAME_MARKERS = {
@@ -107,12 +108,21 @@ def _normalize_uuid(value: object) -> str:
 def _manufacturer_ids(data: object) -> list[str]:
     if isinstance(data, dict):
         return [str(key) for key in sorted(data.keys(), key=str)]
+    if isinstance(data, str) and data:
+        return ["hex"]
     return []
 
 
+def _raw_value(raw: dict[str, Any], *keys: str, default: Any = None) -> Any:
+    for key in keys:
+        if key in raw and raw.get(key) not in (None, ""):
+            return raw.get(key)
+    return default
+
+
 def assess_observation(raw: dict[str, Any], raw_addresses: bool = False) -> AntEaterObservation:
-    name = str(raw.get("name") or raw.get("local_name") or "").strip()
-    address = str(raw.get("address") or raw.get("mac") or raw.get("id") or "unknown")
+    name = str(_raw_value(raw, "name", "local_name", default="")).strip()
+    address = str(_raw_value(raw, "address", "addr", "mac", "id", default="unknown"))
     rssi_value = raw.get("rssi")
     try:
         rssi = int(rssi_value) if rssi_value is not None else None
@@ -120,7 +130,7 @@ def assess_observation(raw: dict[str, Any], raw_addresses: bool = False) -> AntE
         rssi = None
 
     service_uuids = [_normalize_uuid(uuid) for uuid in raw.get("service_uuids", []) or []]
-    manufacturer_data = raw.get("manufacturer_data", {})
+    manufacturer_data = _raw_value(raw, "manufacturer_data", "manufacturer", default={})
     indicators: list[str] = []
     score = 0
     lower_name = name.lower()
@@ -219,7 +229,7 @@ async def _scan_bleak(scan_seconds: float, raw_addresses: bool) -> tuple[list[An
     return observations, None
 
 
-def _load_observations_from_file(path: Path, raw_addresses: bool) -> list[AntEaterObservation]:
+def _load_observations_from_file(path: Path, raw_addresses: bool, max_records: int = 1000) -> list[AntEaterObservation]:
     text = path.read_text(encoding="utf-8", errors="replace").strip()
     if not text:
         return []
@@ -237,14 +247,15 @@ def _load_observations_from_file(path: Path, raw_addresses: bool) -> list[AntEat
             if not records:
                 records = [loaded]
     except json.JSONDecodeError:
-        for line in text.splitlines():
+        for line in text.splitlines()[-max_records:]:
             try:
                 item = json.loads(line)
             except json.JSONDecodeError:
                 continue
             if isinstance(item, dict):
                 records.append(item)
-    return [assess_observation(record, raw_addresses=raw_addresses) for record in records]
+    ble_records = [record for record in records if str(record.get("type", "ble_adv_seen")) in {"ble_adv_seen", "ble_seen"}]
+    return [assess_observation(record, raw_addresses=raw_addresses) for record in ble_records[-max_records:]]
 
 
 def _write_json(path: Path, payload: object) -> None:
@@ -259,6 +270,7 @@ def _write_markdown(path: Path, report: AntEaterReport) -> None:
         f"Status: **{report.status}**",
         f"Devices reviewed: **{report.device_count}**",
         f"Suspect devices: **{report.suspect_count}**",
+        f"Source: `{report.source}`",
         "",
         "AntEater is advertisement-only. It does not pair, connect, write, replay, spoof, jam, or interfere with nearby devices.",
         "",
@@ -293,14 +305,23 @@ def run_once(
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     status_path: str | Path = DEFAULT_STATUS_PATH,
     raw_addresses: bool = False,
+    node_log_path: str | Path = DEFAULT_NODE_LOG_PATH,
+    live_scan: bool = False,
 ) -> AntEaterReport:
     started = time.time()
     notes: list[str] = []
-    source = "bleak-scan"
+    source = "heltec-primary-node-log"
+    observations: list[AntEaterObservation]
+
     if input_file:
         source = str(input_file)
         observations = _load_observations_from_file(Path(input_file), raw_addresses=raw_addresses)
+    elif not live_scan and Path(node_log_path).exists():
+        source = str(node_log_path)
+        observations = _load_observations_from_file(Path(node_log_path), raw_addresses=raw_addresses)
+        notes.append("Using Heltec Edition primary BLE node log. Use --live-scan to force a bounded Pi BlueZ/Bleak scan.")
     else:
+        source = "bleak-scan"
         observations, error = asyncio.run(_scan_bleak(float(scan_seconds), raw_addresses=raw_addresses))
         if error:
             notes.append(error)
@@ -328,7 +349,8 @@ def run_once(
         safety={
             "authorized_lab_or_defensive_use_only": True,
             "advertisement_only": True,
-            "bleak_scan_only": True,
+            "heltec_primary_node_log_preferred": True,
+            "bleak_scan_fallback_only": True,
             "pairing": False,
             "connections": False,
             "writes": False,
@@ -341,7 +363,7 @@ def run_once(
     )
     _write_json(json_path, asdict(report))
     _write_markdown(md_path, report)
-    _write_json(Path(status_path), {"status": status, "updated_at": ended, "suspect_count": suspect_count, "device_count": len(observations), "latest_report": str(json_path)})
+    _write_json(Path(status_path), {"status": status, "updated_at": ended, "suspect_count": suspect_count, "device_count": len(observations), "latest_report": str(json_path), "source": source})
     return report
 
 
@@ -349,6 +371,7 @@ def render_summary(report: AntEaterReport) -> str:
     lines = [
         "== AntEater BLE Card Skimmer Detector ==",
         f"Status: {report.status}",
+        f"Source: {report.source}",
         f"Devices reviewed: {report.device_count}",
         f"Suspect patterns: {report.suspect_count}",
     ]
@@ -364,9 +387,11 @@ def render_summary(report: AntEaterReport) -> str:
 
 def run_cli() -> int:
     parser = argparse.ArgumentParser(description="AntEater BLE card skimmer detector: passive advertisement-only triage")
-    parser.add_argument("command", nargs="?", default="scan", choices=["scan", "analyze", "status"], help="Run a BLEAK scan, analyze an existing JSON/JSONL file, or show latest status")
+    parser.add_argument("command", nargs="?", default="scan", choices=["scan", "analyze", "status"], help="Read the Heltec primary BLE node log, analyze an existing JSON/JSONL file, or show latest status")
     parser.add_argument("--scan-seconds", type=float, default=DEFAULT_SCAN_SECONDS)
     parser.add_argument("--input-json", default=None, help="JSON or JSONL file with BLE observations to analyze offline")
+    parser.add_argument("--node-log", default=str(DEFAULT_NODE_LOG_PATH), help="Heltec primary BLE node-manager JSONL log to analyze before falling back to live scan")
+    parser.add_argument("--live-scan", action="store_true", help="Force a bounded Pi BlueZ/Bleak scan instead of using the Heltec primary node log")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--status-path", default=str(DEFAULT_STATUS_PATH))
     parser.add_argument("--raw-addresses", action="store_true", help="Store raw BLE addresses in reports. Default stores hashed/redacted identifiers.")
@@ -378,7 +403,15 @@ def run_cli() -> int:
         return 0
 
     input_file = args.input_json if args.command == "analyze" else None
-    report = run_once(scan_seconds=args.scan_seconds, input_file=input_file, output_dir=args.output_dir, status_path=args.status_path, raw_addresses=args.raw_addresses)
+    report = run_once(
+        scan_seconds=args.scan_seconds,
+        input_file=input_file,
+        output_dir=args.output_dir,
+        status_path=args.status_path,
+        raw_addresses=args.raw_addresses,
+        node_log_path=args.node_log,
+        live_scan=args.live_scan,
+    )
     print(render_summary(report))
     return 0
 
