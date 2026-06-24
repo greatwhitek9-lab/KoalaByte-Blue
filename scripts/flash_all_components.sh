@@ -34,7 +34,7 @@ Usage:
   ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
 
 Targets:
-  --install-firmware  One-shot Heltec Edition install: Pi companion, AI voice, ESP32 DualEye, Heltec-primary BLE node manager service, CAN setup/checks, and CAN manifest/status checks
+  --install-firmware  One-shot Heltec Edition install: Pi companion, AI voice, ESP32 DualEye, Heltec T114 dependency setup, Heltec-primary BLE node manager service, CAN setup/checks, and CAN manifest/status checks
   --all               Same target set as --install-firmware, without changing branches
   --pi                Install/update Raspberry Pi companion environment
   --ai-voice          Prepare/verify KillerKoala phrase-first companion config and optional TinyLlama/Ollama settings
@@ -62,6 +62,9 @@ Environment:
   KOALABYTE_HELTEC_USB_PORT  Optional Heltec T114 USB-C CDC serial port. Used as primary BLE when KOALABYTE_PRIMARY_BLE_PORT is unset.
   KOALABYTE_ESP32_FACE_PORT Optional ESP32 runtime serial port for eyes and secondary BLE observations.
   KOALABYTE_PI_BLUEZ_NODE 1/0. Default: 1. Enables Raspberry Pi onboard BlueZ as a secondary/fallback BLE node.
+  INSTALL_HELTEC_T114_TOOLS auto/1/0. Default: auto. Installs/checks Heltec USB serial, udev, pyserial, bleak, and port discovery helpers.
+  STRICT_HELTEC_T114_TOOLS 1 fails if Heltec runtime dependencies are missing.
+  INSTALL_HELTEC_NRF_TOOLS auto/1/0. Default: auto. Set 1 to prepare west/nrfutil/NCS for future Heltec T114 firmware targets.
   NRF_DFU_PORT            Legacy external dongle bootloader serial port for explicit --nrf-* targets only.
   KOALABYTE_NRF_BLE_PORT  Legacy alias. In the Heltec Edition this may point at the Heltec T114 onboard nRF52840 for compatibility.
   CAN_INTERFACE           SocketCAN interface for Koala Kan Kommander. Default: can0
@@ -75,7 +78,7 @@ Environment:
   STRICT_ESP32_TOOLS      1 fails if PlatformIO is unavailable before ESP32 build/flash.
   INSTALL_NRF_TOOLS       auto/1/0. Default: auto. Attempts to install missing west/nrfutil when possible for explicit legacy --nrf-* targets.
   STRICT_NRF_TOOLS        1 fails if west/nrfutil are unavailable before nRF build/flash.
-  INSTALL_NCS_TOOLCHAIN   auto/1/0. Default: auto. Downloads/updates full nRF Connect SDK/Zephyr toolchain for explicit legacy --nrf-* targets.
+  INSTALL_NCS_TOOLCHAIN   auto/1/0. Default: auto. Downloads/updates full nRF Connect SDK/Zephyr toolchain for explicit legacy --nrf-* targets or INSTALL_HELTEC_NRF_TOOLS=1.
   STRICT_NCS_TOOLCHAIN    1 fails if the full NCS/Zephyr toolchain cannot be prepared.
   NCS_WORKSPACE           Default: $HOME/ncs
   NCS_REVISION            Default: v2.9.0
@@ -89,12 +92,13 @@ Environment:
 
 Notes:
   - The Heltec Mesh Node T114 onboard nRF52840 is the default primary BLE board for the Heltec Edition.
+  - The flasher now runs scripts/setup_heltec_t114_tools.sh for Heltec USB serial, udev, pyserial/bleak, and port discovery checks before installing the BLE node manager.
   - ESP32-S3 DualEye and Raspberry Pi onboard BlueZ are BLE nodes used for local UI observations, enrichment, and fallback checks.
   - The InnoMaker CAN adapter does not get flashed; KoalaByte uses Linux SocketCAN, can-utils, python-can, and Koala Kan Kommander scripts.
   - --install-firmware and --all run setup_can0.sh, then Koala Kan Kommander manifest, inventory, and status checks.
   - Legacy external dongle firmware targets remain explicit opt-in targets and are not part of the default Heltec Edition install.
   - WiFi/internet can be configured first so the Pi can download SDK/toolchain dependencies.
-  - System packages and PlatformIO are checked/prepared before relevant flashing steps.
+  - System packages, Heltec runtime dependencies, and PlatformIO are checked/prepared before relevant steps.
   - Pi system package setup also installs AI voice/TTS dependencies: espeak-ng, espeak, ALSA tools, PulseAudio CLI utilities, PortAudio, and python3-pyaudio.
   - KillerKoala AI voice setup keeps the anti-repeat phrase engine as the fast default and only uses TinyLlama/Ollama for flexible banter when enabled.
   - KillerKoala boot welcome speech runs after the mode selector and before the splash/menu unless KILLERKOALA_BOOT_WELCOME=0.
@@ -184,8 +188,26 @@ setup_system_packages_for_selected_mode() {
     return 0
   fi
   echo
-  echo "== Raspberry Pi/system package dependency setup, including CAN, python-can, and AI voice/TTS packages =="
+  echo "== Raspberry Pi/system package dependency setup, including Heltec T114 USB serial, CAN, python-can, and AI voice/TTS packages =="
   STRICT_SYSTEM_PACKAGES="${STRICT_SYSTEM_PACKAGES:-0}" bash scripts/setup_system_packages.sh
+}
+
+setup_heltec_t114_tools_for_selected_mode() {
+  if [[ "${RUN_BLE_NODE_MANAGER}" != "1" && "${RUN_PI}" != "1" && "${RUN_SMOKE}" != "1" ]]; then
+    return 0
+  fi
+  echo
+  echo "== Heltec T114 dependency setup: USB serial, udev, pyserial/bleak, and port discovery =="
+  if [[ "${BUILD_ONLY}" == "1" ]]; then
+    echo "Build-only mode: running Heltec dependency check only."
+    STRICT_HELTEC_T114_TOOLS="${STRICT_HELTEC_T114_TOOLS:-0}" PYTHON_BIN="${REPO_ROOT}/pi-companion/.venv/bin/python" bash scripts/setup_heltec_t114_tools.sh --check-only || true
+    return 0
+  fi
+  INSTALL_HELTEC_T114_TOOLS="${INSTALL_HELTEC_T114_TOOLS:-auto}" \
+  STRICT_HELTEC_T114_TOOLS="${STRICT_HELTEC_T114_TOOLS:-0}" \
+  INSTALL_HELTEC_NRF_TOOLS="${INSTALL_HELTEC_NRF_TOOLS:-auto}" \
+  PYTHON_BIN="${REPO_ROOT}/pi-companion/.venv/bin/python" \
+    bash scripts/setup_heltec_t114_tools.sh
 }
 
 setup_esp32_tools_for_selected_mode() {
@@ -296,6 +318,7 @@ if [[ "${RUN_PI}" == "1" ]]; then
   bash scripts/install_pi.sh
 fi
 
+setup_heltec_t114_tools_for_selected_mode
 setup_killerkoala_ai_voice_for_selected_mode
 setup_esp32_tools_for_selected_mode
 setup_nrf_tools_for_selected_mode
