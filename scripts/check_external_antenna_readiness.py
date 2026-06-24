@@ -12,7 +12,7 @@ EXPECTED = {
     "logs/t114_lora_external_antenna_status.json": "LoRa / SX1262",
     "logs/t114_2g4_antenna_status.json": "connector_physical",
     "logs/esp32s3_dualeye_2g4_antenna_status.json": "ESP32-S3 DualEye",
-    "logs/pi_2g4_external_antenna_status.json": "usb_adapter_required",
+    "logs/pi_2g4_external_antenna_status.json": "optional_not_required",
 }
 
 
@@ -39,9 +39,12 @@ def main() -> int:
         if expected_text not in text:
             failures.append(f"{relative_path} missing expected text: {expected_text}")
         try:
-            json.loads(text)
+            payload = json.loads(text)
         except json.JSONDecodeError as exc:
             failures.append(f"{relative_path} is not valid JSON: {exc}")
+            continue
+        if relative_path.endswith("pi_2g4_external_antenna_status.json") and payload.get("adapter_required") is not False:
+            failures.append("Pi adapter_required must be false")
 
     if failures:
         print("External antenna readiness check failed:", file=sys.stderr)
