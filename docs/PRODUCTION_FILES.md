@@ -9,7 +9,7 @@ The external Nordic nRF52840 USB Dongle files remain in the repository as explic
 Current production references:
 
 - `README.md` - KoalaByte Blue V2 Heltec Edition quick-start and operation index.
-- `docs/FLASHING.md` - Heltec Edition flashing, install, and node-role guide.
+- `docs/FLASHING.md` - Heltec Edition flashing, install, dependency, and node-role guide.
 - `docs/ORDERABLE_PARTS_LIST.md` - current orderable hardware list with Heltec T114 as the primary BLE/LoRa board.
 - `docs/MAIN_BLE_NODE_ROLES.md` - BLE node role model: Heltec T114 nRF52840 primary, ESP32-S3 secondary node, Raspberry Pi BlueZ secondary/fallback node.
 - `docs/PRODUCTION_FILES.md` - this current production index.
@@ -28,6 +28,8 @@ Current production references:
 - `pi-companion/koalablue/ble_node_manager.py` - Heltec T114 primary BLE node manager with ESP32-S3 and Raspberry Pi BlueZ nodes.
 - `pi-companion/koalablue/killerkoala_vocabulary.py` - Raspberry Pi large-vocabulary companion engine with Aussie slang, XP rank tone changes, and anti-repeat phrase rotation.
 - `scripts/check_repo_readiness.py` - current ready-to-run repository validation check for the Heltec Edition architecture.
+- `scripts/setup_system_packages.sh` - installs/checks Raspberry Pi system packages, including Heltec T114 USB serial, udev, BlueZ, `python3-serial`, and serial terminal tools.
+- `scripts/setup_heltec_t114_tools.sh` - Heltec-specific dependency helper. Checks `pyserial`, `bleak`, USB/udev/BlueZ commands, stable `/dev/koalabyte-heltec` aliases, port discovery, and optional `west`/`nrfutil`/NCS tooling.
 - `scripts/discover_koalabyte_ports.py` - Heltec-first USB/CAN port discovery. Writes `KOALABYTE_PRIMARY_BLE_PORT`, `KOALABYTE_HELTEC_USB_PORT`, and secondary node paths.
 - `scripts/preflight_all_hardware.py` - non-flashing Heltec Edition preflight report.
 - `scripts/install_koalabyte_udev_rules.sh` - installs stable `/dev/koalabyte-heltec` and `/dev/koalabyte-esp32-eyes` aliases where udev can identify the devices.
@@ -35,10 +37,10 @@ Current production references:
 - `scripts/run_ble_node_manager_service.sh` - systemd service wrapper for continuous BLE node logging.
 - `scripts/install_ble_node_manager_service.sh` - installs the persistent BLE node manager service.
 - `scripts/configure_esp32s3_dualeye_2g4_antenna.sh` - writes ESP32-S3 DualEye external antenna status before ESP32 flashing.
-- `scripts/flash_all_components.sh` - one-command Pi install, ESP32 flash, Heltec-primary BLE node manager setup, InnoMaker CAN manifest helper, and USB power-bank checks.
+- `scripts/flash_all_components.sh` - one-command Pi install, Heltec T114 dependency setup, ESP32 flash, Heltec-primary BLE node manager setup, InnoMaker CAN manifest helper, and USB power-bank checks.
 - `scripts/build_firmware_all.sh` - firmware build helper. It builds ESP32 by default and builds legacy external nRF52840 targets only when explicitly requested.
 - `scripts/flash_esp32.sh` - ESP32 build/upload helper.
-- `scripts/install_pi.sh` - Pi companion dependency installer.
+- `scripts/install_pi.sh` - Pi companion dependency installer; runs the Heltec dependency helper by default and leaves legacy external dongle caches opt-in.
 - `scripts/run_killerkoala_voice.py` - KillerKoala vocabulary preview and manifest writer.
 - `scripts/run_koala_bluez.py` and `scripts/run_koala_bluez_*.sh` - Koala BlueZ runners.
 - `scripts/run_koala_mode_switcher.py` - Koala Mode Switcher CLI runner.
@@ -128,7 +130,8 @@ The repository is considered current only when:
 1. `python3 scripts/check_repo_readiness.py` passes.
 2. CI can compile the Pi companion Python code and scripts.
 3. ESP32 firmware builds with PlatformIO.
-4. Heltec T114 preflight identifies the primary BLE serial path or clearly reports it missing.
-5. Optional Koala Kan Kommander files remain present and passive by default unless explicitly gated for bench simulator work.
-6. `scripts/flash_all_components.sh --all` is documented as the primary all-component helper for the Heltec Edition.
-7. The USB power-bank production guide and orderable parts list remain aligned.
+4. `scripts/setup_heltec_t114_tools.sh` is present and wired into the Pi/flasher install path.
+5. Heltec T114 preflight identifies the primary BLE serial path or clearly reports it missing.
+6. Optional Koala Kan Kommander files remain present and passive by default unless explicitly gated for bench simulator work.
+7. `scripts/flash_all_components.sh --all` is documented as the primary all-component helper for the Heltec Edition.
+8. The USB power-bank production guide and orderable parts list remain aligned.
