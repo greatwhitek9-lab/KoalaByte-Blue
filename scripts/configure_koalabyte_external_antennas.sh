@@ -20,9 +20,9 @@ Usage:
 
 Runs readiness helpers for:
   - Heltec T114 LoRa external antenna
-  - Heltec T114 2.4 GHz antenna connector path
+  - Heltec T114 2.4 GHz antenna connector path for the extra 2.4 GHz antenna
   - ESP32-S3 DualEye 2.4 GHz external antenna connector path
-  - Raspberry Pi 2.4 GHz USB-adapter external antenna path
+  - Raspberry Pi optional 2.4 GHz USB adapter policy; not required and not a firmware failure
 EOF
       exit 0
       ;;
@@ -36,7 +36,7 @@ mkdir -p "$(dirname "${STATUS_PATH}")"
 bash scripts/configure_t114_lora_external_antenna.sh --check-only
 bash scripts/configure_t114_2g4_antenna.sh --check-only
 bash scripts/configure_esp32s3_dualeye_2g4_antenna.sh --check-only
-bash scripts/configure_pi_2g4_external_antenna.sh --check-only
+PI_2G4_EXTERNAL_ANTENNA="${PI_2G4_EXTERNAL_ANTENNA:-optional_disabled}" bash scripts/configure_pi_2g4_external_antenna.sh --check-only
 
 cat > "${STATUS_PATH}" <<JSON
 {
@@ -47,10 +47,11 @@ cat > "${STATUS_PATH}" <<JSON
   "pi_2g4_status": "logs/pi_2g4_external_antenna_status.json",
   "production_rules": [
     "Heltec LoRa uses a region-matched LoRa antenna on the LoRa connector.",
-    "Heltec 2.4 GHz uses the board 2.4 GHz antenna connector only.",
+    "The additional 2.4 GHz antenna is routed to the Heltec T114 board 2.4 GHz antenna connector.",
     "ESP32-S3 DualEye uses its IPEX1/U.FL/MHF1 2.4 GHz connector path.",
-    "Raspberry Pi 3B+ external 2.4 GHz path uses a USB WiFi/BLE adapter with an external antenna connector."
+    "Raspberry Pi 3B+ USB WiFi/BLE adapter with external antenna is optional only and must not fail firmware when absent."
   ],
+  "pi_usb_adapter_required": false,
   "updated_at": $(date +%s)
 }
 JSON
