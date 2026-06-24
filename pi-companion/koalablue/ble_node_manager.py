@@ -12,13 +12,23 @@ from typing import Any, Iterable
 
 from .ble_event_log import BleEventDeduper, BleEventLog, normalize_ble_event
 
-USB_PORT_HINTS = ("nrf52840", "pca10059", "dongle", "adafruit", "usbmodem", "ttyacm")
+PRIMARY_USB_PORT_HINTS = (
+    "koalabyte-heltec",
+    "heltec",
+    "t114",
+    "ht-n5262",
+    "wireless_tracker",
+    "wireless-tracker",
+    "nrf52840",
+    "usbmodem",
+    "ttyacm",
+)
 DEFAULT_BAUD = 115200
 
 
 def candidate_usb_ports() -> list[str]:
     ports: list[str] = []
-    for pattern in ("/dev/serial/by-id/*", "/dev/ttyACM*", "/dev/ttyUSB*", "/dev/cu.usbmodem*", "/dev/cu.usbserial*"):
+    for pattern in ("/dev/koalabyte-heltec", "/dev/serial/by-id/*", "/dev/ttyACM*", "/dev/ttyUSB*", "/dev/cu.usbmodem*", "/dev/cu.usbserial*"):
         ports.extend(sorted(glob.glob(pattern)))
     seen: set[str] = set()
     unique: list[str] = []
@@ -29,10 +39,10 @@ def candidate_usb_ports() -> list[str]:
     return unique
 
 
-def discover_dongle_port() -> str:
+def discover_primary_ble_port() -> str:
     for port in candidate_usb_ports():
         lower = port.lower()
-        if any(hint in lower for hint in USB_PORT_HINTS):
+        if any(hint in lower for hint in PRIMARY_USB_PORT_HINTS):
             return port
     return ""
 
@@ -61,7 +71,7 @@ class PiBluezSecondaryScanner:
     def start(self) -> None:
         if not self.enabled or self.thread:
             return
-        self.thread = threading.Thread(target=self._run_thread, name="koalabyte-pi-bluez-secondary", daemon=True)
+        self.thread = threading.Thread(target=self._run_thread, name="koalabyte-pi-bluez-node", daemon=True)
         self.thread.start()
 
     def stop(self) -> None:
@@ -103,23 +113,28 @@ class PiBluezSecondaryScanner:
 
 
 class BleNodeManager:
-    """Coordinate main-branch BLE node roles.
+    """Coordinate KoalaByte Blue V2 Heltec Edition BLE node roles.
 
-    The Nordic nRF52840 USB Dongle is the primary BLE source. ESP32-S3 DualEye
-    and Raspberry Pi BlueZ observations are secondary/fallback evidence. The
-    deduper resolves duplicate observations in favor of Dongle-origin events.
+    The Heltec Mesh Node T114 onboard nRF52840 is the primary BLE board and
+    canonical passive BLE source. ESP32-S3 DualEye and Raspberry Pi BlueZ are
+    additional BLE nodes used for UI-adjacent observations, enrichment, and
+    fallback checks. Legacy ``dongle_port`` naming is still accepted as an alias
+    so older wrapper scripts do not break.
     """
 
     def __init__(
         self,
         *,
+        primary_port: str = "",
         dongle_port: str = "",
         esp32_port: str = "",
         baud: int = DEFAULT_BAUD,
         log_dir: str | Path = "logs/ble_nodes",
         pi_bluez: bool = True,
     ) -> None:
-        self.dongle = SerialBleNode("nrf52840-dongle", dongle_port or discover_dongle_port(), "primary", baud)
+        selected_primary = primary_port or dongle_port or discover_primary_ble_port()
+        self.primary_ble = SerialBleNode("heltec-t114-nrf52840", selected_primary, "primary", baud)
+        self.dongle = self.primary_ble  # Backward-compatible alias for older callers/tests.
         self.esp32 = SerialBleNode("esp32-s3-dualeye", esp32_port, "secondary", baud) if esp32_port else None
         self.log = BleEventLog(log_dir)
         self.deduper = BleEventDeduper()
@@ -168,7 +183,7 @@ class BleNodeManager:
                     pass
 
     def run(self, *, duration_seconds: float | None = None):
-        nodes = [self.dongle]
+        nodes = [self.primary_ble]
         if self.esp32:
             nodes.append(self.esp32)
 
