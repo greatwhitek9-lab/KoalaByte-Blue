@@ -105,7 +105,10 @@ python "${REPO_ROOT}/scripts/check_repo_readiness.py"
 echo
 echo "Generating default T114 HCI USB, color-mouth, GNSS, face-state, and passive BLE protocol artifacts..."
 PYTHONPATH="${REPO_ROOT}/pi-companion" python "${REPO_ROOT}/scripts/write_optional_t114_firmware_artifacts.py"
-bash "${REPO_ROOT}/scripts/configure_t114_2g4_antenna.sh" --check-only
+
+echo
+echo "Generating KoalaByte external antenna readiness artifacts..."
+bash "${REPO_ROOT}/scripts/configure_koalabyte_external_antennas.sh" --check-only
 
 echo
 echo "T114 plug-in flash policy: FLASH_T114_ON_PLUG=${FLASH_T114_ON_PLUG}, T114_PLUG_FLASH_PROFILE=${T114_PLUG_FLASH_PROFILE}"
@@ -195,6 +198,8 @@ echo "  bash ${REPO_ROOT}/scripts/setup_system_packages.sh"
 echo "Heltec T114 dependency helper:"
 echo "  bash ${REPO_ROOT}/scripts/setup_heltec_t114_tools.sh"
 echo "  INSTALL_HELTEC_NRF_TOOLS=1 bash ${REPO_ROOT}/scripts/setup_heltec_t114_tools.sh"
+echo "External antenna readiness:"
+echo "  bash ${REPO_ROOT}/scripts/configure_koalabyte_external_antennas.sh --check-only"
 echo "T114 plug-in firmware flash:"
 echo "  T114_PLUG_FLASH_PROFILE=color-mouth bash ${REPO_ROOT}/scripts/flash_t114_when_plugged.sh"
 echo "  T114_PLUG_FLASH_PROFILE=hci-usb bash ${REPO_ROOT}/scripts/flash_t114_when_plugged.sh"
