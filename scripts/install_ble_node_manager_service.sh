@@ -9,12 +9,14 @@ INSTALL_SERVICE="${INSTALL_BLE_NODE_MANAGER_SERVICE:-auto}"
 STRICT_SERVICE="${STRICT_BLE_NODE_MANAGER_SERVICE:-0}"
 PY="${PYTHON_BIN:-${ROOT}/pi-companion/.venv/bin/python}"
 
-if [[ -e /dev/koalabyte-nrf-ble ]]; then
-  DEFAULT_NRF_PORT="/dev/koalabyte-nrf-ble"
+if [[ -e /dev/koalabyte-heltec ]]; then
+  DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec"
+elif [[ -e /dev/ttyACM0 ]]; then
+  DEFAULT_PRIMARY_PORT="/dev/ttyACM0"
 else
-  DEFAULT_NRF_PORT="/dev/ttyACM0"
+  DEFAULT_PRIMARY_PORT=""
 fi
-PORT="${KOALABYTE_NRF_BLE_PORT:-${NRF_BLE_PORT:-${DEFAULT_NRF_PORT}}}"
+PRIMARY_PORT="${KOALABYTE_PRIMARY_BLE_PORT:-${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-${KOALABYTE_NRF_BLE_PORT:-${NRF_BLE_PORT:-${DEFAULT_PRIMARY_PORT}}}}}}"
 ESP="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-}}"
 PI_BLUEZ="${KOALABYTE_PI_BLUEZ_NODE:-1}"
 
@@ -62,10 +64,11 @@ fi
 
 mkdir -p "${ROOT}/logs/ble_nodes" "${ROOT}/logs/preflight"
 chmod +x "${ROOT}/scripts/run_ble_node_manager_service.sh"
-PYTHONPATH="${ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}" python3 "${ROOT}/scripts/discover_koalabyte_ports.py" --profile main --output-dir "${ROOT}/logs/preflight" || true
+PYTHONPATH="${ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}" python3 "${ROOT}/scripts/discover_koalabyte_ports.py" --profile heltec --output-dir "${ROOT}/logs/preflight" || true
 
 cat > /tmp/koalabyte-ble-node-manager.env <<ENVEOF
-KOALABYTE_NRF_BLE_PORT=${PORT}
+KOALABYTE_PRIMARY_BLE_PORT=${PRIMARY_PORT}
+KOALABYTE_HELTEC_USB_PORT=${PRIMARY_PORT}
 KOALABYTE_ESP32_FACE_PORT=${ESP}
 KOALABYTE_PI_BLUEZ_NODE=${PI_BLUEZ}
 PYTHON_BIN=${PY}
@@ -74,7 +77,7 @@ ENVEOF
 
 cat > /tmp/${SERVICE} <<SERVICEEOF
 [Unit]
-Description=KoalaByte BLE Node Manager - nRF52840 Dongle primary BLE node
+Description=KoalaByte Blue V2 Heltec Edition BLE Node Manager - Heltec T114 nRF52840 primary BLE board
 After=network-online.target bluetooth.service systemd-udev-settle.service
 Wants=network-online.target bluetooth.service systemd-udev-settle.service
 
