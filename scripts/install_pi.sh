@@ -13,6 +13,9 @@ STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-0}"
 INSTALL_HELTEC_T114_TOOLS="${INSTALL_HELTEC_T114_TOOLS:-auto}"
 STRICT_HELTEC_T114_TOOLS="${STRICT_HELTEC_T114_TOOLS:-0}"
 INSTALL_HELTEC_NRF_TOOLS="${INSTALL_HELTEC_NRF_TOOLS:-auto}"
+FLASH_T114_ON_PLUG="${FLASH_T114_ON_PLUG:-auto}"
+STRICT_T114_PLUG_FLASH="${STRICT_T114_PLUG_FLASH:-1}"
+T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE:-color-mouth}"
 PREPARE_DONGLE_CACHE="${PREPARE_DONGLE_CACHE:-0}"
 STRICT_DONGLE_CACHE="${STRICT_DONGLE_CACHE:-0}"
 INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS:-auto}"
@@ -105,6 +108,27 @@ PYTHONPATH="${REPO_ROOT}/pi-companion" python "${REPO_ROOT}/scripts/write_option
 bash "${REPO_ROOT}/scripts/configure_t114_2g4_antenna.sh" --check-only
 
 echo
+echo "T114 plug-in flash policy: FLASH_T114_ON_PLUG=${FLASH_T114_ON_PLUG}, T114_PLUG_FLASH_PROFILE=${T114_PLUG_FLASH_PROFILE}"
+case "${FLASH_T114_ON_PLUG}" in
+  auto|AUTO|1|true|True|yes|YES)
+    T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE}" bash "${REPO_ROOT}/scripts/flash_t114_when_plugged.sh" || {
+      if [[ "${STRICT_T114_PLUG_FLASH}" == "1" ]]; then
+        echo "STRICT_T114_PLUG_FLASH=1 is set, failing install because T114 plug-in flash did not complete." >&2
+        exit 1
+      fi
+      echo "Continuing install because STRICT_T114_PLUG_FLASH is not enabled." >&2
+    }
+    ;;
+  0|false|False|no|NO|skip|SKIP)
+    echo "Skipping T114 plug-in firmware flash by request."
+    ;;
+  *)
+    echo "Unknown FLASH_T114_ON_PLUG value: ${FLASH_T114_ON_PLUG}. Use auto, 1, or 0." >&2
+    exit 1
+    ;;
+esac
+
+echo
 echo "Legacy external nRF52840 Dongle cache policy: PREPARE_DONGLE_CACHE=${PREPARE_DONGLE_CACHE}, STRICT_DONGLE_CACHE=${STRICT_DONGLE_CACHE}"
 case "${PREPARE_DONGLE_CACHE}" in
   0|false|False|no|NO|skip|SKIP)
@@ -171,6 +195,9 @@ echo "  bash ${REPO_ROOT}/scripts/setup_system_packages.sh"
 echo "Heltec T114 dependency helper:"
 echo "  bash ${REPO_ROOT}/scripts/setup_heltec_t114_tools.sh"
 echo "  INSTALL_HELTEC_NRF_TOOLS=1 bash ${REPO_ROOT}/scripts/setup_heltec_t114_tools.sh"
+echo "T114 plug-in firmware flash:"
+echo "  T114_PLUG_FLASH_PROFILE=color-mouth bash ${REPO_ROOT}/scripts/flash_t114_when_plugged.sh"
+echo "  T114_PLUG_FLASH_PROFILE=hci-usb bash ${REPO_ROOT}/scripts/flash_t114_when_plugged.sh"
 echo "Optional T114 protocol artifact manifest:"
 echo "  python3 ${REPO_ROOT}/scripts/write_optional_t114_firmware_artifacts.py"
 echo "  bash ${REPO_ROOT}/scripts/configure_t114_2g4_antenna.sh --check-only"
