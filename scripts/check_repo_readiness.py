@@ -18,6 +18,7 @@ REQUIRED_FILES = [
     "docs/MAIN_BLE_NODE_ROLES.md",
     "docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md",
     "docs/FLASHING.md",
+    "docs/HELTEC_BRANCH_MINING_FINDINGS.md",
     "docs/EUCALYPTUS_ALWAYS_ON_BLE_REVA8.md",
     "docs/CAMERA_AWARENESS_LOGGER.md",
     "docs/THATS_NOT_A_KNIFE_SERVICE.md",
@@ -88,6 +89,12 @@ REQUIRED_TEXT = {
         "KOALABYTE_PRIMARY_BLE_PORT",
         "INSTALL_HELTEC_NRF_TOOLS=1",
         "scripts/check_menu_actions.py",
+    ],
+    "docs/HELTEC_BRANCH_MINING_FINDINGS.md": [
+        "backup_Heltec",
+        "Mined findings applied to the active branch",
+        "Heltec Mesh Node T114 onboard nRF52840 -> primary BLE board",
+        "Legacy external nRF52840 Dongle -> opt-in compatibility only",
     ],
     "pi-companion/koalablue/anteater.py": [
         "DEFAULT_NODE_LOG_PATH",
