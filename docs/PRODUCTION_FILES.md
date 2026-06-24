@@ -9,7 +9,7 @@ The external Nordic nRF52840 USB Dongle files remain in the repository as explic
 Current production references:
 
 - `README.md` - KoalaByte Blue V2 Heltec Edition quick-start and operation index.
-- `docs/FLASHING.md` - Heltec Edition flashing, install, dependency, and node-role guide.
+- `docs/FLASHING.md` - Heltec Edition flashing, install, dependency, full-menu readiness, and node-role guide.
 - `docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md` - AntEater passive BLE payment-terminal risk triage guide using the Heltec primary BLE node log.
 - `docs/ORDERABLE_PARTS_LIST.md` - current orderable hardware list with Heltec T114 as the primary BLE/LoRa board.
 - `docs/MAIN_BLE_NODE_ROLES.md` - BLE node role model: Heltec T114 nRF52840 primary, ESP32-S3 secondary node, Raspberry Pi BlueZ secondary/fallback node.
@@ -24,12 +24,14 @@ Current production references:
 - `firmware/esp32-dualeye/voice_commands/` - WakeNet/MultiNet command alias planning files for ESP32-S3 voice activation.
 - `firmware/esp32-dualeye/themes/` - active theme and approved SVG visual source-of-truth assets.
 - `pi-companion/` - Raspberry Pi companion app, menu, theme, and helper modules.
+- `pi-companion/koalablue/menu_catalog.py` - source of truth for all main menu, submenu, and enabled leaf menu items.
 - `pi-companion/koalablue/anteater.py` - AntEater passive BLE advertisement risk triage. It prefers `logs/ble_nodes/ble_events.jsonl` from the Heltec T114 primary BLE node manager and falls back to bounded Pi BlueZ/Bleak scanning only when requested or needed.
 - `pi-companion/koalablue/ble_event_log.py` - BLE event normalization and source priority. The Heltec T114 nRF52840 is the primary source.
 - `pi-companion/koalblue/` - not used; keep new code under `pi-companion/koalablue/`.
 - `pi-companion/koalablue/ble_node_manager.py` - Heltec T114 primary BLE node manager with ESP32-S3 and Raspberry Pi BlueZ nodes.
 - `pi-companion/koalablue/killerkoala_vocabulary.py` - Raspberry Pi large-vocabulary companion engine with Aussie slang, XP rank tone changes, and anti-repeat phrase rotation.
 - `scripts/check_repo_readiness.py` - current ready-to-run repository validation check for the Heltec Edition architecture.
+- `scripts/check_menu_actions.py` - full menu readiness manifest generator. Validates that every enabled menu leaf has a handler and every submenu target exists without executing the actions.
 - `scripts/setup_system_packages.sh` - installs/checks Raspberry Pi system packages, including Heltec T114 USB serial, udev, BlueZ, `python3-serial`, and serial terminal tools.
 - `scripts/setup_heltec_t114_tools.sh` - Heltec-specific dependency helper. Checks `pyserial`, `bleak`, USB/udev/BlueZ commands, stable `/dev/koalabyte-heltec` aliases, port discovery, and optional `west`/`nrfutil`/NCS tooling.
 - `scripts/discover_koalabyte_ports.py` - Heltec-first USB/CAN port discovery. Writes `KOALABYTE_PRIMARY_BLE_PORT`, `KOALABYTE_HELTEC_USB_PORT`, and secondary node paths.
@@ -40,7 +42,7 @@ Current production references:
 - `scripts/run_ble_node_manager_service.sh` - systemd service wrapper for continuous BLE node logging.
 - `scripts/install_ble_node_manager_service.sh` - installs the persistent BLE node manager service.
 - `scripts/configure_esp32s3_dualeye_2g4_antenna.sh` - writes ESP32-S3 DualEye external antenna status before ESP32 flashing.
-- `scripts/flash_all_components.sh` - one-command Pi install, Heltec T114 dependency setup, ESP32 flash, Heltec-primary BLE node manager setup, InnoMaker CAN manifest helper, and USB power-bank checks.
+- `scripts/flash_all_components.sh` - one-command Pi install, Heltec T114 dependency setup, full-menu readiness manifest, ESP32 flash, Heltec-primary BLE node manager setup, AntEater readiness, InnoMaker CAN manifest helper, and USB power-bank checks.
 - `scripts/build_firmware_all.sh` - firmware build helper. It builds ESP32 by default and builds legacy external nRF52840 targets only when explicitly requested.
 - `scripts/flash_esp32.sh` - ESP32 build/upload helper.
 - `scripts/install_pi.sh` - Pi companion dependency installer; runs the Heltec dependency helper by default and leaves legacy external dongle caches opt-in.
@@ -83,6 +85,17 @@ InnoMaker USB-to-CAN kit
 ```
 
 No custom PCB is required. The build uses commercially available development boards/modules, USB cabling, standoffs, a PIFFA-style USB portable power bank, optional powered USB hub, optional InnoMaker USB-to-CAN accessory hardware, approved firmware theme assets, and an open-frame stacked layout.
+
+## Menu readiness rule
+
+```text
+pi-companion/koalablue/menu_catalog.py
+  -> all main/submenu/leaf items
+  -> scripts/check_menu_actions.py
+  -> logs/menu_actions/menu_action_manifest.json
+```
+
+The one-shot installer validates that every enabled menu leaf has a registered handler and every submenu target exists. The check does not execute the menu actions.
 
 ## ESP32-S3 DualEye antenna rule
 
@@ -146,7 +159,8 @@ The repository is considered current only when:
 3. ESP32 firmware builds with PlatformIO.
 4. `scripts/setup_heltec_t114_tools.sh` is present and wired into the Pi/flasher install path.
 5. Heltec T114 preflight identifies the primary BLE serial path or clearly reports it missing.
-6. AntEater is present in `pi-companion/koalablue/anteater.py`, `scripts/run_anteater.py`, `docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md`, and the Bluetooth Tools menu.
-7. Optional Koala Kan Kommander files remain present and passive by default unless explicitly gated for bench simulator work.
-8. `scripts/flash_all_components.sh --all` is documented as the primary all-component helper for the Heltec Edition.
-9. The USB power-bank production guide and orderable parts list remain aligned.
+6. `scripts/check_menu_actions.py` validates every enabled menu item and is wired into `scripts/flash_all_components.sh --all` / `--install-firmware`.
+7. AntEater is present in `pi-companion/koalablue/anteater.py`, `scripts/run_anteater.py`, `docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md`, and the Bluetooth Tools menu.
+8. Optional Koala Kan Kommander files remain present and passive by default unless explicitly gated for bench simulator work.
+9. `scripts/flash_all_components.sh --all` is documented as the primary all-component helper for the Heltec Edition.
+10. The USB power-bank production guide and orderable parts list remain aligned.
