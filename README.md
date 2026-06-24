@@ -23,13 +23,15 @@ Then run one command:
 bash scripts/install_koalabyte_one_shot.sh
 ```
 
-That one command handles the Pi companion install, Heltec plug-in firmware flash, ESP32-S3 DualEye firmware flash, KillerKoala eyes and mouth sync, BLE node manager service, Didgeridoo/menu readiness, antenna/protocol artifacts, and AntEater passive-readiness status.
+That one command handles the Pi companion install, Heltec plug-in firmware flash, ESP32-S3 DualEye firmware flash, KillerKoala eyes and mouth sync, menu/submenu/button/control/command readiness, BLE node manager service, Didgeridoo/menu readiness, antenna/protocol artifacts, and AntEater passive-readiness status.
 
 The eyes and mouth use the same `killerkoala_face` JSON payload: ESP32-S3 DualEye renders the eyes, and the Heltec T114 color-mouth firmware renders the mouth/status face. The one-shot installer sends a sync test before starting services so both sides stay aligned.
 
+The one-shot control check records every menu/submenu route, every enabled command handler, the six-button front-panel GPIO map, required helper commands, antenna path status files, and the shared face protocol in `logs/one_shot/control_surface_status.json`.
+
 The InnoMaker CAN kit is optional. If it is not plugged in, the one-shot installer records a non-failing optional CAN status and continues.
 
-Deployment readiness markers: `bash scripts/install_koalabyte_one_shot.sh`; `InnoMaker CAN kit is optional`; eyes and mouth sync.
+Deployment readiness markers: `bash scripts/install_koalabyte_one_shot.sh`; `InnoMaker CAN kit is optional`; eyes and mouth sync; menu button antenna control command readiness.
 
 Useful overrides:
 
@@ -190,6 +192,9 @@ PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
 # Full one-shot deployment
 bash scripts/install_koalabyte_one_shot.sh
 
+# Full one-shot menu/button/antenna/control/command readiness artifact
+PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
+
 # Eyes and mouth sync check
 PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py --emit-test
 
@@ -200,6 +205,10 @@ bash scripts/flash_all_components.sh --install-firmware
 python3 scripts/run_didgeridoo.py status
 python3 scripts/run_didgeridoo.py nodes
 python3 scripts/run_didgeridoo.py gps
+
+# Front-panel button mapping check
+PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
+python3 scripts/test_gpio_buttons.py
 
 # AntEater passive report from existing Heltec primary BLE logs
 PYTHONPATH=pi-companion python3 scripts/run_anteater.py status
@@ -246,6 +255,7 @@ After flashing, run:
 ```bash
 python3 scripts/check_repo_readiness.py
 PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
+PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
 PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py --emit-test
 python3 scripts/run_didgeridoo.py status
 bash scripts/configure_koalabyte_external_antennas.sh --check-only
