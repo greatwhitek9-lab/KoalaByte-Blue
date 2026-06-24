@@ -19,7 +19,6 @@ REQUIRED_FILES = [
     "pi-companion/koalablue/menu_catalog.py",
     "pi-companion/koalablue/meshtastic_app.py",
     "pi-companion/koalablue/t114_bluez.py",
-    "pi-companion/koalblue/gnss_location.py",
     "pi-companion/koalablue/gnss_location.py",
     "pi-companion/koalablue/location_password_gate.py",
     "scripts/check_menu_actions.py",
