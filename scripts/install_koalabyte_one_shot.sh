@@ -138,6 +138,35 @@ JSON
   write_status "ok" "optional_innomaker_can" "optional CAN check completed or was non-failing"
 }
 
+prepare_anteater_status() {
+  PYTHONPATH=pi-companion python3 - <<'PY'
+import json
+import time
+from pathlib import Path
+from koalablue.anteater import ACTION_NAME, DEFAULT_NODE_LOG_PATH, DEFAULT_STATUS_PATH
+Path("logs/anteater").mkdir(parents=True, exist_ok=True)
+status = {
+    "status": "ANTEATER_READY",
+    "action_name": ACTION_NAME,
+    "updated_at": time.time(),
+    "one_shot_installer_check": True,
+    "live_scan_started": False,
+    "node_log": str(DEFAULT_NODE_LOG_PATH),
+    "source": "one-shot-installer-readiness",
+    "safety": {
+        "advertisement_only": True,
+        "no_pairing": True,
+        "no_connections": True,
+        "no_writes": True,
+        "no_live_scan_during_flash": True
+    }
+}
+Path(DEFAULT_STATUS_PATH).write_text(json.dumps(status, indent=2, sort_keys=True), encoding="utf-8")
+print(json.dumps(status, sort_keys=True))
+PY
+  PYTHONPATH=pi-companion python3 scripts/run_anteater.py status >/dev/null
+}
+
 trap 'write_status "failed" "one_shot_install" "one-shot installer exited before completion"' ERR
 
 run_required "Repo readiness" python3 scripts/check_repo_readiness.py
@@ -148,14 +177,16 @@ run_required "Raspberry Pi companion + Heltec plug-in flash" \
       T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE}" \
       bash scripts/install_pi.sh
 
-run_required "ESP32-S3 DualEye firmware flash" bash -c '
-  STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-1}" bash scripts/setup_esp32_tools.sh
-  if [[ -n "${ESP32_PORT:-}" ]]; then
-    ESP32_PORT="${ESP32_PORT}" NO_MONITOR="${NO_MONITOR:-1}" bash scripts/flash_esp32.sh
-  else
-    NO_MONITOR="${NO_MONITOR:-1}" bash scripts/flash_esp32.sh
-  fi
-'
+run_required "ESP32-S3 DualEye firmware flash" \
+  env ESP32_PORT="${ESP32_PORT}" NO_MONITOR="${NO_MONITOR}" STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-1}" \
+  bash -c '
+    STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS}" bash scripts/setup_esp32_tools.sh
+    if [[ -n "${ESP32_PORT}" ]]; then
+      ESP32_PORT="${ESP32_PORT}" NO_MONITOR="${NO_MONITOR}" bash scripts/flash_esp32.sh
+    else
+      NO_MONITOR="${NO_MONITOR}" bash scripts/flash_esp32.sh
+    fi
+  '
 
 run_required "BLE node manager service" \
   env KOALABYTE_PRIMARY_BLE_PORT="${KOALABYTE_PRIMARY_BLE_PORT:-${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-/dev/koalabyte-heltec}}}" \
@@ -169,7 +200,7 @@ run_required "BLE node manager service" \
 
 run_required "Didgeridoo/menu action readiness" env PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
 run_required "External antenna readiness" bash scripts/configure_koalabyte_external_antennas.sh --check-only
-run_required "AntEater passive readiness" env PYTHONPATH=pi-companion python3 scripts/run_anteater.py status
+run_required "AntEater passive readiness" prepare_anteater_status
 run_optional_can
 
 write_status "complete" "one_shot_install" "Pi, Heltec, ESP32-S3, services, menu, antenna, and passive-readiness steps complete; InnoMaker CAN optional"
