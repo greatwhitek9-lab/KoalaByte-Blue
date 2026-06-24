@@ -83,35 +83,37 @@ fi
 
 if [[ "${CHECK_ONLY}" != "1" && "${INSTALL_HELTEC_T114_TOOLS}" != "0" ]]; then
   echo "Installing/checking Python runtime packages for Heltec serial/BLE node support..."
-  "${PY}" -m pip install --upgrade pyserial bleak >/dev/null || {
+  if ! "${PY}" -m pip install --upgrade pyserial bleak >/dev/null; then
     echo "Could not install/upgrade pyserial and bleak with ${PY}." >&2
     [[ "${STRICT_HELTEC_T114_TOOLS}" == "1" ]] && exit 1
-  }
+  fi
 fi
 
-"${PY}" - <<'PY' || {
+if ! "${PY}" - <<'PY'
 import importlib.util
 missing = [name for name in ("serial", "bleak") if importlib.util.find_spec(name) is None]
 if missing:
     raise SystemExit("missing Python modules: " + ", ".join(missing))
 print("Python modules OK: pyserial, bleak")
 PY
+then
+  echo "Python runtime modules for Heltec serial/BLE support are incomplete." >&2
   [[ "${STRICT_HELTEC_T114_TOOLS}" == "1" ]] && exit 1
-}
+fi
 
 if [[ "${CHECK_ONLY}" != "1" && "${INSTALL_HELTEC_T114_TOOLS}" != "0" ]]; then
   echo "Installing/checking KoalaByte udev rules for Heltec T114 stable paths..."
-  INSTALL_UDEV_RULES="${INSTALL_UDEV_RULES:-auto}" STRICT_UDEV_RULES="${STRICT_UDEV_RULES:-0}" bash "${ROOT}/scripts/install_koalabyte_udev_rules.sh" || {
+  if ! INSTALL_UDEV_RULES="${INSTALL_UDEV_RULES:-auto}" STRICT_UDEV_RULES="${STRICT_UDEV_RULES:-0}" bash "${ROOT}/scripts/install_koalabyte_udev_rules.sh"; then
     echo "Heltec udev alias setup did not complete." >&2
     [[ "${STRICT_HELTEC_T114_TOOLS}" == "1" ]] && exit 1
-  }
+  fi
 fi
 
 echo "Running Heltec-priority port discovery..."
-"${PY}" "${ROOT}/scripts/discover_koalabyte_ports.py" --profile heltec --output-dir "${ROOT}/logs/preflight" || {
+if ! "${PY}" "${ROOT}/scripts/discover_koalabyte_ports.py" --profile heltec --output-dir "${ROOT}/logs/preflight"; then
   echo "Heltec port discovery failed." >&2
   [[ "${STRICT_HELTEC_T114_TOOLS}" == "1" ]] && exit 1
-}
+fi
 
 if [[ -f "${ROOT}/logs/preflight/koalabyte_ports.env" ]]; then
   echo "Heltec port env written: ${ROOT}/logs/preflight/koalabyte_ports.env"
