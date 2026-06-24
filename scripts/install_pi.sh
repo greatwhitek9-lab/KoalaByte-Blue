@@ -6,24 +6,27 @@ VENV_DIR="${REPO_ROOT}/pi-companion/.venv"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 CONNECT_WIFI_FIRST_BOOT="${CONNECT_WIFI_FIRST_BOOT:-auto}"
 STRICT_WIFI_FIRST_BOOT="${STRICT_WIFI_FIRST_BOOT:-0}"
-PREPARE_DONGLE_CACHE="${PREPARE_DONGLE_CACHE:-auto}"
-STRICT_DONGLE_CACHE="${STRICT_DONGLE_CACHE:-0}"
-INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS:-auto}"
-INSTALL_NCS_TOOLCHAIN="${INSTALL_NCS_TOOLCHAIN:-auto}"
-STRICT_NCS_TOOLCHAIN="${STRICT_NCS_TOOLCHAIN:-${STRICT_DONGLE_CACHE}}"
 INSTALL_SYSTEM_PACKAGES="${INSTALL_SYSTEM_PACKAGES:-auto}"
 STRICT_SYSTEM_PACKAGES="${STRICT_SYSTEM_PACKAGES:-0}"
 INSTALL_ESP32_TOOLS="${INSTALL_ESP32_TOOLS:-auto}"
 STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-0}"
+INSTALL_HELTEC_T114_TOOLS="${INSTALL_HELTEC_T114_TOOLS:-auto}"
+STRICT_HELTEC_T114_TOOLS="${STRICT_HELTEC_T114_TOOLS:-0}"
+INSTALL_HELTEC_NRF_TOOLS="${INSTALL_HELTEC_NRF_TOOLS:-auto}"
+PREPARE_DONGLE_CACHE="${PREPARE_DONGLE_CACHE:-0}"
+STRICT_DONGLE_CACHE="${STRICT_DONGLE_CACHE:-0}"
+INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS:-auto}"
+INSTALL_NCS_TOOLCHAIN="${INSTALL_NCS_TOOLCHAIN:-auto}"
+STRICT_NCS_TOOLCHAIN="${STRICT_NCS_TOOLCHAIN:-${STRICT_DONGLE_CACHE}}"
 INSTALL_THATS_NOT_A_KNIFE_SERVICE="${INSTALL_THATS_NOT_A_KNIFE_SERVICE:-auto}"
 STRICT_THATS_NOT_A_KNIFE_SERVICE="${STRICT_THATS_NOT_A_KNIFE_SERVICE:-0}"
 VENV_SYSTEM_SITE_PACKAGES="${VENV_SYSTEM_SITE_PACKAGES:-1}"
 
 cd "${REPO_ROOT}"
 
-echo "KoalaByte Blue Pi companion installer"
+echo "KoalaByte Blue V2 Heltec Edition Pi companion installer"
 echo "Repository root: ${REPO_ROOT}"
-echo "System dependency helper covers WiFi, BlueZ, SDL2, can-utils, iproute2, USB, build, and GPIO packages when apt is available."
+echo "System dependency helper covers WiFi, BlueZ, Heltec T114 USB serial/udev, SDL2, can-utils, iproute2, USB, build, and GPIO packages when apt is available."
 echo
 
 if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
@@ -65,6 +68,20 @@ python -m pip install --upgrade pip wheel setuptools
 python -m pip install -r "${REPO_ROOT}/pi-companion/requirements.txt"
 
 echo
+echo "Checking/preparing Heltec T114 runtime dependencies and port discovery..."
+INSTALL_HELTEC_T114_TOOLS="${INSTALL_HELTEC_T114_TOOLS}" \
+STRICT_HELTEC_T114_TOOLS="${STRICT_HELTEC_T114_TOOLS}" \
+INSTALL_HELTEC_NRF_TOOLS="${INSTALL_HELTEC_NRF_TOOLS}" \
+PYTHON_BIN="${VENV_DIR}/bin/python" \
+  bash "${REPO_ROOT}/scripts/setup_heltec_t114_tools.sh" || {
+    if [[ "${STRICT_HELTEC_T114_TOOLS}" == "1" ]]; then
+      echo "STRICT_HELTEC_T114_TOOLS=1 is set, failing install because Heltec T114 setup did not complete." >&2
+      exit 1
+    fi
+    echo "Continuing install because STRICT_HELTEC_T114_TOOLS is not enabled." >&2
+  }
+
+echo
 echo "Checking/preparing ESP32 PlatformIO tools..."
 STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS}" INSTALL_ESP32_TOOLS="${INSTALL_ESP32_TOOLS}" PYTHON_BIN="${VENV_DIR}/bin/python" bash "${REPO_ROOT}/scripts/setup_esp32_tools.sh" || {
   if [[ "${STRICT_ESP32_TOOLS}" == "1" ]]; then
@@ -83,45 +100,32 @@ echo "Running repo readiness check..."
 python "${REPO_ROOT}/scripts/check_repo_readiness.py"
 
 echo
-echo "Checking/preparing west and nrfutil for nRF52840 flashing..."
-STRICT_NRF_TOOLS="${STRICT_DONGLE_CACHE}" INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS}" PYTHON_BIN="${VENV_DIR}/bin/python" bash "${REPO_ROOT}/scripts/setup_nrf_tools.sh" || {
-  if [[ "${STRICT_DONGLE_CACHE}" == "1" ]]; then
-    echo "STRICT_DONGLE_CACHE=1 is set, failing install because west/nrfutil setup did not complete." >&2
-    exit 1
-  fi
-  echo "Continuing install because STRICT_DONGLE_CACHE is not enabled." >&2
-}
-
-echo
-echo "Checking/preparing full nRF Connect SDK / Zephyr toolchain..."
-INSTALL_NCS_TOOLCHAIN="${INSTALL_NCS_TOOLCHAIN}" STRICT_NCS_TOOLCHAIN="${STRICT_NCS_TOOLCHAIN}" PYTHON_BIN="${VENV_DIR}/bin/python" bash "${REPO_ROOT}/scripts/setup_nrf_connect_sdk_toolchain.sh" || {
-  if [[ "${STRICT_NCS_TOOLCHAIN}" == "1" ]]; then
-    echo "STRICT_NCS_TOOLCHAIN=1 is set, failing install because full NCS/Zephyr toolchain setup did not complete." >&2
-    exit 1
-  fi
-  echo "Continuing install because STRICT_NCS_TOOLCHAIN is not enabled." >&2
-}
-
-echo
-echo "Preparing offline nRF52840 Dongle firmware cache policy: PREPARE_DONGLE_CACHE=${PREPARE_DONGLE_CACHE}, STRICT_DONGLE_CACHE=${STRICT_DONGLE_CACHE}"
+echo "Legacy external nRF52840 Dongle cache policy: PREPARE_DONGLE_CACHE=${PREPARE_DONGLE_CACHE}, STRICT_DONGLE_CACHE=${STRICT_DONGLE_CACHE}"
 case "${PREPARE_DONGLE_CACHE}" in
   0|false|False|no|NO|skip|SKIP)
-    echo "Skipping dongle firmware cache preparation by request."
-    PYTHONPATH="${REPO_ROOT}/pi-companion" python "${REPO_ROOT}/scripts/run_koala_mode_switcher.py" cache-status || true
+    echo "Skipping legacy external dongle firmware cache preparation. Heltec T114 is the default primary BLE board."
     ;;
   auto|AUTO|1|true|True|yes|YES)
+    echo "Preparing legacy external dongle cache because PREPARE_DONGLE_CACHE requested it."
+    STRICT_NRF_TOOLS="${STRICT_DONGLE_CACHE}" INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS}" PYTHON_BIN="${VENV_DIR}/bin/python" bash "${REPO_ROOT}/scripts/setup_nrf_tools.sh" || {
+      if [[ "${STRICT_DONGLE_CACHE}" == "1" ]]; then
+        echo "STRICT_DONGLE_CACHE=1 is set, failing install because west/nrfutil setup did not complete." >&2
+        exit 1
+      fi
+      echo "Continuing install because STRICT_DONGLE_CACHE is not enabled." >&2
+    }
+    INSTALL_NCS_TOOLCHAIN="${INSTALL_NCS_TOOLCHAIN}" STRICT_NCS_TOOLCHAIN="${STRICT_NCS_TOOLCHAIN}" PYTHON_BIN="${VENV_DIR}/bin/python" bash "${REPO_ROOT}/scripts/setup_nrf_connect_sdk_toolchain.sh" || {
+      if [[ "${STRICT_NCS_TOOLCHAIN}" == "1" ]]; then
+        echo "STRICT_NCS_TOOLCHAIN=1 is set, failing install because full NCS/Zephyr toolchain setup did not complete." >&2
+        exit 1
+      fi
+      echo "Continuing install because STRICT_NCS_TOOLCHAIN is not enabled." >&2
+    }
     if command -v west >/dev/null 2>&1 && command -v nrfutil >/dev/null 2>&1; then
-      echo "west and nrfutil detected. Building and caching both dongle DFU ZIPs now."
       PYTHON_BIN="${VENV_DIR}/bin/python" PYTHONPATH="${REPO_ROOT}/pi-companion" bash "${REPO_ROOT}/scripts/prepare_dongle_firmware_cache.sh"
     else
-      echo "west and/or nrfutil not found, so both DFU ZIPs cannot be prepared automatically on this install run." >&2
-      echo "Run the setup helper and cache helper after installing tools:" >&2
-      echo "  bash ${REPO_ROOT}/scripts/setup_nrf_tools.sh" >&2
-      echo "  bash ${REPO_ROOT}/scripts/setup_nrf_connect_sdk_toolchain.sh" >&2
-      echo "  bash ${REPO_ROOT}/scripts/prepare_dongle_firmware_cache.sh" >&2
-      PYTHONPATH="${REPO_ROOT}/pi-companion" python "${REPO_ROOT}/scripts/run_koala_mode_switcher.py" cache-status || true
+      echo "west and/or nrfutil not found, so legacy dongle DFU ZIPs cannot be prepared automatically." >&2
       if [[ "${STRICT_DONGLE_CACHE}" == "1" ]]; then
-        echo "STRICT_DONGLE_CACHE=1 is set, failing install because firmware cache was not prepared." >&2
         exit 1
       fi
     fi
@@ -159,17 +163,16 @@ echo "WiFi first-boot helper:"
 echo "  WIFI_INTERACTIVE=1 bash ${REPO_ROOT}/scripts/setup_wifi_first_boot.sh"
 echo "System dependency helper:"
 echo "  bash ${REPO_ROOT}/scripts/setup_system_packages.sh"
+echo "Heltec T114 dependency helper:"
+echo "  bash ${REPO_ROOT}/scripts/setup_heltec_t114_tools.sh"
+echo "  INSTALL_HELTEC_NRF_TOOLS=1 bash ${REPO_ROOT}/scripts/setup_heltec_t114_tools.sh"
 echo "ESP32 PlatformIO helper:"
 echo "  bash ${REPO_ROOT}/scripts/setup_esp32_tools.sh"
-echo "west/nrfutil setup helper:"
-echo "  bash ${REPO_ROOT}/scripts/setup_nrf_tools.sh"
-echo "Full nRF Connect SDK / Zephyr toolchain helper:"
-echo "  bash ${REPO_ROOT}/scripts/setup_nrf_connect_sdk_toolchain.sh"
-echo "  source ${REPO_ROOT}/logs/nrf_connect_sdk_env.sh"
-echo "Offline nRF52840 Dongle firmware cache:"
-echo "  bash ${REPO_ROOT}/scripts/prepare_dongle_firmware_cache.sh"
-echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_koala_mode_switcher.py cache-status"
-echo "  cache file: ${REPO_ROOT}/logs/dongle_firmware_cache.json"
+echo
+echo "Heltec primary BLE node check:"
+echo "  python3 ${REPO_ROOT}/scripts/discover_koalabyte_ports.py --profile heltec"
+echo "  cat ${REPO_ROOT}/logs/preflight/koalabyte_ports.env"
+echo "  KOALABYTE_PRIMARY_BLE_PORT=/dev/koalabyte-heltec PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_ble_node_manager.py --duration 30"
 echo
 echo "Koala Kan Kommander InnoMaker manifest test:"
 echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_koala_kan_kommander.py manifest"
@@ -179,9 +182,5 @@ echo "  bash ${REPO_ROOT}/scripts/install_thats_not_a_knife_service.sh"
 echo "  systemctl status koalabyte-thats-not-a-knife.service"
 echo "  journalctl -u koalabyte-thats-not-a-knife.service -f"
 echo
-echo "Pre-boot dongle mode selector:"
-echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_preboot_mode_select.py"
-echo "  NRF_DFU_PORT=/dev/ttyACM0 PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_preboot_mode_select.py --mode koala_konnect"
-echo
-echo "Normal boot wrapper with pre-boot selector, boot splash, and menu:"
+echo "Normal boot wrapper with boot splash and menu:"
 echo "  bash ${REPO_ROOT}/scripts/koalabyte_blue_boot.sh"
