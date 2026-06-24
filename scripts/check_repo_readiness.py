@@ -19,6 +19,7 @@ REQUIRED_FILES = [
     "docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md",
     "docs/FLASHING.md",
     "docs/HELTEC_BRANCH_MINING_FINDINGS.md",
+    "docs/MINED_HELTEC_V2_FEATURES.md",
     "docs/EUCALYPTUS_ALWAYS_ON_BLE_REVA8.md",
     "docs/CAMERA_AWARENESS_LOGGER.md",
     "docs/THATS_NOT_A_KNIFE_SERVICE.md",
@@ -33,11 +34,16 @@ REQUIRED_FILES = [
     "firmware/esp32-dualeye/src/koalagotchi_mode_screens.cpp",
     "pi-companion/config.default.json",
     "pi-companion/requirements.txt",
+    "pi-companion/requirements-heltec-v2-extra.txt",
     "pi-companion/koalablue/__init__.py",
     "pi-companion/koalablue/menu_catalog.py",
     "pi-companion/koalablue/anteater.py",
     "pi-companion/koalablue/ble_event_log.py",
     "pi-companion/koalablue/ble_node_manager.py",
+    "pi-companion/koalablue/gnss_location.py",
+    "pi-companion/koalablue/location_password_gate.py",
+    "pi-companion/koalablue/meshtastic_app.py",
+    "pi-companion/koalablue/t114_bluez.py",
     "pi-companion/koalablue/koala_kan_kommander.py",
     "scripts/discover_koalabyte_ports.py",
     "scripts/preflight_all_hardware.py",
@@ -60,6 +66,9 @@ REQUIRED_FILES = [
     "scripts/run_killerkoala_hybrid.py",
     "scripts/set_esp32_eyes.py",
     "scripts/run_anteater.py",
+    "scripts/run_location_password_gate.py",
+    "scripts/run_meshtastic_app.py",
+    "scripts/run_t114_bluez.py",
     "scripts/run_menu_screen.py",
 ]
 
@@ -91,10 +100,19 @@ REQUIRED_TEXT = {
         "scripts/check_menu_actions.py",
     ],
     "docs/HELTEC_BRANCH_MINING_FINDINGS.md": [
-        "backup_Heltec",
+        "Backup_heltec",
         "Mined findings applied to the active branch",
         "Heltec Mesh Node T114 onboard nRF52840 -> primary BLE board",
         "Legacy external nRF52840 Dongle -> opt-in compatibility only",
+        "Protected GNSS/location actions should be password-gated",
+        "Meshtastic send/listen actions should be protected",
+    ],
+    "docs/MINED_HELTEC_V2_FEATURES.md": [
+        "Backup_heltec",
+        "T114 BlueZ Controller Check",
+        "Meshtastic Status",
+        "Protected Location Gate Status",
+        "--confirm-send",
     ],
     "pi-companion/koalablue/anteater.py": [
         "DEFAULT_NODE_LOG_PATH",
@@ -103,10 +121,37 @@ REQUIRED_TEXT = {
         "--live-scan",
     ],
     "pi-companion/koalablue/menu_catalog.py": [
-        "AntEater",
-        "anteater",
+        "Heltec / Mesh",
+        "heltec_mesh",
+        "T114 BlueZ Controller Check",
+        "Meshtastic Status",
+        "Protected Location Gate Status",
         "leaf_menu_entries",
         "all_menu_entries",
+    ],
+    "pi-companion/koalablue/gnss_location.py": [
+        "location_password_gate",
+        "locked_location_dict",
+        "AUTHORIZED_LOCATION_ENV",
+        "parse_meshtastic_info_text",
+    ],
+    "pi-companion/koalablue/location_password_gate.py": [
+        "PASSWORD_HASH_ENV",
+        "ensure_unlocked",
+        "setup_password_interactive",
+        "password for local authorized location-gated actions only",
+    ],
+    "pi-companion/koalablue/meshtastic_app.py": [
+        "--confirm-send",
+        "protected-actions password required",
+        "MeshtasticProfile",
+        "send_text",
+    ],
+    "pi-companion/koalablue/t114_bluez.py": [
+        "T114BluezResult",
+        "controller-check",
+        "local_hci_controller_check_only",
+        "disruptive_actions",
     ],
     "scripts/check_menu_actions.py": [
         "MENU_ACTIONS_READY",
@@ -118,7 +163,14 @@ REQUIRED_TEXT = {
     "scripts/run_menu_screen.py": [
         "run_anteater_action",
         "menu.register_handler(\"anteater\"",
+        "run_t114_bluez_controller_check",
+        "menu.register_handler(\"t114_bluez_controller_check\"",
+        "run_meshtastic_status",
+        "run_location_gate_status",
     ],
+    "scripts/run_location_password_gate.py": ["location_password_gate", "run_cli"],
+    "scripts/run_meshtastic_app.py": ["meshtastic_app", "run_cli"],
+    "scripts/run_t114_bluez.py": ["t114_bluez", "run_cli"],
     "pi-companion/koalablue/ble_event_log.py": [
         "PRIMARY_SOURCE = \"heltec-t114-nrf52840\"",
         "LEGACY_PRIMARY_SOURCES",
@@ -297,14 +349,26 @@ def check_menu_catalog(failures: list[str]) -> None:
         return
     if "Bluetooth Tools" not in MENU_GROUPS:
         failures.append("menu catalog missing Bluetooth Tools group")
+    if "Heltec / Mesh" not in MENU_GROUPS:
+        failures.append("menu catalog missing Heltec / Mesh group")
     if "System / Companion" not in MENU_GROUPS:
         failures.append("menu catalog missing System / Companion group")
     if "eucalyptus" not in SUBMENU_ITEMS:
         failures.append("menu catalog missing eucalyptus submenu")
+    if "heltec_mesh" not in SUBMENU_ITEMS:
+        failures.append("menu catalog missing heltec_mesh submenu")
     if "Bluetooth Tools" not in menu_labels("main"):
         failures.append("main menu labels missing Bluetooth Tools")
+    if "Heltec / Mesh" not in menu_labels("main"):
+        failures.append("main menu labels missing Heltec / Mesh")
     if "AntEater" not in menu_labels("bluetooth"):
         failures.append("Bluetooth submenu missing AntEater")
+    if "T114 BlueZ Controller Check" not in menu_labels("heltec_mesh"):
+        failures.append("Heltec / Mesh submenu missing T114 BlueZ Controller Check")
+    if "Meshtastic Status" not in menu_labels("heltec_mesh"):
+        failures.append("Heltec / Mesh submenu missing Meshtastic Status")
+    if "Protected Location Gate Status" not in menu_labels("heltec_mesh"):
+        failures.append("Heltec / Mesh submenu missing Protected Location Gate Status")
     if not leaf_menu_entries():
         failures.append("menu catalog has no enabled leaf menu entries")
     manifest, menu_failures = build_manifest()
