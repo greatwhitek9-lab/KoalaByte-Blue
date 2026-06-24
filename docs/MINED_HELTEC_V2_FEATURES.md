@@ -25,6 +25,7 @@ Second pass:
 - `pi-companion/koalablue/killerkoala_face_bridge.py` — optional face-state JSON bridge for ESP32-S3 DualEye and optional Heltec USB display state output.
 - `pi-companion/koalablue/killerkoala_voice_face_control.py` — optional voice-command runner that mirrors wake/thinking/action/speaking states to the face bridge.
 - `scripts/run_killerkoala_face_demo.py` — optional demo runner for wake/thinking/action/speaking/success face states.
+- `scripts/configure_t114_2g4_antenna.sh` — non-flashing T114 2.4 GHz antenna status/helper script that documents the external connector path and writes `logs/t114_2g4_antenna_status.json`.
 
 ## Wired into the current branch
 
@@ -50,6 +51,12 @@ The face bridge remains optional and is not part of the default boot path. Use i
 PYTHONPATH=pi-companion python scripts/run_killerkoala_face_demo.py --sequence
 ```
 
+The T114 2.4 GHz antenna helper is validation/documentation only. Use it manually with:
+
+```bash
+bash scripts/configure_t114_2g4_antenna.sh --check-only
+```
+
 ## Safety and deployment rules
 
 - The Heltec Mesh Node T114 onboard nRF52840 remains the primary BLE board for the Heltec Edition.
@@ -59,6 +66,7 @@ PYTHONPATH=pi-companion python scripts/run_killerkoala_face_demo.py --sequence
 - Protected GNSS/location helpers do not write coordinates unless the protected-actions gate is unlocked.
 - Optional extra dependencies are not forced into the base install; use `pi-companion/requirements-heltec-v2-extra.txt` when enabling those workflows.
 - KillerKoala face bridge commands are JSON display-state messages only. They do not run BLE scans, transmit radio packets, or alter the current one-shot install path.
+- The T114 antenna helper does not transmit and does not guess RF-switch GPIOs; a hardware-validated overlay is required before any switch overlay is used.
 
 ## Useful validation commands
 
@@ -70,6 +78,7 @@ PYTHONPATH=pi-companion python scripts/run_location_password_gate.py status
 PYTHONPATH=pi-companion python scripts/run_t114_bluez.py controller-check
 PYTHONPATH=pi-companion python scripts/run_meshtastic_app.py status
 PYTHONPATH=pi-companion python scripts/run_killerkoala_face_demo.py --state wake --message "killerkoala online"
+bash scripts/configure_t114_2g4_antenna.sh --check-only
 ```
 
 The T114 BlueZ and Meshtastic commands are allowed to report missing hardware or missing CLI tools. That is not a repo failure; it means the optional hardware/tooling path is not active on that Pi yet.
