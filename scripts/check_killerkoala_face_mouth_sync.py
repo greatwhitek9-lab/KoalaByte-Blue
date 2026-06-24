@@ -75,7 +75,7 @@ def validate_protocol() -> list[str]:
         if payload.get("transport") != "usb-cdc":
             failures.append("face transport must stay usb-cdc")
     failures.extend(_file_contains(MOUTH_FIRMWARE, ["killerkoala_face", "ai_face", "killerkoala_tft_ack", "heltec_mouth_status"]))
-    failures.extend(_file_contains(EYES_FIRMWARE, ["killerkoala_face", "DualEye", "left_eye", "right_eye"]))
+    failures.extend(_file_contains(EYES_FIRMWARE, ["killerkoala_face", "esp32-dualeye", "left_eye", "right_eye", "killerkoala_eye_ack"]))
     return failures
 
 
