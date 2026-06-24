@@ -20,32 +20,30 @@ ONE_SCRIPT_INSTALL=0
 
 usage() {
   cat <<'EOF'
-KoalaByte Blue all-component flash/install helper
+KoalaByte Blue V2 Heltec Edition all-component flash/install helper
 
 Usage:
   bash scripts/flash_all_components.sh --install-firmware
   bash scripts/flash_all_components.sh --all
-  bash scripts/flash_all_components.sh --pi --esp32 --nrf-ble-primary
-  bash scripts/flash_all_components.sh --ble-node-manager
+  bash scripts/flash_all_components.sh --pi --esp32 --ble-node-manager
   bash scripts/flash_all_components.sh --ai-voice
   bash scripts/flash_all_components.sh --can-check
   WIFI_INTERACTIVE=1 bash scripts/flash_all_components.sh --install-firmware
   WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword" bash scripts/flash_all_components.sh --install-firmware
-  NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --install-firmware
-  NRF_DFU_PORT=/dev/ttyACM0 bash scripts/flash_all_components.sh --nrf-ble-primary
+  KOALABYTE_PRIMARY_BLE_PORT=/dev/koalabyte-heltec bash scripts/flash_all_components.sh --ble-node-manager
   ESP32_PORT=/dev/ttyUSB0 bash scripts/flash_all_components.sh --esp32
 
 Targets:
-  --install-firmware  One-shot main install: Pi companion, AI voice, ESP32 DualEye, nRF52840 Dongle BLE-primary firmware, BLE node manager service, CAN setup/checks, and CAN manifest/status checks
+  --install-firmware  One-shot Heltec Edition install: Pi companion, AI voice, ESP32 DualEye, Heltec-primary BLE node manager service, CAN setup/checks, and CAN manifest/status checks
   --all               Same target set as --install-firmware, without changing branches
   --pi                Install/update Raspberry Pi companion environment
   --ai-voice          Prepare/verify KillerKoala phrase-first companion config and optional TinyLlama/Ollama settings
   --esp32             Build and flash ESP32-S3 DualEye firmware with PlatformIO
-  --nrf-ble-primary   Build/package/flash nRF52840 Dongle BLE-primary observer firmware
-  --ble-node-manager  Install/enable/start the Pi-side BLE node manager service with nRF52840 Dongle as primary BLE node
-  --nrf-lab           Optional legacy: build/package/flash nRF52840 Dongle KoalaByte Lab peripheral firmware
-  --nrf-konnect       Optional: build/package/flash Koala Konnect USB HCI profile instead of the BLE-primary profile
+  --ble-node-manager  Install/enable/start the Pi-side BLE node manager service with Heltec T114 nRF52840 as primary BLE board, ESP32-S3 as secondary node, and Pi BlueZ as secondary/fallback node
   --can-check         Load Linux CAN modules, optionally bring up can0, then run Koala Kan Kommander manifest/inventory/status checks
+  --nrf-ble-primary   Legacy external dongle only: build/package/flash nRF52840 USB Dongle BLE-primary observer firmware
+  --nrf-lab           Legacy external dongle only: build/package/flash nRF52840 Dongle KoalaByte Lab peripheral firmware
+  --nrf-konnect       Legacy external dongle only: build/package/flash Koala Konnect USB HCI profile
 
 Modes:
   --build-only        Build/package only; do not upload/flash firmware, install services, or configure can0
@@ -60,10 +58,12 @@ Environment:
   WIFI_INTERACTIVE        1 prompts for SSID/password during first startup.
   STRICT_WIFI_FIRST_BOOT  1 fails if WiFi/internet cannot be verified before downloads.
   ESP32_PORT              Optional PlatformIO upload/monitor port, for example /dev/ttyUSB0 or COM5
-  NRF_DFU_PORT            Optional nRF52840 Dongle bootloader serial port, for example /dev/ttyACM0 or COM7
-  KOALABYTE_NRF_BLE_PORT  Optional runtime serial port for the flashed nRF52840 BLE-primary firmware. Default: /dev/ttyACM0
+  KOALABYTE_PRIMARY_BLE_PORT Optional primary BLE serial port for the Heltec T114 nRF52840. Default: /dev/koalabyte-heltec, then /dev/ttyACM0
+  KOALABYTE_HELTEC_USB_PORT  Optional Heltec T114 USB-C CDC serial port. Used as primary BLE when KOALABYTE_PRIMARY_BLE_PORT is unset.
   KOALABYTE_ESP32_FACE_PORT Optional ESP32 runtime serial port for eyes and secondary BLE observations.
-  KOALABYTE_PI_BLUEZ_NODE 1/0. Default: 1. Enables Raspberry Pi onboard BlueZ as a secondary BLE node.
+  KOALABYTE_PI_BLUEZ_NODE 1/0. Default: 1. Enables Raspberry Pi onboard BlueZ as a secondary/fallback BLE node.
+  NRF_DFU_PORT            Legacy external dongle bootloader serial port for explicit --nrf-* targets only.
+  KOALABYTE_NRF_BLE_PORT  Legacy alias. In the Heltec Edition this may point at the Heltec T114 onboard nRF52840 for compatibility.
   CAN_INTERFACE           SocketCAN interface for Koala Kan Kommander. Default: can0
   CAN_BITRATE             CAN bitrate for setup_can0.sh. Default: 500000
   STRICT_CAN_SETUP        1 fails if can0 setup cannot complete. Default: 0.
@@ -73,9 +73,9 @@ Environment:
   STRICT_SYSTEM_PACKAGES  1 fails if packages cannot be checked/installed.
   INSTALL_ESP32_TOOLS     auto/1/0. Default: auto. Attempts to install missing PlatformIO.
   STRICT_ESP32_TOOLS      1 fails if PlatformIO is unavailable before ESP32 build/flash.
-  INSTALL_NRF_TOOLS       auto/1/0. Default: auto. Attempts to install missing west/nrfutil when possible.
+  INSTALL_NRF_TOOLS       auto/1/0. Default: auto. Attempts to install missing west/nrfutil when possible for explicit legacy --nrf-* targets.
   STRICT_NRF_TOOLS        1 fails if west/nrfutil are unavailable before nRF build/flash.
-  INSTALL_NCS_TOOLCHAIN   auto/1/0. Default: auto. Downloads/updates full nRF Connect SDK/Zephyr toolchain.
+  INSTALL_NCS_TOOLCHAIN   auto/1/0. Default: auto. Downloads/updates full nRF Connect SDK/Zephyr toolchain for explicit legacy --nrf-* targets.
   STRICT_NCS_TOOLCHAIN    1 fails if the full NCS/Zephyr toolchain cannot be prepared.
   NCS_WORKSPACE           Default: $HOME/ncs
   NCS_REVISION            Default: v2.9.0
@@ -88,17 +88,16 @@ Environment:
   KILLERKOALA_LLM_TIMEOUT_SECONDS Optional local model timeout. Default: 2.5.
 
 Notes:
-  - The Nordic nRF52840 Dongle is the default primary BLE observer on main.
-  - ESP32-S3 DualEye and Raspberry Pi onboard BlueZ are secondary/fallback BLE nodes.
+  - The Heltec Mesh Node T114 onboard nRF52840 is the default primary BLE board for the Heltec Edition.
+  - ESP32-S3 DualEye and Raspberry Pi onboard BlueZ are BLE nodes used for local UI observations, enrichment, and fallback checks.
   - The InnoMaker CAN adapter does not get flashed; KoalaByte uses Linux SocketCAN, can-utils, python-can, and Koala Kan Kommander scripts.
   - --install-firmware and --all run setup_can0.sh, then Koala Kan Kommander manifest, inventory, and status checks.
-  - The legacy KoalaByte Lab and Koala Konnect profiles remain available, but only one nRF52840 Dongle profile can be active at a time.
+  - Legacy external dongle firmware targets remain explicit opt-in targets and are not part of the default Heltec Edition install.
   - WiFi/internet can be configured first so the Pi can download SDK/toolchain dependencies.
-  - System packages, PlatformIO, west, nrfutil, and the full NCS/Zephyr toolchain are checked/prepared before relevant flashing steps.
+  - System packages and PlatformIO are checked/prepared before relevant flashing steps.
   - Pi system package setup also installs AI voice/TTS dependencies: espeak-ng, espeak, ALSA tools, PulseAudio CLI utilities, PortAudio, and python3-pyaudio.
   - KillerKoala AI voice setup keeps the anti-repeat phrase engine as the fast default and only uses TinyLlama/Ollama for flexible banter when enabled.
   - KillerKoala boot welcome speech runs after the mode selector and before the splash/menu unless KILLERKOALA_BOOT_WELCOME=0.
-  - If NRF_DFU_PORT is unset, the nRF helper creates the DFU ZIP but does not flash.
   - Koala Kan Kommander transmit remains gated for isolated bench CAN use; this script only sets up/checks can0 and writes safe status artifacts.
 EOF
 }
@@ -115,7 +114,6 @@ while [[ $# -gt 0 ]]; do
       RUN_PI=1
       RUN_AI_VOICE=1
       RUN_ESP32=1
-      RUN_NRF_BLE_PRIMARY=1
       RUN_BLE_NODE_MANAGER=1
       RUN_CAN_CHECK=1
       ;;
@@ -123,7 +121,6 @@ while [[ $# -gt 0 ]]; do
       RUN_PI=1
       RUN_AI_VOICE=1
       RUN_ESP32=1
-      RUN_NRF_BLE_PRIMARY=1
       RUN_BLE_NODE_MANAGER=1
       RUN_CAN_CHECK=1
       ;;
@@ -153,7 +150,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "${ONE_SCRIPT_INSTALL}" == "1" ]]; then
-  export KOALABYTE_NRF_BLE_PORT="${KOALABYTE_NRF_BLE_PORT:-${NRF_BLE_PORT:-/dev/ttyACM0}}"
+  if [[ -e /dev/koalabyte-heltec ]]; then
+    DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec"
+  else
+    DEFAULT_PRIMARY_PORT="/dev/ttyACM0"
+  fi
+  export KOALABYTE_PRIMARY_BLE_PORT="${KOALABYTE_PRIMARY_BLE_PORT:-${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-${DEFAULT_PRIMARY_PORT}}}}"
+  export KOALABYTE_HELTEC_USB_PORT="${KOALABYTE_HELTEC_USB_PORT:-${KOALABYTE_PRIMARY_BLE_PORT}}"
+  export KOALABYTE_NRF_BLE_PORT="${KOALABYTE_NRF_BLE_PORT:-${KOALABYTE_PRIMARY_BLE_PORT}}"
 fi
 
 active_nrf_profiles=0
@@ -161,7 +165,7 @@ for flag in "${RUN_NRF_BLE_PRIMARY}" "${RUN_NRF_LAB}" "${RUN_NRF_KONNECT}"; do
   [[ "${flag}" == "1" ]] && active_nrf_profiles=$((active_nrf_profiles + 1))
 done
 if [[ "${active_nrf_profiles}" -gt 1 && "${BUILD_ONLY}" != "1" ]]; then
-  echo "Refusing to flash more than one nRF52840 Dongle profile in one run. The dongle can hold only one active profile." >&2
+  echo "Refusing to flash more than one legacy external nRF52840 profile in one run." >&2
   echo "Run one of: --nrf-ble-primary, --nrf-lab, or --nrf-konnect. Use --build-only if you only want to build/package multiple profiles." >&2
   exit 2
 fi
@@ -198,7 +202,7 @@ setup_nrf_tools_for_selected_mode() {
     return 0
   fi
   echo
-  echo "== west/nrfutil setup for nRF52840 workflows =="
+  echo "== west/nrfutil setup for explicit legacy external nRF52840 workflows =="
   if [[ "${BUILD_ONLY}" == "1" ]]; then
     STRICT_NRF_TOOLS="${STRICT_NRF_TOOLS:-1}" bash scripts/setup_nrf_tools.sh --west-only
   else
@@ -242,12 +246,13 @@ install_ble_node_manager_for_selected_mode() {
     return 0
   fi
   echo
-  echo "== KoalaByte BLE node manager service: nRF52840 Dongle primary BLE node =="
+  echo "== KoalaByte BLE node manager service: Heltec T114 nRF52840 primary BLE board with ESP32-S3 and Pi BlueZ nodes =="
   if [[ "${BUILD_ONLY}" == "1" ]]; then
     echo "Build-only mode: skipping BLE node manager service install/start."
     return 0
   fi
-  KOALABYTE_NRF_BLE_PORT="${KOALABYTE_NRF_BLE_PORT:-${NRF_BLE_PORT:-/dev/ttyACM0}}" \
+  KOALABYTE_PRIMARY_BLE_PORT="${KOALABYTE_PRIMARY_BLE_PORT:-${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-/dev/koalabyte-heltec}}}" \
+  KOALABYTE_HELTEC_USB_PORT="${KOALABYTE_HELTEC_USB_PORT:-${KOALABYTE_PRIMARY_BLE_PORT:-/dev/koalabyte-heltec}}" \
   KOALABYTE_ESP32_FACE_PORT="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-}}" \
   KOALABYTE_PI_BLUEZ_NODE="${KOALABYTE_PI_BLUEZ_NODE:-1}" \
   PYTHON_BIN="${REPO_ROOT}/pi-companion/.venv/bin/python" \
@@ -274,7 +279,7 @@ run_can_setup_and_checks() {
   PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py status --interface "${iface}"
 }
 
-echo "== KoalaByte Blue readiness check =="
+echo "== KoalaByte Blue V2 Heltec Edition readiness check =="
 python3 scripts/check_repo_readiness.py
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
@@ -311,12 +316,12 @@ fi
 
 if [[ "${RUN_NRF_BLE_PRIMARY}" == "1" ]]; then
   echo
-  echo "== nRF52840 Dongle BLE-primary firmware =="
+  echo "== Legacy external nRF52840 Dongle BLE-primary firmware =="
   bash scripts/build_nrf52840_dongle_ble_primary.sh
   if [[ "${BUILD_ONLY}" != "1" ]]; then
     bash scripts/flash_nrf52840_dongle_ble_primary_dfu.sh
   else
-    echo "Build-only mode: skipping Dongle BLE-primary DFU package/flash step."
+    echo "Build-only mode: skipping legacy Dongle BLE-primary DFU package/flash step."
   fi
 fi
 
@@ -324,7 +329,7 @@ install_ble_node_manager_for_selected_mode
 
 if [[ "${RUN_NRF_LAB}" == "1" ]]; then
   echo
-  echo "== nRF52840 Dongle KoalaByte Lab firmware =="
+  echo "== Legacy external nRF52840 Dongle KoalaByte Lab firmware =="
   bash scripts/build_nrf52840_dongle_lab.sh
   if [[ "${BUILD_ONLY}" != "1" ]]; then
     bash scripts/flash_nrf52840_dongle_lab_dfu.sh
@@ -335,7 +340,7 @@ fi
 
 if [[ "${RUN_NRF_KONNECT}" == "1" ]]; then
   echo
-  echo "== nRF52840 Dongle Koala Konnect firmware =="
+  echo "== Legacy external nRF52840 Dongle Koala Konnect firmware =="
   bash scripts/build_koala_konnect.sh
   if [[ "${BUILD_ONLY}" != "1" ]]; then
     bash scripts/flash_koala_konnect.sh
@@ -363,4 +368,4 @@ if [[ "${RUN_SMOKE}" == "1" ]]; then
 fi
 
 echo
-echo "KoalaByte Blue flash/install helper complete."
+echo "KoalaByte Blue V2 Heltec Edition flash/install helper complete."
