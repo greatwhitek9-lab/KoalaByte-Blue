@@ -14,17 +14,19 @@ if [[ -f "${ENV_FILE}" ]]; then
   source "${ENV_FILE}"
 fi
 
-if [[ -e /dev/koalabyte-nrf-ble ]]; then
-  DEFAULT_NRF_PORT="/dev/koalabyte-nrf-ble"
+if [[ -e /dev/koalabyte-heltec ]]; then
+  DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec"
+elif [[ -e /dev/ttyACM0 ]]; then
+  DEFAULT_PRIMARY_PORT="/dev/ttyACM0"
 else
-  DEFAULT_NRF_PORT="/dev/ttyACM0"
+  DEFAULT_PRIMARY_PORT=""
 fi
 
-PORT="${KOALABYTE_NRF_BLE_PORT:-${NRF_BLE_PORT:-${DEFAULT_NRF_PORT}}}"
+PRIMARY_PORT="${KOALABYTE_PRIMARY_BLE_PORT:-${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-${KOALABYTE_NRF_BLE_PORT:-${NRF_BLE_PORT:-${DEFAULT_PRIMARY_PORT}}}}}}"
 ESP="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-}}"
 mkdir -p "${ROOT}/logs/ble_nodes"
 
-args=("${ROOT}/scripts/run_ble_node_manager.py" --duration 0 --dongle-port "${PORT}" --log-dir "${ROOT}/logs/ble_nodes")
+args=("${ROOT}/scripts/run_ble_node_manager.py" --duration 0 --primary-port "${PRIMARY_PORT}" --log-dir "${ROOT}/logs/ble_nodes")
 if [[ -n "${ESP}" ]]; then
   args+=(--esp32-port "${ESP}")
 fi
