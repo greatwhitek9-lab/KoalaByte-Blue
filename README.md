@@ -23,11 +23,13 @@ Then run one command:
 bash scripts/install_koalabyte_one_shot.sh
 ```
 
-That one command handles the Pi companion install, Heltec plug-in firmware flash, ESP32-S3 DualEye firmware flash, BLE node manager service, Didgeridoo/menu readiness, antenna/protocol artifacts, and AntEater passive-readiness status.
+That one command handles the Pi companion install, Heltec plug-in firmware flash, ESP32-S3 DualEye firmware flash, KillerKoala eyes and mouth sync, BLE node manager service, Didgeridoo/menu readiness, antenna/protocol artifacts, and AntEater passive-readiness status.
+
+The eyes and mouth use the same `killerkoala_face` JSON payload: ESP32-S3 DualEye renders the eyes, and the Heltec T114 color-mouth firmware renders the mouth/status face. The one-shot installer sends a sync test before starting services so both sides stay aligned.
 
 The InnoMaker CAN kit is optional. If it is not plugged in, the one-shot installer records a non-failing optional CAN status and continues.
 
-Deployment readiness markers: `bash scripts/install_koalabyte_one_shot.sh`; `InnoMaker CAN kit is optional`.
+Deployment readiness markers: `bash scripts/install_koalabyte_one_shot.sh`; `InnoMaker CAN kit is optional`; eyes and mouth sync.
 
 Useful overrides:
 
@@ -40,6 +42,9 @@ T114_PLUG_FLASH_PROFILE=color-mouth bash scripts/install_koalabyte_one_shot.sh
 
 # Heltec HCI USB profile instead
 T114_PLUG_FLASH_PROFILE=hci-usb bash scripts/install_koalabyte_one_shot.sh
+
+# Make the eyes/mouth serial write test strict
+STRICT_FACE_MOUTH_SYNC=1 bash scripts/install_koalabyte_one_shot.sh
 
 # Skip optional CAN checks entirely
 INSTALL_INNOMAKER_CAN=0 bash scripts/install_koalabyte_one_shot.sh
@@ -185,6 +190,9 @@ PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
 # Full one-shot deployment
 bash scripts/install_koalabyte_one_shot.sh
 
+# Eyes and mouth sync check
+PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py --emit-test
+
 # Older component helper, still available for advanced/manual target work
 bash scripts/flash_all_components.sh --install-firmware
 
@@ -227,7 +235,7 @@ Optional InnoMaker USB-to-CAN support for isolated bench-simulator or owned-harn
 
 ### KillerKoala companion
 
-Voice/status personality, XP/ranks, face state, buttons, and UI feedback. Ranks are Noob, Hacker, and Legend.
+Voice/status personality, XP/ranks, face state, buttons, and UI feedback. Ranks are Noob, Hacker, and Legend. Its shared face payload keeps the ESP32-S3 eyes and Heltec mouth synced.
 
 ---
 
@@ -238,6 +246,7 @@ After flashing, run:
 ```bash
 python3 scripts/check_repo_readiness.py
 PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
+PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py --emit-test
 python3 scripts/run_didgeridoo.py status
 bash scripts/configure_koalabyte_external_antennas.sh --check-only
 PYTHONPATH=pi-companion python3 scripts/run_anteater.py status
