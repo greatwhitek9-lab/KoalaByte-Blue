@@ -20,18 +20,19 @@ The `main` branch currently documents the `koalabyte_blue_v2_heltec_edition` USB
 | Component | Exact model / type | Connection | Purpose |
 |---|---|---|---|
 | Main SBC | Raspberry Pi 3 Model B+ | Main host | Linux companion, menus, logs, reports, voice/AI wrapper. |
-| Display/UI board | Waveshare ESP32-S3-DualEye-LCD-1.28 | USB data cable | Boot splash, menu UI, eyes, buttons, and local BLE observations. |
-| Heltec edition radio board | Heltec Mesh Node T114 Rev. 2.0 / HT-N5262 class board | USB-C data cable / CDC ACM serial | Core V2 Heltec Edition LoRa, Meshtastic-style, GNSS-aware, and BLE-adjacent radio board. |
+| Display/UI board | Waveshare ESP32-S3-DualEye-LCD-1.28 | USB data cable | Boot splash, menu UI, eyes, buttons, and secondary local BLE node. |
+| Heltec edition radio board | Heltec Mesh Node T114 Rev. 2.0 / HT-N5262 class board | USB-C data cable / CDC ACM serial | Primary BLE board plus core V2 Heltec Edition LoRa, Meshtastic-style, GNSS-aware radio board. |
 | CAN adapter | InnoMaker USB to CAN Converter kit | USB | Optional isolated bench-simulator or owned-harness CAN work. |
 | Power | PIFFA-style 50000 mAh USB power bank, 22.5 W class | USB regulated output | Main simplified production power source. |
 
 ### Heltec Mesh Node T114 board notes
 
-The Heltec Mesh Node T114 is the core radio board for `koalabyte_blue_v2_heltec_edition`. Treat it as the edition-specific LoRa/BLE radio node that sits in the upper stack with the ESP32-S3 DualEye face/UI board.
+The Heltec Mesh Node T114 is the main BLE board and core radio board for `koalabyte_blue_v2_heltec_edition`. Its onboard Nordic nRF52840 is the primary BLE source of truth, while the ESP32-S3 DualEye and Raspberry Pi onboard BlueZ are additional BLE nodes.
 
 | Heltec T114 item | README-level detail |
 |---|---|
 | MCU | Nordic nRF52840, ARM Cortex-M4F, 64 MHz, 256 KB RAM, 1 MB flash. |
+| Primary BLE role | Main KoalaByte Blue V2 Heltec Edition BLE board and canonical passive BLE observation source. |
 | LoRa radio | Semtech SX1262 sub-GHz LoRa transceiver. |
 | Wireless roles | BLE 5.0, IEEE 802.15.4/OpenThread-capable silicon, and LoRa/Meshtastic-style Heltec Edition radio workflows. |
 | Optional onboard display | 1.14 inch 135×240 TFT, ST7789V over SPI, when using a T114 variant that includes the screen. |
@@ -62,9 +63,9 @@ The normal `koalabyte_blue_v2_heltec_edition` wireless layout is:
 
 | Node | Role | Notes |
 |---|---|---|
-| ESP32-S3 DualEye BLE | Primary local UI node | Local display/controller-side BLE observations for the Eucalyptus Mode UI and companion state. |
-| Heltec Mesh Node T114 | Core LoRa/BLE radio node | USB-C serial radio node for LoRa, Meshtastic-style, GNSS-aware, and supplemental BLE-adjacent workflows. |
-| Raspberry Pi onboard BlueZ | Host observer / fallback | Linux observer for enrichment, logging, and fallback BLE status checks. |
+| Heltec Mesh Node T114 nRF52840 | Primary BLE board / core LoRa radio node | Canonical passive BLE source of truth over USB-C serial, plus LoRa, Meshtastic-style, GNSS-aware, and supplemental radio workflows. |
+| ESP32-S3 DualEye BLE | Secondary local UI node | Face/display/controller-side BLE node for local observations, UI feedback, buttons, and Eucalyptus Mode companion state. |
+| Raspberry Pi onboard BlueZ | Secondary host node / fallback | Linux BLE node used for enrichment, host-side checks, and fallback BLE status checks. |
 
 The Pi-side service is:
 
@@ -132,7 +133,7 @@ bash scripts/flash_all_components.sh --all --build-only
 bash scripts/flash_all_components.sh --all --smoke
 ```
 
-The Heltec T114 is the core USB-C serial radio board for `koalabyte_blue_v2_heltec_edition`. Use the Heltec-specific preflight commands to confirm the Pi sees it before adding or flashing any future T114 firmware target.
+The Heltec T114 onboard nRF52840 is the primary BLE board for `koalabyte_blue_v2_heltec_edition`. Use the Heltec-specific preflight commands to confirm the Pi sees it before adding or flashing any future T114 firmware target.
 
 ---
 
@@ -205,7 +206,8 @@ cat logs/preflight/koalabyte_ports.env
 5. The expected runtime variable for the board is:
 
 ```bash
-KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0
+KOALABYTE_PRIMARY_BLE_PORT=/dev/koalabyte-heltec
+KOALABYTE_HELTEC_USB_PORT=/dev/koalabyte-heltec
 ```
 
 Use the detected path from the preflight output if your Pi assigns a different port.
@@ -234,7 +236,8 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
 
 - Safe local BLE inventory and passive observation.
 - Eucalyptus Mode Koalagotchi Bluetooth scanner/logger screen.
-- Heltec T114 LoRa/Meshtastic-style radio discovery and preflight.
+- Heltec T114 nRF52840 primary BLE observation and LoRa/Meshtastic-style radio preflight.
+- ESP32-S3 DualEye and Raspberry Pi BlueZ secondary BLE node checks.
 - KillerKoala XP and ranks: Noob, Hacker, Legend.
 - Local defensive monitor suite.
 - Boomerang camera-awareness logbook.
@@ -275,4 +278,4 @@ python3 scripts/preflight_all_hardware.py --profile heltec
 
 ## Project vibe
 
-KoalaByte Blue V2 Heltec Edition is supposed to feel like a real little cyber field companion: practical enough for a bench, weird enough to be memorable, and safe enough to demo without turning your lab into chaos. killerkoala watches the canopy, eats Bluetooth eucalyptus data in Eucalyptus Mode, keeps a contentment meter, gains XP through approved successful actions, and only celebrates behavior that stays inside the lab scope. The Heltec T114 gives this edition a proper long-range radio tail while the ESP32-S3 DualEye stays focused on the face, eyes, buttons, and front-panel UI.
+KoalaByte Blue V2 Heltec Edition is supposed to feel like a real little cyber field companion: practical enough for a bench, weird enough to be memorable, and safe enough to demo without turning your lab into chaos. killerkoala watches the canopy, eats Bluetooth eucalyptus data in Eucalyptus Mode, keeps a contentment meter, gains XP through approved successful actions, and only celebrates behavior that stays inside the lab scope. The Heltec T114 onboard nRF52840 is the main BLE board and core radio tail, while the ESP32-S3 DualEye stays focused on the face, eyes, buttons, and front-panel UI.
