@@ -31,6 +31,7 @@ Required/default actions:
   - wait for and flash the Heltec T114 selected profile
   - flash the ESP32-S3 DualEye firmware
   - validate ESP32 eyes and Heltec mouth face-state sync
+  - validate all menus, submenu routes, button mappings, controls, command helpers, and antenna paths
   - install/start the BLE node manager service
   - validate the Didgeridoo/menu action manifest
   - prepare AntEater passive-readiness status
@@ -55,7 +56,7 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   exit 0
 fi
 
-mkdir -p "$(dirname "${STATUS_PATH}")" logs/anteater logs/menu_actions logs/can logs/killerkoala_face
+mkdir -p "$(dirname "${STATUS_PATH}")" logs/anteater logs/menu_actions logs/can logs/killerkoala_face logs/one_shot
 
 write_status() {
   local status="$1"
@@ -202,6 +203,7 @@ run_required "ESP32-S3 DualEye firmware flash" \
   '
 
 run_required "KillerKoala eyes and mouth sync" run_face_mouth_sync
+run_required "Menus buttons antennas controls and commands" env PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
 
 run_required "BLE node manager service" \
   env KOALABYTE_PRIMARY_BLE_PORT="${KOALABYTE_PRIMARY_BLE_PORT:-${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-/dev/koalabyte-heltec}}}" \
@@ -218,7 +220,7 @@ run_required "External antenna readiness" bash scripts/configure_koalabyte_exter
 run_required "AntEater passive readiness" prepare_anteater_status
 run_optional_can
 
-write_status "complete" "one_shot_install" "Pi, Heltec, ESP32-S3, eyes/mouth sync, services, menu, antenna, and passive-readiness steps complete; InnoMaker CAN optional"
+write_status "complete" "one_shot_install" "Pi, Heltec, ESP32-S3, eyes/mouth sync, controls/commands, services, menu, antenna, and passive-readiness steps complete; InnoMaker CAN optional"
 trap - ERR
 
 echo
