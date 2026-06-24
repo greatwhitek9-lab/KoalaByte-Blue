@@ -133,6 +133,9 @@ python3 scripts/discover_koalabyte_ports.py --profile heltec
 # Full non-flashing preflight for the Heltec T114 profile
 python3 scripts/preflight_all_hardware.py --profile heltec
 
+# AntEater passive BLE payment-terminal triage from the Heltec primary BLE node log
+PYTHONPATH=pi-companion python3 scripts/run_anteater.py scan
+
 # Build/package without flashing or installing services
 bash scripts/flash_all_components.sh --all --build-only
 
@@ -244,6 +247,7 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
 
 - Safe local BLE inventory and passive observation.
 - Eucalyptus Mode Koalagotchi Bluetooth scanner/logger screen.
+- AntEater passive BLE payment-terminal risk triage from the Heltec primary BLE node log.
 - Heltec T114 nRF52840 primary BLE observation and LoRa/Meshtastic-style radio preflight.
 - ESP32-S3 DualEye and Raspberry Pi BlueZ secondary BLE node checks.
 - KillerKoala XP and ranks: Noob, Hacker, Legend.
@@ -252,7 +256,7 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest
 - Authorized BLE inventory and report helpers.
 - Optional InnoMaker USB-to-CAN bench-simulator workflows.
 
-Eucalyptus Mode visualizes passive logs only. It does not start pairing, probing, disruption, access, or offensive Bluetooth workflows. Heltec T114 LoRa work should stay limited to lawful, local, owned, or licensed/scope-approved mesh experiments. CAN transmit remains gated for isolated bench-simulator or owned-harness use only.
+Eucalyptus Mode and AntEater visualize/analyze passive logs only. They do not start pairing, probing, disruption, access, or offensive Bluetooth workflows. Heltec T114 LoRa work should stay limited to lawful, local, owned, or licensed/scope-approved mesh experiments. CAN transmit remains gated for isolated bench-simulator or owned-harness use only.
 
 ---
 
@@ -260,6 +264,7 @@ Eucalyptus Mode visualizes passive logs only. It does not start pairing, probing
 
 ```text
 docs/MAIN_BLE_NODE_ROLES.md
+docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md
 docs/FLASHING.md
 docs/EUCALYPTUS_ALWAYS_ON_BLE_REVA8.md
 docs/CAMERA_AWARENESS_LOGGER.md
@@ -277,6 +282,7 @@ docs/POWER_BANK_WIRING_MAIN.svg
 ```bash
 python3 scripts/check_repo_readiness.py
 bash scripts/setup_heltec_t114_tools.sh --check-only
+PYTHONPATH=pi-companion python3 scripts/run_anteater.py status
 PYTHONPATH=pi-companion python3 scripts/check_eucalyptus_cyberpet.py
 PYTHONPATH=pi-companion python3 scripts/check_thats_not_a_knife_monitors.py
 PYTHONPATH=pi-companion python3 scripts/run_thats_not_a_knife_loop.py --once
