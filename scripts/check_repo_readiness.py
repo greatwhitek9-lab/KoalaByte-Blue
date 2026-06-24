@@ -35,6 +35,7 @@ REQUIRED_FILES = [
     "pi-companion/koalablue/koala_kan_kommander.py",
     "scripts/discover_koalabyte_ports.py",
     "scripts/preflight_all_hardware.py",
+    "scripts/setup_heltec_t114_tools.sh",
     "scripts/install_koalabyte_udev_rules.sh",
     "scripts/run_ble_node_manager.py",
     "scripts/run_ble_node_manager_service.sh",
@@ -68,6 +69,11 @@ REQUIRED_TEXT = {
         "ESP32-S3 DualEye BLE",
         "Raspberry Pi onboard BlueZ",
     ],
+    "docs/FLASHING.md": [
+        "scripts/setup_heltec_t114_tools.sh",
+        "KOALABYTE_PRIMARY_BLE_PORT",
+        "INSTALL_HELTEC_NRF_TOOLS=1",
+    ],
     "pi-companion/koalablue/ble_event_log.py": [
         "PRIMARY_SOURCE = \"heltec-t114-nrf52840\"",
         "LEGACY_PRIMARY_SOURCES",
@@ -78,6 +84,13 @@ REQUIRED_TEXT = {
         "primary_ble",
         "ESP32-S3 DualEye and Raspberry Pi BlueZ",
         "PiBluezSecondaryScanner",
+    ],
+    "scripts/setup_heltec_t114_tools.sh": [
+        "Heltec Mesh Node T114 dependency setup helper",
+        "pyserial bleak",
+        "install_koalabyte_udev_rules.sh",
+        "discover_koalabyte_ports.py",
+        "INSTALL_HELTEC_NRF_TOOLS",
     ],
     "scripts/run_ble_node_manager.py": [
         "--primary-port",
@@ -113,6 +126,25 @@ REQUIRED_TEXT = {
         "/dev/koalabyte-esp32-eyes",
         "99-koalabyte.rules",
     ],
+    "scripts/install_pi.sh": [
+        "setup_heltec_t114_tools.sh",
+        "INSTALL_HELTEC_T114_TOOLS",
+        "STRICT_HELTEC_T114_TOOLS",
+        "PREPARE_DONGLE_CACHE=",
+    ],
+    "scripts/flash_all_components.sh": [
+        "setup_heltec_t114_tools.sh",
+        "INSTALL_HELTEC_T114_TOOLS",
+        "STRICT_HELTEC_T114_TOOLS",
+        "INSTALL_HELTEC_NRF_TOOLS",
+    ],
+    "scripts/setup_system_packages.sh": [
+        "Heltec T114 USB serial",
+        "python3-serial",
+        "usbutils",
+        "udev",
+        "bluez",
+    ],
 }
 
 FORBIDDEN_ARCHITECTURE_TEXT = {
@@ -142,6 +174,7 @@ SHELL_HELPERS = [
     "scripts/build_firmware_all.sh",
     "scripts/setup_system_packages.sh",
     "scripts/setup_esp32_tools.sh",
+    "scripts/setup_heltec_t114_tools.sh",
     "scripts/configure_esp32s3_dualeye_2g4_antenna.sh",
     "scripts/setup_can0.sh",
     "scripts/setup_vcan0.sh",
