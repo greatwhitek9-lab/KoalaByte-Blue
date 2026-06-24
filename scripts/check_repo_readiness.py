@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -9,6 +10,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PI_ROOT = REPO_ROOT / "pi-companion"
 if str(PI_ROOT) not in sys.path:
     sys.path.insert(0, str(PI_ROOT))
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 REQUIRED_FILES = [
     "README.md",
@@ -84,6 +87,7 @@ REQUIRED_TEXT = {
         "scripts/setup_heltec_t114_tools.sh",
         "KOALABYTE_PRIMARY_BLE_PORT",
         "INSTALL_HELTEC_NRF_TOOLS=1",
+        "scripts/check_menu_actions.py",
     ],
     "pi-companion/koalablue/anteater.py": [
         "DEFAULT_NODE_LOG_PATH",
@@ -217,9 +221,11 @@ FORBIDDEN_ARCHITECTURE_TEXT = {
 SHELL_HELPERS = [
     "scripts/flash_all_components.sh",
     "scripts/build_firmware_all.sh",
+    "scripts/install_pi.sh",
     "scripts/setup_system_packages.sh",
     "scripts/setup_esp32_tools.sh",
     "scripts/setup_heltec_t114_tools.sh",
+    "scripts/setup_wifi_first_boot.sh",
     "scripts/configure_esp32s3_dualeye_2g4_antenna.sh",
     "scripts/setup_can0.sh",
     "scripts/setup_vcan0.sh",
@@ -247,8 +253,6 @@ def check_required_files(failures: list[str]) -> None:
 
 def check_required_text(failures: list[str]) -> None:
     for relative_path, needles in REQUIRED_TEXT.items():
-        if not needles:
-            continue
         path = REPO_ROOT / relative_path
         text = read_text(path)
         for needle in needles:
@@ -280,8 +284,9 @@ def check_config(failures: list[str]) -> None:
 def check_menu_catalog(failures: list[str]) -> None:
     try:
         from koalablue.menu_catalog import MENU_GROUPS, SUBMENU_ITEMS, leaf_menu_entries, menu_labels
+        from scripts.check_menu_actions import build_manifest
     except Exception as exc:
-        failures.append(f"failed to import menu catalog: {exc}")
+        failures.append(f"failed to import menu readiness helpers: {exc}")
         return
     if "Bluetooth Tools" not in MENU_GROUPS:
         failures.append("menu catalog missing Bluetooth Tools group")
@@ -295,13 +300,25 @@ def check_menu_catalog(failures: list[str]) -> None:
         failures.append("Bluetooth submenu missing AntEater")
     if not leaf_menu_entries():
         failures.append("menu catalog has no enabled leaf menu entries")
+    manifest, menu_failures = build_manifest()
+    if manifest.get("status") != "MENU_ACTIONS_READY":
+        failures.append("menu action manifest is not ready")
+    for failure in menu_failures:
+        failures.append(f"menu action readiness: {failure}")
 
 
 def check_helpers(failures: list[str]) -> None:
     for helper in SHELL_HELPERS:
         path = REPO_ROOT / helper
-        if path.exists() and "set -euo pipefail" not in path.read_text(encoding="utf-8"):
+        if not path.exists():
+            failures.append(f"missing shell helper: {helper}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "set -euo pipefail" not in text:
             failures.append(f"shell helper missing strict shell mode: {helper}")
+        result = subprocess.run(["bash", "-n", str(path)], cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+        if result.returncode != 0:
+            failures.append(f"shell syntax failed for {helper}: {result.stderr.strip()}")
 
 
 def main() -> int:
