@@ -8,7 +8,7 @@ STRICT_UDEV_RULES="${STRICT_UDEV_RULES:-0}"
 
 usage() {
   cat <<'EOF'
-KoalaByte stable USB device path installer
+KoalaByte Blue V2 Heltec Edition stable USB device path installer
 
 Usage:
   bash scripts/install_koalabyte_udev_rules.sh
@@ -16,9 +16,9 @@ Usage:
   INSTALL_UDEV_RULES=0 bash scripts/install_koalabyte_udev_rules.sh
 
 Creates best-effort stable symlinks when udev can identify the devices:
-  /dev/koalabyte-nrf-ble
-  /dev/koalabyte-esp32-eyes
-  /dev/koalabyte-heltec
+  /dev/koalabyte-heltec      Heltec T114 nRF52840 primary BLE board
+  /dev/koalabyte-esp32-eyes  ESP32-S3 DualEye face/UI and secondary BLE node
+  /dev/koalabyte-nrf-ble     Legacy external nRF52840 compatibility alias only
 
 The discovery preflight still writes logs/preflight/koalabyte_ports.env and is the runtime fallback.
 EOF
@@ -58,32 +58,30 @@ else
   exit 0
 fi
 
-# Keep main-branch readiness clean by constructing optional alternate-board match strings.
-ALT_VENDOR_A="Hel"
-ALT_VENDOR_B="tec"
-ALT_MODEL_A="T"
-ALT_MODEL_B="114"
-ALT_MODEL_C="HT-n5262"
+# Keep string matching simple while still supporting common Heltec T114 descriptors.
+HELTEC_VENDOR="Heltec"
+HELTEC_MODEL="T114"
+HELTEC_ALT_MODEL="HT-n5262"
 
 cat > /tmp/99-koalabyte.rules <<RULESEOF
-# KoalaByte Blue stable USB serial aliases.
-# These rules are intentionally conservative and prefer product/vendor strings.
-# The runtime fallback is scripts/discover_koalabyte_ports.py.
+# KoalaByte Blue V2 Heltec Edition stable USB serial aliases.
+# The runtime fallback is scripts/discover_koalabyte_ports.py --profile heltec.
 
-# Nordic nRF52840 Dongle / PCA10059 and common Nordic CDC ACM profiles.
-SUBSYSTEM=="tty", ATTRS{idVendor}=="1915", SYMLINK+="koalabyte-nrf-ble", GROUP="dialout", MODE="0660", TAG+="uaccess"
-SUBSYSTEM=="tty", ENV{ID_MODEL}=="*nRF52840*", SYMLINK+="koalabyte-nrf-ble", GROUP="dialout", MODE="0660", TAG+="uaccess"
-SUBSYSTEM=="tty", ENV{ID_MODEL}=="*PCA10059*", SYMLINK+="koalabyte-nrf-ble", GROUP="dialout", MODE="0660", TAG+="uaccess"
+# Heltec Mesh Node T114 onboard nRF52840: primary BLE board for the Heltec Edition.
+SUBSYSTEM=="tty", ENV{ID_MODEL}=="*${HELTEC_VENDOR}*", SYMLINK+="koalabyte-heltec", GROUP="dialout", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="tty", ENV{ID_MODEL}=="*${HELTEC_MODEL}*", SYMLINK+="koalabyte-heltec", GROUP="dialout", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="tty", ENV{ID_MODEL}=="*${HELTEC_ALT_MODEL}*", SYMLINK+="koalabyte-heltec", GROUP="dialout", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="tty", ENV{ID_VENDOR}=="*${HELTEC_VENDOR}*", SYMLINK+="koalabyte-heltec", GROUP="dialout", MODE="0660", TAG+="uaccess"
 
 # ESP32-S3 DualEye / Espressif native USB and common USB serial bridges.
 SUBSYSTEM=="tty", ATTRS{idVendor}=="303a", SYMLINK+="koalabyte-esp32-eyes", GROUP="dialout", MODE="0660", TAG+="uaccess"
 SUBSYSTEM=="tty", ENV{ID_MODEL}=="*ESP32*", SYMLINK+="koalabyte-esp32-eyes", GROUP="dialout", MODE="0660", TAG+="uaccess"
 SUBSYSTEM=="tty", ENV{ID_VENDOR}=="*Espressif*", SYMLINK+="koalabyte-esp32-eyes", GROUP="dialout", MODE="0660", TAG+="uaccess"
 
-# Optional alternate BLE node USB CDC names.
-SUBSYSTEM=="tty", ENV{ID_MODEL}=="*${ALT_VENDOR_A}${ALT_VENDOR_B}*", SYMLINK+="koalabyte-heltec", GROUP="dialout", MODE="0660", TAG+="uaccess"
-SUBSYSTEM=="tty", ENV{ID_MODEL}=="*${ALT_MODEL_A}${ALT_MODEL_B}*", SYMLINK+="koalabyte-heltec", GROUP="dialout", MODE="0660", TAG+="uaccess"
-SUBSYSTEM=="tty", ENV{ID_MODEL}=="*${ALT_MODEL_C}*", SYMLINK+="koalabyte-heltec", GROUP="dialout", MODE="0660", TAG+="uaccess"
+# Legacy external nRF52840 USB devices. Not the default primary BLE path for the Heltec Edition.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1915", SYMLINK+="koalabyte-nrf-ble", GROUP="dialout", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="tty", ENV{ID_MODEL}=="*nRF52840*", SYMLINK+="koalabyte-nrf-ble", GROUP="dialout", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="tty", ENV{ID_MODEL}=="*PCA10059*", SYMLINK+="koalabyte-nrf-ble", GROUP="dialout", MODE="0660", TAG+="uaccess"
 RULESEOF
 
 "${sudo_cmd[@]}" install -m 0644 /tmp/99-koalabyte.rules "${RULES_PATH}"
@@ -91,4 +89,4 @@ RULESEOF
 "${sudo_cmd[@]}" udevadm trigger || true
 
 echo "Installed KoalaByte udev rules: ${RULES_PATH}"
-PYTHONPATH="${ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}" python3 "${ROOT}/scripts/discover_koalabyte_ports.py" --output-dir "${ROOT}/logs/preflight" || true
+PYTHONPATH="${ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}" python3 "${ROOT}/scripts/discover_koalabyte_ports.py" --profile heltec --output-dir "${ROOT}/logs/preflight" || true
