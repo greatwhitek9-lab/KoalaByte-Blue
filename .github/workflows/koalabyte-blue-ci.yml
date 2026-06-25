@@ -36,6 +36,7 @@ jobs:
           echo "bootstrap_sha=$(git rev-parse HEAD:install.sh)"
           echo "one_shot_sha=$(git rev-parse HEAD:scripts/install_koalabyte_one_shot.sh)"
           echo "preflight_sha=$(git rev-parse HEAD:scripts/preflight_all_hardware.py)"
+          echo "ollama_helper_sha=$(git rev-parse HEAD:scripts/setup_killerkoala_ollama.sh)"
 
       - name: Check shell helper syntax
         run: |
@@ -46,6 +47,7 @@ jobs:
           bash -n scripts/flash_t114_when_plugged.sh
           bash -n scripts/flash_heltec_mouth.sh
           bash -n scripts/preflight_all_hardware.sh
+          bash -n scripts/setup_killerkoala_ollama.sh
           bash -n scripts/configure_koalabyte_external_antennas.sh
           bash -n scripts/setup_system_packages.sh
           bash -n scripts/setup_esp32_tools.sh
@@ -66,6 +68,7 @@ jobs:
           bash scripts/setup_system_packages.sh --check-only
           bash scripts/setup_esp32_tools.sh --check-only
           bash scripts/setup_heltec_t114_tools.sh --check-only
+          bash scripts/setup_killerkoala_ollama.sh --check-only
           bash scripts/flash_t114_when_plugged.sh --check-only
           bash scripts/configure_koalabyte_external_antennas.sh --check-only
 
