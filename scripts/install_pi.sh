@@ -13,6 +13,8 @@ STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-0}"
 INSTALL_HELTEC_T114_TOOLS="${INSTALL_HELTEC_T114_TOOLS:-auto}"
 STRICT_HELTEC_T114_TOOLS="${STRICT_HELTEC_T114_TOOLS:-0}"
 INSTALL_HELTEC_NRF_TOOLS="${INSTALL_HELTEC_NRF_TOOLS:-auto}"
+INSTALL_HELTEC_V2_EXTRAS="${INSTALL_HELTEC_V2_EXTRAS:-auto}"
+STRICT_HELTEC_V2_EXTRAS="${STRICT_HELTEC_V2_EXTRAS:-0}"
 FLASH_T114_ON_PLUG="${FLASH_T114_ON_PLUG:-auto}"
 STRICT_T114_PLUG_FLASH="${STRICT_T114_PLUG_FLASH:-1}"
 T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE:-color-mouth}"
@@ -69,6 +71,26 @@ source "${VENV_DIR}/bin/activate"
 
 python -m pip install --upgrade pip wheel setuptools
 python -m pip install -r "${REPO_ROOT}/pi-companion/requirements.txt"
+
+case "${INSTALL_HELTEC_V2_EXTRAS}" in
+  0|false|False|no|NO|skip|SKIP)
+    echo "Skipping optional Heltec v2 extra Python requirements."
+    ;;
+  auto|AUTO|1|true|True|yes|YES)
+    echo "Installing/checking optional Heltec v2 extra Python requirements..."
+    python -m pip install -r "${REPO_ROOT}/pi-companion/requirements-heltec-v2-extra.txt" || {
+      if [[ "${STRICT_HELTEC_V2_EXTRAS}" == "1" ]]; then
+        echo "STRICT_HELTEC_V2_EXTRAS=1 is set, failing install because optional Heltec v2 extras did not install." >&2
+        exit 1
+      fi
+      echo "Continuing install because STRICT_HELTEC_V2_EXTRAS is not enabled." >&2
+    }
+    ;;
+  *)
+    echo "Unknown INSTALL_HELTEC_V2_EXTRAS value: ${INSTALL_HELTEC_V2_EXTRAS}. Use auto, 1, or 0." >&2
+    exit 1
+    ;;
+esac
 
 echo
 echo "Checking/preparing Heltec T114 runtime dependencies and port discovery..."
@@ -169,10 +191,10 @@ case "${PREPARE_DONGLE_CACHE}" in
 esac
 
 echo
-echo "Installing/enabling that’s not a knife local guard service: INSTALL_THATS_NOT_A_KNIFE_SERVICE=${INSTALL_THATS_NOT_A_KNIFE_SERVICE}"
+echo "Installing/enabling that's not a knife local guard service: INSTALL_THATS_NOT_A_KNIFE_SERVICE=${INSTALL_THATS_NOT_A_KNIFE_SERVICE}"
 case "${INSTALL_THATS_NOT_A_KNIFE_SERVICE}" in
   0|false|False|no|NO|skip|SKIP)
-    echo "Skipping that’s not a knife service install by request."
+    echo "Skipping that's not a knife service install by request."
     ;;
   auto|AUTO|1|true|True|yes|YES)
     PYTHON_BIN="${VENV_DIR}/bin/python" STRICT_THATS_NOT_A_KNIFE_SERVICE="${STRICT_THATS_NOT_A_KNIFE_SERVICE}" bash "${REPO_ROOT}/scripts/install_thats_not_a_knife_service.sh" || {
@@ -198,6 +220,8 @@ echo "  bash ${REPO_ROOT}/scripts/setup_system_packages.sh"
 echo "Heltec T114 dependency helper:"
 echo "  bash ${REPO_ROOT}/scripts/setup_heltec_t114_tools.sh"
 echo "  INSTALL_HELTEC_NRF_TOOLS=1 bash ${REPO_ROOT}/scripts/setup_heltec_t114_tools.sh"
+echo "Optional Heltec v2 extra Python requirements:"
+echo "  python -m pip install -r ${REPO_ROOT}/pi-companion/requirements-heltec-v2-extra.txt"
 echo "External antenna readiness:"
 echo "  bash ${REPO_ROOT}/scripts/configure_koalabyte_external_antennas.sh --check-only"
 echo "T114 plug-in firmware flash:"
@@ -217,7 +241,7 @@ echo
 echo "Koala Kan Kommander InnoMaker manifest test:"
 echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_koala_kan_kommander.py manifest"
 echo
-echo "that’s not a knife local guard service:"
+echo "that's not a knife local guard service:"
 echo "  bash ${REPO_ROOT}/scripts/install_thats_not_a_knife_service.sh"
 echo "  systemctl status koalabyte-thats-not-a-knife.service"
 echo "  journalctl -u koalabyte-thats-not-a-knife.service -f"
