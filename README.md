@@ -77,7 +77,7 @@ The one-shot installer runs these phases:
 2. **Raspberry Pi companion setup** — prepares the Pi filesystem, Python virtual environment, runtime folders, logs, service assets, and helper scripts.
 3. **Heltec T114 plug-in firmware flash** — defaults to `T114_PLUG_FLASH_PROFILE=color-mouth`, which flashes the Heltec mouth/status firmware for shared KillerKoala face-state sync.
 4. **ESP32-S3 DualEye firmware flash** — builds and uploads the PlatformIO firmware that drives eyes, local UI, buttons, and companion display feedback.
-5. **KillerKoala eyes/mouth sync** — validates the shared `killerkoala_face` USB JSON protocol used by ESP32 eyes and Heltec mouth/status firmware.
+5. **KillerKoala eyes and mouth sync** — validates the shared `killerkoala_face` USB JSON protocol used by ESP32 eyes and Heltec mouth/status firmware.
 6. **Menus, submenus, controls, commands, and antennas** — confirms main menu items, submenu routes, command handlers, six-button GPIO mapping, and antenna readiness status.
 7. **BLE node manager service** — installs or refreshes the Pi-side service that listens to the Heltec T114 primary path, optional ESP32 face path, and Pi BlueZ fallback path.
 8. **Didgeridoo/menu action readiness** — generates menu action status artifacts for mesh, GNSS, Meshtastic, and protected location-gate flows.
