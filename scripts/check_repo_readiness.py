@@ -15,6 +15,7 @@ if str(REPO_ROOT) not in sys.path:
 
 REQUIRED_FILES = [
     "README.md",
+    "install.sh",
     "pi-companion/config.default.json",
     "pi-companion/koalablue/menu_catalog.py",
     "pi-companion/koalablue/meshtastic_app.py",
@@ -25,6 +26,8 @@ REQUIRED_FILES = [
     "scripts/check_menu_actions.py",
     "scripts/check_killerkoala_face_mouth_sync.py",
     "scripts/check_one_shot_controls.py",
+    "scripts/preflight_all_hardware.py",
+    "scripts/preflight_all_hardware.sh",
     "scripts/test_gpio_buttons.py",
     "scripts/run_menu_screen.py",
     "scripts/run_didgeridoo.py",
@@ -34,14 +37,21 @@ REQUIRED_FILES = [
     "scripts/configure_koalabyte_external_antennas.sh",
     "scripts/check_external_antenna_readiness.py",
     "scripts/flash_t114_when_plugged.sh",
+    "scripts/flash_heltec_mouth.sh",
+    "scripts/flash_esp32.sh",
     "scripts/install_koalabyte_one_shot.sh",
+    "firmware/esp32-dualeye/platformio.ini",
+    "firmware/heltec-mouth/platformio.ini",
     "docs/EXTERNAL_ANTENNA_READINESS.md",
     "docs/T114_PLUG_IN_FLASHING.md",
 ]
 
 SHELL_HELPERS = [
+    "install.sh",
     "scripts/configure_koalabyte_external_antennas.sh",
     "scripts/flash_t114_when_plugged.sh",
+    "scripts/flash_heltec_mouth.sh",
+    "scripts/preflight_all_hardware.sh",
     "scripts/install_koalabyte_one_shot.sh",
 ]
 
@@ -56,10 +66,13 @@ def check_readme(failures: list[str]) -> None:
     text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     for needle in [
         "bash scripts/install_koalabyte_one_shot.sh",
+        "bash install.sh",
         "InnoMaker CAN kit is optional",
         "ESP32-S3 DualEye",
         "Heltec Mesh Node T114",
         "Didgeridoo",
+        "Meshtastic",
+        "GNSS",
         "eyes and mouth",
         "button",
         "antenna",
