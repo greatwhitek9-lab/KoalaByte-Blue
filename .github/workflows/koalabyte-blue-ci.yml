@@ -2,142 +2,17 @@ name: KoalaByte Blue CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - koalabyte-blue-v2-heltec-edition
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - koalabyte-blue-v2-heltec-edition
 
 jobs:
-  esp32-firmware-build:
-    name: Build ESP32-S3 DualEye firmware and T114 artifacts
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install PlatformIO
-        run: python -m pip install --upgrade pip platformio
-
-      - name: Show checkout diagnostics
-        run: |
-          echo "HEAD=$(git rev-parse HEAD)"
-          echo "readiness_sha=$(git rev-parse HEAD:scripts/check_repo_readiness.py)"
-          echo "flash_all_sha=$(git rev-parse HEAD:scripts/flash_all_components.sh)"
-          echo "default_t114_artifacts_sha=$(git rev-parse HEAD:scripts/build_default_t114_protocol_artifacts.sh)"
-          echo "optional_t114_manifest_sha=$(git rev-parse HEAD:scripts/write_optional_t114_firmware_artifacts.py)"
-          echo "wifi_helper_sha=$(git rev-parse HEAD:scripts/setup_wifi_first_boot.sh)"
-          echo "preboot_sha=$(git rev-parse HEAD:scripts/run_preboot_mode_select.py)"
-          echo "cache_helper_sha=$(git rev-parse HEAD:scripts/prepare_dongle_firmware_cache.sh)"
-          echo "nrf_tools_sha=$(git rev-parse HEAD:scripts/setup_nrf_tools.sh)"
-          echo "ncs_toolchain_sha=$(git rev-parse HEAD:scripts/setup_nrf_connect_sdk_toolchain.sh)"
-          echo "esp32_tools_sha=$(git rev-parse HEAD:scripts/setup_esp32_tools.sh)"
-          echo "system_packages_sha=$(git rev-parse HEAD:scripts/setup_system_packages.sh)"
-
-      - name: Run repo readiness check
-        run: python scripts/check_repo_readiness.py
-
-      - name: Check helper shell syntax
-        run: |
-          bash -n scripts/flash_all_components.sh
-          bash -n scripts/flash_esp32.sh
-          bash -n scripts/build_firmware_all.sh
-          bash -n scripts/build_default_t114_protocol_artifacts.sh
-          bash -n scripts/install_pi.sh
-          bash -n scripts/koalabyte_blue_boot.sh
-          bash -n scripts/prepare_dongle_firmware_cache.sh
-          bash -n scripts/setup_wifi_first_boot.sh
-          bash -n scripts/setup_nrf_tools.sh
-          bash -n scripts/setup_nrf_connect_sdk_toolchain.sh
-          bash -n scripts/setup_esp32_tools.sh
-          bash -n scripts/setup_system_packages.sh
-          bash -n scripts/configure_t114_2g4_antenna.sh
-
-      - name: Build ESP32 firmware
-        run: pio run -d firmware/esp32-dualeye
-
-      - name: Build default T114 protocol artifacts
-        run: bash scripts/build_default_t114_protocol_artifacts.sh
-
-  nrf-zephyr-source-check:
-    name: Check nRF52840 Dongle Zephyr project wiring
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Show checkout diagnostics
-        run: |
-          echo "HEAD=$(git rev-parse HEAD)"
-          echo "readiness_sha=$(git rev-parse HEAD:scripts/check_repo_readiness.py)"
-          echo "flash_all_sha=$(git rev-parse HEAD:scripts/flash_all_components.sh)"
-          echo "default_t114_artifacts_sha=$(git rev-parse HEAD:scripts/build_default_t114_protocol_artifacts.sh)"
-          echo "optional_t114_manifest_sha=$(git rev-parse HEAD:scripts/write_optional_t114_firmware_artifacts.py)"
-          echo "wifi_helper_sha=$(git rev-parse HEAD:scripts/setup_wifi_first_boot.sh)"
-          echo "preboot_sha=$(git rev-parse HEAD:scripts/run_preboot_mode_select.py)"
-          echo "cache_helper_sha=$(git rev-parse HEAD:scripts/prepare_dongle_firmware_cache.sh)"
-          echo "nrf_tools_sha=$(git rev-parse HEAD:scripts/setup_nrf_tools.sh)"
-          echo "ncs_toolchain_sha=$(git rev-parse HEAD:scripts/setup_nrf_connect_sdk_toolchain.sh)"
-          echo "esp32_tools_sha=$(git rev-parse HEAD:scripts/setup_esp32_tools.sh)"
-          echo "system_packages_sha=$(git rev-parse HEAD:scripts/setup_system_packages.sh)"
-
-      - name: Run repo readiness check
-        run: python scripts/check_repo_readiness.py
-
-      - name: Confirm nRF52840 Dongle Zephyr app and DFU helpers
-        run: |
-          test -f firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt
-          test -f firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf
-          test -f firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c
-          test -f scripts/build_nrf52840_dongle_lab.sh
-          test -f scripts/flash_nrf52840_dongle_lab_dfu.sh
-          test -f scripts/flash_all_components.sh
-          test -f scripts/build_default_t114_protocol_artifacts.sh
-          test -f scripts/write_optional_t114_firmware_artifacts.py
-          test -f scripts/setup_wifi_first_boot.sh
-          test -f scripts/setup_nrf_tools.sh
-          test -f scripts/setup_nrf_connect_sdk_toolchain.sh
-          test -f scripts/setup_esp32_tools.sh
-          test -f scripts/setup_system_packages.sh
-          test -f scripts/run_preboot_mode_select.py
-          test -f scripts/koalabyte_blue_boot.sh
-          test -f scripts/prepare_dongle_firmware_cache.sh
-          test -f docs/INSTALL_DEPENDENCIES.md
-          test -f docs/OPTIONAL_T114_FIRMWARE_ARTIFACTS.md
-          test -f pi-companion/koalblue/preboot_mode_selector.py || test -f pi-companion/koalablue/preboot_mode_selector.py
-          grep -q 'find_package(Zephyr REQUIRED' firmware/nrf52840-dongle-ear-tag-tx-lab/CMakeLists.txt
-          grep -q 'CONFIG_BT_DEVICE_NAME="KoalaByte Lab"' firmware/nrf52840-dongle-ear-tag-tx-lab/prj.conf
-          grep -q 'bt_le_adv_start' firmware/nrf52840-dongle-ear-tag-tx-lab/src/main.c
-          grep -q 'setup_wifi_first_boot.sh' scripts/install_pi.sh
-          grep -q 'setup_wifi_first_boot.sh' scripts/flash_all_components.sh
-          grep -q 'setup_wifi_first_boot.sh' scripts/prepare_dongle_firmware_cache.sh
-          grep -q 'write_optional_t114_firmware_artifacts.py' scripts/install_pi.sh
-          grep -q 'build_default_t114_protocol_artifacts.sh' scripts/build_firmware_all.sh
-          grep -q 'logs/t114_hci_usb_mode.json' docs/OPTIONAL_T114_FIRMWARE_ARTIFACTS.md
-          grep -q 'logs/t114_active_ble_mode.json' docs/OPTIONAL_T114_FIRMWARE_ARTIFACTS.md
-          grep -q 'killerkoala_face' docs/OPTIONAL_T114_FIRMWARE_ARTIFACTS.md
-          grep -q 'gnss_nmea' docs/OPTIONAL_T114_FIRMWARE_ARTIFACTS.md
-          grep -q 'ble_adv_seen' docs/OPTIONAL_T114_FIRMWARE_ARTIFACTS.md
-          grep -q 'setup_nrf_tools.sh --west-only' scripts/build_nrf52840_dongle_lab.sh
-          grep -q 'setup_nrf_connect_sdk_toolchain.sh' scripts/build_nrf52840_dongle_lab.sh
-          grep -q 'setup_nrf_tools.sh --nrfutil-only' scripts/flash_nrf52840_dongle_lab_dfu.sh
-          grep -q 'setup_nrf_tools.sh' scripts/flash_all_components.sh
-          grep -q 'setup_nrf_connect_sdk_toolchain.sh' scripts/flash_all_components.sh
-          grep -q 'setup_esp32_tools.sh' scripts/flash_esp32.sh
-          grep -q 'setup_system_packages.sh' scripts/install_pi.sh
-          grep -q 'koala_konnect' pi-companion/koalablue/preboot_mode_selector.py
-          grep -q 'prepare-cache' pi-companion/koalablue/koala_mode_switcher.py
-
-  pi-companion-python-check:
-    name: Check Pi companion Python
+  pi-companion-readiness:
+    name: Check Pi companion, installer, and readiness helpers
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -156,17 +31,25 @@ jobs:
       - name: Show checkout diagnostics
         run: |
           echo "HEAD=$(git rev-parse HEAD)"
+          echo "branch=${GITHUB_REF_NAME}"
           echo "readiness_sha=$(git rev-parse HEAD:scripts/check_repo_readiness.py)"
-          echo "flash_all_sha=$(git rev-parse HEAD:scripts/flash_all_components.sh)"
-          echo "default_t114_artifacts_sha=$(git rev-parse HEAD:scripts/build_default_t114_protocol_artifacts.sh)"
-          echo "optional_t114_manifest_sha=$(git rev-parse HEAD:scripts/write_optional_t114_firmware_artifacts.py)"
-          echo "wifi_helper_sha=$(git rev-parse HEAD:scripts/setup_wifi_first_boot.sh)"
-          echo "preboot_sha=$(git rev-parse HEAD:scripts/run_preboot_mode_select.py)"
-          echo "cache_helper_sha=$(git rev-parse HEAD:scripts/prepare_dongle_firmware_cache.sh)"
-          echo "nrf_tools_sha=$(git rev-parse HEAD:scripts/setup_nrf_tools.sh)"
-          echo "ncs_toolchain_sha=$(git rev-parse HEAD:scripts/setup_nrf_connect_sdk_toolchain.sh)"
-          echo "esp32_tools_sha=$(git rev-parse HEAD:scripts/setup_esp32_tools.sh)"
-          echo "system_packages_sha=$(git rev-parse HEAD:scripts/setup_system_packages.sh)"
+          echo "bootstrap_sha=$(git rev-parse HEAD:install.sh)"
+          echo "one_shot_sha=$(git rev-parse HEAD:scripts/install_koalabyte_one_shot.sh)"
+          echo "preflight_sha=$(git rev-parse HEAD:scripts/preflight_all_hardware.py)"
+
+      - name: Check shell helper syntax
+        run: |
+          bash -n install.sh
+          bash -n scripts/install_koalabyte_one_shot.sh
+          bash -n scripts/install_pi.sh
+          bash -n scripts/flash_esp32.sh
+          bash -n scripts/flash_t114_when_plugged.sh
+          bash -n scripts/flash_heltec_mouth.sh
+          bash -n scripts/preflight_all_hardware.sh
+          bash -n scripts/configure_koalabyte_external_antennas.sh
+          bash -n scripts/setup_system_packages.sh
+          bash -n scripts/setup_esp32_tools.sh
+          bash -n scripts/setup_heltec_t114_tools.sh
 
       - name: Compile Python modules and scripts
         run: python -m compileall pi-companion scripts
@@ -177,26 +60,38 @@ jobs:
       - name: Generate T114 protocol artifacts
         run: bash scripts/build_default_t114_protocol_artifacts.sh
 
-      - name: Validate WiFi helper check-only mode
-        run: bash scripts/setup_wifi_first_boot.sh --check-only
+      - name: Validate helper check-only modes
+        run: |
+          bash scripts/setup_wifi_first_boot.sh --check-only
+          bash scripts/setup_system_packages.sh --check-only
+          bash scripts/setup_esp32_tools.sh --check-only
+          bash scripts/setup_heltec_t114_tools.sh --check-only
+          bash scripts/flash_t114_when_plugged.sh --check-only
+          bash scripts/configure_koalabyte_external_antennas.sh --check-only
 
-      - name: Validate system package check-only mode
-        run: bash scripts/setup_system_packages.sh --check-only
+      - name: Validate menu and hardware readiness reports
+        run: |
+          PYTHONPATH=pi-companion python scripts/check_menu_actions.py
+          PYTHONPATH=pi-companion python scripts/check_one_shot_controls.py
+          python scripts/preflight_all_hardware.py --profile heltec
 
-      - name: Validate ESP32 tool setup check-only mode
-        run: bash scripts/setup_esp32_tools.sh --check-only
+  esp32-firmware-build:
+    name: Build ESP32-S3 DualEye firmware
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-      - name: Validate nRF tool setup check-only mode
-        run: bash scripts/setup_nrf_tools.sh --check-only
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-      - name: Validate NCS toolchain check-only mode
-        run: bash scripts/setup_nrf_connect_sdk_toolchain.sh --check-only
+      - name: Install PlatformIO
+        run: python -m pip install --upgrade pip platformio
 
-      - name: Validate pre-boot selector noninteractive mode
-        run: PYTHONPATH=pi-companion python scripts/run_preboot_mode_select.py --noninteractive --no-apply
+      - name: Build ESP32 firmware
+        run: pio run -d firmware/esp32-dualeye
 
-      - name: Validate cache status command
-        run: PYTHONPATH=pi-companion python scripts/run_koala_mode_switcher.py cache-status
-
-      - name: Validate all-component helper check-only mode
-        run: bash scripts/flash_all_components.sh --check-only
+      - name: Build default T114 protocol artifacts
+        run: bash scripts/build_default_t114_protocol_artifacts.sh
