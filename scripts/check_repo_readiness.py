@@ -34,6 +34,7 @@ REQUIRED_FILES = [
     "scripts/run_meshtastic_app.py",
     "scripts/run_t114_bluez.py",
     "scripts/run_location_password_gate.py",
+    "scripts/setup_killerkoala_ollama.sh",
     "scripts/configure_koalabyte_external_antennas.sh",
     "scripts/check_external_antenna_readiness.py",
     "scripts/flash_t114_when_plugged.sh",
@@ -42,6 +43,8 @@ REQUIRED_FILES = [
     "scripts/install_koalabyte_one_shot.sh",
     "firmware/esp32-dualeye/platformio.ini",
     "firmware/heltec-mouth/platformio.ini",
+    "training/killerkoala_lora/Modelfile.killerkoala-tinyllama",
+    "docs/KILLERKOALA_LORA_TRAINING.md",
     "docs/EXTERNAL_ANTENNA_READINESS.md",
     "docs/T114_PLUG_IN_FLASHING.md",
 ]
@@ -52,6 +55,7 @@ SHELL_HELPERS = [
     "scripts/flash_t114_when_plugged.sh",
     "scripts/flash_heltec_mouth.sh",
     "scripts/preflight_all_hardware.sh",
+    "scripts/setup_killerkoala_ollama.sh",
     "scripts/install_koalabyte_one_shot.sh",
 ]
 
@@ -76,6 +80,10 @@ def check_readme(failures: list[str]) -> None:
         "eyes and mouth",
         "button",
         "antenna",
+        "TinyLlama",
+        "Ollama",
+        "killerkoala-tinyllama:latest",
+        "scripts/setup_killerkoala_ollama.sh",
     ]:
         if needle not in text:
             failures.append(f"README.md missing expected deployment text: {needle}")
