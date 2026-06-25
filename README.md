@@ -69,12 +69,58 @@ The InnoMaker CAN kit is optional. If it is not plugged in, the one-shot install
 
 ---
 
+## KillerKoala local AI fallback
+
+The one-shot installer now automatically prepares the local KillerKoala TinyLlama/Ollama fallback path during Raspberry Pi companion setup.
+
+Default behavior:
+
+```text
+INSTALL_KILLERKOALA_OLLAMA=auto
+STRICT_KILLERKOALA_OLLAMA=0
+KILLERKOALA_BASE_MODEL=tinyllama:1.1b
+KILLERKOALA_LLM_MODEL=killerkoala-tinyllama:latest
+```
+
+What it does:
+
+1. Checks for the `ollama` command.
+2. If missing, downloads and runs the official Ollama Linux installer.
+3. Starts the local Ollama service/API.
+4. Pulls `tinyllama:1.1b`.
+5. Builds `killerkoala-tinyllama:latest` from `training/killerkoala_lora/Modelfile.killerkoala-tinyllama`.
+6. Runs a short smoke test.
+7. Writes status to `logs/killerkoala/ollama_setup_status.json`.
+
+Manual helper:
+
+```bash
+bash scripts/setup_killerkoala_ollama.sh
+cat logs/killerkoala/ollama_setup_status.json
+```
+
+Skip the local model setup:
+
+```bash
+INSTALL_KILLERKOALA_OLLAMA=0 bash scripts/install_koalabyte_one_shot.sh
+```
+
+Make local AI setup strict/failing if the model cannot be prepared:
+
+```bash
+STRICT_KILLERKOALA_OLLAMA=1 bash scripts/install_koalabyte_one_shot.sh
+```
+
+Runtime remains phrase-first for reliability on a Pi 3B+. TinyLlama is used for optional flexible banter or forced test mode, and KillerKoala falls back to the built-in Aussie/gruff phrase engine if the local model is unavailable or too slow.
+
+---
+
 ## What the one-shot installer prepares
 
 The one-shot installer runs these phases:
 
-1. **Repository readiness** — validates README markers, required scripts, firmware folders, menu wiring, GPIO button files, face/mouth sync files, antenna helpers, and shell syntax.
-2. **Raspberry Pi companion setup** — prepares the Pi filesystem, Python virtual environment, runtime folders, logs, service assets, and helper scripts.
+1. **Repository readiness** — validates README markers, required scripts, firmware folders, menu wiring, GPIO button files, face/mouth sync files, antenna helpers, local AI helper, and shell syntax.
+2. **Raspberry Pi companion setup** — prepares the Pi filesystem, Python virtual environment, runtime folders, logs, service assets, helper scripts, and KillerKoala Ollama/TinyLlama fallback model.
 3. **Heltec T114 plug-in firmware flash** — defaults to `T114_PLUG_FLASH_PROFILE=color-mouth`, which flashes the Heltec mouth/status firmware for shared KillerKoala face-state sync.
 4. **ESP32-S3 DualEye firmware flash** — builds and uploads the PlatformIO firmware that drives eyes, local UI, buttons, and companion display feedback.
 5. **KillerKoala eyes and mouth sync** — validates the shared `killerkoala_face` USB JSON protocol used by ESP32 eyes and Heltec mouth/status firmware.
@@ -126,6 +172,7 @@ After the one-shot installer completes, run:
 ```bash
 python3 scripts/check_repo_readiness.py
 bash scripts/preflight_all_hardware.sh --profile heltec
+bash scripts/setup_killerkoala_ollama.sh --check-only
 PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
 PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
 PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py --emit-test
@@ -217,27 +264,3 @@ The Didgeridoo app owns the mesh stack. It contains T114 checks, Meshtastic stat
 ### Koala Kan Kommander
 
 Optional InnoMaker USB-to-CAN support for isolated bench-simulator or owned-harness workflows only. It is the only hardware module in the one-shot path that is optional by default.
-
-### KillerKoala companion
-
-Voice/status personality, XP/ranks, face state, buttons, and UI feedback. Ranks are Noob, Hacker, and Legend. Its shared face payload keeps the ESP32-S3 eyes and Heltec mouth synced.
-
----
-
-## Useful docs
-
-```text
-docs/MAIN_BLE_NODE_ROLES.md
-docs/T114_PLUG_IN_FLASHING.md
-docs/EXTERNAL_ANTENNA_READINESS.md
-docs/ANTEATER_BLE_CARD_SKIMMER_DETECTOR.md
-docs/FLASHING.md
-docs/ORDERABLE_PARTS_LIST.md
-docs/PRODUCTION_FILES.md
-```
-
----
-
-## Project vibe
-
-KoalaByte Blue is meant to feel like a real little cyber field companion: practical enough for a bench, weird enough to be memorable, and safe enough to demo without turning your lab into chaos. KillerKoala watches the canopy, eats Bluetooth eucalyptus data, runs Didgeridoo mesh checks, gains XP through approved actions, and keeps the device focused on lawful local work.
