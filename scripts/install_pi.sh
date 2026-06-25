@@ -15,6 +15,10 @@ STRICT_HELTEC_T114_TOOLS="${STRICT_HELTEC_T114_TOOLS:-0}"
 INSTALL_HELTEC_NRF_TOOLS="${INSTALL_HELTEC_NRF_TOOLS:-auto}"
 INSTALL_HELTEC_V2_EXTRAS="${INSTALL_HELTEC_V2_EXTRAS:-auto}"
 STRICT_HELTEC_V2_EXTRAS="${STRICT_HELTEC_V2_EXTRAS:-0}"
+INSTALL_KILLERKOALA_OLLAMA="${INSTALL_KILLERKOALA_OLLAMA:-auto}"
+STRICT_KILLERKOALA_OLLAMA="${STRICT_KILLERKOALA_OLLAMA:-0}"
+KILLERKOALA_BASE_MODEL="${KILLERKOALA_BASE_MODEL:-tinyllama:1.1b}"
+KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-tinyllama:latest}"
 FLASH_T114_ON_PLUG="${FLASH_T114_ON_PLUG:-auto}"
 STRICT_T114_PLUG_FLASH="${STRICT_T114_PLUG_FLASH:-1}"
 T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE:-color-mouth}"
@@ -91,6 +95,14 @@ case "${INSTALL_HELTEC_V2_EXTRAS}" in
     exit 1
     ;;
 esac
+
+echo
+echo "Checking/preparing KillerKoala Ollama TinyLlama fallback model..."
+INSTALL_KILLERKOALA_OLLAMA="${INSTALL_KILLERKOALA_OLLAMA}" \
+STRICT_KILLERKOALA_OLLAMA="${STRICT_KILLERKOALA_OLLAMA}" \
+KILLERKOALA_BASE_MODEL="${KILLERKOALA_BASE_MODEL}" \
+KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL}" \
+  bash "${REPO_ROOT}/scripts/setup_killerkoala_ollama.sh"
 
 echo
 echo "Checking/preparing Heltec T114 runtime dependencies and port discovery..."
@@ -222,6 +234,9 @@ echo "  bash ${REPO_ROOT}/scripts/setup_heltec_t114_tools.sh"
 echo "  INSTALL_HELTEC_NRF_TOOLS=1 bash ${REPO_ROOT}/scripts/setup_heltec_t114_tools.sh"
 echo "Optional Heltec v2 extra Python requirements:"
 echo "  python -m pip install -r ${REPO_ROOT}/pi-companion/requirements-heltec-v2-extra.txt"
+echo "KillerKoala Ollama TinyLlama helper:"
+echo "  bash ${REPO_ROOT}/scripts/setup_killerkoala_ollama.sh"
+echo "  cat ${REPO_ROOT}/logs/killerkoala/ollama_setup_status.json"
 echo "External antenna readiness:"
 echo "  bash ${REPO_ROOT}/scripts/configure_koalabyte_external_antennas.sh --check-only"
 echo "T114 plug-in firmware flash:"
