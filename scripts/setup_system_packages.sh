@@ -77,7 +77,7 @@ fi
 
 packages=(
   git python3 python3-venv python3-pip python3-dev python3-gpiozero python3-lgpio
-  python3-serial python3-dbus python3-gi
+  python3-serial python3-dbus python3-gi python3-httpx
   build-essential pkg-config cmake ninja-build gperf ccache device-tree-compiler
   wget curl xz-utils file make gcc g++ libffi-dev libssl-dev usbutils udev kmod
   util-linux parted dosfstools exfatprogs libusb-1.0-0 libusb-1.0-0-dev
