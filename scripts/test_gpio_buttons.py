@@ -10,6 +10,12 @@ Button numbering is physical left-to-right across the front panel:
 5 Up                    -> BCM GPIO26 / physical pin 37
 6 Down                  -> BCM GPIO21 / physical pin 40
 GND                     -> physical pin 39 or any Pi GND
+
+Electrical behavior:
+
+- Pi internal pull-up enabled in software with pull_up=True.
+- Not pressed / idle reads HIGH.
+- Pressed shorts GPIO to GND and reads LOW.
 """
 
 from __future__ import annotations
@@ -38,6 +44,8 @@ def main() -> None:
     signal.signal(signal.SIGINT, stop)
     buttons = []
     print("KoalaByte Blue RevA6 six-button test running. Press Ctrl+C to exit.")
+    print("Electrical mode: internal pull-up enabled; not pressed=HIGH, pressed=LOW.")
+    print("Wire each normally-open tactile button between its BCM GPIO and GND.")
     print("Hold button 3 for 3 seconds to test the shutdown-hold event; this script only prints the event.")
     for name, cfg in BUTTONS.items():
         number = int(cfg["number"])
@@ -45,12 +53,12 @@ def main() -> None:
         press = str(cfg["press"])
         button = Button(pin, pull_up=True, bounce_time=0.05, hold_time=3.0)
         button.when_pressed = lambda n=name, num=number, p=pin, cmd=press: print(
-            f"button={num} name={n} pin_bcm={p} event=press command={cmd}", flush=True
+            f"button={num} name={n} pin_bcm={p} electrical=LOW event=press command={cmd}", flush=True
         )
         if "hold" in cfg:
             hold = str(cfg["hold"])
             button.when_held = lambda n=name, num=number, p=pin, cmd=hold: print(
-                f"button={num} name={n} pin_bcm={p} event=hold command={cmd}", flush=True
+                f"button={num} name={n} pin_bcm={p} electrical=LOW event=hold command={cmd}", flush=True
             )
         buttons.append(button)
     while running:
