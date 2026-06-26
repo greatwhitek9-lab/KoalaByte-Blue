@@ -8,7 +8,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from .killerkoala_voice_control import DEFAULT_OUTPUT_DIR, DEFAULT_XP_PATH, execute_module, parse_voice_command
+from .killerkoala_voice_control import DEFAULT_OUTPUT_DIR, DEFAULT_XP_PATH
+from .killerkoala_voice_router import route_voice_phrase
 
 DEFAULT_BAUD = 115200
 DEFAULT_STATUS_PATH = Path("logs/killerkoala/esp32_dualeye_mic_status.json")
@@ -52,8 +53,11 @@ class ESP32DualEyeVoiceBridge:
 
     The DualEye firmware owns the board microphone front-end and emits JSON over
     USB CDC serial. The Pi listens for ``voice_wake`` and ``voice_command``
-    messages, then routes phrases through the same KillerKoala voice command
-    executor used by typed/desktop testing.
+    messages, then routes phrases through the combined KillerKoala voice router.
+    This includes both direct AI/voice modules and menu/submenu launch syntax:
+
+        killerkoala run <menu item or command>
+        killerkoala open <menu item or command>
     """
 
     def __init__(
@@ -119,7 +123,6 @@ class ESP32DualEyeVoiceBridge:
         if not phrase:
             phrase = f"{wake_word} voice commands"
         if phrase.strip().lower() == wake_word.lower():
-            # Pure wake events should still prove the command stack by opening help.
             phrase = f"{wake_word} voice commands"
         return phrase
 
@@ -169,8 +172,7 @@ class ESP32DualEyeVoiceBridge:
         return self.handle_payload(payload)
 
     def route_event(self, event: ESP32DualEyeVoiceEvent) -> Dict[str, Any]:
-        parsed = parse_voice_command(event.phrase, require_wake_word=True)
-        result = execute_module(parsed, output_dir=self.output_dir, xp_path=self.xp_path)
+        result = route_voice_phrase(event.phrase, require_wake_word=True, output_dir=self.output_dir, xp_path=self.xp_path)
         return {"event": asdict(event), "result": asdict(result)}
 
     def run(self, seconds: Optional[float] = None, once: bool = False) -> Dict[str, Any]:
