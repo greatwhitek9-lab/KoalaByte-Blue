@@ -5,7 +5,7 @@ import argparse
 import json
 import time
 
-from koalblue.esp32_dualeye_voice_bridge import ESP32DualEyeVoiceBridge, default_esp32_port
+from koalablue.esp32_dualeye_voice_bridge import ESP32DualEyeVoiceBridge, default_esp32_port
 
 
 def main() -> int:
