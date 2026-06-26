@@ -19,18 +19,40 @@ class ButtonEvent:
     pin_bcm: int
 
 
+@dataclass(frozen=True)
+class ButtonElectricalMode:
+    """Electrical behavior for the KoalaByte Blue front-panel buttons.
+
+    The six 6x6mm tactile switches are wired as normally-open switches between
+    a Raspberry Pi BCM GPIO input and GND. The Pi enables its internal pull-up
+    resistor in software, so each input idles HIGH and is pulled LOW only while
+    the matching button is pressed.
+    """
+
+    pull_up: bool = True
+    idle_state: str = "HIGH"
+    pressed_state: str = "LOW"
+    wiring: str = "normally-open tactile switch shorts BCM GPIO to GND"
+
+
+DEFAULT_ELECTRICAL_MODE = ButtonElectricalMode()
+
+
 # Six-button front-panel mapping, numbered left-to-right.
+# Physical pins refer to the Raspberry Pi 40-pin header / 40-pin GPIO extender.
 DEFAULT_BUTTONS: Dict[str, Dict[str, object]] = {
     "button_1": {
         "number": 1,
         "label": "Main Menu",
         "pin": 5,
+        "physical_pin": 29,
         "press_command": "main_menu",
     },
     "button_2": {
         "number": 2,
         "label": "Move Left / Back",
         "pin": 6,
+        "physical_pin": 31,
         "press_command": "move_left",
         "alias_command": "back",
     },
@@ -38,6 +60,7 @@ DEFAULT_BUTTONS: Dict[str, Dict[str, object]] = {
         "number": 3,
         "label": "Enter / Select",
         "pin": 13,
+        "physical_pin": 33,
         "press_command": "select",
         "hold_command": "shutdown",
         "hold_seconds": 3.0,
@@ -46,6 +69,7 @@ DEFAULT_BUTTONS: Dict[str, Dict[str, object]] = {
         "number": 4,
         "label": "Move Right / Forward",
         "pin": 19,
+        "physical_pin": 35,
         "press_command": "move_right",
         "alias_command": "forward",
     },
@@ -53,12 +77,14 @@ DEFAULT_BUTTONS: Dict[str, Dict[str, object]] = {
         "number": 5,
         "label": "Up",
         "pin": 26,
+        "physical_pin": 37,
         "press_command": "up",
     },
     "button_6": {
         "number": 6,
         "label": "Down",
         "pin": 21,
+        "physical_pin": 40,
         "press_command": "down",
     },
 }
@@ -67,9 +93,15 @@ DEFAULT_BUTTONS: Dict[str, Dict[str, object]] = {
 class GPIOButtonManager:
     """Front-panel Raspberry Pi GPIO button manager.
 
-    Buttons are normally-open tactile switches. One side of each button goes to
-    the assigned BCM GPIO pin and the other side goes to GND. The Pi internal
-    pull-up is enabled through gpiozero.
+    Buttons are normally-open 6x6mm tactile switches. One side of each button
+    goes to the assigned BCM GPIO pin from the 40-pin extender, and the opposite
+    side goes to Pi GND. The Pi internal pull-up resistor is enabled through
+    gpiozero with ``pull_up=True``.
+
+    Electrical behavior:
+
+    - Not pressed / idle: GPIO reads HIGH.
+    - Pressed: button shorts GPIO to GND, GPIO reads LOW.
 
     Button numbering is physical left-to-right on the front panel:
 
@@ -81,8 +113,14 @@ class GPIOButtonManager:
     6. Down
     """
 
-    def __init__(self, buttons: Optional[Dict[str, Dict[str, object]]] = None, log_path: str | Path = "logs/gpio_buttons.jsonl") -> None:
+    def __init__(
+        self,
+        buttons: Optional[Dict[str, Dict[str, object]]] = None,
+        log_path: str | Path = "logs/gpio_buttons.jsonl",
+        electrical_mode: ButtonElectricalMode = DEFAULT_ELECTRICAL_MODE,
+    ) -> None:
         self.buttons_config = buttons or DEFAULT_BUTTONS
+        self.electrical_mode = electrical_mode
         self.log_path = Path(log_path)
         self.events: "queue.Queue[ButtonEvent]" = queue.Queue()
         self._button_objs = []
@@ -104,8 +142,12 @@ class GPIOButtonManager:
                 press_command = str(cfg.get("press_command", cfg.get("command", name)))
                 hold_command = cfg.get("hold_command")
                 hold_seconds = float(cfg.get("hold_seconds", 3.0))
+                bounce_time = float(cfg.get("bounce_time", 0.05))
+                pull_up = bool(cfg.get("pull_up", self.electrical_mode.pull_up))
 
-                button = Button(pin, pull_up=True, bounce_time=0.05, hold_time=hold_seconds)
+                # pull_up=True enables the Pi's internal pull-up resistor:
+                # idle/not pressed = HIGH, pressed/shorted-to-ground = LOW.
+                button = Button(pin, pull_up=pull_up, bounce_time=bounce_time, hold_time=hold_seconds)
                 button.when_pressed = self._make_callback(
                     number=number,
                     name=name,
@@ -161,6 +203,10 @@ class GPIOButtonManager:
             "event_type": event.event_type,
             "timestamp": event.timestamp,
             "pin_bcm": event.pin_bcm,
+            "pull_up": self.electrical_mode.pull_up,
+            "idle_state": self.electrical_mode.idle_state,
+            "pressed_state": self.electrical_mode.pressed_state,
+            "wiring": self.electrical_mode.wiring,
         }
         with self.log_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(payload, sort_keys=True) + "\n")
