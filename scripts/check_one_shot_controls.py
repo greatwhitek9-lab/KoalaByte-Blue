@@ -32,6 +32,10 @@ REQUIRED_ONE_SHOT_SNIPPETS = [
     "STRICT_KILLERKOALA_AI",
     "prepare_anteater_status",
     "run_optional_can",
+    "INSTALL_INNOMAKER_CAN",
+    "STRICT_INNOMAKER_CAN",
+    '"required": false',
+    "InnoMaker CAN kit is optional",
 ]
 
 REQUIRED_COMMAND_HELPERS = [
@@ -40,6 +44,7 @@ REQUIRED_COMMAND_HELPERS = [
     "scripts/check_external_antenna_readiness.py",
     "scripts/check_killerkoala_face_mouth_sync.py",
     "scripts/check_killerkoala_ai.py",
+    "scripts/run_esp32_dualeye_voice_bridge.py",
     "scripts/configure_koalabyte_external_antennas.sh",
     "scripts/flash_t114_when_plugged.sh",
     "scripts/run_didgeridoo.py",
@@ -102,6 +107,16 @@ def button_manifest() -> list[dict[str, object]]:
     return rows
 
 
+def validate_optional_can_policy(one_shot_text: str) -> list[str]:
+    failures: list[str] = []
+    for needle in ["set +e", "setup_rc=$?", "manifest_rc=$?", "inventory_rc=$?", "status_rc=$?", '"required": false', "STRICT_INNOMAKER_CAN"]:
+        if needle not in one_shot_text:
+            failures.append(f"optional CAN policy missing non-failing marker: {needle}")
+    if "exit 1" in one_shot_text.split("run_optional_can", 1)[-1].split("prepare_anteater_status", 1)[0] and "STRICT_INNOMAKER_CAN" not in one_shot_text:
+        failures.append("optional CAN block can fail without STRICT_INNOMAKER_CAN")
+    return failures
+
+
 def main() -> int:
     failures: list[str] = []
     STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -123,7 +138,8 @@ def main() -> int:
     one_shot_text = one_shot.read_text(encoding="utf-8") if one_shot.exists() else ""
     for snippet in REQUIRED_ONE_SHOT_SNIPPETS:
         if snippet not in one_shot_text:
-            failures.append(f"one-shot installer missing required step: {snippet}")
+            failures.append(f"one-shot installer missing required step/policy: {snippet}")
+    failures.extend(validate_optional_can_policy(one_shot_text))
 
     antenna_rc, antenna_stdout, antenna_stderr = run_command(["bash", "scripts/configure_koalabyte_external_antennas.sh", "--check-only"])
     if antenna_rc != 0:
@@ -159,7 +175,14 @@ def main() -> int:
         "killerkoala_ai": {
             "status_path": "logs/killerkoala/killerkoala_ai_readiness.json",
             "required": True,
+            "esp32_dualeye_builtin_mic_bridge": "scripts/run_esp32_dualeye_voice_bridge.py",
             "check_rc": ai_rc,
+        },
+        "innomaker_can": {
+            "required_for_install": False,
+            "default_mode": "optional",
+            "strict_mode_env": "STRICT_INNOMAKER_CAN=1",
+            "install_must_continue_when_absent": True,
         },
         "antenna_status_files": REQUIRED_ANTENNA_STATUS,
         "required_command_helpers": REQUIRED_COMMAND_HELPERS,
