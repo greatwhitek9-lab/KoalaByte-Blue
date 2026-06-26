@@ -14,7 +14,7 @@ if str(ROOT) not in sys.path:
 if str(PI_ROOT) not in sys.path:
     sys.path.insert(0, str(PI_ROOT))
 
-from koalablue.gpio_buttons import DEFAULT_BUTTONS
+from koalablue.gpio_buttons import DEFAULT_BUTTONS, DEFAULT_ELECTRICAL_MODE
 from koalablue.menu_catalog import MAIN_MENU_ITEMS, SUBMENU_ITEMS
 from scripts.check_menu_actions import build_manifest
 from scripts.check_killerkoala_face_mouth_sync import validate_protocol
@@ -27,6 +27,9 @@ REQUIRED_ONE_SHOT_SNIPPETS = [
     "scripts/check_killerkoala_face_mouth_sync.py",
     "scripts/check_menu_actions.py",
     "scripts/configure_koalabyte_external_antennas.sh",
+    "scripts/check_killerkoala_ai.py",
+    "run_killerkoala_ai_readiness",
+    "STRICT_KILLERKOALA_AI",
     "prepare_anteater_status",
     "run_optional_can",
 ]
@@ -36,13 +39,18 @@ REQUIRED_COMMAND_HELPERS = [
     "scripts/check_menu_actions.py",
     "scripts/check_external_antenna_readiness.py",
     "scripts/check_killerkoala_face_mouth_sync.py",
+    "scripts/check_killerkoala_ai.py",
     "scripts/configure_koalabyte_external_antennas.sh",
     "scripts/flash_t114_when_plugged.sh",
     "scripts/run_didgeridoo.py",
     "scripts/run_location_password_gate.py",
     "scripts/run_t114_bluez.py",
     "scripts/run_meshtastic_app.py",
+    "scripts/run_killerkoala_voice.py",
+    "scripts/run_killerkoala_hybrid.py",
+    "scripts/setup_killerkoala_ollama.sh",
     "scripts/test_gpio_buttons.py",
+    "scripts/setup_gpio_buttons.py",
 ]
 
 REQUIRED_ANTENNA_STATUS = [
@@ -74,10 +82,17 @@ def button_manifest() -> list[dict[str, object]]:
                 "number": number,
                 "label": cfg.get("label"),
                 "pin_bcm": pin,
+                "physical_pin": cfg.get("physical_pin"),
                 "press_command": cfg.get("press_command"),
                 "alias_command": cfg.get("alias_command", ""),
                 "hold_command": cfg.get("hold_command", ""),
                 "hold_seconds": cfg.get("hold_seconds", ""),
+                "electrical_mode": {
+                    "internal_pull_up_enabled": DEFAULT_ELECTRICAL_MODE.pull_up,
+                    "not_pressed_raw_level": DEFAULT_ELECTRICAL_MODE.idle_state,
+                    "pressed_raw_level": DEFAULT_ELECTRICAL_MODE.pressed_state,
+                    "wiring": DEFAULT_ELECTRICAL_MODE.wiring,
+                },
             }
         )
     if seen_numbers != {1, 2, 3, 4, 5, 6}:
@@ -117,6 +132,10 @@ def main() -> int:
         if not (ROOT / status_file).exists():
             failures.append(f"missing antenna status file: {status_file}")
 
+    ai_rc, ai_stdout, ai_stderr = run_command([sys.executable, "scripts/check_killerkoala_ai.py"])
+    if ai_rc != 0:
+        failures.append(f"KillerKoala AI readiness failed: {ai_stderr.strip() or ai_stdout.strip()}")
+
     face_failures = validate_protocol()
     failures.extend(f"face/mouth: {failure}" for failure in face_failures)
 
@@ -132,6 +151,16 @@ def main() -> int:
         },
         "buttons": buttons,
         "button_count": len(buttons),
+        "gpio_button_electrical_mode": {
+            "internal_pull_up_enabled": DEFAULT_ELECTRICAL_MODE.pull_up,
+            "not_pressed_raw_level": DEFAULT_ELECTRICAL_MODE.idle_state,
+            "pressed_raw_level": DEFAULT_ELECTRICAL_MODE.pressed_state,
+        },
+        "killerkoala_ai": {
+            "status_path": "logs/killerkoala/killerkoala_ai_readiness.json",
+            "required": True,
+            "check_rc": ai_rc,
+        },
         "antenna_status_files": REQUIRED_ANTENNA_STATUS,
         "required_command_helpers": REQUIRED_COMMAND_HELPERS,
         "one_shot_required_steps": REQUIRED_ONE_SHOT_SNIPPETS,
