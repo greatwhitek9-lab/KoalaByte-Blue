@@ -29,6 +29,8 @@ INSTALL_NCS_TOOLCHAIN="${INSTALL_NCS_TOOLCHAIN:-auto}"
 STRICT_NCS_TOOLCHAIN="${STRICT_NCS_TOOLCHAIN:-${STRICT_DONGLE_CACHE}}"
 INSTALL_THATS_NOT_A_KNIFE_SERVICE="${INSTALL_THATS_NOT_A_KNIFE_SERVICE:-auto}"
 STRICT_THATS_NOT_A_KNIFE_SERVICE="${STRICT_THATS_NOT_A_KNIFE_SERVICE:-0}"
+INSTALL_GPIO_BUTTONS="${INSTALL_GPIO_BUTTONS:-auto}"
+STRICT_GPIO_BUTTONS="${STRICT_GPIO_BUTTONS:-0}"
 VENV_SYSTEM_SITE_PACKAGES="${VENV_SYSTEM_SITE_PACKAGES:-1}"
 
 cd "${REPO_ROOT}"
@@ -145,6 +147,27 @@ echo "Generating KoalaByte external antenna readiness artifacts..."
 bash "${REPO_ROOT}/scripts/configure_koalabyte_external_antennas.sh" --check-only
 
 echo
+echo "Preparing KoalaByte front-panel GPIO button mapping: INSTALL_GPIO_BUTTONS=${INSTALL_GPIO_BUTTONS}"
+case "${INSTALL_GPIO_BUTTONS}" in
+  0|false|False|no|NO|skip|SKIP)
+    echo "Skipping GPIO button manifest/check by request."
+    ;;
+  auto|AUTO|1|true|True|yes|YES)
+    PYTHONPATH="${REPO_ROOT}/pi-companion" "${VENV_DIR}/bin/python" "${REPO_ROOT}/scripts/setup_gpio_buttons.py" --check-only || {
+      if [[ "${STRICT_GPIO_BUTTONS}" == "1" ]]; then
+        echo "STRICT_GPIO_BUTTONS=1 is set, failing install because GPIO button setup did not complete." >&2
+        exit 1
+      fi
+      echo "Continuing install because STRICT_GPIO_BUTTONS is not enabled." >&2
+    }
+    ;;
+  *)
+    echo "Unknown INSTALL_GPIO_BUTTONS value: ${INSTALL_GPIO_BUTTONS}. Use auto, 1, or 0." >&2
+    exit 1
+    ;;
+esac
+
+echo
 echo "T114 plug-in flash policy: FLASH_T114_ON_PLUG=${FLASH_T114_ON_PLUG}, T114_PLUG_FLASH_PROFILE=${T114_PLUG_FLASH_PROFILE}"
 case "${FLASH_T114_ON_PLUG}" in
   auto|AUTO|1|true|True|yes|YES)
@@ -239,6 +262,11 @@ echo "  bash ${REPO_ROOT}/scripts/setup_killerkoala_ollama.sh"
 echo "  cat ${REPO_ROOT}/logs/killerkoala/ollama_setup_status.json"
 echo "External antenna readiness:"
 echo "  bash ${REPO_ROOT}/scripts/configure_koalabyte_external_antennas.sh --check-only"
+echo "GPIO button wiring manifest:"
+echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/setup_gpio_buttons.py --check-only"
+echo "  cat ${REPO_ROOT}/logs/gpio_buttons/gpio_button_manifest.json"
+echo "GPIO button live test on a Raspberry Pi:"
+echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/setup_gpio_buttons.py --live-test --seconds 20"
 echo "T114 plug-in firmware flash:"
 echo "  T114_PLUG_FLASH_PROFILE=color-mouth bash ${REPO_ROOT}/scripts/flash_t114_when_plugged.sh"
 echo "  T114_PLUG_FLASH_PROFILE=hci-usb bash ${REPO_ROOT}/scripts/flash_t114_when_plugged.sh"
