@@ -41,6 +41,7 @@ REQUIRED_ONE_SHOT_SNIPPETS = [
 REQUIRED_COMMAND_HELPERS = [
     "scripts/install_koalabyte_one_shot.sh",
     "scripts/check_menu_actions.py",
+    "scripts/check_voice_menu_launch.py",
     "scripts/check_external_antenna_readiness.py",
     "scripts/check_killerkoala_face_mouth_sync.py",
     "scripts/check_killerkoala_ai.py",
@@ -148,6 +149,10 @@ def main() -> int:
         if not (ROOT / status_file).exists():
             failures.append(f"missing antenna status file: {status_file}")
 
+    menu_voice_rc, menu_voice_stdout, menu_voice_stderr = run_command([sys.executable, "scripts/check_voice_menu_launch.py"])
+    if menu_voice_rc != 0:
+        failures.append(f"voice menu launch readiness failed: {menu_voice_stderr.strip() or menu_voice_stdout.strip()}")
+
     ai_rc, ai_stdout, ai_stderr = run_command([sys.executable, "scripts/check_killerkoala_ai.py"])
     if ai_rc != 0:
         failures.append(f"KillerKoala AI readiness failed: {ai_stderr.strip() or ai_stdout.strip()}")
@@ -164,6 +169,12 @@ def main() -> int:
             "enabled_leaf_count": menu_manifest.get("enabled_leaf_count", 0),
             "handler_count": menu_manifest.get("handler_count", 0),
             "manifest": "logs/menu_actions/menu_action_manifest.json",
+        },
+        "voice_menu_launch": {
+            "status_path": "logs/menu_voice/voice_menu_launch_status.json",
+            "manifest_path": "logs/menu_voice/voice_menu_launch_manifest.json",
+            "syntax": ["killerkoala run <menu item or command>", "killerkoala open <menu item or command>"],
+            "check_rc": menu_voice_rc,
         },
         "buttons": buttons,
         "button_count": len(buttons),
