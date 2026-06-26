@@ -114,11 +114,11 @@ run_optional_can() {
   CAN_INTERFACE="${CAN_INTERFACE:-can0}" CAN_BITRATE="${CAN_BITRATE:-500000}" STRICT_CAN_SETUP=0 \
     bash scripts/setup_can0.sh --interface "${CAN_INTERFACE:-can0}" --bitrate "${CAN_BITRATE:-500000}"
   setup_rc=$?
-  PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py manifest --interface "${CAN_INTERFACE:-can0}"
+  PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/run_koala_kan_kommander.py manifest --interface "${CAN_INTERFACE:-can0}"
   manifest_rc=$?
-  PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py inventory --interface "${CAN_INTERFACE:-can0}"
+  PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/run_koala_kan_kommander.py inventory --interface "${CAN_INTERFACE:-can0}"
   inventory_rc=$?
-  PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py status --interface "${CAN_INTERFACE:-can0}"
+  PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/run_koala_kan_kommander.py status --interface "${CAN_INTERFACE:-can0}"
   status_rc=$?
   set -e
 
@@ -146,7 +146,7 @@ JSON
 }
 
 prepare_anteater_status() {
-  PYTHONPATH=pi-companion python3 - <<'PY'
+  PYTHONPATH=pi-companion "${PYTHON_BIN}" - <<'PY'
 import json
 import time
 from pathlib import Path
@@ -171,7 +171,7 @@ status = {
 Path(DEFAULT_STATUS_PATH).write_text(json.dumps(status, indent=2, sort_keys=True), encoding="utf-8")
 print(json.dumps(status, sort_keys=True))
 PY
-  PYTHONPATH=pi-companion python3 scripts/run_anteater.py status >/dev/null
+  PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/run_anteater.py status >/dev/null
 }
 
 run_face_mouth_sync() {
@@ -181,7 +181,7 @@ run_face_mouth_sync() {
   fi
   KOALABYTE_ESP32_FACE_PORT="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-}}" \
   KOALABYTE_HELTEC_USB_PORT="${KOALABYTE_HELTEC_USB_PORT:-${KOALABYTE_PRIMARY_BLE_PORT:-${HELTEC_PORT:-/dev/koalabyte-heltec}}}" \
-  PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py "${sync_args[@]}"
+  PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_killerkoala_face_mouth_sync.py "${sync_args[@]}"
 }
 
 run_killerkoala_ai_readiness() {
@@ -216,7 +216,7 @@ run_required "ESP32-S3 DualEye firmware flash" \
   '
 
 run_required "KillerKoala eyes and mouth sync" run_face_mouth_sync
-run_required "Menus buttons antennas controls and commands" env PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
+run_required "Menus buttons antennas controls and commands" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_one_shot_controls.py
 
 run_required "BLE node manager service" \
   env KOALABYTE_PRIMARY_BLE_PORT="${KOALABYTE_PRIMARY_BLE_PORT:-${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-/dev/koalabyte-heltec}}}" \
@@ -228,7 +228,7 @@ run_required "BLE node manager service" \
       STRICT_BLE_NODE_MANAGER_SERVICE="${STRICT_BLE_NODE_MANAGER_SERVICE}" \
       bash scripts/install_ble_node_manager_service.sh
 
-run_required "Didgeridoo/menu action readiness" env PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
+run_required "Didgeridoo/menu action readiness" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_menu_actions.py
 run_required "External antenna readiness" bash scripts/configure_koalabyte_external_antennas.sh --check-only
 run_required "AntEater passive readiness" prepare_anteater_status
 run_optional_can
