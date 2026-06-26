@@ -17,19 +17,27 @@ REQUIRED_FILES = [
     "README.md",
     "install.sh",
     "pi-companion/config.default.json",
+    "pi-companion/requirements.txt",
     "pi-companion/koalablue/menu_catalog.py",
     "pi-companion/koalablue/meshtastic_app.py",
     "pi-companion/koalablue/t114_bluez.py",
     "pi-companion/koalablue/gnss_location.py",
     "pi-companion/koalablue/location_password_gate.py",
     "pi-companion/koalablue/gpio_buttons.py",
+    "pi-companion/koalablue/killerkoala_vocabulary.py",
+    "pi-companion/koalablue/killerkoala_hybrid_companion.py",
+    "pi-companion/koalablue/killerkoala_voice_control.py",
     "scripts/check_menu_actions.py",
+    "scripts/check_killerkoala_ai.py",
     "scripts/check_killerkoala_face_mouth_sync.py",
     "scripts/check_one_shot_controls.py",
     "scripts/preflight_all_hardware.py",
     "scripts/preflight_all_hardware.sh",
     "scripts/test_gpio_buttons.py",
+    "scripts/setup_gpio_buttons.py",
     "scripts/run_menu_screen.py",
+    "scripts/run_killerkoala_voice.py",
+    "scripts/run_killerkoala_hybrid.py",
     "scripts/run_didgeridoo.py",
     "scripts/run_meshtastic_app.py",
     "scripts/run_t114_bluez.py",
@@ -57,6 +65,12 @@ SHELL_HELPERS = [
     "scripts/preflight_all_hardware.sh",
     "scripts/setup_killerkoala_ollama.sh",
     "scripts/install_koalabyte_one_shot.sh",
+]
+
+REQUIRED_AI_REQUIREMENTS = [
+    "httpx",
+    "pyttsx3",
+    "SpeechRecognition",
 ]
 
 
@@ -96,9 +110,37 @@ def check_config(failures: list[str]) -> None:
     except json.JSONDecodeError as exc:
         failures.append(f"config.default.json is invalid JSON: {exc}")
         return
-    for section in ["killerkoala_companion", "koala_kan_kommander", "anteater"]:
+    for section in ["killerkoala_companion", "koala_kan_kommander", "anteater", "front_panel_buttons"]:
         if section not in config:
             failures.append(f"config missing required section: {section}")
+    buttons = config.get("front_panel_buttons", {}).get("buttons", {}) if isinstance(config.get("front_panel_buttons"), dict) else {}
+    if len(buttons) != 6:
+        failures.append("front_panel_buttons must define exactly six buttons")
+
+
+def check_ai_requirements(failures: list[str]) -> None:
+    requirements_path = REPO_ROOT / "pi-companion" / "requirements.txt"
+    text = requirements_path.read_text(encoding="utf-8") if requirements_path.exists() else ""
+    lowered = text.lower()
+    for requirement in REQUIRED_AI_REQUIREMENTS:
+        if requirement.lower() not in lowered:
+            failures.append(f"pi-companion/requirements.txt missing KillerKoala AI dependency: {requirement}")
+
+    voice_control = REPO_ROOT / "pi-companion" / "koalablue" / "killerkoala_voice_control.py"
+    if voice_control.exists():
+        voice_text = voice_control.read_text(encoding="utf-8")
+        if "koalblue/" in voice_text or "koalblue." in voice_text:
+            failures.append("killerkoala_voice_control.py contains typo reference to koalblue instead of koalablue")
+        for needle in ["WAKE_WORD = \"killerkoala\"", "killerkoala-tinyllama:latest", "execute_module", "parse_voice_command"]:
+            if needle not in voice_text:
+                failures.append(f"killerkoala_voice_control.py missing expected AI/voice text: {needle}")
+
+    one_shot = REPO_ROOT / "scripts" / "install_koalabyte_one_shot.sh"
+    if one_shot.exists():
+        one_shot_text = one_shot.read_text(encoding="utf-8")
+        for needle in ["run_killerkoala_ai_readiness", "scripts/check_killerkoala_ai.py", "KillerKoala AI and voice readiness"]:
+            if needle not in one_shot_text:
+                failures.append(f"one-shot installer missing KillerKoala AI readiness hook: {needle}")
 
 
 def check_menu_catalog(failures: list[str]) -> None:
@@ -156,6 +198,7 @@ def main() -> int:
     check_required_files(failures)
     check_readme(failures)
     check_config(failures)
+    check_ai_requirements(failures)
     check_menu_catalog(failures)
     check_helpers(failures)
     if failures:
