@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 
-from koalablue.esp32_dualeye_voice_bridge import ESP32DualEyeVoiceBridge, default_esp32_port
+from koalblue.esp32_dualeye_voice_bridge import ESP32DualEyeVoiceBridge, default_esp32_port
 
 
 def main() -> int:
@@ -30,12 +31,21 @@ def main() -> int:
         return 0
 
     if args.simulate:
+        routed = []
         bridge.open()
         try:
             bridge.simulate_voice_command(args.simulate)
-            result = bridge.run(seconds=args.seconds, once=True)
+            deadline = time.time() + args.seconds
+            while time.time() < deadline:
+                event = bridge.read_once()
+                if event is None:
+                    continue
+                routed.append(bridge.route_event(event))
+                if args.once or routed:
+                    break
         finally:
             bridge.close()
+        result = {"status": "ESP32_DUALEYE_VOICE_BRIDGE_COMPLETE", "port": args.port, "routed_count": len(routed), "routed": routed, "updated_at": time.time()}
     else:
         result = bridge.run(seconds=args.seconds, once=args.once)
     print(json.dumps(result, indent=2, sort_keys=True))
