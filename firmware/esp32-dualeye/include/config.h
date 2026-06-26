@@ -1,9 +1,9 @@
 #pragma once
 
-// killerkoala ESP32-S3 DualEye config RevA24
+// killerkoala ESP32-S3 DualEye config RevA25
 // Confirm exact DualEye audio/display/touch pins against your board revision before relying on hardware wake-word capture or direct touch-controller reads.
 
-#define KOALABLUE_FW_VERSION "0.6.0-touch-menu"
+#define KOALABLUE_FW_VERSION "0.6.1-dualeye-mic-bridge"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define SERIAL_BAUD 115200
@@ -22,17 +22,20 @@
 #define ESP32S3_DUALEYE_VENDOR_SELECTOR_REQUIRED 1
 
 // Voice front-end model plan.
-// ESP32-S3 handles wake/short-command recognition; Raspberry Pi handles large-vocabulary companion responses.
-#define ESP32S3_VOICE_FRONTEND_STACK "ESP-SR AFE/VAD + WakeNet9 + MultiNet7 Q8 English"
-#define ESP32S3_WAKE_MODEL "WakeNet9 custom wake word: killerkoala"
-#define ESP32S3_COMMAND_MODEL "MultiNet7 Q8 English command aliases"
+// ESP32-S3 handles built-in microphone wake/short-command front-end events.
+// Raspberry Pi handles larger vocabulary routing, XP/rank state, optional TinyLlama/Ollama banter, and logs.
+#define ESP32S3_DUALEYE_BUILTIN_MIC 1
+#define ESP32S3_DUALEYE_MIC_ROLE "primary built-in microphone for KillerKoala wake and short voice-command events"
+#define ESP32S3_VOICE_FRONTEND_STACK "ESP32-S3 DualEye built-in mic bridge + ESP-SR AFE/VAD/WakeNet plan + Pi voice-command router"
+#define ESP32S3_WAKE_MODEL "killerkoala wake phrase over ESP32-S3 DualEye built-in mic event bridge"
+#define ESP32S3_COMMAND_MODEL "short command phrases bridged over USB CDC serial to Raspberry Pi"
 #define ESP32S3_COMMAND_ALIAS_PACK "firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv"
 #define KILLERKOALA_COMPANION_BRAIN "Raspberry Pi large-vocabulary Aussie cyberpunk companion engine"
 #define KILLERKOALA_RESPONSE_POLICY "anti-repeat rotating vocabulary with XP/rank-aware Aussie terminology"
 
 // Feature toggles.
 // Mic wake is enabled by default for the killerkoala build. If audio pins are not configured,
-// the firmware boots safely and reports that the hardware wake backend needs board-specific pin mapping.
+// the firmware boots safely and reports that the built-in mic is present but needs board-specific I2S pin mapping.
 #define ENABLE_LOCAL_BLE_SCAN 1
 #define ENABLE_MIC_WAKE       1
 #define ENABLE_WAKE_WORD_FILTER 1
@@ -70,12 +73,23 @@
 #define BTN_MENU_PIN    3
 #define BUTTON_ACTIVE_LOW 1
 
-// I2S microphone pins: set to the correct DualEye schematic/example values for real audio wake capture.
+// Built-in I2S/PDM microphone bridge.
+// These are intentionally overridable from PlatformIO build_flags or a board-specific header.
+// When the exact DualEye mic pins are confirmed, set these three pins and the firmware will initialize I2S RX.
+#ifndef MIC_I2S_BCLK_PIN
 #define MIC_I2S_BCLK_PIN  -1
+#endif
+#ifndef MIC_I2S_WS_PIN
 #define MIC_I2S_WS_PIN    -1
+#endif
+#ifndef MIC_I2S_DIN_PIN
 #define MIC_I2S_DIN_PIN   -1
-#define MIC_WAKE_RMS_THRESHOLD 0.35f
-#define MIC_WAKE_COOLDOWN_MS   2500
+#endif
+#define MIC_SAMPLE_RATE_HZ       16000
+#define MIC_SAMPLE_BLOCK_SAMPLES 256
+#define MIC_WAKE_RMS_THRESHOLD   0.35f
+#define MIC_WAKE_COOLDOWN_MS     2500
+#define MIC_STATUS_INTERVAL_MS   10000
 
 // Optional speaker path is hardware-revision-specific; use the vendor audio examples before enabling output.
 #define SPEAKER_I2S_BCLK_PIN -1
