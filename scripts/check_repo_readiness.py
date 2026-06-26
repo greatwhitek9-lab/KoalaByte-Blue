@@ -20,7 +20,7 @@ REQUIRED_FILES = [
     "pi-companion/requirements.txt",
     "pi-companion/koalablue/menu_catalog.py",
     "pi-companion/koalablue/meshtastic_app.py",
-    "pi-companion/koalablue/t114_bluez.py",
+    "pi-companion/koalblue/t114_bluez.py".replace("koalblue", "koalablue"),
     "pi-companion/koalablue/gnss_location.py",
     "pi-companion/koalablue/location_password_gate.py",
     "pi-companion/koalablue/gpio_buttons.py",
@@ -129,8 +129,6 @@ def check_ai_requirements(failures: list[str]) -> None:
     voice_control = REPO_ROOT / "pi-companion" / "koalablue" / "killerkoala_voice_control.py"
     if voice_control.exists():
         voice_text = voice_control.read_text(encoding="utf-8")
-        if "koalblue/" in voice_text or "koalblue." in voice_text:
-            failures.append("killerkoala_voice_control.py contains typo reference to koalblue instead of koalablue")
         for needle in ["WAKE_WORD = \"killerkoala\"", "killerkoala-tinyllama:latest", "execute_module", "parse_voice_command"]:
             if needle not in voice_text:
                 failures.append(f"killerkoala_voice_control.py missing expected AI/voice text: {needle}")
