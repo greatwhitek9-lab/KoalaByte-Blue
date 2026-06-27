@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - Main
       - main
       - koalabyte-blue-v2-heltec-edition
     paths:
@@ -13,6 +14,7 @@ on:
       - "scripts/configure_esp32s3_dualeye_2g4_antenna.sh"
   pull_request:
     branches:
+      - Main
       - main
       - koalabyte-blue-v2-heltec-edition
     paths:
