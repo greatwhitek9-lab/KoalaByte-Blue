@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import json
 import os
 import time
 from dataclasses import asdict
 from pathlib import Path
-from typing import Optional
 
 from .bluez_tools import BluezRunResult, CommandResult, DEFAULT_OUTPUT_DIR, _base_safety, _run, _write_json, gatt_readiness, info, module_manifest, redact_addresses, services
 from .location_password_gate import UNLOCK_ENV, ensure_unlocked, password_exists
@@ -29,7 +27,7 @@ def _owned() -> bool:
 
 
 def _gate_unlocked() -> bool:
-    return ensure_unlocked(prompt=False)
+    return ensure_unlocked(prompt=os.isatty(0))
 
 
 def _safety(*, owned_device: bool, target_required: bool) -> dict[str, object]:
@@ -67,7 +65,8 @@ def _blocked(action: str, title: str, reason: str, output_dir: Path, *, target_r
     record = asdict(payload)
     record["target"] = redact_addresses(target) if target else ""
     record["help"] = [
-        "Unlock protected actions first: PYTHONPATH=pi-companion python3 scripts/run_location_password_gate.py unlock",
+        "Set up a protected-actions password first: PYTHONPATH=pi-companion python3 scripts/run_location_password_gate.py setup",
+        "Terminal menu mode will prompt for the password when a protected action is selected.",
         f"For target-specific owned-device checks set {TARGET_ENV}=AA:BB:CC:DD:EE:FF",
         f"For target-specific owned-device checks set {OWNED_ENV}=1",
     ]
