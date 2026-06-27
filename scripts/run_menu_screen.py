@@ -185,7 +185,7 @@ def run_gnss_current_fix(item: MenuItem) -> None:
 def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
     for entry in leaf_menu_entries():
         command = str(entry.get("command", ""))
-        if command:
+        if command and not command.startswith("status:"):
             menu.register_handler(command, route_leaf)
     menu.register_handler("boomerang", run_boomerang_action)
     menu.register_handler("eucalyptus_mode", run_eucalyptus_mode_action)
