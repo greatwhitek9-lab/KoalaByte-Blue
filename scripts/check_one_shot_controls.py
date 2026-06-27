@@ -83,6 +83,7 @@ REQUIRED_COMMAND_HELPERS = [
     "scripts/koalabyte_doctor.sh",
     "scripts/install_koalabyte_udev_rules.sh",
     "scripts/install_koalabyte_boot_services.sh",
+    "scripts/install_koalabyte_logrotate.sh",
     "scripts/koalabyte_safe_mode.sh",
     "scripts/export_koalabyte_logs.sh",
     "scripts/build_koalabyte_release_package.sh",
@@ -121,6 +122,12 @@ REQUIRED_PROJECT_FILES = [
     "systemd/koalabyte-menu-sync.service",
     "systemd/koalabyte-doctor.service",
     "logrotate/koalabyte-blue",
+    "production/README.md",
+    "production/RevA25-heltec-powerbank/PRODUCTION_README_RevA25_HeltecPowerBank.md",
+    "production/RevA25-heltec-powerbank/BOM_RevA25_HeltecPowerBank.csv",
+    "production/RevA25-heltec-powerbank/USB_POWER_PACK.md",
+    "production/WIRING_DIAGRAM_ANTENNAS.md",
+    "production/WIRING_DIAGRAM_ANTENNAS.svg",
     ".github/workflows/release-package.yml",
 ]
 
@@ -128,6 +135,7 @@ FIELD_READINESS_SHELL_HELPERS = [
     "scripts/koalabyte_doctor.sh",
     "scripts/install_koalabyte_udev_rules.sh",
     "scripts/install_koalabyte_boot_services.sh",
+    "scripts/install_koalabyte_logrotate.sh",
     "scripts/koalabyte_safe_mode.sh",
     "scripts/export_koalabyte_logs.sh",
     "scripts/build_koalabyte_release_package.sh",
@@ -138,6 +146,12 @@ FIELD_READINESS_PYTHON_HELPERS = [
     "scripts/check_koalabyte_version_handshake.py",
     "scripts/run_koalabyte_status_server.py",
     "scripts/koalabyte_doctor.py",
+]
+
+FORBIDDEN_PRODUCTION_FILES = [
+    "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md",
+    "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv",
+    "production/RevA17-dongle-only/BATTERY_POWER_2S_18650.md",
 ]
 
 REQUIRED_PROTECTED_BLUEZ_LABELS = [
@@ -256,6 +270,25 @@ def validate_field_readiness_files() -> list[str]:
                     failures.append(f"version manifest missing {key}")
         except Exception as exc:
             failures.append(f"version manifest invalid JSON: {exc}")
+    production_text = ""
+    for relative in [
+        "production/README.md",
+        "production/RevA25-heltec-powerbank/PRODUCTION_README_RevA25_HeltecPowerBank.md",
+        "production/RevA25-heltec-powerbank/BOM_RevA25_HeltecPowerBank.csv",
+        "production/RevA25-heltec-powerbank/USB_POWER_PACK.md",
+    ]:
+        path = ROOT / relative
+        if path.exists():
+            production_text += "\n" + path.read_text(encoding="utf-8", errors="ignore")
+    for required in ["Heltec Mesh Node T114", "USB portable power pack", "power bank"]:
+        if required not in production_text:
+            failures.append(f"production package missing marker: {required}")
+    for forbidden in ["Nordic nRF52840 USB Dongle,1,Production-default", "2x18650 series holder", "2S Li-ion BMS/protection board"]:
+        if forbidden in production_text:
+            failures.append(f"production package still contains old marker: {forbidden}")
+    for forbidden_file in FORBIDDEN_PRODUCTION_FILES:
+        if (ROOT / forbidden_file).exists():
+            failures.append(f"old production file must be removed: {forbidden_file}")
     return failures
 
 
@@ -387,6 +420,7 @@ def main() -> int:
         "one_shot_installer": str(one_shot),
         "optional_can_required": False,
         "field_readiness_files": FIELD_READINESS_SHELL_HELPERS + FIELD_READINESS_PYTHON_HELPERS + REQUIRED_PROJECT_FILES,
+        "forbidden_production_files": FORBIDDEN_PRODUCTION_FILES,
         "antenna_status_paths": REQUIRED_ANTENNA_STATUS,
         "updated_at": time.time(),
         "failures": failures,
