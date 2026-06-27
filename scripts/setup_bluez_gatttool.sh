@@ -14,7 +14,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     -h|--help)
       cat <<'EOF'
-KoalaByte Blue BlueZ legacy helper availability check
+KoalaByte Blue BlueZ helper availability check
 
 Usage:
   bash scripts/setup_bluez_gatttool.sh
@@ -25,8 +25,9 @@ Env:
   STRICT_GATTTOOL=1
 
 Checks/records:
-  gatttool  legacy owned-device GATT discovery helper
-  btmon     BlueZ HCI monitor/log capture helper
+  bluetoothctl  required modern BlueZ control/GATT workflow tool
+  btmon         required BlueZ HCI monitor/log capture helper
+  gatttool      optional deprecated legacy GATT discovery helper
 EOF
       exit 0
       ;;
@@ -40,27 +41,31 @@ done
 
 mkdir -p "$(dirname "${STATUS_PATH}")"
 
+tool_path() {
+  command -v "$1" 2>/dev/null || true
+}
+
 write_status() {
   local status="$1"
   local reason="$2"
-  local gatttool_path=""
-  local btmon_path=""
-  if command -v gatttool >/dev/null 2>&1; then
-    gatttool_path="$(command -v gatttool)"
-  fi
-  if command -v btmon >/dev/null 2>&1; then
-    btmon_path="$(command -v btmon)"
-  fi
-  python3 - <<'PY' "${STATUS_PATH}" "${status}" "${reason}" "${gatttool_path}" "${btmon_path}" "${INSTALL_GATTTOOL}" "${STRICT_GATTTOOL}"
+  local bluetoothctl_path="$(tool_path bluetoothctl)"
+  local btmon_path="$(tool_path btmon)"
+  local gatttool_path="$(tool_path gatttool)"
+  python3 - <<'PY' "${STATUS_PATH}" "${status}" "${reason}" "${bluetoothctl_path}" "${btmon_path}" "${gatttool_path}" "${INSTALL_GATTTOOL}" "${STRICT_GATTTOOL}"
 import json, sys, time
-path, status, reason, gatttool_path, btmon_path, install_mode, strict = sys.argv[1:]
+path, status, reason, bluetoothctl_path, btmon_path, gatttool_path, install_mode, strict = sys.argv[1:]
+core_ready = bool(bluetoothctl_path) and bool(btmon_path)
 payload = {
     "status": status,
     "reason": reason,
     "tools": {
-        "gatttool": {"path": gatttool_path, "available": bool(gatttool_path)},
-        "btmon": {"path": btmon_path, "available": bool(btmon_path)},
+        "bluetoothctl": {"path": bluetoothctl_path, "available": bool(bluetoothctl_path), "required": True},
+        "btmon": {"path": btmon_path, "available": bool(btmon_path), "required": True},
+        "gatttool": {"path": gatttool_path, "available": bool(gatttool_path), "required": False, "deprecated": True},
     },
+    "bluez_core_ready": core_ready,
+    "modern_gatt_tool": "bluetoothctl",
+    "legacy_gatttool_optional": True,
     "install_mode": install_mode,
     "strict": strict == "1",
     "used_by": "Gumnut GATT Gatechecker readiness artifact",
@@ -72,25 +77,28 @@ open(path, "w", encoding="utf-8").write(json.dumps(payload, indent=2, sort_keys=
 PY
 }
 
-all_ready() {
-  command -v gatttool >/dev/null 2>&1 && command -v btmon >/dev/null 2>&1
+core_ready() {
+  command -v bluetoothctl >/dev/null 2>&1 && command -v btmon >/dev/null 2>&1
 }
 
-missing_ok() {
+missing_core() {
   local reason="$1"
-  write_status "BLUEZ_LEGACY_HELPERS_INCOMPLETE" "${reason}"
+  write_status "BLUEZ_CORE_INCOMPLETE" "${reason}"
   if [[ "${STRICT_GATTTOOL}" == "1" ]]; then
-    echo "STRICT_GATTTOOL=1 and BlueZ legacy helpers are incomplete: ${reason}" >&2
+    echo "STRICT_GATTTOOL=1 and required BlueZ tools are incomplete: ${reason}" >&2
     exit 1
   fi
-  echo "BlueZ legacy helper setup incomplete, continuing in non-strict mode: ${reason}" >&2
+  echo "Required BlueZ tool setup incomplete, continuing in non-strict mode: ${reason}" >&2
   exit 0
 }
 
 case "${INSTALL_GATTTOOL}" in
   0|false|False|no|NO|skip|SKIP)
-    write_status "BLUEZ_LEGACY_HELPERS_SKIPPED" "disabled by INSTALL_GATTTOOL"
-    exit 0
+    if core_ready; then
+      write_status "BLUEZ_CORE_READY" "bluetoothctl and btmon present; deprecated gatttool skipped"
+      cat "${STATUS_PATH}"
+      exit 0
+    fi
     ;;
   auto|AUTO|1|true|True|yes|YES)
     ;;
@@ -100,19 +108,23 @@ case "${INSTALL_GATTTOOL}" in
     ;;
 esac
 
-if all_ready; then
-  write_status "BLUEZ_LEGACY_HELPERS_READY" "gatttool and btmon already present"
+if core_ready; then
+  if command -v gatttool >/dev/null 2>&1; then
+    write_status "BLUEZ_CORE_READY_WITH_GATTTOOL" "bluetoothctl and btmon present; deprecated gatttool also present"
+  else
+    write_status "BLUEZ_CORE_READY_GATTTOOL_SKIPPED" "bluetoothctl and btmon present; deprecated gatttool not present and not required"
+  fi
   cat "${STATUS_PATH}"
   exit 0
 fi
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   bash -n "$0"
-  missing_ok "check-only mode"
+  missing_core "check-only mode"
 fi
 
 if ! command -v apt-get >/dev/null 2>&1; then
-  missing_ok "apt-get unavailable"
+  missing_core "apt-get unavailable"
 fi
 
 if [[ "${EUID}" -eq 0 ]]; then
@@ -120,27 +132,31 @@ if [[ "${EUID}" -eq 0 ]]; then
 elif command -v sudo >/dev/null 2>&1; then
   apt_runner=(sudo apt-get)
 else
-  missing_ok "sudo/root unavailable"
+  missing_core "sudo/root unavailable"
 fi
 
 packages=()
-for candidate in bluez bluez-tools bluez-test-tools bluez-obexd; do
+for candidate in bluetooth bluez bluez-tools bluez-test-tools bluez-obexd rfkill; do
   if apt-cache show "${candidate}" >/dev/null 2>&1; then
     packages+=("${candidate}")
   fi
 done
 
 if [[ "${#packages[@]}" -eq 0 ]]; then
-  missing_ok "no BlueZ helper package candidates found"
+  missing_core "no BlueZ package candidates found"
 fi
 
 "${apt_runner[@]}" update
 "${apt_runner[@]}" install -y "${packages[@]}"
 
-if all_ready; then
-  write_status "BLUEZ_LEGACY_HELPERS_READY" "gatttool and btmon available after BlueZ package setup"
+if core_ready; then
+  if command -v gatttool >/dev/null 2>&1; then
+    write_status "BLUEZ_CORE_READY_WITH_GATTTOOL" "bluetoothctl and btmon available after BlueZ package setup; deprecated gatttool also present"
+  else
+    write_status "BLUEZ_CORE_READY_GATTTOOL_SKIPPED" "bluetoothctl and btmon available after BlueZ package setup; deprecated gatttool not provided by this OS image"
+  fi
   cat "${STATUS_PATH}"
   exit 0
 fi
 
-missing_ok "BlueZ packages installed, but this OS image did not provide every legacy helper"
+missing_core "BlueZ packages installed, but bluetoothctl and/or btmon are still unavailable"
