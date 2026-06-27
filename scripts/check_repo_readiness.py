@@ -20,11 +20,11 @@ REQUIRED_FILES = [
     "pi-companion/requirements.txt",
     "pi-companion/koalablue/menu_catalog.py",
     "pi-companion/koalablue/meshtastic_app.py",
-    "pi-companion/koalblue/t114_bluez.py".replace("koalblue", "koalablue"),
+    "pi-companion/koalablue/t114_bluez.py",
     "pi-companion/koalablue/gnss_location.py",
     "pi-companion/koalablue/location_password_gate.py",
     "pi-companion/koalablue/gpio_buttons.py",
-    "pi-companion/koalbluu/killerkoala_vocabulary.py".replace("koalbluu", "koalablue"),
+    "pi-companion/koalablue/killerkoala_vocabulary.py",
     "pi-companion/koalablue/killerkoala_hybrid_companion.py",
     "pi-companion/koalablue/killerkoala_voice_control.py",
     "scripts/check_menu_actions.py",
@@ -45,11 +45,16 @@ REQUIRED_FILES = [
     "scripts/setup_killerkoala_ollama.sh",
     "scripts/configure_koalabyte_external_antennas.sh",
     "scripts/check_external_antenna_readiness.py",
+    "scripts/setup_system_packages.sh",
+    "scripts/setup_heltec_t114_tools.sh",
+    "scripts/setup_nrf_tools.sh",
+    "scripts/setup_nrf_connect_sdk_toolchain.sh",
     "scripts/flash_t114_when_plugged.sh",
     "scripts/build_t114_combined_safe.sh",
     "scripts/flash_t114_combined_safe.sh",
     "scripts/flash_heltec_mouth.sh",
     "scripts/flash_esp32.sh",
+    "scripts/install_pi.sh",
     "scripts/install_koalabyte_one_shot.sh",
     "firmware/esp32-dualeye/platformio.ini",
     "firmware/heltec-mouth/platformio.ini",
@@ -64,14 +69,20 @@ REQUIRED_FILES = [
 
 SHELL_HELPERS = [
     "install.sh",
+    "scripts/install_pi.sh",
+    "scripts/install_koalabyte_one_shot.sh",
+    "scripts/setup_system_packages.sh",
+    "scripts/setup_heltec_t114_tools.sh",
+    "scripts/setup_nrf_tools.sh",
+    "scripts/setup_nrf_connect_sdk_toolchain.sh",
+    "scripts/setup_killerkoala_ollama.sh",
     "scripts/configure_koalabyte_external_antennas.sh",
     "scripts/flash_t114_when_plugged.sh",
     "scripts/build_t114_combined_safe.sh",
     "scripts/flash_t114_combined_safe.sh",
     "scripts/flash_heltec_mouth.sh",
+    "scripts/flash_esp32.sh",
     "scripts/preflight_all_hardware.sh",
-    "scripts/setup_killerkoala_ollama.sh",
-    "scripts/install_koalabyte_one_shot.sh",
 ]
 
 REQUIRED_AI_REQUIREMENTS = [
@@ -170,8 +181,11 @@ def check_menu_catalog(failures: list[str]) -> None:
         failures.append("main menu labels missing Didgeridoo")
     didgeridoo_labels = set(menu_labels("didgeridoo"))
     expected = {
-        "T114 BlueZ Controller Check",
-        "T114 BlueZ Status",
+        "T114 Primary Controller Check",
+        "T114 Primary BLE/GNSS Status",
+        "T114 Primary BLE Scan",
+        "T114 BLE TX Status",
+        "T114 Primary GNSS Fix",
         "Didgeridoo Status",
         "Didgeridoo Nodes",
         "Didgeridoo GPS Info",
@@ -195,6 +209,8 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     build_helper = REPO_ROOT / "scripts" / "build_t114_combined_safe.sh"
     gnss = REPO_ROOT / "pi-companion" / "koalablue" / "gnss_location.py"
     manager = REPO_ROOT / "pi-companion" / "koalablue" / "ble_node_manager.py"
+    installer = REPO_ROOT / "scripts" / "install_pi.sh"
+    menu = REPO_ROOT / "scripts" / "run_menu_screen.py"
     firmware_needles = [
         "ble_adv_seen",
         "ble_lab_advertise_start",
@@ -212,11 +228,15 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     helper_needles = ["T114_GNSS_UART_LABEL", "KOALABYTE_GNSS_UART_LABEL"]
     gnss_needles = ["write_primary_t114_fix_event", "heltec-t114-gnss", "KOALABYTE_PRIMARY_GNSS_PORT"]
     manager_needles = ["write_primary_t114_fix_event", "gnss_fix", "gnss_status"]
+    installer_needles = ["T114_PLUG_FLASH_PROFILE=\"${T114_PLUG_FLASH_PROFILE:-combined-safe}\"", "INSTALL_HELTEC_NRF_TOOLS=\"${INSTALL_HELTEC_NRF_TOOLS:-1}\""]
+    menu_needles = ["t114_primary_controller_check", "t114_primary_ble_scan", "t114_ble_tx_status", "t114_primary_gnss_fix", "koalablue.gnss_location"]
     failures.extend(_file_contains(combined, firmware_needles))
     failures.extend(_file_contains(conf, conf_needles))
     failures.extend(_file_contains(build_helper, helper_needles))
     failures.extend(_file_contains(gnss, gnss_needles))
     failures.extend(_file_contains(manager, manager_needles))
+    failures.extend(_file_contains(installer, installer_needles))
+    failures.extend(_file_contains(menu, menu_needles))
 
 
 def check_helpers(failures: list[str]) -> None:
