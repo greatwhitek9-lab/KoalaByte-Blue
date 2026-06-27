@@ -3,10 +3,12 @@ name: KoalaByte Blue CI
 on:
   push:
     branches:
+      - Main
       - main
       - koalabyte-blue-v2-heltec-edition
   pull_request:
     branches:
+      - Main
       - main
       - koalabyte-blue-v2-heltec-edition
 
@@ -40,9 +42,11 @@ jobs:
           echo "doctor_sha=$(git rev-parse HEAD:scripts/koalabyte_doctor.py)"
           echo "udev_rules_sha=$(git rev-parse HEAD:udev/99-koalabyte-blue.rules)"
           echo "boot_services_sha=$(git rev-parse HEAD:scripts/install_koalabyte_boot_services.sh)"
+          echo "logrotate_installer_sha=$(git rev-parse HEAD:scripts/install_koalabyte_logrotate.sh)"
           echo "version_handshake_sha=$(git rev-parse HEAD:scripts/check_koalabyte_version_handshake.py)"
           echo "status_server_sha=$(git rev-parse HEAD:scripts/run_koalabyte_status_server.py)"
           echo "release_workflow_sha=$(git rev-parse HEAD:.github/workflows/release-package.yml)"
+          echo "production_readme_sha=$(git rev-parse HEAD:production/README.md)"
           echo "menu_display_sync_sha=$(git rev-parse HEAD:scripts/check_menu_display_sync.py)"
           echo "preflight_sha=$(git rev-parse HEAD:scripts/preflight_all_hardware.py)"
           echo "ollama_helper_sha=$(git rev-parse HEAD:scripts/setup_killerkoala_ollama.sh)"
@@ -70,6 +74,7 @@ jobs:
           bash -n scripts/koalabyte_doctor.sh
           bash -n scripts/install_koalabyte_udev_rules.sh
           bash -n scripts/install_koalabyte_boot_services.sh
+          bash -n scripts/install_koalabyte_logrotate.sh
           bash -n scripts/koalabyte_safe_mode.sh
           bash -n scripts/export_koalabyte_logs.sh
           bash -n scripts/build_koalabyte_release_package.sh
@@ -97,6 +102,7 @@ jobs:
           bash scripts/configure_koalabyte_external_antennas.sh --check-only
           bash scripts/install_koalabyte_udev_rules.sh --check-only
           bash scripts/install_koalabyte_boot_services.sh --check-only
+          bash scripts/install_koalabyte_logrotate.sh --check-only
 
       - name: Validate menu, field, and hardware readiness reports
         run: |
@@ -117,6 +123,7 @@ jobs:
           bash scripts/build_koalabyte_release_package.sh
           bash scripts/export_koalabyte_logs.sh
           test -f dist/KoalaByte-Blue-install-package.zip -o -f dist/KoalaByte-Blue-install-package.tar.gz
+          test -d dist/KoalaByte-Blue/production
           test -d exports
 
   esp32-firmware-build:
