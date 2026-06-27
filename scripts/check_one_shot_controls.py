@@ -15,7 +15,7 @@ if str(PI_ROOT) not in sys.path:
     sys.path.insert(0, str(PI_ROOT))
 
 from koalablue.gpio_buttons import DEFAULT_BUTTONS, DEFAULT_ELECTRICAL_MODE
-from koalablue.menu_catalog import MAIN_MENU_ITEMS, SUBMENU_ITEMS
+from koalablue.menu_catalog import SUBMENU_ITEMS, menu_labels
 from scripts.check_menu_actions import build_manifest
 from scripts.check_killerkoala_face_mouth_sync import validate_protocol
 
@@ -62,6 +62,46 @@ REQUIRED_COMMAND_HELPERS = [
     "scripts/setup_killerkoala_ollama.sh",
     "scripts/test_gpio_buttons.py",
     "scripts/setup_gpio_buttons.py",
+    "scripts/run_koala_bluez.py",
+    "scripts/run_koala_bluez_manifest.sh",
+    "scripts/run_koala_bluez_inventory.sh",
+    "scripts/run_koala_bluez_status.sh",
+    "scripts/run_koala_bluez_scan.sh",
+    "scripts/run_koala_bluez_monitor.sh",
+    "scripts/run_koala_bluez_all_safe.sh",
+    "scripts/run_koala_bluez_info.sh",
+    "scripts/run_koala_bluez_services.sh",
+    "scripts/run_koala_bluez_gatt_readiness.sh",
+]
+
+REQUIRED_PROJECT_FILES = [
+    "pi-companion/koalablue/bluez_tools.py",
+    "pi-companion/koalablue/bluez_protected_lab.py",
+    "docs/KOALA_BLUEZ_TOOLS_REVA16.md",
+]
+
+REQUIRED_PROTECTED_BLUEZ_LABELS = [
+    "Outback Module Deck",
+    "Joey Target Dossier",
+    "Treehouse Service Trace",
+    "Gumnut GATT Gatecheck",
+    "Outback Radio Ledger",
+    "Classic Track Finder",
+    "Treehouse RFCOMM Wiremap",
+    "Pouch Link Echo",
+    "Gumnut GATT Ghostmap",
+]
+
+REQUIRED_PROTECTED_BLUEZ_COMMANDS = [
+    "koala_bluez_manifest",
+    "koala_bluez_info",
+    "koala_bluez_services",
+    "koala_bluez_gatt_readiness",
+    "bluez_outback_radio_ledger",
+    "bluez_classic_track_finder",
+    "bluez_treehouse_rfcomm_wiremap",
+    "bluez_pouch_link_echo",
+    "bluez_gumnut_gatt_ghostmap",
 ]
 
 REQUIRED_ANTENNA_STATUS = [
@@ -123,12 +163,80 @@ def validate_optional_can_policy(one_shot_text: str) -> list[str]:
     return failures
 
 
+def validate_protected_bluez_menu() -> list[str]:
+    failures: list[str] = []
+    bluetooth_labels = set(menu_labels("bluetooth"))
+    lab_labels = set(menu_labels("lab"))
+    all_entries = [entry for entries in SUBMENU_ITEMS.values() for entry in entries]
+    commands = {str(entry.get("command", "")) for entry in all_entries}
+
+    for label in REQUIRED_PROTECTED_BLUEZ_LABELS:
+        if label not in bluetooth_labels:
+            failures.append(f"Bluetooth Tools menu missing protected BlueZ label: {label}")
+    for label in REQUIRED_PROTECTED_BLUEZ_LABELS[1:]:
+        if label not in lab_labels:
+            failures.append(f"Authorized Lab menu missing protected BlueZ label: {label}")
+    for command in REQUIRED_PROTECTED_BLUEZ_COMMANDS:
+        if command not in commands:
+            failures.append(f"menu catalog missing protected BlueZ command: {command}")
+
+    return failures
+
+
+def validate_protected_bluez_code() -> list[str]:
+    failures: list[str] = []
+    protected_module = ROOT / "pi-companion" / "koalablue" / "bluez_protected_lab.py"
+    menu_runner = ROOT / "scripts" / "run_menu_screen.py"
+    docs = ROOT / "docs" / "KOALA_BLUEZ_TOOLS_REVA16.md"
+    runtime_gate = ROOT / "scripts" / "check_full_runtime_dependencies.py"
+    required_needles = {
+        protected_module: [
+            "ensure_unlocked",
+            "KOALABYTE_BLUEZ_LAB_TARGET",
+            "KOALABYTE_BLUEZ_OWNED_DEVICE",
+            "Outback Radio Ledger",
+            "Classic Track Finder",
+            "Treehouse RFCOMM Wiremap",
+            "Pouch Link Echo",
+            "Gumnut GATT Ghostmap",
+        ],
+        menu_runner: [
+            "run_koala_bluez_manifest",
+            "run_protected_bluez_menu_action",
+            "bluez_gumnut_gatt_ghostmap",
+        ],
+        docs: [
+            "Outback Module Deck",
+            "Protected lab-only BlueZ menu actions",
+            "KOALABYTE_BLUEZ_LAB_TARGET",
+            "Gumnut GATT Ghostmap",
+        ],
+        runtime_gate: [
+            "koalablue.bluez_protected_lab",
+            "scripts/run_koala_bluez_info.sh",
+            "scripts/run_koala_bluez_services.sh",
+            "bluez_legacy_lab_optional",
+        ],
+    }
+    for path, needles in required_needles.items():
+        if not path.exists():
+            failures.append(f"missing protected BlueZ file: {path.relative_to(ROOT)}")
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for needle in needles:
+            if needle not in text:
+                failures.append(f"{path.relative_to(ROOT)} missing protected BlueZ marker: {needle}")
+    return failures
+
+
 def main() -> int:
     failures: list[str] = []
     STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     menu_manifest, menu_failures = build_manifest()
     failures.extend(f"menu: {failure}" for failure in menu_failures)
+    failures.extend(validate_protected_bluez_menu())
+    failures.extend(validate_protected_bluez_code())
 
     buttons: list[dict[str, object]] = []
     try:
@@ -139,6 +247,9 @@ def main() -> int:
     for helper in REQUIRED_COMMAND_HELPERS:
         if not (ROOT / helper).exists():
             failures.append(f"missing command/control helper: {helper}")
+    for project_file in REQUIRED_PROJECT_FILES:
+        if not (ROOT / project_file).exists():
+            failures.append(f"missing project file: {project_file}")
 
     one_shot = ROOT / "scripts" / "install_koalabyte_one_shot.sh"
     one_shot_text = one_shot.read_text(encoding="utf-8") if one_shot.exists() else ""
@@ -175,6 +286,15 @@ def main() -> int:
             "handler_count": menu_manifest.get("handler_count", 0),
             "manifest": "logs/menu_actions/menu_action_manifest.json",
         },
+        "protected_bluez_menu": {
+            "labels": REQUIRED_PROTECTED_BLUEZ_LABELS,
+            "commands": REQUIRED_PROTECTED_BLUEZ_COMMANDS,
+            "password_gate_module": "pi-companion/koalablue/location_password_gate.py",
+            "protected_module": "pi-companion/koalblue/bluez_protected_lab.py".replace("koalblue", "koalablue"),
+            "target_env": "KOALABYTE_BLUEZ_LAB_TARGET",
+            "owned_env": "KOALABYTE_BLUEZ_OWNED_DEVICE",
+            "required_for_one_shot_control_validation": True,
+        },
         "voice_menu_launch": {
             "status_path": "logs/menu_voice/voice_menu_launch_status.json",
             "manifest_path": "logs/menu_voice/voice_menu_launch_manifest.json",
@@ -208,6 +328,7 @@ def main() -> int:
         },
         "antenna_status_files": REQUIRED_ANTENNA_STATUS,
         "required_command_helpers": REQUIRED_COMMAND_HELPERS,
+        "required_project_files": REQUIRED_PROJECT_FILES,
         "one_shot_required_steps": REQUIRED_ONE_SHOT_SNIPPETS,
         "face_mouth_protocol": "killerkoala_face",
         "failures": failures,
