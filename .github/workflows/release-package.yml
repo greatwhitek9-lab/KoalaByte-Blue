@@ -23,8 +23,9 @@ jobs:
             --exclude 'dist' \
             --exclude 'exports' \
             --exclude 'logs' \
-            README.md install.sh scripts pi-companion firmware docs systemd udev logrotate version training .github \
+            README.md install.sh scripts pi-companion firmware docs production systemd udev logrotate version training .github \
             dist/KoalaByte-Blue/
+          test -d dist/KoalaByte-Blue/production
           (cd dist && zip -r KoalaByte-Blue-install-package.zip KoalaByte-Blue >/dev/null)
 
       - name: Upload install package
