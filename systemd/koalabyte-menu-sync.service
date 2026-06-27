@@ -1,0 +1,17 @@
+[Unit]
+Description=KoalaByte Blue Menu Sync Readiness Check
+After=koalabyte-menu.service
+Wants=koalabyte-menu.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/KoalaByte-Blue
+Environment=PYTHONPATH=/opt/KoalaByte-Blue/pi-companion:/opt/KoalaByte-Blue
+Environment=KOALABYTE_MENU_SYNC=0
+ExecStart=/opt/KoalaByte-Blue/pi-companion/.venv/bin/python /opt/KoalaByte-Blue/scripts/check_menu_display_sync.py
+RemainAfterExit=yes
+User=pi
+Group=pi
+
+[Install]
+WantedBy=multi-user.target
