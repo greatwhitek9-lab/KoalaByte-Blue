@@ -2,9 +2,40 @@
 
 KoalaByte Blue V2 Heltec Edition is the beginner-friendly Raspberry Pi 3B+ build of the KillerKoala cyber companion. It combines a Raspberry Pi, an ESP32-S3 DualEye display board, a Heltec Mesh Node T114, six front buttons, optional antennas, and an optional InnoMaker USB-to-CAN kit.
 
-The project is designed for lawful owned-device labs, defensive Bluetooth observation, Koalagotchi-style companion feedback, Didgeridoo mesh/GNSS status, safe local reports, voice control, protected lab-only helper actions, and optional isolated CAN bench work.
+The project is designed for lawful owned-device labs, defensive Bluetooth observation, Koalagotchi-style companion feedback, Didgeridoo mesh/GNSS status, safe local reports, voice control, protected lab-only helper actions, field-readiness checks, and optional isolated CAN bench work.
 
 Use KoalaByte Blue only on your own equipment, your own lab traffic, or systems you have written permission to test.
+
+---
+
+## What is new in the current default branch
+
+The default branch now includes the newer field-readiness install path:
+
+| New item | What it adds |
+|---|---|
+| One-shot `--check-only` | Runs a dry-run validation without flashing firmware or installing services. |
+| KoalaByte Doctor | Runs a quick or full diagnostic sweep and writes a status report. |
+| Field readiness checker | Verifies the new install helpers, service templates, version manifest, and dashboard helpers. |
+| Stable udev names | Adds install/check support for stable `/dev/koalabyte-*` serial aliases. |
+| Boot service templates | Adds systemd templates for the menu, menu sync, and doctor check. |
+| Version handshake | Checks Pi/ESP32/Heltec protocol readiness and writes a version status report. |
+| Local status dashboard | Provides a local JSON/HTML status dashboard helper. |
+| Log export | Bundles useful logs into `exports/`. |
+| Log rotation | Adds a logrotate config and installer for `/etc/logrotate.d/koalabyte-blue`. |
+| Release ZIP package | Adds a local package builder and GitHub Actions release-package workflow. |
+
+Quick dry-run:
+
+```bash
+bash scripts/install_koalabyte_one_shot.sh --check-only
+```
+
+Quick doctor check:
+
+```bash
+bash scripts/koalabyte_doctor.sh --quick
+```
 
 ---
 
@@ -14,7 +45,7 @@ Think of the device as five main parts working together:
 
 | Part | Simple role | What it does in KoalaByte Blue |
 |---|---|---|
-| Raspberry Pi 3B+ | Main brain | Runs the installer, menus, logs, voice commands, KillerKoala companion, local services, and most processing. |
+| Raspberry Pi 3B+ | Main brain | Runs the installer, menus, logs, voice commands, KillerKoala companion, local services, field checks, and most processing. |
 | ESP32-S3 DualEye | Face and local display | Runs the eyes, face feedback, DualEye screen, button/UI feedback, and built-in mic bridge support. |
 | Heltec Mesh Node T114 | Radio/GPS board | Provides the T114 nRF52840 path, primary BLE/GNSS status, LoRa/Meshtastic-related checks, and Heltec status/mouth sync. |
 | Six 4-pin buttons | Physical controls | Let you move through menus without a keyboard. |
@@ -59,7 +90,7 @@ Power rule: do not feed raw battery voltage into the Pi, ESP32-S3, Heltec T114, 
 
 ### Raspberry Pi 3B+
 
-The Pi is the host computer. It boots Raspberry Pi OS from the SD card and runs the KoalaByte Blue software. It owns the main menu, Python companion code, logs, system services, voice command routing, KillerKoala AI fallback, BLE node manager, CAN helper scripts, protected action gates, and readiness checks.
+The Pi is the host computer. It boots Raspberry Pi OS from the SD card and runs the KoalaByte Blue software. It owns the main menu, Python companion code, logs, system services, voice command routing, KillerKoala AI fallback, BLE node manager, CAN helper scripts, protected action gates, field-readiness tools, and readiness checks.
 
 ### ESP32-S3 DualEye
 
@@ -171,11 +202,21 @@ or:
 bash scripts/install_koalabyte_one_shot.sh
 ```
 
-### Step 5: Let it finish
+### Step 5: Dry-run before flashing, optional but recommended
 
-The one-shot installer prepares dependencies, flashes firmware, checks menus, checks the boards, sets up services, writes logs, and creates readiness artifacts. For the optional CAN kit, it auto-detects the adapter: present means setup/checks run; absent means the installer writes `OPTIONAL_CAN_SKIPPED_NOT_PRESENT` and moves on.
+Before a full install, you can validate the repo, helper scripts, menu controls, field-readiness files, dashboard JSON, version-handshake path, and optional CAN policy without flashing firmware or installing services:
 
-### Step 6: Reboot and start using it
+```bash
+bash scripts/install_koalabyte_one_shot.sh --check-only
+```
+
+This is the safest first command on a new clone or GitHub Actions runner.
+
+### Step 6: Let it finish
+
+The one-shot installer prepares dependencies, flashes firmware, checks menus, checks the boards, sets up services, writes logs, runs field-readiness checks, runs KoalaByte Doctor, checks the local dashboard JSON path, checks release/log helpers, and creates readiness artifacts. For the optional CAN kit, it auto-detects the adapter: present means setup/checks run; absent means the installer writes `OPTIONAL_CAN_SKIPPED_NOT_PRESENT` and moves on.
+
+### Step 7: Reboot and start using it
 
 ```bash
 sudo reboot
@@ -191,6 +232,9 @@ bash scripts/koalabyte_blue_boot.sh
 # Normal one-shot install
 bash scripts/install_koalabyte_one_shot.sh
 
+# Dry-run: no firmware flashing and no service install
+bash scripts/install_koalabyte_one_shot.sh --check-only
+
 # Explicit normal Heltec profile
 T114_PLUG_FLASH_PROFILE=combined-safe bash scripts/install_koalabyte_one_shot.sh
 
@@ -202,6 +246,16 @@ STRICT_T114_PLUG_FLASH=0 bash scripts/install_koalabyte_one_shot.sh
 
 # Make dependency checks strict
 STRICT_FULL_RUNTIME_DEPENDENCIES=1 bash scripts/install_koalabyte_one_shot.sh
+
+# Stable serial aliases: auto/default, force, or skip
+INSTALL_UDEV_RULES=auto bash scripts/install_koalabyte_one_shot.sh
+INSTALL_UDEV_RULES=1 bash scripts/install_koalabyte_one_shot.sh
+INSTALL_UDEV_RULES=0 bash scripts/install_koalabyte_one_shot.sh
+
+# Boot services: auto/default, force, or skip
+INSTALL_BOOT_SERVICES=auto bash scripts/install_koalabyte_one_shot.sh
+INSTALL_BOOT_SERVICES=1 bash scripts/install_koalabyte_one_shot.sh
+INSTALL_BOOT_SERVICES=0 bash scripts/install_koalabyte_one_shot.sh
 
 # Default optional CAN behavior: setup if present, skip if absent
 INSTALL_INNOMAKER_CAN=optional bash scripts/install_koalabyte_one_shot.sh
@@ -218,18 +272,26 @@ STRICT_INNOMAKER_CAN=1 bash scripts/install_koalabyte_one_shot.sh
 ## What the one-shot installer prepares
 
 1. **Repository readiness** — checks required files, scripts, firmware folders, menu wiring, shell syntax, and expected README markers.
-2. **Raspberry Pi companion setup** — installs system packages, Python dependencies, the virtual environment, runtime folders, and helper scripts.
-3. **KillerKoala AI setup** — prepares the phrase engine and optional TinyLlama/Ollama fallback path.
-4. **Heltec T114 combined-safe firmware** — builds/flashes the T114 profile used by BLE/GNSS/status dashboard paths.
-5. **ESP32-S3 DualEye firmware** — builds/flashes the DualEye firmware for eyes, face, and display behavior.
-6. **KillerKoala eyes and mouth sync** — validates the shared face-state protocol between the ESP32-S3 and Heltec T114.
-7. **Menus, buttons, antennas, controls, and commands** — confirms menu routing, front button mapping, antenna readiness, BlueZ menu coverage, protected lab-only action coverage, and helper scripts.
-8. **Full runtime dependencies and board helpers** — checks required Python imports, project modules, board helper files, BlueZ helper coverage, and command availability.
-9. **BLE node manager service** — installs the Pi-side node service with the T114 as the primary board path.
-10. **T114 live dashboard status phrases** — verifies the live dashboard phrases used by Heltec Link, Radio/GPS, and Lab Beacon TX.
-11. **External antenna readiness** — writes antenna status files for Heltec LoRa, Heltec 2.4 GHz, ESP32-S3 2.4 GHz, and optional Pi adapter paths.
-12. **AntEater passive readiness** — prepares passive-readiness status without starting a live scan.
-13. **Optional InnoMaker CAN** — auto-detects the optional CAN kit. If present, setup/status checks run. If absent, `OPTIONAL_CAN_SKIPPED_NOT_PRESENT` is written and the installer continues.
+2. **Stable serial aliases** — installs or checks udev rules for `/dev/koalabyte-esp32-dualeye`, `/dev/koalabyte-heltec`, and `/dev/koalabyte-nrf52840`.
+3. **Raspberry Pi companion setup** — installs system packages, Python dependencies, the virtual environment, runtime folders, and helper scripts.
+4. **KillerKoala AI setup** — prepares the phrase engine and optional TinyLlama/Ollama fallback path.
+5. **Heltec T114 combined-safe firmware** — builds/flashes the T114 profile used by BLE/GNSS/status dashboard paths.
+6. **ESP32-S3 DualEye firmware** — builds/flashes the DualEye firmware for eyes, face, and display behavior.
+7. **KillerKoala eyes and mouth sync** — validates the shared face-state protocol between the ESP32-S3 and Heltec T114.
+8. **Menu display sync and AI-face controls** — verifies menu highlight/select sync, touchscreen long-press, double-tap menu reopen, B1 menu reopen, and the 30-second AI-face idle return.
+9. **Menus, buttons, antennas, controls, and commands** — confirms menu routing, front button mapping, antenna readiness, BlueZ menu coverage, protected lab-only action coverage, and helper scripts.
+10. **Full runtime dependencies and board helpers** — checks required Python imports, project modules, board helper files, BlueZ helper coverage, and command availability.
+11. **Field readiness helpers** — validates doctor, udev, boot-service, safe-mode, log export, release package, protocol manifest, dashboard, and docs files.
+12. **Version handshake readiness** — checks the Pi-side protocol manifest and attempts ESP32/Heltec version status readiness where ports are available.
+13. **Local status dashboard JSON check** — confirms the status dashboard can emit JSON from current log/status files.
+14. **Release and log helper checks** — validates the release package builder and log export helpers.
+15. **KoalaByte Doctor quick check** — runs the quick diagnostic report.
+16. **BLE node manager service** — installs the Pi-side node service with the T114 as the primary board path.
+17. **Boot services** — installs or checks service templates for the menu, menu sync, and doctor.
+18. **T114 live dashboard status phrases** — verifies the live dashboard phrases used by Heltec Link, Radio/GPS, and Lab Beacon TX.
+19. **External antenna readiness** — writes antenna status files for Heltec LoRa, Heltec 2.4 GHz, ESP32-S3 2.4 GHz, and optional Pi adapter paths.
+20. **AntEater passive readiness** — prepares passive-readiness status without starting a live scan.
+21. **Optional InnoMaker CAN** — auto-detects the optional CAN kit. If present, setup/status checks run. If absent, `OPTIONAL_CAN_SKIPPED_NOT_PRESENT` is written and the installer continues.
 
 Important readiness artifacts:
 
@@ -237,12 +299,209 @@ Important readiness artifacts:
 logs/one_shot_install_status.json
 logs/one_shot/control_surface_status.json
 logs/one_shot/full_runtime_dependencies.json
+logs/one_shot/field_readiness_status.json
 logs/menu_actions/menu_action_manifest.json
 logs/menu_actions/t114_status_dashboard_status.json
+logs/menu_sync/current_menu_state.json
+logs/doctor/koalabyte_doctor_status.json
+logs/version/koalabyte_version_handshake.json
 logs/killerkoala/killerkoala_ai_readiness.json
 logs/killerkoala/ollama_setup_status.json
 logs/koala_bluez/koala_bluez_module_manifest.json
 logs/can/innomaker_optional_status.json
+exports/koalabyte_logs_<timestamp>.zip
+```
+
+---
+
+## KoalaByte Doctor
+
+KoalaByte Doctor is the quickest way to ask, “Is the build healthy enough to keep going?”
+
+Quick check:
+
+```bash
+bash scripts/koalabyte_doctor.sh --quick
+```
+
+Full check:
+
+```bash
+bash scripts/koalabyte_doctor.sh
+```
+
+Strict full check:
+
+```bash
+bash scripts/koalabyte_doctor.sh --strict
+```
+
+Doctor writes:
+
+```text
+logs/doctor/koalabyte_doctor_status.json
+```
+
+It checks important files, command availability, existing readiness JSON, disk/memory status, and supporting validation scripts.
+
+---
+
+## Release ZIP package
+
+The repo can build a portable install package for the current branch.
+
+Build locally:
+
+```bash
+bash scripts/build_koalabyte_release_package.sh
+```
+
+Expected output:
+
+```text
+dist/KoalaByte-Blue-install-package.zip
+```
+
+If `zip` is not installed, the builder falls back to:
+
+```text
+dist/KoalaByte-Blue-install-package.tar.gz
+```
+
+The GitHub Actions workflow also includes a release package workflow:
+
+```text
+.github/workflows/release-package.yml
+```
+
+The package includes the README, `install.sh`, scripts, Pi companion code, firmware folders, docs, systemd templates, udev rules, logrotate config, version manifest, and training/supporting files.
+
+---
+
+## Field readiness tools
+
+### Stable device names
+
+Check the udev rules template:
+
+```bash
+bash scripts/install_koalabyte_udev_rules.sh --check-only
+```
+
+Install stable aliases on the Pi:
+
+```bash
+bash scripts/install_koalabyte_udev_rules.sh
+```
+
+Expected aliases include:
+
+```text
+/dev/koalabyte-esp32-dualeye
+/dev/koalabyte-heltec
+/dev/koalabyte-nrf52840
+```
+
+### Boot services
+
+Check service templates:
+
+```bash
+bash scripts/install_koalabyte_boot_services.sh --check-only
+```
+
+Install boot services:
+
+```bash
+bash scripts/install_koalabyte_boot_services.sh
+```
+
+Service templates:
+
+```text
+systemd/koalabyte-menu.service
+systemd/koalabyte-menu-sync.service
+systemd/koalabyte-doctor.service
+```
+
+### Safe mode
+
+Safe mode disables strict optional services and starts from a recovery-friendly state:
+
+```bash
+bash scripts/koalabyte_safe_mode.sh
+bash scripts/koalabyte_safe_mode.sh --terminal
+bash scripts/koalabyte_safe_mode.sh --doctor
+```
+
+### Version handshake
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/check_koalabyte_version_handshake.py
+```
+
+Status output:
+
+```text
+logs/version/koalabyte_version_handshake.json
+```
+
+### Local status dashboard
+
+JSON check:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koalabyte_status_server.py --json
+```
+
+Run the local dashboard:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koalabyte_status_server.py --host 0.0.0.0 --port 8080
+```
+
+Then open from another device on the same network:
+
+```text
+http://koalabyte-blue.local:8080
+```
+
+### Log export
+
+```bash
+bash scripts/export_koalabyte_logs.sh
+```
+
+Output goes to:
+
+```text
+exports/
+```
+
+### Log rotation
+
+Check the config:
+
+```bash
+bash scripts/install_koalabyte_logrotate.sh --check-only
+```
+
+Install the config:
+
+```bash
+bash scripts/install_koalabyte_logrotate.sh
+```
+
+It installs:
+
+```text
+/etc/logrotate.d/koalabyte-blue
+```
+
+Source config:
+
+```text
+logrotate/koalabyte-blue
 ```
 
 ---
@@ -258,7 +517,6 @@ logs/can/innomaker_optional_status.json
 | Reports & Reviews | Report builders, defensive review templates, and Boomerang camera-awareness logbook. |
 | System / Companion | KillerKoala voice, XP/status, buttons, settings, and helper controls. |
 | Lab | A shorter authorized-lab menu with common safe lab review items and protected BlueZ helpers. |
-| Power & Exit | Shutdown, quit, and return controls. |
 
 ---
 
@@ -411,6 +669,8 @@ The face system connects the ESP32-S3 DualEye and Heltec T114 through a shared `
 | Eyes | The ESP32-S3 DualEye shows the main visual personality. |
 | Mouth/status | The Heltec T114 participates in the shared face/status path. |
 | Face sync | The Pi validates that eyes and mouth/status agree on the same face-state protocol. |
+| Menu sync | The Pi syncs highlighted/selected menu items to Heltec and ESP32-S3 DualEye display paths. |
+| AI-face idle return | After menu inactivity or action completion, the AI face returns until B1/menu or touchscreen double-tap reopens the menu. |
 | Vocabulary | KillerKoala has gruff cyberpunk/Aussie-style phrases tied to events, XP, ranks, and menu activity. |
 | Koalagotchi | Eucalyptus mode turns passive local observations and device events into cyber-pet feedback. |
 
@@ -418,6 +678,12 @@ Check face/mouth sync with:
 
 ```bash
 PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py --emit-test
+```
+
+Check menu/display sync with:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/check_menu_display_sync.py
 ```
 
 ---
@@ -429,9 +695,17 @@ python3 scripts/check_repo_readiness.py
 bash scripts/preflight_all_hardware.sh --profile heltec
 PYTHONPATH=pi-companion python3 scripts/check_full_runtime_dependencies.py
 PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
+PYTHONPATH=pi-companion python3 scripts/check_field_readiness.py
 PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
 PYTHONPATH=pi-companion python3 scripts/check_t114_status_dashboard.py
 PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py --emit-test
+PYTHONPATH=pi-companion python3 scripts/check_menu_display_sync.py
+PYTHONPATH=pi-companion python3 scripts/check_koalabyte_version_handshake.py
+PYTHONPATH=pi-companion python3 scripts/run_koalabyte_status_server.py --json
+bash scripts/koalabyte_doctor.sh --quick
+bash scripts/install_koalabyte_udev_rules.sh --check-only
+bash scripts/install_koalabyte_boot_services.sh --check-only
+bash scripts/install_koalabyte_logrotate.sh --check-only
 bash scripts/configure_koalabyte_external_antennas.sh --check-only
 PYTHONPATH=pi-companion python3 scripts/run_anteater.py status
 ```
@@ -447,17 +721,34 @@ Expected optional CAN statuses include:
 ```text
 OPTIONAL_CAN_CHECK_RECORDED
 OPTIONAL_CAN_SKIPPED_NOT_PRESENT
+OPTIONAL_CAN_CHECK_ONLY
 ```
 
 ---
 
 ## Troubleshooting basics
 
+### Start with Doctor
+
+```bash
+bash scripts/koalabyte_doctor.sh --quick
+cat logs/doctor/koalabyte_doctor_status.json
+```
+
+### Run safe mode
+
+```bash
+bash scripts/koalabyte_safe_mode.sh
+bash scripts/koalabyte_safe_mode.sh --doctor
+bash scripts/koalabyte_safe_mode.sh --terminal
+```
+
 ### The Pi cannot see a board
 
 ```bash
 lsusb
 python3 scripts/discover_koalabyte_ports.py --profile heltec
+bash scripts/install_koalabyte_udev_rules.sh --check-only
 ```
 
 Use USB data cables, not charge-only cables.
@@ -497,6 +788,13 @@ That is okay unless you requested strict CAN. In normal mode, if the adapter is 
 
 ```bash
 cat logs/can/innomaker_optional_status.json
+```
+
+### Export logs for debugging
+
+```bash
+bash scripts/export_koalabyte_logs.sh
+ls exports/
 ```
 
 ---
