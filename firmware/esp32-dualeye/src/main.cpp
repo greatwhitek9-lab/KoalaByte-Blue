@@ -372,14 +372,41 @@ void handleKillerKoalaFace(JsonDocument &doc) {
   sendJson(ack);
 }
 
+void handleMenuSync(JsonDocument &doc) {
+  const char *label = doc["selected_label"] | "menu";
+  const char *command = doc["selected_command"] | "";
+  const char *eventType = doc["event_type"] | "highlight";
+  const int position = doc["selected_position"] | 1;
+  const int total = doc["total_items"] | 1;
+  char mood[96];
+  snprintf(mood, sizeof(mood), "%02d/%02d %s", position, total, label);
+
+  const char *animation = (!strcmp(eventType, "select") || !strcmp(eventType, "touch_long_press_select")) ? "pulse" : "scan";
+  setKoalagotchiEyeStyle("cyber", "#A54BFF", "#32FF71", animation, getKoalagotchiEyeBrightness());
+  drawKoalagotchiModeScreen("menu", mood, 82, 90);
+
+  StaticJsonDocument<384> ack;
+  ack["type"] = "menu_sync_ack";
+  ack["device"] = "esp32-dualeye";
+  ack["selected_label"] = label;
+  ack["selected_command"] = command;
+  ack["event_type"] = eventType;
+  ack["position"] = position;
+  ack["total"] = total;
+  ack["execute"] = "B3/select or touchscreen long-press";
+  sendJson(ack);
+}
+
 void handlePiCommand(const String &line) {
-  StaticJsonDocument<768> doc;
+  StaticJsonDocument<1536> doc;
   DeserializationError err = deserializeJson(doc, line);
   if (err) return;
 
   const char *type = doc["type"] | "";
   if (!strcmp(type, "killerkoala_face") || !strcmp(type, "ai_face")) {
     handleKillerKoalaFace(doc);
+  } else if (!strcmp(type, "menu_sync")) {
+    handleMenuSync(doc);
   } else if (!strcmp(type, "koala_says")) {
     const char *msg = doc["message"] | "";
     StaticJsonDocument<192> ack;
@@ -447,7 +474,7 @@ void pollSerial() {
       line = "";
     } else if (c != '\r') {
       line += c;
-      if (line.length() > 1024) line = "";
+      if (line.length() > 1536) line = "";
     }
   }
 }
