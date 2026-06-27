@@ -61,6 +61,7 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
         enabled = _enabled(entry)
         submenu = submenu_name_from_command(command)
         is_submenu = bool(submenu)
+        is_status_row = command.startswith("status:")
         handler_name = ""
         routed = False
 
@@ -68,6 +69,9 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
             routed = submenu in menu_names
             if enabled and not routed:
                 failures.append(f"submenu item '{label}' points to missing submenu: {command}")
+        elif is_status_row:
+            routed = True
+            handler_name = "status_indicator"
         elif enabled:
             handler = handlers.get(command)
             routed = handler is not None
@@ -86,13 +90,15 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
                 "enabled": enabled,
                 "submenu": submenu,
                 "is_submenu": is_submenu,
+                "is_status_row": is_status_row,
                 "routed": routed,
                 "handler": handler_name,
                 "description": entry.get("description", ""),
             }
         )
 
-    leaf_commands = sorted({_command(entry) for entry in leaf_menu_entries()})
+    leaf_commands = sorted({_command(entry) for entry in leaf_menu_entries() if not _command(entry).startswith("status:")})
+    status_rows = sorted({_command(entry) for entry in leaf_menu_entries() if _command(entry).startswith("status:")})
     handler_commands = sorted(str(command) for command in handlers.keys())
     manifest = {
         "status": "MENU_ACTIONS_READY" if not failures else "MENU_ACTIONS_INCOMPLETE",
@@ -102,15 +108,17 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
         "total_entries": len(rows),
         "catalog_entry_count": len(all_menu_entries()),
         "enabled_leaf_count": len(leaf_commands),
+        "status_row_count": len(status_rows),
         "handler_count": len(handler_commands),
         "leaf_commands": leaf_commands,
+        "status_rows": status_rows,
         "handler_commands": handler_commands,
         "entries": rows,
         "one_shot_installer_safe": True,
         "no_menu_actions_executed": True,
         "notes": [
             "This is a readiness/manifest check only.",
-            "It validates that every enabled menu leaf has a handler and every submenu target exists.",
+            "It validates that every enabled menu leaf has a handler, every status row is display-only, and every submenu target exists.",
             "It does not run scans, open long-running actions, transmit, flash firmware, or start live BLE activity.",
         ],
         "failures": failures,
@@ -129,6 +137,7 @@ def main() -> int:
                 "updated_at": manifest["updated_at"],
                 "manifest": str(MANIFEST_PATH),
                 "enabled_leaf_count": manifest["enabled_leaf_count"],
+                "status_row_count": manifest["status_row_count"],
                 "handler_count": manifest["handler_count"],
                 "failures": failures,
             },
