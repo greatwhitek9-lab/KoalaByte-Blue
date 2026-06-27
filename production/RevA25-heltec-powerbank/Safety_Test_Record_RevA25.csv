@@ -1,0 +1,40 @@
+Test,Pass/Fail,Measured Value,Technician,Date,Notes
+Repo readiness check passes,,,,,
+One-shot installer check-only passes,,,,,Run bash scripts/install_koalabyte_one_shot.sh --check-only
+Field readiness check passes,,,,,Run PYTHONPATH=pi-companion python3 scripts/check_field_readiness.py
+KoalaByte Doctor quick check passes,,,,,Run bash scripts/koalabyte_doctor.sh --quick
+USB power pack fully charged,,,,,Use regulated USB power pack / power bank only
+Power pack regulated USB output verified,,,,,Use normal USB output only; do not open or modify pack
+Short Pi micro-USB power cable installed,,,,,Use short low-resistance cable
+Raspberry Pi boot without undervoltage warning,,,,,
+Powered USB hub used if needed,,,,,Required if USB modules disconnect or Pi undervoltage appears
+Heltec Mesh Node T114 enumerates over USB-C,,,,,Production primary BLE/GNSS/LoRa board
+Heltec T114 combined-safe profile check,,,,,Use T114_PLUG_FLASH_PROFILE=combined-safe
+Heltec LoRa antenna installed,,,,,Use region-matched antenna and do not swap with 2.4 GHz
+Heltec optional 2.4 GHz antenna checked,,,,,Only if board revision exposes connector
+ESP32-S3 DualEye enumerates over USB,,,,,
+ESP32-S3 DualEye serial boot JSON received,,,,,
+ESP32-S3 DualEye boot animation visible,,,,,
+ESP32-S3 DualEye flash helper completed,,,,,
+ESP32 antenna installed,,,,,Use the antenna path documented for the board revision
+Pi companion install script completed,,,,,
+Python compileall check completed,,,,,
+Menu/display sync check completed,,,,,
+Version handshake readiness check completed,,,,,
+Status dashboard JSON check completed,,,,,
+Koala BlueZ inventory/status test,,,,,
+killerkoala voice preview test,,,,,
+eucalyptus storage write test,,,,,
+Koala Kapture local log smoke test,,,,,
+InnoMaker adapter mounted with strain relief,,,,,Optional
+InnoMaker adapter appears as can0 when installed,,,,,Optional
+Koala Kan Kommander manifest command completed,,,,,
+Koala Kan Kommander status/report commands remain passive,,,,,
+Six-button GPIO test,,,,,
+Button 3 hold shutdown event test,,,,,
+Speaker output test,,,,,
+Release package build completed,,,,,Confirm dist package includes production folder
+Log export completed,,,,,Confirm exports folder contains bundle
+Logrotate installer check-only passed,,,,,Run bash scripts/install_koalabyte_logrotate.sh --check-only
+30-minute idle thermal check,,,,,Run while powered from the USB power pack
+Cable strain relief / case close inspection,,,,,Confirm USB cable bend radius antenna clearance and no raw battery wiring
