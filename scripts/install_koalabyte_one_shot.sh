@@ -224,7 +224,9 @@ run_optional_can() {
 }
 
 prepare_anteater_status() {
-  PYTHONPATH=pi-companion "${PYTHON_BIN}" - <<'PY'
+  local py
+  py="$(python_for_checks)"
+  PYTHONPATH=pi-companion "${py}" - <<'PY'
 import json
 import time
 from pathlib import Path
@@ -243,46 +245,57 @@ status = {
 Path(DEFAULT_STATUS_PATH).write_text(json.dumps(status, indent=2, sort_keys=True), encoding="utf-8")
 print(json.dumps(status, sort_keys=True))
 PY
-  PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/run_anteater.py status >/dev/null
+  PYTHONPATH=pi-companion "${py}" scripts/run_anteater.py status >/dev/null
 }
 
 run_face_mouth_sync() {
-  local sync_args=(--emit-test)
+  local sync_args=()
+  local py
+  py="$(python_for_checks)"
+  sync_args=(--emit-test)
   if [[ "${STRICT_FACE_MOUTH_SYNC}" == "1" ]]; then
     sync_args+=(--strict-ports)
   fi
   KOALABYTE_ESP32_FACE_PORT="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-}}" \
   KOALABYTE_HELTEC_USB_PORT="${KOALABYTE_HELTEC_USB_PORT:-${KOALABYTE_PRIMARY_BLE_PORT:-${HELTEC_PORT:-/dev/koalabyte-heltec}}}" \
-  PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_killerkoala_face_mouth_sync.py "${sync_args[@]}"
+  PYTHONPATH=pi-companion "${py}" scripts/check_killerkoala_face_mouth_sync.py "${sync_args[@]}"
 }
 
 run_killerkoala_ai_readiness() {
   local ai_args=()
+  local py
+  py="$(python_for_checks)"
   if [[ "${STRICT_KILLERKOALA_AI}" == "1" ]]; then
     ai_args+=(--strict)
   fi
-  PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_killerkoala_ai.py "${ai_args[@]}"
+  PYTHONPATH=pi-companion "${py}" scripts/check_killerkoala_ai.py "${ai_args[@]}"
 }
 
 run_t114_status_dashboard_readiness() {
   local dashboard_args=()
+  local py
+  py="$(python_for_checks)"
   if [[ "${STRICT_T114_STATUS_DASHBOARD}" == "1" ]]; then
     dashboard_args+=(--strict-connected)
   fi
   KOALABYTE_HELTEC_USB_PORT="${KOALABYTE_HELTEC_USB_PORT:-${KOALABYTE_PRIMARY_BLE_PORT:-${HELTEC_PORT:-/dev/koalabyte-heltec}}}" \
-  PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_t114_status_dashboard.py "${dashboard_args[@]}"
+  PYTHONPATH=pi-companion "${py}" scripts/check_t114_status_dashboard.py "${dashboard_args[@]}"
 }
 
 run_full_runtime_dependency_gate() {
   local dependency_args=()
+  local py
+  py="$(python_for_checks)"
   if [[ "${STRICT_FULL_RUNTIME_DEPENDENCIES}" == "1" ]]; then
     dependency_args+=(--strict-commands)
   fi
-  PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_full_runtime_dependencies.py "${dependency_args[@]}"
+  PYTHONPATH=pi-companion "${py}" scripts/check_full_runtime_dependencies.py "${dependency_args[@]}"
 }
 
 run_menu_display_sync_gate() {
-  KOALABYTE_MENU_SYNC=0 PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_menu_display_sync.py
+  local py
+  py="$(python_for_checks)"
+  KOALABYTE_MENU_SYNC=0 PYTHONPATH=pi-companion "${py}" scripts/check_menu_display_sync.py
 }
 
 run_field_readiness() {
@@ -372,7 +385,7 @@ run_required "ESP32-S3 DualEye mic voice bridge service" run_dualeye_voice_bridg
 run_required "ESP32-S3 DualEye firmware flash" env ESP32_PORT="${ESP32_PORT}" NO_MONITOR="${NO_MONITOR}" STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-1}" bash -c 'STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS}" bash scripts/setup_esp32_tools.sh; if [[ -n "${ESP32_PORT}" ]]; then ESP32_PORT="${ESP32_PORT}" NO_MONITOR="${NO_MONITOR}" bash scripts/flash_esp32.sh; else NO_MONITOR="${NO_MONITOR}" bash scripts/flash_esp32.sh; fi'
 run_required "KillerKoala eyes and mouth sync" run_face_mouth_sync
 run_required "Menu display sync and AI-face controls" run_menu_display_sync_gate
-run_required "Menus buttons antennas controls and commands" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_one_shot_controls.py
+run_required "Menus buttons antennas controls and commands" env PYTHONPATH=pi-companion "$(python_for_checks)" scripts/check_one_shot_controls.py
 run_required "Full runtime dependencies and board helpers" run_full_runtime_dependency_gate
 run_required "Field readiness helpers" run_field_readiness
 run_required "Version handshake readiness" run_version_handshake
@@ -382,7 +395,7 @@ run_required "KoalaByte Doctor quick check" run_doctor_quick
 run_required "BLE node manager service" env KOALABYTE_PRIMARY_BLE_PORT="${KOALABYTE_PRIMARY_BLE_PORT:-${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-/dev/koalabyte-heltec}}}" KOALABYTE_HELTEC_USB_PORT="${KOALABYTE_HELTEC_USB_PORT:-${KOALABYTE_PRIMARY_BLE_PORT:-/dev/koalabyte-heltec}}" KOALABYTE_ESP32_FACE_PORT="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-}}" KOALABYTE_PI_BLUEZ_NODE="${KOALABYTE_PI_BLUEZ_NODE:-1}" PYTHON_BIN="${PYTHON_BIN}" INSTALL_BLE_NODE_MANAGER_SERVICE="${INSTALL_BLE_NODE_MANAGER_SERVICE}" STRICT_BLE_NODE_MANAGER_SERVICE="${STRICT_BLE_NODE_MANAGER_SERVICE}" bash scripts/install_ble_node_manager_service.sh
 run_required "boot services install" run_boot_services_install_or_check
 run_required "T114 live dashboard status phrases" run_t114_status_dashboard_readiness
-run_required "Didgeridoo/menu action readiness" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_menu_actions.py
+run_required "Didgeridoo/menu action readiness" env PYTHONPATH=pi-companion "$(python_for_checks)" scripts/check_menu_actions.py
 run_required "External antenna readiness" bash scripts/configure_koalabyte_external_antennas.sh --check-only
 run_required "AntEater passive readiness" prepare_anteater_status
 run_optional_can
