@@ -44,6 +44,14 @@ FORBIDDEN_PRODUCTION_FILES = [
     "production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv",
 ]
 
+# Only fail on active old-BOM rows. The new USB power-pack guide intentionally
+# mentions 18650/BMS parts as removed/obsolete, so plain text mentions are OK.
+FORBIDDEN_ACTIVE_PRODUCTION_MARKERS = [
+    "Nordic nRF52840 USB Dongle,1,Production-default",
+    "2x18650 series holder,1",
+    "2S Li-ion BMS/protection board,1",
+]
+
 
 def run(cmd: list[str]) -> tuple[int, str, str]:
     proc = subprocess.run(cmd, cwd=ROOT, text=True, capture_output=True, check=False)
@@ -97,15 +105,16 @@ def main() -> int:
     for required in ["Heltec Mesh Node T114", "USB portable power pack", "power bank"]:
         if required not in production_text:
             failures.append(f"production package missing marker: {required}")
-    for forbidden in ["Nordic nRF52840 USB Dongle,1,Production-default", "2x18650 series holder", "2S Li-ion BMS/protection board"]:
+    for forbidden in FORBIDDEN_ACTIVE_PRODUCTION_MARKERS:
         if forbidden in production_text:
-            failures.append(f"production package still contains old marker: {forbidden}")
+            failures.append(f"production package still contains active old marker: {forbidden}")
 
     status = {
         "status": "FIELD_READINESS_READY" if not failures else "FIELD_READINESS_INCOMPLETE",
         "updated_at": time.time(),
         "required_files": REQUIRED_FILES,
         "forbidden_production_files": FORBIDDEN_PRODUCTION_FILES,
+        "forbidden_active_production_markers": FORBIDDEN_ACTIVE_PRODUCTION_MARKERS,
         "failures": failures,
     }
     STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
