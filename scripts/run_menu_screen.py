@@ -165,6 +165,7 @@ def run_protected_bluez_menu_action(item: MenuItem) -> None:
         "bluez_treehouse_rfcomm_wiremap": bluez_protected_lab.treehouse_rfcomm_wiremap,
         "bluez_pouch_link_echo": bluez_protected_lab.pouch_link_echo,
         "bluez_gumnut_gatt_ghostmap": bluez_protected_lab.gumnut_gatt_ghostmap,
+        "bluez_platypus_bt_proxy": bluez_protected_lab.platypus_bt_proxy,
     }
     result = handlers[item.command]()
     _write_result(item, "complete" if not result.results or not result.results[0].skipped else "blocked", asdict(result), "Protected BlueZ lab action; unlock protected actions and set owned-device target env when required.")
@@ -264,6 +265,7 @@ def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
         "bluez_treehouse_rfcomm_wiremap",
         "bluez_pouch_link_echo",
         "bluez_gumnut_gatt_ghostmap",
+        "bluez_platypus_bt_proxy",
     ]:
         menu.register_handler(command, run_protected_bluez_menu_action)
     menu.register_handler("t114_primary_controller_check", run_t114_primary_controller_check)
