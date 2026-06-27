@@ -8,6 +8,8 @@ CONNECT_WIFI_FIRST_BOOT="${CONNECT_WIFI_FIRST_BOOT:-auto}"
 STRICT_WIFI_FIRST_BOOT="${STRICT_WIFI_FIRST_BOOT:-0}"
 INSTALL_SYSTEM_PACKAGES="${INSTALL_SYSTEM_PACKAGES:-auto}"
 STRICT_SYSTEM_PACKAGES="${STRICT_SYSTEM_PACKAGES:-0}"
+INSTALL_GATTTOOL="${INSTALL_GATTTOOL:-auto}"
+STRICT_GATTTOOL="${STRICT_GATTTOOL:-0}"
 INSTALL_ESP32_TOOLS="${INSTALL_ESP32_TOOLS:-auto}"
 STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-0}"
 INSTALL_HELTEC_T114_TOOLS="${INSTALL_HELTEC_T114_TOOLS:-auto}"
@@ -62,6 +64,10 @@ INSTALL_SYSTEM_PACKAGES="${INSTALL_SYSTEM_PACKAGES}" STRICT_SYSTEM_PACKAGES="${S
   fi
   echo "Continuing install because STRICT_SYSTEM_PACKAGES is not enabled." >&2
 }
+
+echo
+echo "Checking/preparing legacy BlueZ gatttool helper for Gumnut GATT Gatechecker..."
+INSTALL_GATTTOOL="${INSTALL_GATTTOOL}" STRICT_GATTTOOL="${STRICT_GATTTOOL}" bash "${REPO_ROOT}/scripts/setup_bluez_gatttool.sh"
 
 echo "Creating/updating virtual environment: ${VENV_DIR}"
 if [[ -f "${VENV_DIR}/pyvenv.cfg" && "${VENV_SYSTEM_SITE_PACKAGES}" == "1" ]] && ! grep -qi '^include-system-site-packages = true' "${VENV_DIR}/pyvenv.cfg"; then
@@ -252,6 +258,9 @@ echo "WiFi first-boot helper:"
 echo "  WIFI_INTERACTIVE=1 bash ${REPO_ROOT}/scripts/setup_wifi_first_boot.sh"
 echo "System dependency helper:"
 echo "  bash ${REPO_ROOT}/scripts/setup_system_packages.sh"
+echo "Legacy BlueZ gatttool helper for Gumnut GATT Gatechecker:"
+echo "  bash ${REPO_ROOT}/scripts/setup_bluez_gatttool.sh"
+echo "  cat ${REPO_ROOT}/logs/koala_bluez/gatttool_setup_status.json"
 echo "Heltec T114 dependency helper:"
 echo "  bash ${REPO_ROOT}/scripts/setup_heltec_t114_tools.sh"
 echo "  INSTALL_HELTEC_NRF_TOOLS=1 bash ${REPO_ROOT}/scripts/setup_heltec_t114_tools.sh"
