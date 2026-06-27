@@ -106,6 +106,7 @@ write_status() {
   "env_file": "${REPO_ROOT}/logs/nrf_connect_sdk_env.sh",
   "west_available": $(have_tool west && echo true || echo false),
   "nrfutil_available": $(have_tool nrfutil && echo true || echo false),
+  "nrfutil_required_for_default_t114_combined_safe": false,
   "ncs_workspace_exists": $([[ -d "${NCS_WORKSPACE}/.west" ]] && echo true || echo false),
   "zephyr_base_exists": $([[ -d "${NCS_WORKSPACE}/zephyr" ]] && echo true || echo false),
   "zephyr_sdk_exists": $([[ -d "${ZEPHYR_SDK_INSTALL_DIR}" ]] && echo true || echo false),
@@ -211,11 +212,11 @@ validate_build() {
   if [[ "${VALIDATE_BUILD}" != "1" ]]; then
     return 0
   fi
-  echo "Validating KoalaByte Lab Zephyr build with configured toolchain."
+  echo "Validating KoalaByte T114 combined-safe Zephyr build with configured toolchain."
   # shellcheck disable=SC1091
   source "${REPO_ROOT}/logs/nrf_connect_sdk_env.sh"
   cd "${NCS_WORKSPACE}"
-  west build -b nrf52840dongle_nrf52840 "${REPO_ROOT}/firmware/nrf52840-dongle-ear-tag-tx-lab" -d "${REPO_ROOT}/build/nrf52840-dongle-lab"
+  west build -b "${T114_BOARD:-heltec_t114_v2/nrf52840}" "${REPO_ROOT}/firmware/t114-combined-safe" -d "${REPO_ROOT}/build/t114-combined-safe"
 }
 
 echo "== KoalaByte Blue full nRF Connect SDK / Zephyr toolchain setup =="
@@ -230,7 +231,6 @@ write_env_file
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   missing=()
   have_tool west || missing+=("west")
-  have_tool nrfutil || missing+=("nrfutil")
   [[ -d "${NCS_WORKSPACE}/.west" ]] || missing+=("NCS workspace")
   [[ -d "${NCS_WORKSPACE}/zephyr" ]] || missing+=("Zephyr checkout")
   [[ -d "${ZEPHYR_SDK_INSTALL_DIR}" ]] || missing+=("Zephyr SDK")
@@ -249,7 +249,7 @@ if ! install_enabled; then
 fi
 
 bash "${REPO_ROOT}/scripts/setup_system_packages.sh"
-STRICT_NRF_TOOLS="${STRICT_NCS_TOOLCHAIN}" bash "${REPO_ROOT}/scripts/setup_nrf_tools.sh"
+STRICT_NRF_TOOLS="${STRICT_NCS_TOOLCHAIN}" bash "${REPO_ROOT}/scripts/setup_nrf_tools.sh" --west-only
 
 if ! have_tool west; then
   fail_or_warn "west is still missing after setup_nrf_tools.sh."
@@ -260,9 +260,8 @@ install_ncs_workspace
 install_python_requirements
 install_zephyr_sdk
 write_env_file
-validate_build
 write_status "success" "nRF Connect SDK / Zephyr toolchain setup complete."
+validate_build
 
-echo "nRF Connect SDK / Zephyr toolchain setup complete."
-echo "Source environment for manual builds:"
-echo "  source ${REPO_ROOT}/logs/nrf_connect_sdk_env.sh"
+echo "nRF Connect SDK / Zephyr setup complete."
+echo "Source this before manual west builds: source ${REPO_ROOT}/logs/nrf_connect_sdk_env.sh"
