@@ -127,6 +127,8 @@ class MenuSelectionScreen:
 
     def select(self) -> MenuEvent:
         item = self.selected_item
+        if item.command.startswith("status:"):
+            return self._event("status_row", item.command)
         if not item.enabled:
             return self._event("disabled", item.command)
         submenu = submenu_name_from_command(item.command)
@@ -189,7 +191,7 @@ class MenuSelectionScreen:
             if item.group != previous_group:
                 lines.append(f"[{item.group}]")
                 previous_group = item.group
-            prefix = ">" if absolute_index == self.selected_index else " "
+            prefix = "●" if item.command.startswith("status:") else (">" if absolute_index == self.selected_index else " ")
             disabled = " [locked]" if not item.enabled else ""
             lines.append(f"{prefix} {absolute_index + 1:02d}. {item.label}{disabled}")
             if absolute_index == self.selected_index and item.description:
@@ -201,7 +203,18 @@ class MenuSelectionScreen:
 
     def visible_items(self) -> List[tuple[int, MenuItem]]:
         end = min(len(self.items), self.scroll_offset + self.visible_rows)
-        return list(enumerate(self.items[self.scroll_offset:end], start=self.scroll_offset))
+        return [(idx, self._display_item(item)) for idx, item in enumerate(self.items[self.scroll_offset:end], start=self.scroll_offset)]
+
+    def _display_item(self, item: MenuItem) -> MenuItem:
+        if not item.command.startswith("status:"):
+            return item
+        try:
+            from .t114_menu_status import status_label_description
+
+            label, description = status_label_description(item.command)
+            return MenuItem(label=label, command=item.command, description=description or item.description, enabled=item.enabled, group=item.group)
+        except Exception as exc:  # pragma: no cover - defensive display fallback
+            return MenuItem(label=f"{item.label}: Unknown", command=item.command, description=f"Status unavailable: {exc}", enabled=item.enabled, group=item.group)
 
     def _open_menu(self, menu_name: str, event_type: str, command: str) -> MenuEvent:
         event = self._event(event_type, command)
@@ -241,7 +254,7 @@ class MenuSelectionScreen:
             event_type=event_type,
             command=command,
             selected_index=self.selected_index,
-            selected_label=self.selected_item.label,
+            selected_label=self._display_item(self.selected_item).label,
             selected_group=self.selected_group,
             timestamp=time.time(),
         )
