@@ -55,9 +55,9 @@ class MenuSelectionScreen:
     - Touch long-press select.
     - Hierarchical submenus through commands like submenu:eucalyptus and submenu:lab.
 
-    This class is display-backend agnostic. The ESP32-S3 display, terminal UI,
-    or Pi touchscreen process can all render the same grouped state. The default
-    text rendering uses the jungle/eucalyptus theme preview.
+    This class is display-backend agnostic. The Pi touchscreen, Heltec/T114
+    status display path, ESP32-S3 DualEye display bridge, terminal UI, and GPIO
+    buttons all share the same highlighted-item state and select execution path.
     """
 
     def __init__(
@@ -144,6 +144,7 @@ class MenuSelectionScreen:
         t = now if now is not None else time.time()
         self.touch = TouchState(down_y=y, current_y=y, down_time=t, moved=False)
         self._select_row_at_y(y)
+        self._log_event(self._make_event("touch_highlight", "touch_down"))
 
     def on_touch_move(self, y: int, now: Optional[float] = None) -> Optional[MenuEvent]:
         if self.touch.down_y is None:
@@ -217,17 +218,15 @@ class MenuSelectionScreen:
             return MenuItem(label=f"{item.label}: Unknown", command=item.command, description=f"Status unavailable: {exc}", enabled=item.enabled, group=item.group)
 
     def _open_menu(self, menu_name: str, event_type: str, command: str) -> MenuEvent:
-        event = self._event(event_type, command)
         target = "main" if menu_name == "main" else menu_name
         new_items = make_menu_items(MenuItem, target)
-        if not new_items:
-            return event
-        self.menu_name = target
-        self.items = new_items
-        self.selected_index = 0
-        self.scroll_offset = 0
-        self.touch = TouchState()
-        return event
+        if new_items:
+            self.menu_name = target
+            self.items = new_items
+            self.selected_index = 0
+            self.scroll_offset = 0
+            self.touch = TouchState()
+        return self._event(event_type, command)
 
     def _select_by_command(self, command: str) -> None:
         for idx, item in enumerate(self.items):
@@ -249,8 +248,8 @@ class MenuSelectionScreen:
             self.scroll_offset = self.selected_index - self.visible_rows + 1
         self.scroll_offset = max(0, min(self.scroll_offset, max(0, len(self.items) - self.visible_rows)))
 
-    def _event(self, event_type: str, command: str) -> MenuEvent:
-        event = MenuEvent(
+    def _make_event(self, event_type: str, command: str) -> MenuEvent:
+        return MenuEvent(
             event_type=event_type,
             command=command,
             selected_index=self.selected_index,
@@ -258,6 +257,9 @@ class MenuSelectionScreen:
             selected_group=self.selected_group,
             timestamp=time.time(),
         )
+
+    def _event(self, event_type: str, command: str) -> MenuEvent:
+        event = self._make_event(event_type, command)
         self._log_event(event)
         return event
 
@@ -265,3 +267,10 @@ class MenuSelectionScreen:
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         with self.log_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(asdict(event), sort_keys=True) + "\n")
+        try:
+            from .menu_display_sync import sync_menu_state
+
+            sync_menu_state(self, event)
+        except Exception:
+            # Display sync must never block local menu navigation or action execution.
+            pass
