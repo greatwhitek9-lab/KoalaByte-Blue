@@ -373,6 +373,12 @@ KILLERKOALA_BASE_MODEL=tinyllama:1.1b
 KILLERKOALA_LLM_MODEL=killerkoala-tinyllama:latest
 ```
 
+AI helper script:
+
+```bash
+bash scripts/setup_killerkoala_ollama.sh
+```
+
 Common voice patterns:
 
 ```text
