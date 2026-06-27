@@ -245,6 +245,7 @@ class JungleMenuRenderer:
         self.item_font = None
         self.desc_font = None
         self.group_font = None
+        self.buttons = None
         self._touch_down_y: Optional[int] = None
         self._touch_down_at: Optional[float] = None
 
@@ -264,21 +265,52 @@ class JungleMenuRenderer:
         self.menu.touch_config.row_height_px = max(78, int(h * 0.145))
         self.menu.visible_rows = max(3, min(5, int((h * 0.62) / self.menu.touch_config.row_height_px)))
         self.menu._clamp_scroll_to_selection()
+        try:
+            from .gpio_buttons import GPIOButtonManager
+
+            self.buttons = GPIOButtonManager()
+            self.buttons.start()
+        except Exception:
+            self.buttons = None
 
     def run(self) -> int:
         self.setup()
         pygame = self.pygame
-        while True:
-            event_result = self._handle_events()
-            if event_result == "quit":
-                return 0
-            if hasattr(self.menu, "check_idle_timeout"):
-                self.menu.check_idle_timeout()
-            self.draw()
-            pygame.display.flip()
-            self.clock.tick(self.fps)
+        try:
+            while True:
+                event_result = self._handle_events()
+                if event_result == "quit":
+                    return 0
+                if hasattr(self.menu, "check_idle_timeout"):
+                    self.menu.check_idle_timeout()
+                self.draw()
+                pygame.display.flip()
+                self.clock.tick(self.fps)
+        finally:
+            if self.buttons is not None:
+                try:
+                    self.buttons.close()
+                except Exception:
+                    pass
+
+    def _poll_gpio_buttons(self) -> Optional[str]:
+        if self.buttons is None or not getattr(self.buttons, "available", False):
+            return None
+        try:
+            button_event = self.buttons.get_event(timeout=0.0)
+        except Exception:
+            return None
+        if button_event is None:
+            return None
+        menu_event = self.menu.handle_command(button_event.command)
+        if _selected_quit(menu_event):
+            return "quit"
+        return None
 
     def _handle_events(self) -> Optional[str]:
+        button_result = self._poll_gpio_buttons()
+        if button_result == "quit":
+            return "quit"
         pygame = self.pygame
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
