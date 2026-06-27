@@ -19,6 +19,8 @@ REQUIRED_FILES = [
     "pi-companion/config.default.json",
     "pi-companion/requirements.txt",
     "pi-companion/koalablue/menu_catalog.py",
+    "pi-companion/koalablue/menu_ui.py",
+    "pi-companion/koalablue/t114_menu_status.py",
     "pi-companion/koalablue/meshtastic_app.py",
     "pi-companion/koalablue/t114_bluez.py",
     "pi-companion/koalablue/gnss_location.py",
@@ -181,11 +183,11 @@ def check_menu_catalog(failures: list[str]) -> None:
         failures.append("main menu labels missing Didgeridoo")
     didgeridoo_labels = set(menu_labels("didgeridoo"))
     expected = {
-        "T114 Primary Controller Check",
-        "T114 Primary BLE/GNSS Status",
+        "Heltec Link",
+        "Radio/GPS",
         "T114 Quick BLE Test Scan",
-        "T114 BLE TX Status",
-        "T114 Primary GNSS Fix",
+        "Lab Beacon TX",
+        "Sextant",
         "Didgeridoo Status",
         "Didgeridoo Nodes",
         "Didgeridoo GPS Info",
@@ -199,6 +201,8 @@ def check_menu_catalog(failures: list[str]) -> None:
     manifest, menu_failures = build_manifest()
     if manifest.get("status") != "MENU_ACTIONS_READY":
         failures.append("menu action manifest is not ready")
+    if manifest.get("status_row_count", 0) < 3:
+        failures.append("menu action manifest missing expected T114 status rows")
     for failure in menu_failures:
         failures.append(f"menu action readiness: {failure}")
 
@@ -211,6 +215,8 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     manager = REPO_ROOT / "pi-companion" / "koalablue" / "ble_node_manager.py"
     installer = REPO_ROOT / "scripts" / "install_pi.sh"
     menu = REPO_ROOT / "scripts" / "run_menu_screen.py"
+    menu_ui = REPO_ROOT / "pi-companion" / "koalablue" / "menu_ui.py"
+    status = REPO_ROOT / "pi-companion" / "koalablue" / "t114_menu_status.py"
     firmware_needles = [
         "ble_adv_seen",
         "ble_lab_advertise_start",
@@ -229,7 +235,9 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     gnss_needles = ["write_primary_t114_fix_event", "heltec-t114-gnss", "KOALABYTE_PRIMARY_GNSS_PORT"]
     manager_needles = ["write_primary_t114_fix_event", "gnss_fix", "gnss_status"]
     installer_needles = ["T114_PLUG_FLASH_PROFILE=\"${T114_PLUG_FLASH_PROFILE:-combined-safe}\"", "INSTALL_HELTEC_NRF_TOOLS=\"${INSTALL_HELTEC_NRF_TOOLS:-1}\""]
-    menu_needles = ["t114_primary_controller_check", "t114_primary_ble_scan", "t114_ble_tx_status", "t114_primary_gnss_fix", "koalablue.gnss_location"]
+    menu_needles = ["t114_primary_ble_scan", "t114_primary_gnss_fix", "koalablue.gnss_location"]
+    menu_ui_needles = ["status:", "status_row", "status_label_description"]
+    status_needles = ["Heltec Link: Connected", "Heltec Link: Disconnected", "Radio/GPS:", "Lab Beacon TX: On", "Lab Beacon TX: Off", "Lab Beacon TX: Blocked"]
     failures.extend(_file_contains(combined, firmware_needles))
     failures.extend(_file_contains(conf, conf_needles))
     failures.extend(_file_contains(build_helper, helper_needles))
@@ -237,6 +245,8 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     failures.extend(_file_contains(manager, manager_needles))
     failures.extend(_file_contains(installer, installer_needles))
     failures.extend(_file_contains(menu, menu_needles))
+    failures.extend(_file_contains(menu_ui, menu_ui_needles))
+    failures.extend(_file_contains(status, status_needles))
 
 
 def check_helpers(failures: list[str]) -> None:
