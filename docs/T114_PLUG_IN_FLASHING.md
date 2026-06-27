@@ -20,9 +20,36 @@ Default profile:
 T114_PLUG_FLASH_PROFILE=combined-safe
 ```
 
-`combined-safe` makes the **Heltec T114 onboard nRF52840** the primary KoalaByte Blue BLE node. It emits normalized passive BLE advertisement JSON over USB CDC, handles KillerKoala mouth/status JSON on the same serial stream, and exposes guarded GNSS/LoRa status hooks.
+`combined-safe` makes the **Heltec T114 onboard nRF52840** the primary KoalaByte Blue BLE transceiver. It emits normalized passive BLE advertisement JSON over USB CDC, accepts Pi-commanded bounded non-connectable lab-beacon TX commands, handles KillerKoala mouth/status JSON on the same serial stream, and exposes guarded GNSS/LoRa status hooks.
 
-The ESP32-S3 DualEye BLE and Raspberry Pi BlueZ adapter remain secondary nodes handled by the Pi-side BLE node manager.
+The Raspberry Pi remains the control plane. It processes menu actions, automated wrappers, logs, reports, and command routing. The ESP32-S3 DualEye BLE and Raspberry Pi BlueZ adapter remain secondary nodes handled by the Pi-side BLE node manager.
+
+## Dependencies included by the one-shot path
+
+The one-shot installer calls the Heltec setup helper before flashing. That helper covers:
+
+```text
+Pi system packages:
+  bluetooth, bluez, bluez-tools, rfkill, usbutils, udev, build tools
+
+Python runtime:
+  pyserial, bleak
+
+Heltec/nRF52840 build + flash tooling:
+  west, nrfutil, nRF Connect SDK / Zephyr workspace
+
+Stable device path:
+  /dev/koalabyte-heltec through KoalaByte udev rules
+```
+
+The important split is:
+
+```text
+Raspberry Pi       -> action processing, BlueZ wrapped automation, logs, reports, service orchestration
+Heltec nRF52840    -> main BLE receiver/transmitter over USB CDC JSON
+ESP32-S3 DualEye   -> secondary BLE/UI/face node
+Pi BlueZ adapter   -> secondary/fallback BLE node
+```
 
 ## Other profiles
 
@@ -133,6 +160,23 @@ Check the flow without waiting or flashing:
 bash scripts/flash_t114_when_plugged.sh --check-only
 ```
 
+## Automated BLE action checks
+
+After flashing, the Pi can drive the T114 primary BLE radio through the wrapper:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_t114_bluez.py controller-check
+PYTHONPATH=pi-companion python3 scripts/run_t114_bluez.py status
+PYTHONPATH=pi-companion python3 scripts/run_t114_bluez.py scan --duration-seconds 30
+PYTHONPATH=pi-companion python3 scripts/run_t114_bluez.py tx-status
+PYTHONPATH=pi-companion python3 scripts/run_t114_bluez.py lab-advertise-start --confirm-send --duration-seconds 30 --tx-name "KoalaByte Lab"
+PYTHONPATH=pi-companion python3 scripts/run_t114_bluez.py lab-advertise-stop
+```
+
+In default combined-safe mode, these commands do not require the T114 to appear as a Linux HCI adapter. The Pi wraps the automation and talks to the T114 over USB CDC JSON.
+
 ## Guardrail
 
 The combined-safe firmware intentionally keeps GNSS UART parsing and SX1262 LoRa radio driving behind status hooks until the exact Heltec T114 GNSS UART pins, LoRa SPI pins, DIO pins, reset pin, busy pin, RF switch behavior, and recovery procedure are validated on the physical board.
+
+The BLE TX path is limited to bounded, non-connectable, explicitly confirmed owned-lab beacon/status use. It does not pair, connect, perform GATT writes, spoof another device, replay packets, jam, or disrupt.
