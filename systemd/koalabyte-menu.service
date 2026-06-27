@@ -1,0 +1,18 @@
+[Unit]
+Description=KoalaByte Blue Jungle Menu
+After=network-online.target bluetooth.service
+Wants=network-online.target bluetooth.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/KoalaByte-Blue
+Environment=PYTHONPATH=/opt/KoalaByte-Blue/pi-companion:/opt/KoalaByte-Blue
+Environment=KOALABYTE_MENU_SYNC=auto
+ExecStart=/usr/bin/bash /opt/KoalaByte-Blue/scripts/koalabyte_blue_boot.sh
+Restart=on-failure
+RestartSec=5
+User=pi
+Group=pi
+
+[Install]
+WantedBy=multi-user.target
