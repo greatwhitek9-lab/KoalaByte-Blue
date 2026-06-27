@@ -33,6 +33,7 @@ BOARD_COMMANDS = {
     "pi_usb_udev": ["lsusb", "udevadm"],
     "pi_wifi": ["iw", "wpa_supplicant"],
     "bluez_ble": ["bluetoothctl", "btmgmt", "rfkill"],
+    "bluez_legacy_lab_optional": ["hciconfig", "hcitool", "rfcomm", "l2ping", "gatttool", "busctl", "sdptool", "btmon"],
     "can_bench_optional": ["ip", "modprobe", "cansend", "candump"],
     "audio_voice": ["aplay"],
     "serial_console": ["picocom"],
@@ -42,6 +43,8 @@ BOARD_COMMANDS = {
 REQUIRED_PROJECT_MODULES = [
     "koalablue.menu_catalog",
     "koalablue.menu_ui",
+    "koalablue.bluez_tools",
+    "koalablue.bluez_protected_lab",
     "koalablue.t114_menu_status",
     "koalablue.t114_bluez",
     "koalablue.ble_node_manager",
@@ -75,6 +78,16 @@ BOARD_FILES = [
     "scripts/install_ble_node_manager_service.sh",
     "scripts/install_esp32_dualeye_voice_bridge_service.sh",
     "scripts/check_t114_status_dashboard.py",
+    "scripts/run_koala_bluez.py",
+    "scripts/run_koala_bluez_manifest.sh",
+    "scripts/run_koala_bluez_inventory.sh",
+    "scripts/run_koala_bluez_status.sh",
+    "scripts/run_koala_bluez_scan.sh",
+    "scripts/run_koala_bluez_monitor.sh",
+    "scripts/run_koala_bluez_all_safe.sh",
+    "scripts/run_koala_bluez_info.sh",
+    "scripts/run_koala_bluez_services.sh",
+    "scripts/run_koala_bluez_gatt_readiness.sh",
 ]
 
 
