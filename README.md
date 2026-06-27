@@ -1,194 +1,64 @@
 # KoalaByte Blue V2 Heltec Edition
 
-KoalaByte Blue V2 Heltec Edition is the Raspberry Pi 3B+ + ESP32-S3 DualEye + Heltec Mesh Node T114 build of the KillerKoala cyber companion. It is built for lawful owned-device labs, defensive Bluetooth observation, Didgeridoo mesh status, Meshtastic/GNSS/LoRa checks, front-panel UI, AntEater passive BLE review, and optional isolated InnoMaker CAN bench work.
+KoalaByte Blue V2 Heltec Edition is the beginner-friendly Raspberry Pi 3B+ build of the KillerKoala cyber companion. It combines a Raspberry Pi, an ESP32-S3 DualEye display board, a Heltec Mesh Node T114, six front buttons, optional antennas, and an optional InnoMaker USB-to-CAN kit.
 
-Use it only on your own equipment, your own lab traffic, or systems you have written permission to test.
+The project is designed for lawful owned-device labs, defensive Bluetooth observation, Koalagotchi-style companion feedback, Didgeridoo mesh/GNSS status, safe local reports, voice control, and optional isolated CAN bench work.
 
----
-
-## Fast install from a fresh Raspberry Pi 3B+
-
-From a fresh Pi, download the bootstrapper, review it if desired, and run it:
-
-```bash
-curl -fsSL -o koalabyte-install.sh https://raw.githubusercontent.com/greatwhitek9-lab/KoalaByte-Blue/koalabyte-blue-v2-heltec-edition/install.sh
-bash koalabyte-install.sh
-```
-
-That bootstrapper clones or updates this repo on the default deploy branch and then launches the one-shot installer.
-
-Useful install modes:
-
-```bash
-bash koalabyte-install.sh install
-bash koalabyte-install.sh check-only
-bash koalabyte-install.sh repo-only
-```
-
-Useful overrides:
-
-```bash
-KOALABYTE_INSTALL_DIR=$HOME/KoalaByte-Blue bash koalabyte-install.sh
-ESP32_PORT=/dev/ttyUSB0 bash koalabyte-install.sh
-KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0 bash koalabyte-install.sh
-INSTALL_INNOMAKER_CAN=0 bash koalabyte-install.sh
-STRICT_INNOMAKER_CAN=1 bash koalabyte-install.sh
-```
+Use KoalaByte Blue only on your own equipment, your own lab traffic, or systems you have written permission to test.
 
 ---
 
-## Full one-shot install from a cloned repo
+## Beginner summary
 
-Plug the required boards into the Pi, then run:
+Think of the device as four main parts working together:
 
-```bash
-bash install.sh
-```
+| Part | Simple role | What it does in KoalaByte Blue |
+|---|---|---|
+| Raspberry Pi 3B+ | Main brain | Runs the installer, menus, logs, voice commands, KillerKoala companion, local services, and most processing. |
+| ESP32-S3 DualEye | Face and local display | Runs the eyes, face feedback, DualEye screen, button/UI feedback, and built-in mic bridge support. |
+| Heltec Mesh Node T114 | Radio/GPS board | Provides the T114 nRF52840 path, primary BLE/GNSS status, LoRa/Meshtastic-related checks, and Heltec status/mouth sync. |
+| Six 4-pin buttons | Physical controls | Let you move through menus without a keyboard. |
+| InnoMaker USB-to-CAN | Optional CAN bench adapter | Used only for isolated owned-bench CAN checks. The InnoMaker CAN kit is optional. |
 
-Or, if you are already inside the repository and do not need the bootstrap/update wrapper:
-
-```bash
-bash scripts/install_koalabyte_one_shot.sh
-```
-
-### Required hardware
-
-```text
-Raspberry Pi 3B+ powered from regulated USB
-ESP32-S3 DualEye -> Pi USB data cable
-Heltec Mesh Node T114 -> Pi USB-C data cable
-```
-
-### Optional hardware
-
-```text
-InnoMaker CAN kit -> optional Pi USB data cable
-```
-
-The InnoMaker CAN kit is optional. If it is not plugged in, the one-shot installer records a non-failing optional CAN status and continues.
+No custom PCB is required for this profile.
 
 ---
 
-## KillerKoala local AI fallback
+## What the boards do
 
-The one-shot installer now automatically prepares the local KillerKoala TinyLlama/Ollama fallback path during Raspberry Pi companion setup.
+### Raspberry Pi 3B+
 
-Default behavior:
+The Pi is the host computer. It boots Raspberry Pi OS from the SD card and runs the KoalaByte Blue software. It owns the main menu, Python companion code, logs, system services, voice command routing, KillerKoala AI fallback, BLE node manager, CAN helper scripts, and readiness checks.
 
-```text
-INSTALL_KILLERKOALA_OLLAMA=auto
-STRICT_KILLERKOALA_OLLAMA=0
-KILLERKOALA_BASE_MODEL=tinyllama:1.1b
-KILLERKOALA_LLM_MODEL=killerkoala-tinyllama:latest
-```
+The Pi connects to the other boards over USB data cables. Power the Pi from a regulated USB power source or power bank. Do not feed raw lithium battery voltage directly into the Pi.
 
-What it does:
+### ESP32-S3 DualEye
 
-1. Checks for the `ollama` command.
-2. If missing, downloads and runs the official Ollama Linux installer.
-3. Starts the local Ollama service/API.
-4. Pulls `tinyllama:1.1b`.
-5. Builds `killerkoala-tinyllama:latest` from `training/killerkoala_lora/Modelfile.killerkoala-tinyllama`.
-6. Runs a short smoke test.
-7. Writes status to `logs/killerkoala/ollama_setup_status.json`.
+The ESP32-S3 DualEye is the face/display board. In this build it handles the animated eyes, local face state, display feedback, and voice bridge support for the built-in mic path. The installer flashes the ESP32-S3 DualEye firmware with PlatformIO.
 
-Manual helper:
+The ESP32-S3 connects to the Pi by USB data cable. If your board has an IPEX/u.FL 2.4 GHz connector, use the correct pigtail/antenna. Do not solder directly to an IPEX/u.FL connector.
+
+### Heltec Mesh Node T114
+
+The Heltec Mesh Node T114 is the main T114 radio/GNSS board for this edition. The one-shot installer defaults to the combined-safe firmware profile:
 
 ```bash
-bash scripts/setup_killerkoala_ollama.sh
-cat logs/killerkoala/ollama_setup_status.json
+T114_PLUG_FLASH_PROFILE=combined-safe bash scripts/install_koalabyte_one_shot.sh
 ```
 
-Skip the local model setup:
+In this project the T114 provides:
 
-```bash
-INSTALL_KILLERKOALA_OLLAMA=0 bash scripts/install_koalabyte_one_shot.sh
-```
+- T114 nRF52840 primary BLE/GNSS controller status over USB serial JSON.
+- GNSS/GPS status and current fix handoff to the Pi.
+- Didgeridoo and Meshtastic-related status checks.
+- LoRa antenna readiness and mesh-node support paths.
+- Heltec face/mouth/status sync used by the KillerKoala face system.
 
-Make local AI setup strict/failing if the model cannot be prepared:
+The T114 connects to the Pi with a USB-C data cable. Use the correct LoRa antenna for your region before using LoRa/Meshtastic hardware.
 
-```bash
-STRICT_KILLERKOALA_OLLAMA=1 bash scripts/install_koalabyte_one_shot.sh
-```
+### Six front buttons
 
-Runtime remains phrase-first for reliability on a Pi 3B+. TinyLlama is used for optional flexible banter or forced test mode, and KillerKoala falls back to the built-in Aussie/gruff phrase engine if the local model is unavailable or too slow.
-
----
-
-## What the one-shot installer prepares
-
-The one-shot installer runs these phases:
-
-1. **Repository readiness** — validates README markers, required scripts, firmware folders, menu wiring, GPIO button files, face/mouth sync files, antenna helpers, local AI helper, and shell syntax.
-2. **Raspberry Pi companion setup** — prepares the Pi filesystem, Python virtual environment, runtime folders, logs, service assets, helper scripts, and KillerKoala Ollama/TinyLlama fallback model.
-3. **Heltec T114 plug-in firmware flash** — defaults to `T114_PLUG_FLASH_PROFILE=color-mouth`, which flashes the Heltec mouth/status firmware for shared KillerKoala face-state sync.
-4. **ESP32-S3 DualEye firmware flash** — builds and uploads the PlatformIO firmware that drives eyes, local UI, buttons, and companion display feedback.
-5. **KillerKoala eyes and mouth sync** — validates the shared `killerkoala_face` USB JSON protocol used by ESP32 eyes and Heltec mouth/status firmware.
-6. **Menus, submenus, controls, commands, and antennas** — confirms main menu items, submenu routes, command handlers, six-button GPIO mapping, and antenna readiness status.
-7. **BLE node manager service** — installs or refreshes the Pi-side service that listens to the Heltec T114 primary path, optional ESP32 face path, and Pi BlueZ fallback path.
-8. **Didgeridoo/menu action readiness** — generates menu action status artifacts for mesh, GNSS, Meshtastic, and protected location-gate flows.
-9. **External antenna readiness** — records the expected Heltec LoRa, Heltec 2.4 GHz, ESP32-S3 2.4 GHz, and optional Pi adapter antenna paths.
-10. **AntEater passive-readiness status** — writes readiness without starting a live scan.
-11. **Optional InnoMaker CAN check** — records optional CAN setup/inventory/status without blocking deployment unless strict CAN mode is requested.
-
----
-
-## Heltec T114 flashing profiles
-
-Default profile:
-
-```bash
-T114_PLUG_FLASH_PROFILE=color-mouth bash scripts/install_koalabyte_one_shot.sh
-```
-
-Use this for the normal KoalaByte Blue build. The Heltec board acts as the primary T114/nRF52840 board, LoRa/GNSS/Meshtastic node, and mouth/status face target.
-
-Alternative profile:
-
-```bash
-T114_PLUG_FLASH_PROFILE=hci-usb bash scripts/install_koalabyte_one_shot.sh
-```
-
-Use `hci-usb` only when you intentionally want the T114 nRF52840 exposed as a USB HCI controller profile instead of the color-mouth profile.
-
-Skip Heltec flashing while debugging:
-
-```bash
-FLASH_T114_ON_PLUG=0 bash scripts/install_koalabyte_one_shot.sh
-```
-
-Allow Pi/ESP32 setup to continue while investigating a missing Heltec:
-
-```bash
-STRICT_T114_PLUG_FLASH=0 bash scripts/install_koalabyte_one_shot.sh
-```
-
----
-
-## Manual verification after flashing
-
-After the one-shot installer completes, run:
-
-```bash
-python3 scripts/check_repo_readiness.py
-bash scripts/preflight_all_hardware.sh --profile heltec
-bash scripts/setup_killerkoala_ollama.sh --check-only
-PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
-PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
-PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py --emit-test
-python3 scripts/run_didgeridoo.py status
-PYTHONPATH=pi-companion python3 scripts/run_meshtastic_app.py status
-bash scripts/configure_koalabyte_external_antennas.sh --check-only
-PYTHONPATH=pi-companion python3 scripts/run_anteater.py status
-```
-
-For physical button testing, run this and press each button once:
-
-```bash
-python3 scripts/test_gpio_buttons.py
-```
-
-Button map:
+The six front buttons let you control the device without a keyboard.
 
 ```text
 Button 1 -> Main Menu -> GPIO5
@@ -199,68 +69,583 @@ Button 5 -> Up -> GPIO26
 Button 6 -> Down -> GPIO21
 ```
 
+Use one side of each button for the GPIO input and the opposite side for ground. Do not tie GPIO pins together.
+
+### InnoMaker USB-to-CAN kit
+
+The InnoMaker CAN kit is optional. It is used for isolated bench CAN workflows only. If it is not plugged in, the one-shot installer records a non-failing optional CAN status and continues.
+
+To make CAN required during a strict hardware build, run:
+
+```bash
+STRICT_INNOMAKER_CAN=1 bash scripts/install_koalabyte_one_shot.sh
+```
+
 ---
 
-## Hardware layout
+## Hardware needed
 
-| Part | Role | Connection |
-|---|---|---|
-| Raspberry Pi 3B+ | Main host, menus, logs, voice, services | Pi power + USB devices |
-| ESP32-S3 DualEye | Eyes, face, UI, buttons, secondary local BLE node | USB data cable |
-| Heltec Mesh Node T114 | Primary T114/nRF52840 board, LoRa, Didgeridoo mesh, Meshtastic/GNSS workflows, mouth/status face | USB-C data cable |
-| InnoMaker USB-to-CAN | Optional isolated bench CAN workflow | USB data cable |
-| Power bank | Main regulated power source | USB power output |
+### Required
 
-Power rule: do **not** feed raw lithium battery voltage into the Pi, ESP32-S3, Heltec T114, or CAN adapter.
+```text
+Raspberry Pi 3B+
+128 GB or larger microSD card recommended
+Regulated USB power bank or USB power supply
+ESP32-S3 DualEye board
+Heltec Mesh Node T114
+USB data cable for ESP32-S3 DualEye
+USB-C data cable for Heltec T114
+Six 4-pin momentary buttons
+40-pin GPIO extender/cable or direct GPIO wiring
+Correct antennas for the boards you use
+```
 
-No custom PCB is required for this profile.
+### Optional
+
+```text
+InnoMaker USB-to-CAN kit
+USB data cable for InnoMaker CAN kit
+External case-mounted antenna pigtails
+Small speaker/amp path for ESP32-S3 if your board supports it
+Small fan for the Raspberry Pi case
+```
+
+Power rule: do not feed raw battery voltage into the Pi, ESP32-S3, Heltec T114, or CAN adapter. Use regulated USB power.
 
 ---
 
 ## Antenna routing
 
-Use three external antenna paths:
+Use the antenna connector that belongs to each board.
 
 ```text
 Heltec T114 LoRa connector -> region-matched LoRa antenna
-Heltec T114 2.4 GHz connector -> additional case-mounted 2.4 GHz antenna
-ESP32-S3 DualEye 2.4 GHz connector -> ESP32-S3 2.4 GHz antenna
-Raspberry Pi 3B+ -> no required external antenna; optional USB wireless adapter only
+Heltec T114 2.4 GHz connector -> 2.4 GHz antenna if your T114 board exposes one
+ESP32-S3 DualEye 2.4 GHz connector -> ESP32-S3 Wi-Fi/BLE antenna if your board exposes one
+Raspberry Pi 3B+ -> built-in Wi-Fi antenna; optional USB Wi-Fi adapter only
 ```
 
-The extra 2.4 GHz antenna goes to the **Heltec T114**, not the Pi. A Pi USB wireless adapter is optional only and must not block firmware, installer, CI, or readiness.
+Do not swap LoRa and 2.4 GHz antennas. They are different radio paths.
 
 ---
 
-## Menu map
+## Very simple install and flashing guide
 
-| Main menu item | What it does |
+### Step 1: Flash Raspberry Pi OS
+
+Use Raspberry Pi Imager. Choose Raspberry Pi OS Lite for Raspberry Pi 3B+. Enable SSH in the imager settings so you can log in after boot.
+
+### Step 2: Boot the Pi
+
+Insert the SD card, power the Pi, and SSH into it. Then update the Pi:
+
+```bash
+sudo apt update && sudo apt full-upgrade -y
+sudo reboot
+```
+
+### Step 3: Plug in the boards
+
+Plug these into the Pi:
+
+```text
+ESP32-S3 DualEye -> Pi USB port
+Heltec Mesh Node T114 -> Pi USB port with USB-C data cable
+Optional InnoMaker CAN kit -> Pi USB port
+```
+
+### Step 4: Run the installer
+
+From a fresh Pi, run:
+
+```bash
+curl -fsSL -o koalabyte-install.sh https://raw.githubusercontent.com/greatwhitek9-lab/KoalaByte-Blue/koalabyte-blue-v2-heltec-edition/install.sh
+bash koalabyte-install.sh
+```
+
+That bootstrapper clones or updates the repository, then runs the one-shot installer.
+
+If you already cloned the repo, run either:
+
+```bash
+bash install.sh
+```
+
+or:
+
+```bash
+bash scripts/install_koalabyte_one_shot.sh
+```
+
+### Step 5: Let it finish
+
+The one-shot installer prepares dependencies, flashes firmware, checks menus, checks the boards, sets up services, writes logs, and creates readiness artifacts.
+
+### Step 6: Reboot and start using it
+
+After the install completes:
+
+```bash
+sudo reboot
+```
+
+Then open the menu:
+
+```bash
+cd ~/KoalaByte-Blue
+bash scripts/koalabyte_blue_boot.sh
+```
+
+---
+
+## Useful installer options
+
+Run the normal one-shot install:
+
+```bash
+bash scripts/install_koalabyte_one_shot.sh
+```
+
+Use the normal Heltec combined-safe profile explicitly:
+
+```bash
+T114_PLUG_FLASH_PROFILE=combined-safe bash scripts/install_koalabyte_one_shot.sh
+```
+
+Skip Heltec flashing while debugging USB/ports:
+
+```bash
+FLASH_T114_ON_PLUG=0 bash scripts/install_koalabyte_one_shot.sh
+```
+
+Do not fail the whole install if the T114 is not ready yet:
+
+```bash
+STRICT_T114_PLUG_FLASH=0 bash scripts/install_koalabyte_one_shot.sh
+```
+
+Make full runtime and command dependency checks strict:
+
+```bash
+STRICT_FULL_RUNTIME_DEPENDENCIES=1 bash scripts/install_koalabyte_one_shot.sh
+```
+
+Make the live T114 dashboard require a connected T114:
+
+```bash
+STRICT_T114_STATUS_DASHBOARD=1 bash scripts/install_koalabyte_one_shot.sh
+```
+
+Skip optional CAN:
+
+```bash
+INSTALL_INNOMAKER_CAN=0 bash scripts/install_koalabyte_one_shot.sh
+```
+
+Make optional CAN strict:
+
+```bash
+STRICT_INNOMAKER_CAN=1 bash scripts/install_koalabyte_one_shot.sh
+```
+
+---
+
+## What the one-shot installer prepares
+
+The one-shot installer now checks and prepares the full build path:
+
+1. **Repository readiness** — checks required files, scripts, firmware folders, menu wiring, shell syntax, and expected README markers.
+2. **Raspberry Pi companion setup** — installs system packages, Python dependencies, the virtual environment, runtime folders, and helper scripts.
+3. **KillerKoala AI setup** — prepares the phrase engine and optional TinyLlama/Ollama fallback path.
+4. **Heltec T114 combined-safe firmware** — builds/flashes the T114 profile used by BLE/GNSS/status dashboard paths.
+5. **ESP32-S3 DualEye firmware** — builds/flashes the DualEye firmware for eyes, face, and display behavior.
+6. **KillerKoala eyes and mouth sync** — validates the shared face-state protocol between the ESP32-S3 and Heltec T114.
+7. **Menus, buttons, antennas, controls, and commands** — confirms menu routing, front button mapping, antenna readiness, and helper scripts.
+8. **Full runtime dependencies and board helpers** — checks required Python imports, project modules, board helper files, and command availability.
+9. **BLE node manager service** — installs the Pi-side node service with the T114 as the primary board path.
+10. **T114 live dashboard status phrases** — verifies the live dashboard phrases used by Heltec Link, Radio/GPS, and Lab Beacon TX.
+11. **Didgeridoo/menu action readiness** — validates that menu actions and display-only status rows are registered correctly.
+12. **External antenna readiness** — writes antenna status files for Heltec LoRa, Heltec 2.4 GHz, ESP32-S3 2.4 GHz, and optional Pi adapter paths.
+13. **AntEater passive readiness** — prepares passive-readiness status without starting a live scan.
+14. **Optional InnoMaker CAN** — records CAN setup/inventory/status without blocking deployment unless strict CAN mode is enabled.
+
+Important readiness artifacts:
+
+```text
+logs/one_shot_install_status.json
+logs/one_shot/control_surface_status.json
+logs/one_shot/full_runtime_dependencies.json
+logs/menu_actions/menu_action_manifest.json
+logs/menu_actions/t114_status_dashboard_status.json
+logs/killerkoala/killerkoala_ai_readiness.json
+logs/killerkoala/ollama_setup_status.json
+```
+
+---
+
+## Main menu overview
+
+The main menu is the top-level screen. Each item opens a submenu.
+
+| Main item | Plain-English meaning |
 |---|---|
-| Eucalyptus | Passive BLE logger and Koalagotchi-style BLE screen. |
-| Bluetooth Tools | Local safe BLE inventory, status, defensive review, AntEater, and lab-only helpers. |
-| Didgeridoo | All mesh/T114/Meshtastic/GNSS actions. |
-| CAN Bench Tools | Optional InnoMaker USB-to-CAN manifest and isolated bench-simulator workflow. |
-| Reports & Reviews | Report generators, Boomerang, and defensive review templates. |
-| System / Companion | KillerKoala voice/status, buttons, settings, and helper controls. |
-
-The mesh stack lives under **Didgeridoo**. That submenu contains T114 controller checks, T114 status, Didgeridoo status, Didgeridoo nodes, Didgeridoo GPS info, protected location gate status, protected GNSS current fix, and Meshtastic status/actions.
+| Eucalyptus | Always-on passive BLE logger controls and Koalagotchi mode. |
+| Bluetooth Tools | Local Bluetooth/BLE inventory, summaries, helper checks, and defensive review tools. |
+| Didgeridoo | Heltec T114, GNSS/GPS, Meshtastic, mesh, and protected location tools. |
+| CAN Bench Tools | Optional InnoMaker USB-to-CAN bench tools. |
+| Reports & Reviews | Report builders, defensive review templates, and Boomerang camera-awareness logbook. |
+| System / Companion | KillerKoala voice, XP/status, buttons, settings, and helper controls. |
+| Lab | A shorter authorized-lab menu with the most common safe lab review items. |
+| Power & Exit | Shutdown, quit, and return controls. |
 
 ---
 
-## Core apps
+## Eucalyptus submenu
 
-### Eucalyptus
+Eucalyptus is the always-on passive BLE logger and Koalagotchi area. It is separate from the T114 Quick BLE Test Scan. Eucalyptus is for longer-running background logging and companion feedback.
 
-Passive BLE observation and Koalagotchi-style screen mode. It is for local observation, status, XP, and companion UI feedback.
+| Item | What it does |
+|---|---|
+| Eucalyptus Canopy Status | Shows whether the passive BLE logger is running and where it is writing status. |
+| Eucalyptus Canopy Start | Starts always-on passive BLE logging. |
+| Eucalyptus Canopy Stop | Stops always-on passive BLE logging. |
+| Eucalyptus Canopy Restart | Restarts the passive BLE logger. |
+| Eucalyptus Upload Trail | Shows upload/readiness status for saved observation trails. |
+| Eucalyptus Koalagotchi Mode | Opens the Koalagotchi screen where KillerKoala reacts to observed BLE activity like a cyber pet. |
+| Back to Main Canopy | Returns to the main menu. |
 
-### AntEater
+---
 
-Passive BLE payment-terminal risk triage from existing Heltec primary BLE logs. It does not pair, connect, probe, spoof, jam, or disrupt.
+## Bluetooth Tools submenu
 
-### Didgeridoo
+Bluetooth Tools is the local BLE toolbox. It is built around safe inventory, local status, report generation, and owned-lab helpers.
 
-The Didgeridoo app owns the mesh stack. It contains T114 checks, Meshtastic status, node listing, GPS/GNSS info, protected location gate status, and protected GNSS current fix.
+| Item | What it does |
+|---|---|
+| Scan | Runs a safe local BLE inventory scan. |
+| Summary | Summarizes observed local BLE devices. |
+| Show Devices | Shows the current local BLE device table. |
+| Koala Kapture | Records authorized lab observation metadata. |
+| Koala Kry | Replays saved local metadata into the report pipeline. |
+| Ear Tag | Named lab BLE beacon helper. |
+| KoalaByte Lab | Synthetic owned-device BLE lab advertisement helper. |
+| Gumleaf Gear Check | Inventories local BlueZ helper tools. |
+| Eucalyptus Bus Scout | Collects local adapter/controller status. |
+| Dropbear Discovery Sweep | Runs bounded local discovery with safe defaults. |
+| Billabong HCI Watch | Runs bounded local HCI capture for local analysis. |
+| Kookaburra Safe Nest Run | Runs local inventory, status, and bounded discovery together. |
+| that’s not a knife | Defensive local BLE pressure guard. |
+| AntEater | Passive BLE risk triage with redacted reports. |
+| Urban Poaching | Authorized BLE RSSI lab game. |
+| Back to Main Canopy | Returns to the main menu. |
 
-### Koala Kan Kommander
+---
 
-Optional InnoMaker USB-to-CAN support for isolated bench-simulator or owned-harness workflows only. It is the only hardware module in the one-shot path that is optional by default.
+## Didgeridoo submenu
+
+Didgeridoo is the T114 / GNSS / mesh area. It includes display-only dashboard rows and clickable actions.
+
+### Live dashboard rows
+
+These rows actively check current status and display only the phrase that matches the current state.
+
+| Item | What it shows |
+|---|---|
+| Heltec Link | Shows the live T114 link state, such as `Heltec Link: Connected`, `Heltec Link: Waiting`, or `Heltec Link: Disconnected`. |
+| Radio/GPS | Shows the current T114 radio/GPS phrase, such as `Radio/GPS: BLE ready · GPS fix`, `Radio/GPS: BLE ready · GPS waiting`, or `Radio/GPS: Offline`. |
+| Lab Beacon TX | Shows the safe lab beacon state, such as `Lab Beacon TX: On`, `Lab Beacon TX: Off`, or `Lab Beacon TX: Blocked`. |
+
+### Didgeridoo actions
+
+| Item | What it does |
+|---|---|
+| T114 Quick BLE Test Scan | Runs a short bounded passive BLE test through the T114 primary radio path. Use this as a quick hardware check, not as the always-on logger. |
+| Sextant | Gets the current GPS/GNSS location from the Heltec T114 stream, with protected location handling still respected. |
+| Didgeridoo Status | Shows local Meshtastic/Didgeridoo node status. |
+| Didgeridoo Nodes | Shows the Meshtastic node table. |
+| Didgeridoo GPS Info | Shows GPS/GNSS information from the connected Meshtastic/T114 path. |
+| Protected Location Gate Status | Shows whether the protected location gate is configured/unlocked. |
+| Protected GNSS Current Fix | Shows the current GNSS fix only when the protected location gate allows it. |
+| Back to Main Canopy | Returns to the main menu. |
+
+---
+
+## CAN Bench Tools submenu
+
+CAN tools are optional and only for isolated bench-simulator or owned-harness workflows.
+
+| Item | What it does |
+|---|---|
+| Koala Kan Kommander | Opens the InnoMaker USB-to-CAN listen/check workflow. |
+| CAN Bench Safety Check | Opens the CAN safe manifest, inventory, and status workflow. |
+| Back to Main Canopy | Returns to the main menu. |
+
+---
+
+## Reports & Reviews submenu
+
+Reports & Reviews creates notes, checklists, and defensive reports.
+
+| Item | What it does |
+|---|---|
+| Koala Kry RF Review | Writes RF bench isolation and authorization review notes. No RF is sent by this report item. |
+| Report | Writes a Markdown session report. |
+| Boomerang | Opens a camera-awareness logbook for manual public observations. It stays open until you quit. |
+| Authorized BLE Inventory | Creates a lab inventory from local observations. |
+| GATT Readiness Checklist | Generates a pre-test checklist for owned-device GATT review. |
+| Pairing Security Review | Reviews owned-device pairing and access-control posture. |
+| Lab Beacon Plan | Creates a safe ESP32 demo beacon/peripheral testing plan. |
+| Packet Capture Notes | Creates protocol-analysis notes. |
+| Defensive Lab Report | Generates a defensive lab report template. |
+| Back to Main Canopy | Returns to the main menu. |
+
+---
+
+## System / Companion submenu
+
+System / Companion is where KillerKoala, buttons, XP/status, and settings live.
+
+| Item | What it does |
+|---|---|
+| Koala Mode Switcher | Builds, packages, or selects KoalaByte Lab / Koala Konnect for the legacy nRF52840 dongle path. |
+| KillerKoala Voice | Previews event reactions and vocabulary by XP rank. |
+| Buttons | Shows/checks front-panel GPIO button status. |
+| Level / Status | Shows XP and rank. |
+| Wake killerkoala | Tests the wake-word flow. |
+| Restricted Placeholder | Locked non-operational slot reserved for future safe features. |
+| Settings | Device and companion settings. |
+| Back to Main Canopy | Returns to the main menu. |
+
+---
+
+## Lab submenu
+
+The Lab submenu groups common authorized-lab review items in one place.
+
+| Item | What it does |
+|---|---|
+| Authorized BLE Inventory | Creates a lab inventory from local observations. |
+| GATT Readiness Checklist | Generates a pre-test checklist for owned-device GATT review. |
+| Pairing Security Review | Reviews owned-device pairing/access-control posture. |
+| Lab Beacon Plan | Creates a safe ESP32 demo beacon/peripheral testing plan. |
+| CAN Bench Safety Check | Opens Koala Kan safe manifest/inventory/status workflow. |
+| Protected Location Gate Status | Shows protected-actions password gate state. |
+| Back to Main Canopy | Returns to the main menu. |
+
+---
+
+## Power & Exit submenu
+
+| Item | What it does |
+|---|---|
+| Shutdown | Confirms safe shutdown. |
+| Quit | Exits the Pi companion UI. |
+| Back to Main Canopy | Returns to the main menu. |
+
+---
+
+## KillerKoala AI companion overview
+
+KillerKoala is the device personality. The companion is designed to be reliable on a Raspberry Pi 3B+, so it uses a phrase-first system by default and an optional local TinyLlama/Ollama fallback for flexible banter.
+
+Default local AI settings:
+
+```text
+INSTALL_KILLERKOALA_OLLAMA=auto
+STRICT_KILLERKOALA_OLLAMA=0
+KILLERKOALA_BASE_MODEL=tinyllama:1.1b
+KILLERKOALA_LLM_MODEL=killerkoala-tinyllama:latest
+```
+
+The helper script is:
+
+```bash
+bash scripts/setup_killerkoala_ollama.sh
+```
+
+The model status file is:
+
+```text
+logs/killerkoala/ollama_setup_status.json
+```
+
+If the model is missing or too slow, KillerKoala still works with the built-in vocabulary system.
+
+---
+
+## Voice commands
+
+The wake word is:
+
+```text
+killerkoala
+```
+
+Common voice patterns are:
+
+```text
+killerkoala open <menu item>
+killerkoala run <menu item>
+killerkoala status
+killerkoala level
+killerkoala buttons
+```
+
+Examples:
+
+```text
+killerkoala open Eucalyptus
+killerkoala open Didgeridoo
+killerkoala run T114 Quick BLE Test Scan
+killerkoala open Reports & Reviews
+killerkoala status
+```
+
+The voice path is checked by the one-shot installer and by:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/check_voice_menu_launch.py
+PYTHONPATH=pi-companion python3 scripts/check_killerkoala_ai.py
+```
+
+---
+
+## Face, eyes, mouth, and vocabulary
+
+The face system connects the ESP32-S3 DualEye and Heltec T114 through a shared `killerkoala_face` protocol.
+
+| Feature | What it means |
+|---|---|
+| Eyes | The ESP32-S3 DualEye shows the main visual personality. |
+| Mouth/status | The Heltec T114 participates in the shared face/status path. |
+| Face sync | The Pi validates that eyes and mouth/status agree on the same face-state protocol. |
+| Vocabulary | KillerKoala has gruff cyberpunk/Aussie-style phrases tied to events, XP, ranks, and menu activity. |
+| XP / ranks | The companion can react differently as the user levels up. |
+
+Check face/mouth sync with:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py --emit-test
+```
+
+Check voice and vocabulary with:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py
+```
+
+---
+
+## Koalagotchi
+
+Koalagotchi is the companion screen behavior for Eucalyptus mode. It turns passive local BLE observations and device events into a cyber-pet style experience.
+
+In simple terms:
+
+```text
+Eucalyptus watches the local BLE environment.
+Koalagotchi turns that activity into companion feedback.
+KillerKoala gains status/XP-style reactions from what the device observes in your lab.
+```
+
+Open it from the menu:
+
+```text
+Eucalyptus -> Eucalyptus Koalagotchi Mode
+```
+
+Or from the command line:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_menu_screen.py
+```
+
+---
+
+## Manual verification commands
+
+After the installer completes, these commands are useful:
+
+```bash
+python3 scripts/check_repo_readiness.py
+bash scripts/preflight_all_hardware.sh --profile heltec
+PYTHONPATH=pi-companion python3 scripts/check_full_runtime_dependencies.py
+PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
+PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
+PYTHONPATH=pi-companion python3 scripts/check_t114_status_dashboard.py
+PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py --emit-test
+bash scripts/configure_koalabyte_external_antennas.sh --check-only
+PYTHONPATH=pi-companion python3 scripts/run_anteater.py status
+```
+
+Test the six physical buttons:
+
+```bash
+python3 scripts/test_gpio_buttons.py
+```
+
+Check Heltec primary BLE/GNSS status paths:
+
+```bash
+python3 scripts/discover_koalabyte_ports.py --profile heltec
+cat logs/preflight/koalabyte_ports.env
+KOALABYTE_PRIMARY_BLE_PORT=/dev/koalabyte-heltec PYTHONPATH=pi-companion python3 scripts/run_ble_node_manager.py --duration 30
+cat logs/gnss/current_fix.json
+```
+
+---
+
+## Troubleshooting basics
+
+### The Pi cannot see a board
+
+Run:
+
+```bash
+lsusb
+python3 scripts/discover_koalabyte_ports.py --profile heltec
+```
+
+Use USB data cables, not charge-only cables.
+
+### ESP32 flashing fails
+
+Try setting the port manually:
+
+```bash
+ESP32_PORT=/dev/ttyUSB0 bash scripts/install_koalabyte_one_shot.sh
+```
+
+### Heltec flashing fails
+
+Try allowing the rest of the install to continue while you debug the T114:
+
+```bash
+STRICT_T114_PLUG_FLASH=0 bash scripts/install_koalabyte_one_shot.sh
+```
+
+Then verify the Heltec path:
+
+```bash
+python3 scripts/discover_koalabyte_ports.py --profile heltec
+```
+
+### Local AI setup is slow
+
+The Pi 3B+ is limited. The phrase engine works even when the optional TinyLlama/Ollama path is slow or unavailable.
+
+Skip model setup:
+
+```bash
+INSTALL_KILLERKOALA_OLLAMA=0 bash scripts/install_koalabyte_one_shot.sh
+```
+
+### CAN is missing
+
+That is okay unless you requested strict CAN. The InnoMaker CAN kit is optional.
+
+---
+
+## Safety boundary
+
+KoalaByte Blue is for lawful owned-device labs and defensive review. The repository focuses on passive observation, local status, reports, readiness checks, companion UI, and isolated bench workflows. Do not use it on systems, vehicles, networks, radios, or devices you do not own or do not have permission to test.
