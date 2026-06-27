@@ -4,11 +4,35 @@ import glob
 import json
 import os
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-STATUS_TTL_SECONDS = 4.0
-_CACHE: dict[str, tuple[float, tuple[str, str]]] = {}
+DEFAULT_BAUD = 115200
+POLL_INTERVAL_SECONDS = float(os.getenv("KOALABYTE_T114_MENU_STATUS_INTERVAL", "3.0"))
+SERIAL_POLL_SECONDS = float(os.getenv("KOALABYTE_T114_MENU_STATUS_SERIAL_SECONDS", "0.75"))
+
+
+@dataclass
+class T114MenuSnapshot:
+    checked_at: float = 0.0
+    source: str = "none"
+    port: str = ""
+    online: bool = False
+    responding: bool = False
+    ble_ready: bool = False
+    ble_scan_active: bool = False
+    gnss_enabled: bool = False
+    gnss_has_fix: bool = False
+    tx_status: str = "off"
+    tx_reason: str = ""
+    tx_active: bool = False
+    error: str = ""
+    events: list[dict[str, Any]] = field(default_factory=list)
+
+
+_LAST_SNAPSHOT = T114MenuSnapshot()
+_LAST_PHRASES: dict[str, tuple[str, str]] = {}
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -48,7 +72,7 @@ def _candidate_ports() -> list[str]:
     return unique
 
 
-def _connected_port() -> str:
+def _visible_port() -> str:
     for port in _candidate_ports():
         try:
             if Path(port).exists():
@@ -58,91 +82,203 @@ def _connected_port() -> str:
     return ""
 
 
-def _gnss_fix() -> dict[str, Any]:
-    return _read_json(Path("logs/gnss/current_fix.json"))
+def _serial_exchange(port: str) -> list[dict[str, Any]]:
+    import serial  # type: ignore
+
+    payloads = [
+        {"type": "node_roles"},
+        {"type": "ble_status"},
+        {"type": "ble_tx_status"},
+        {"type": "gnss_status"},
+        {"type": "status"},
+    ]
+    events: list[dict[str, Any]] = []
+    deadline = time.time() + SERIAL_POLL_SECONDS
+    with serial.Serial(port, baudrate=DEFAULT_BAUD, timeout=0.08, write_timeout=0.25) as ser:
+        for payload in payloads:
+            ser.write((json.dumps(payload, sort_keys=True) + "\n").encode("utf-8"))
+        while time.time() < deadline:
+            raw = ser.readline()
+            if not raw:
+                continue
+            try:
+                event = json.loads(raw.decode("utf-8", errors="replace").strip())
+            except Exception:
+                continue
+            if isinstance(event, dict):
+                events.append(event)
+    return events
 
 
-def _latest_t114_status() -> dict[str, Any]:
-    payload = _latest_json("logs/hardware_validation/t114_combined_status_*.json")
-    if payload:
-        return payload
-    return _latest_json("logs/t114_bluez/t114_combined_status_*.json")
+def _events_to_snapshot(events: list[dict[str, Any]], port: str, source: str) -> T114MenuSnapshot:
+    snapshot = T114MenuSnapshot(
+        checked_at=time.monotonic(),
+        source=source,
+        port=port,
+        online=bool(port),
+        responding=bool(events),
+        ble_ready=bool(port),
+        events=events,
+    )
+    for event in events:
+        event_type = str(event.get("type", ""))
+        if event_type == "node_roles":
+            snapshot.online = True
+            snapshot.responding = True
+            snapshot.ble_ready = True
+        elif event_type == "ble_status":
+            snapshot.online = True
+            snapshot.responding = True
+            snapshot.ble_ready = bool(event.get("ble_ready", snapshot.ble_ready))
+            snapshot.ble_scan_active = bool(event.get("scan_active", event.get("ble_scan_active", snapshot.ble_scan_active)))
+        elif event_type == "ble_tx_status":
+            snapshot.online = True
+            snapshot.responding = True
+            raw = str(event.get("status", "")).lower()
+            snapshot.tx_active = bool(event.get("adv_active", False)) or raw == "started"
+            snapshot.tx_reason = str(event.get("reason", ""))
+            if raw == "blocked":
+                snapshot.tx_status = "blocked"
+            elif snapshot.tx_active:
+                snapshot.tx_status = "on"
+            else:
+                snapshot.tx_status = "off"
+        elif event_type == "gnss_status":
+            snapshot.online = True
+            snapshot.responding = True
+            snapshot.gnss_enabled = bool(event.get("enabled", event.get("gnss_ready", snapshot.gnss_enabled)))
+            snapshot.gnss_has_fix = bool(event.get("has_fix", snapshot.gnss_has_fix))
+        elif event_type == "gnss_fix":
+            snapshot.online = True
+            snapshot.responding = True
+            snapshot.gnss_enabled = True
+            snapshot.gnss_has_fix = True
+        elif event_type in {"heltec_mouth_status", "killerkoala_tft_ack"}:
+            snapshot.online = True
+            snapshot.responding = True
+            snapshot.gnss_enabled = bool(event.get("gnss_enabled", snapshot.gnss_enabled))
+            snapshot.ble_scan_active = bool(event.get("ble_scan_active", snapshot.ble_scan_active))
+            snapshot.tx_active = bool(event.get("ble_tx_active", snapshot.tx_active))
+            if snapshot.tx_active:
+                snapshot.tx_status = "on"
+    fix = _read_json(Path("logs/gnss/current_fix.json"))
+    if fix.get("latitude") is not None and fix.get("longitude") is not None:
+        snapshot.gnss_enabled = True
+        snapshot.gnss_has_fix = True
+    if not snapshot.online:
+        snapshot.tx_status = "blocked"
+    return snapshot
 
 
-def _latest_tx_status_event() -> dict[str, Any]:
-    for pattern in ("logs/hardware_validation/t114_combined_tx-status_*.json", "logs/t114_bluez/t114_combined_tx-status_*.json"):
+def _latest_log_events() -> tuple[str, list[dict[str, Any]]]:
+    for pattern in (
+        "logs/hardware_validation/t114_combined_status_*.json",
+        "logs/t114_bluez/t114_combined_status_*.json",
+        "logs/hardware_validation/t114_combined_tx-status_*.json",
+        "logs/t114_bluez/t114_combined_tx-status_*.json",
+    ):
         payload = _latest_json(pattern)
-        for event in payload.get("t114_serial_events", []) if isinstance(payload, dict) else []:
-            if isinstance(event, dict) and event.get("type") == "ble_tx_status":
-                return event
-        if payload:
-            return payload
-    status_payload = _latest_t114_status()
-    for event in status_payload.get("t114_serial_events", []) if isinstance(status_payload, dict) else []:
-        if isinstance(event, dict) and event.get("type") == "ble_tx_status":
-            return event
-    return {}
+        events = payload.get("t114_serial_events", []) if isinstance(payload, dict) else []
+        if isinstance(events, list) and events:
+            port = str(payload.get("selected_port", "")) if isinstance(payload, dict) else ""
+            return port, [event for event in events if isinstance(event, dict)]
+    return "", []
 
 
-def _status_label(command: str) -> tuple[str, str]:
-    port = _connected_port()
-    connected = bool(port)
+def _poll_snapshot() -> T114MenuSnapshot:
+    visible_port = _visible_port()
+    for port in _candidate_ports():
+        try:
+            if not Path(port).exists():
+                continue
+            events = _serial_exchange(port)
+            if events:
+                return _events_to_snapshot(events, port, "live_serial")
+        except Exception as exc:
+            visible_port = visible_port or port
+            last_error = str(exc)
+            continue
+    log_port, log_events = _latest_log_events()
+    if log_events:
+        snapshot = _events_to_snapshot(log_events, visible_port or log_port, "recent_log_fallback")
+        snapshot.error = "live serial status unavailable; using most recent T114 log"
+        return snapshot
+    if visible_port:
+        return T114MenuSnapshot(
+            checked_at=time.monotonic(),
+            source="port_visible_no_response",
+            port=visible_port,
+            online=True,
+            responding=False,
+            tx_status="blocked",
+            error=last_error if "last_error" in locals() else "T114 port visible but no status response yet",
+        )
+    return T114MenuSnapshot(
+        checked_at=time.monotonic(),
+        source="no_port",
+        online=False,
+        responding=False,
+        tx_status="blocked",
+        error="No Heltec T114 serial port found",
+    )
 
+
+def _snapshot() -> T114MenuSnapshot:
+    global _LAST_SNAPSHOT
+    now = time.monotonic()
+    if now - _LAST_SNAPSHOT.checked_at >= POLL_INTERVAL_SECONDS:
+        _LAST_SNAPSHOT = _poll_snapshot()
+    return _LAST_SNAPSHOT
+
+
+def _phrase_for(command: str, snapshot: T114MenuSnapshot) -> tuple[str, str]:
     if command == "status:t114_link":
-        if connected:
-            return "Heltec Link: Connected", f"Heltec T114 is visible to the Pi at {port}."
-        return "Heltec Link: Disconnected", "Heltec T114 is not visible yet. Plug it in or check /dev/koalabyte-heltec."
+        if snapshot.responding:
+            return "Heltec Link: Connected", f"Actively checked: T114 responded on {snapshot.port}."
+        if snapshot.online:
+            return "Heltec Link: Waiting", f"Port is visible at {snapshot.port}, but the T114 has not answered the live status poll yet."
+        return "Heltec Link: Disconnected", "Actively checked: no Heltec T114 serial controller was found."
 
     if command == "status:t114_radio_gps":
-        status_payload = _latest_t114_status()
-        events = status_payload.get("t114_serial_events", []) if isinstance(status_payload, dict) else []
-        ble_ready = connected
-        gnss_ready = False
-        has_fix = False
-        for event in events:
-            if not isinstance(event, dict):
-                continue
-            if event.get("type") == "ble_status":
-                ble_ready = bool(event.get("ble_ready", ble_ready))
-            if event.get("type") == "gnss_status":
-                gnss_ready = bool(event.get("enabled", event.get("gnss_ready", gnss_ready)))
-                has_fix = bool(event.get("has_fix", has_fix))
-            if event.get("type") == "gnss_fix":
-                has_fix = True
-                gnss_ready = True
-        fix = _gnss_fix()
-        if fix:
-            has_fix = bool(fix.get("latitude") is not None and fix.get("longitude") is not None)
-            gnss_ready = gnss_ready or has_fix
-        ble_text = "BLE ready" if ble_ready else "BLE offline"
-        if has_fix:
+        if not snapshot.online:
+            return "Radio/GPS: Offline", "T114 is disconnected, so BLE/GNSS status is unavailable."
+        if snapshot.online and not snapshot.responding:
+            return "Radio/GPS: Waiting", "T114 port is visible, but live BLE/GNSS status has not answered yet."
+        ble_text = "BLE scanning" if snapshot.ble_scan_active else ("BLE ready" if snapshot.ble_ready else "BLE offline")
+        if snapshot.gnss_has_fix:
             gps_text = "GPS fix"
-        elif gnss_ready:
+        elif snapshot.gnss_enabled:
             gps_text = "GPS waiting"
         else:
             gps_text = "GPS no fix"
-        return f"Radio/GPS: {ble_text} · {gps_text}", "Live summary of the Heltec T114 radio and GNSS state."
+        return f"Radio/GPS: {ble_text} · {gps_text}", f"Actively checked from {snapshot.source}."
 
     if command == "status:t114_tx":
-        event = _latest_tx_status_event()
-        raw_status = str(event.get("status", "")).lower() if isinstance(event, dict) else ""
-        adv_active = bool(event.get("adv_active", False)) if isinstance(event, dict) else False
-        if not connected:
-            return "Lab Beacon TX: Blocked", "T114 is disconnected, so the safe lab beacon cannot transmit."
-        if raw_status == "blocked":
-            return "Lab Beacon TX: Blocked", str(event.get("reason", "Safe lab beacon TX is currently blocked."))
-        if adv_active or raw_status == "started":
-            return "Lab Beacon TX: On", "Safe non-connectable owned-lab beacon is currently active."
-        return "Lab Beacon TX: Off", "Safe non-connectable owned-lab beacon is currently off."
+        if not snapshot.online:
+            return "Lab Beacon TX: Blocked", "T114 is disconnected, so safe lab beacon TX is blocked."
+        if snapshot.online and not snapshot.responding:
+            return "Lab Beacon TX: Blocked", "T114 is visible but not responding, so safe lab beacon TX stays blocked."
+        if snapshot.tx_status == "blocked":
+            reason = snapshot.tx_reason or "Safe lab beacon TX is blocked by the T114 status check."
+            return "Lab Beacon TX: Blocked", reason
+        if snapshot.tx_status == "on":
+            return "Lab Beacon TX: On", "Safe non-connectable owned-lab beacon is active."
+        return "Lab Beacon TX: Off", "Safe non-connectable owned-lab beacon is off."
 
     return "T114 Status: Unknown", "Unknown T114 status row."
 
 
 def status_label_description(command: str) -> tuple[str, str]:
-    now = time.monotonic()
-    cached = _CACHE.get(command)
-    if cached and now - cached[0] <= STATUS_TTL_SECONDS:
-        return cached[1]
-    result = _status_label(command)
-    _CACHE[command] = (now, result)
-    return result
+    """Return the current user-facing phrase for a status row.
+
+    The status phrase is derived from an active T114 serial poll when possible.
+    A phrase is replaced only when the underlying status category changes;
+    repeated menu redraws keep the previous phrase stable.
+    """
+
+    phrase = _phrase_for(command, _snapshot())
+    previous = _LAST_PHRASES.get(command)
+    if previous == phrase:
+        return previous
+    _LAST_PHRASES[command] = phrase
+    return phrase
