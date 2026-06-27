@@ -183,7 +183,7 @@ def check_menu_catalog(failures: list[str]) -> None:
     expected = {
         "T114 Primary Controller Check",
         "T114 Primary BLE/GNSS Status",
-        "T114 Primary BLE Scan",
+        "T114 Quick BLE Test Scan",
         "T114 BLE TX Status",
         "T114 Primary GNSS Fix",
         "Didgeridoo Status",
