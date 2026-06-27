@@ -22,6 +22,7 @@ from scripts.check_killerkoala_face_mouth_sync import validate_protocol
 STATUS_PATH = ROOT / "logs" / "one_shot" / "control_surface_status.json"
 
 REQUIRED_ONE_SHOT_SNIPPETS = [
+    "--check-only",
     "scripts/install_pi.sh",
     "scripts/flash_esp32.sh",
     "scripts/check_killerkoala_face_mouth_sync.py",
@@ -41,18 +42,50 @@ REQUIRED_ONE_SHOT_SNIPPETS = [
     "INSTALL_INNOMAKER_CAN",
     "STRICT_INNOMAKER_CAN",
     "InnoMaker CAN kit is optional",
+    "scripts/check_field_readiness.py",
+    "run_field_readiness",
+    "Field readiness helpers",
+    "scripts/check_koalabyte_version_handshake.py",
+    "run_version_handshake",
+    "Version handshake readiness",
+    "scripts/run_koalabyte_status_server.py",
+    "run_status_dashboard_json",
+    "Status dashboard JSON check",
+    "scripts/install_koalabyte_udev_rules.sh",
+    "run_udev_install_or_check",
+    "udev rules install",
+    "scripts/install_koalabyte_boot_services.sh",
+    "run_boot_services_install_or_check",
+    "boot services install",
+    "scripts/export_koalabyte_logs.sh",
+    "scripts/build_koalabyte_release_package.sh",
+    "run_release_log_helper_checks",
+    "Release and log helper checks",
+    "scripts/koalabyte_doctor.sh",
+    "run_doctor_quick",
+    "KoalaByte Doctor quick check",
 ]
 
 REQUIRED_COMMAND_HELPERS = [
     "scripts/install_koalabyte_one_shot.sh",
     "scripts/check_menu_actions.py",
     "scripts/check_menu_display_sync.py",
+    "scripts/check_field_readiness.py",
     "scripts/check_voice_menu_launch.py",
     "scripts/check_external_antenna_readiness.py",
     "scripts/check_killerkoala_face_mouth_sync.py",
     "scripts/check_killerkoala_ai.py",
     "scripts/check_full_runtime_dependencies.py",
     "scripts/check_t114_status_dashboard.py",
+    "scripts/check_koalabyte_version_handshake.py",
+    "scripts/run_koalabyte_status_server.py",
+    "scripts/koalabyte_doctor.py",
+    "scripts/koalabyte_doctor.sh",
+    "scripts/install_koalabyte_udev_rules.sh",
+    "scripts/install_koalabyte_boot_services.sh",
+    "scripts/koalabyte_safe_mode.sh",
+    "scripts/export_koalabyte_logs.sh",
+    "scripts/build_koalabyte_release_package.sh",
     "scripts/run_esp32_dualeye_voice_bridge.py",
     "scripts/configure_koalabyte_external_antennas.sh",
     "scripts/flash_t114_when_plugged.sh",
@@ -81,6 +114,30 @@ REQUIRED_PROJECT_FILES = [
     "pi-companion/koalablue/bluez_tools.py",
     "pi-companion/koalablue/bluez_protected_lab.py",
     "docs/KOALA_BLUEZ_TOOLS_REVA16.md",
+    "docs/FIELD_READINESS_UPGRADES.md",
+    "version/koalabyte_protocol.json",
+    "udev/99-koalabyte-blue.rules",
+    "systemd/koalabyte-menu.service",
+    "systemd/koalabyte-menu-sync.service",
+    "systemd/koalabyte-doctor.service",
+    "logrotate/koalabyte-blue",
+    ".github/workflows/release-package.yml",
+]
+
+FIELD_READINESS_SHELL_HELPERS = [
+    "scripts/koalabyte_doctor.sh",
+    "scripts/install_koalabyte_udev_rules.sh",
+    "scripts/install_koalabyte_boot_services.sh",
+    "scripts/koalabyte_safe_mode.sh",
+    "scripts/export_koalabyte_logs.sh",
+    "scripts/build_koalabyte_release_package.sh",
+]
+
+FIELD_READINESS_PYTHON_HELPERS = [
+    "scripts/check_field_readiness.py",
+    "scripts/check_koalabyte_version_handshake.py",
+    "scripts/run_koalabyte_status_server.py",
+    "scripts/koalabyte_doctor.py",
 ]
 
 REQUIRED_PROTECTED_BLUEZ_LABELS = [
@@ -172,6 +229,36 @@ def validate_optional_can_policy(one_shot_text: str) -> list[str]:
     return failures
 
 
+def validate_field_readiness_files() -> list[str]:
+    failures: list[str] = []
+    for helper in FIELD_READINESS_SHELL_HELPERS:
+        path = ROOT / helper
+        if not path.exists():
+            failures.append(f"missing field shell helper: {helper}")
+            continue
+        rc, _stdout, stderr = run_command(["bash", "-n", helper])
+        if rc != 0:
+            failures.append(f"field shell helper syntax failed for {helper}: {stderr.strip()}")
+    for helper in FIELD_READINESS_PYTHON_HELPERS:
+        path = ROOT / helper
+        if not path.exists():
+            failures.append(f"missing field python helper: {helper}")
+            continue
+        rc, _stdout, stderr = run_command([sys.executable, "-m", "py_compile", helper])
+        if rc != 0:
+            failures.append(f"field python helper compile failed for {helper}: {stderr.strip()}")
+    manifest = ROOT / "version" / "koalabyte_protocol.json"
+    if manifest.exists():
+        try:
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            for key in ["repo_protocol_version", "features"]:
+                if key not in payload:
+                    failures.append(f"version manifest missing {key}")
+        except Exception as exc:
+            failures.append(f"version manifest invalid JSON: {exc}")
+    return failures
+
+
 def validate_protected_bluez_menu() -> list[str]:
     failures: list[str] = []
     bluetooth_labels = set(menu_labels("bluetooth"))
@@ -246,6 +333,7 @@ def main() -> int:
     failures.extend(f"menu: {failure}" for failure in menu_failures)
     failures.extend(validate_protected_bluez_menu())
     failures.extend(validate_protected_bluez_code())
+    failures.extend(validate_field_readiness_files())
 
     buttons: list[dict[str, object]] = []
     try:
@@ -273,15 +361,19 @@ def main() -> int:
         if status_path not in (ROOT / "scripts" / "configure_koalabyte_external_antennas.sh").read_text(encoding="utf-8", errors="ignore"):
             failures.append(f"antenna config missing status path: {status_path}")
 
-    rc, stdout, stderr = run_command([sys.executable, "scripts/check_menu_actions.py"])
+    for check in [
+        "scripts/check_menu_actions.py",
+        "scripts/check_killerkoala_face_mouth_sync.py",
+        "scripts/check_menu_display_sync.py",
+        "scripts/check_field_readiness.py",
+        "scripts/check_koalabyte_version_handshake.py",
+    ]:
+        rc, stdout, stderr = run_command([sys.executable, check])
+        if rc != 0:
+            failures.append(f"{check} failed: {stdout} {stderr}".strip())
+    rc, stdout, stderr = run_command([sys.executable, "scripts/run_koalabyte_status_server.py", "--json"])
     if rc != 0:
-        failures.append(f"check_menu_actions failed: {stdout} {stderr}".strip())
-    rc, stdout, stderr = run_command([sys.executable, "scripts/check_killerkoala_face_mouth_sync.py"])
-    if rc != 0:
-        failures.append(f"check_killerkoala_face_mouth_sync failed: {stdout} {stderr}".strip())
-    rc, stdout, stderr = run_command([sys.executable, "scripts/check_menu_display_sync.py"])
-    if rc != 0:
-        failures.append(f"check_menu_display_sync failed: {stdout} {stderr}".strip())
+        failures.append(f"run_koalabyte_status_server.py --json failed: {stdout} {stderr}".strip())
     failures.extend(validate_protocol())
 
     status = {
@@ -294,6 +386,7 @@ def main() -> int:
         "protected_bluez_commands": REQUIRED_PROTECTED_BLUEZ_COMMANDS,
         "one_shot_installer": str(one_shot),
         "optional_can_required": False,
+        "field_readiness_files": FIELD_READINESS_SHELL_HELPERS + FIELD_READINESS_PYTHON_HELPERS + REQUIRED_PROJECT_FILES,
         "antenna_status_paths": REQUIRED_ANTENNA_STATUS,
         "updated_at": time.time(),
         "failures": failures,
