@@ -9,6 +9,7 @@ BOARD="${T114_BOARD:-heltec_t114_v2/nrf52840}"
 APP_DIR="${T114_COMBINED_APP_DIR:-firmware/t114-combined-safe}"
 STATUS_PATH="${T114_COMBINED_STATUS_PATH:-logs/t114_combined_safe_build_status.json}"
 STRICT="${STRICT_T114_COMBINED_BUILD:-0}"
+T114_GNSS_UART_LABEL="${T114_GNSS_UART_LABEL:-UART_1}"
 
 mkdir -p "$(dirname "${STATUS_PATH}")"
 
@@ -32,8 +33,10 @@ write_status() {
   "app_dir": $(json_escape "${APP_DIR}"),
   "build_dir": $(json_escape "${BUILD_DIR}"),
   "primary_ble": "heltec-t114-nrf52840",
+  "primary_gnss": "heltec-t114-gnss",
+  "gnss_uart_label": $(json_escape "${T114_GNSS_UART_LABEL}"),
   "secondary_ble_nodes": ["esp32-s3-dualeye", "raspberry-pi-bluez"],
-  "safety": "passive BLE only; GNSS and LoRa hardware drivers guarded until T114 pin validation",
+  "safety": "BLE RX/TX and GNSS can run together; LoRa direct radio driver remains guarded until T114 pin validation",
   "updated_at": $(date +%s)
 }
 JSON
@@ -56,6 +59,6 @@ if [[ ! -d "${APP_DIR}" ]]; then
   exit 1
 fi
 
-west build -b "${BOARD}" "${APP_DIR}" -d "${BUILD_DIR}"
+west build -b "${BOARD}" "${APP_DIR}" -d "${BUILD_DIR}" -- -DKOALABYTE_GNSS_UART_LABEL="${T114_GNSS_UART_LABEL}"
 write_status "built" "T114 combined-safe firmware build completed."
 echo "T114 combined-safe build complete: ${BUILD_DIR}"

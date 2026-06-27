@@ -84,9 +84,17 @@ packages=(
   libsdl2-2.0-0 network-manager wpasupplicant wireless-tools iw dhcpcd-base
   dnsutils iputils-ping bluetooth bluez bluez-tools rfkill sqlite3 iproute2
   picocom minicom screen
-  can-utils python3-can gpiod libgpiod2 espeak-ng espeak alsa-utils libasound2
+  can-utils python3-can gpiod libgpiod2 espeak-ng espeak alsa-utils
   libasound2-plugins pulseaudio-utils portaudio19-dev python3-pyaudio
 )
+
+if apt-cache show libasound2t64 >/dev/null 2>&1; then
+  packages+=(libasound2t64)
+elif apt-cache show libasound2 >/dev/null 2>&1; then
+  packages+=(libasound2)
+else
+  echo "warning: neither libasound2t64 nor libasound2 has an apt candidate on this host" >&2
+fi
 
 echo "Installing/checking Raspberry Pi system packages..."
 "${apt_runner[@]}" update
