@@ -33,7 +33,7 @@ BOARD_COMMANDS = {
     "pi_usb_udev": ["lsusb", "udevadm"],
     "pi_wifi": ["iw", "wpa_supplicant"],
     "bluez_ble": ["bluetoothctl", "btmgmt", "rfkill"],
-    "bluez_legacy_lab_optional": ["hciconfig", "hcitool", "rfcomm", "l2ping", "gatttool", "busctl", "sdptool", "btmon"],
+    "bluez_legacy_lab_optional": ["hciconfig", "hcitool", "rfcomm", "l2ping", "gatttool", "btproxy", "busctl", "sdptool", "btmon"],
     "can_bench_optional": ["ip", "modprobe", "cansend", "candump"],
     "audio_voice": ["aplay"],
     "serial_console": ["picocom"],
