@@ -144,8 +144,8 @@ def _heltec_face_payload(payload: dict[str, object]) -> dict[str, object]:
         "state": "menu_select" if event_type in {"select", "touch_long_press_select"} else "menu_highlight",
         "message": message[:92],
         "menu_sync": True,
-        "selected_label": label,
-        "selected_command": command,
+        "selected_label": label[:48],
+        "selected_command": command[:48],
         "event_type": event_type,
         "duration_ms": 60000,
         "enabled": True,
@@ -153,11 +153,20 @@ def _heltec_face_payload(payload: dict[str, object]) -> dict[str, object]:
 
 
 def _esp32_menu_payload(payload: dict[str, object]) -> dict[str, object]:
-    wire_payload = dict(payload)
-    # Keep the serial line compact for the ESP32-S3 parser. The Pi still logs the
-    # full visible item list locally under logs/menu_sync/current_menu_state.json.
-    wire_payload.pop("visible_items", None)
-    return wire_payload
+    return {
+        "type": "menu_sync",
+        "source": "koalabyte-blue-pi",
+        "menu_name": str(payload.get("menu_name", "main"))[:32],
+        "menu_title": str(payload.get("menu_title", "Main Canopy"))[:32],
+        "event_type": str(payload.get("event_type", "highlight"))[:32],
+        "selected_position": int(payload.get("selected_position", 1)),
+        "total_items": int(payload.get("total_items", 1)),
+        "selected_label": str(payload.get("selected_label", "Menu"))[:72],
+        "selected_command": str(payload.get("selected_command", ""))[:72],
+        "selected_group": str(payload.get("selected_group", ""))[:48],
+        "selected_enabled": bool(payload.get("selected_enabled", True)),
+        "execute_hint": "B3/select or touchscreen long-press",
+    }
 
 
 def sync_menu_state(menu: Any, event: Any | None = None) -> dict[str, object]:
