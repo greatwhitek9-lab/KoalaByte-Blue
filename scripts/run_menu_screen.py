@@ -140,7 +140,7 @@ def run_t114_ble_tx_status(item: MenuItem) -> None:
 
 
 def run_t114_primary_gnss_fix(item: MenuItem) -> None:
-    from koalblue.gnss_location import current_fix, fix_to_dict  # type: ignore
+    from koalablue.gnss_location import current_fix, fix_to_dict
 
     fix = current_fix(authorized=None, prompt=False)
     _write_result(item, "complete", {"fix": fix_to_dict(fix), "source_priority": "heltec-t114-gnss"}, "Protected location gate still controls coordinate visibility.")
