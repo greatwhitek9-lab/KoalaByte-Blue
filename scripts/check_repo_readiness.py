@@ -20,6 +20,8 @@ REQUIRED_FILES = [
     "pi-companion/requirements.txt",
     "pi-companion/koalablue/menu_catalog.py",
     "pi-companion/koalablue/menu_ui.py",
+    "pi-companion/koalablue/menu_display_sync.py",
+    "pi-companion/koalablue/menu_theme.py",
     "pi-companion/koalablue/t114_menu_status.py",
     "pi-companion/koalablue/meshtastic_app.py",
     "pi-companion/koalablue/t114_bluez.py",
@@ -61,6 +63,7 @@ REQUIRED_FILES = [
     "scripts/install_pi.sh",
     "scripts/install_koalabyte_one_shot.sh",
     "firmware/esp32-dualeye/platformio.ini",
+    "firmware/esp32-dualeye/src/main.cpp",
     "firmware/heltec-mouth/platformio.ini",
     "firmware/t114-combined-safe/CMakeLists.txt",
     "firmware/t114-combined-safe/prj.conf",
@@ -249,6 +252,9 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     one_shot = REPO_ROOT / "scripts" / "install_koalabyte_one_shot.sh"
     menu = REPO_ROOT / "scripts" / "run_menu_screen.py"
     menu_ui = REPO_ROOT / "pi-companion" / "koalablue" / "menu_ui.py"
+    menu_sync = REPO_ROOT / "pi-companion" / "koalablue" / "menu_display_sync.py"
+    menu_theme = REPO_ROOT / "pi-companion" / "koalblue" / "menu_theme.py"
+    esp32 = REPO_ROOT / "firmware" / "esp32-dualeye" / "src" / "main.cpp"
     status = REPO_ROOT / "pi-companion" / "koalablue" / "t114_menu_status.py"
     status_check = REPO_ROOT / "scripts" / "check_t114_status_dashboard.py"
     runtime_check = REPO_ROOT / "scripts" / "check_full_runtime_dependencies.py"
@@ -271,11 +277,14 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     manager_needles = ["write_primary_t114_fix_event", "gnss_fix", "gnss_status"]
     installer_needles = ["T114_PLUG_FLASH_PROFILE=\"${T114_PLUG_FLASH_PROFILE:-combined-safe}\"", "INSTALL_HELTEC_NRF_TOOLS=\"${INSTALL_HELTEC_NRF_TOOLS:-1}\""]
     one_shot_needles = ["STRICT_T114_STATUS_DASHBOARD", "run_t114_status_dashboard_readiness", "T114 live dashboard status phrases", "STRICT_FULL_RUNTIME_DEPENDENCIES", "run_full_runtime_dependency_gate"]
-    menu_needles = ["t114_primary_ble_scan", "t114_primary_gnss_fix", "koalablue.gnss_location"]
-    menu_ui_needles = ["status:", "status_row", "status_label_description"]
+    menu_needles = ["t114_primary_ble_scan", "t114_primary_gnss_fix", "koalablue.gnss_location", "bluez_platypus_bt_proxy"]
+    menu_ui_needles = ["sync_menu_state", "touch_long_press_select", "B3/select"]
+    menu_sync_needles = ["menu_sync", "esp32-s3-dualeye", "heltec-t114", "killerkoala_face", "B3/select or touchscreen long-press"]
+    menu_theme_needles = ["jungle_adventure_eucalyptus_branch_and_leaf_border", "_fit_text_for_width", "GRAPHICAL_DESCRIPTION_MAX_LINES"]
+    esp32_needles = ["handleMenuSync", "menu_sync_ack", "B3/select or touchscreen long-press"]
     status_needles = ["Heltec Link: Connected", "Heltec Link: Disconnected", "Radio/GPS:", "Lab Beacon TX: On", "Lab Beacon TX: Off", "Lab Beacon TX: Blocked"]
     status_check_needles = ["status_label_description", "T114_STATUS_DASHBOARD_READY", "active_status_check_attempted"]
-    runtime_check_needles = ["FULL_RUNTIME_DEPENDENCIES_READY", "PYTHON_IMPORTS", "BOARD_COMMANDS", "REQUIRED_PROJECT_MODULES", "BOARD_FILES"]
+    runtime_check_needles = ["FULL_RUNTIME_DEPENDENCIES_READY", "PYTHON_IMPORTS", "BOARD_COMMANDS", "REQUIRED_PROJECT_MODULES", "BOARD_FILES", "btproxy"]
     failures.extend(_file_contains(combined, firmware_needles))
     failures.extend(_file_contains(conf, conf_needles))
     failures.extend(_file_contains(build_helper, helper_needles))
@@ -285,6 +294,9 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     failures.extend(_file_contains(one_shot, one_shot_needles))
     failures.extend(_file_contains(menu, menu_needles))
     failures.extend(_file_contains(menu_ui, menu_ui_needles))
+    failures.extend(_file_contains(menu_sync, menu_sync_needles))
+    failures.extend(_file_contains(menu_theme, menu_theme_needles))
+    failures.extend(_file_contains(esp32, esp32_needles))
     failures.extend(_file_contains(status, status_needles))
     failures.extend(_file_contains(status_check, status_check_needles))
     failures.extend(_file_contains(runtime_check, runtime_check_needles))
