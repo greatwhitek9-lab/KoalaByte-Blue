@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PY="${PYTHON_BIN:-${ROOT}/pi-companion/.venv/bin/python}"
 INSTALL_HELTEC_T114_TOOLS="${INSTALL_HELTEC_T114_TOOLS:-auto}"
 STRICT_HELTEC_T114_TOOLS="${STRICT_HELTEC_T114_TOOLS:-0}"
-INSTALL_HELTEC_NRF_TOOLS="${INSTALL_HELTEC_NRF_TOOLS:-auto}"
+INSTALL_HELTEC_NRF_TOOLS="${INSTALL_HELTEC_NRF_TOOLS:-1}"
 CHECK_ONLY=0
 
 usage() {
@@ -22,14 +22,14 @@ Environment:
   PYTHON_BIN                  Python interpreter to use. Defaults to pi-companion/.venv/bin/python, then python3.
   INSTALL_HELTEC_T114_TOOLS   auto/1/0. Default: auto. Installs/checks runtime helpers when possible.
   STRICT_HELTEC_T114_TOOLS    1 fails when required Heltec runtime dependencies are missing.
-  INSTALL_HELTEC_NRF_TOOLS    auto/1/0. Default: auto. Checks west/nrfutil support for future T114 firmware work; set 1 to actively prepare tools.
+  INSTALL_HELTEC_NRF_TOOLS    auto/1/0. Default: 1. Prepares west/nrfutil/NCS tools required by the combined-safe one-shot Heltec firmware flash.
 
 Covers:
   - pyserial and bleak Python runtime dependencies
-  - USB/udev/BlueZ command availability checks
+  - USB/udev/BlueZ command availability checks for secondary Pi BlueZ node support
   - KoalaByte stable udev aliases, especially /dev/koalabyte-heltec
   - Heltec-priority port discovery and preflight env output
-  - optional west/nrfutil/NCS checks for future Heltec T114 nRF52840 firmware targets
+  - west/nrfutil/NCS checks for Heltec T114 nRF52840 combined-safe firmware builds
 EOF
 }
 
@@ -70,7 +70,7 @@ echo "Python: ${PY}"
 echo "INSTALL_HELTEC_T114_TOOLS=${INSTALL_HELTEC_T114_TOOLS} STRICT_HELTEC_T114_TOOLS=${STRICT_HELTEC_T114_TOOLS} INSTALL_HELTEC_NRF_TOOLS=${INSTALL_HELTEC_NRF_TOOLS}"
 
 missing=()
-for cmd in lsusb udevadm bluetoothctl rfkill; do
+for cmd in lsusb udevadm bluetoothctl btmgmt rfkill; do
   if ! command -v "${cmd}" >/dev/null 2>&1; then
     missing+=("${cmd}")
   fi
@@ -121,10 +121,10 @@ fi
 
 case "${INSTALL_HELTEC_NRF_TOOLS}" in
   0|false|False|no|NO|skip|SKIP)
-    echo "Skipping optional west/nrfutil/NCS checks for Heltec T114 firmware work."
+    echo "Skipping west/nrfutil/NCS checks for Heltec T114 firmware work. The combined-safe one-shot flash will require these tools later."
     ;;
   auto|AUTO)
-    echo "Checking optional west/nrfutil availability for future Heltec T114 nRF52840 firmware work..."
+    echo "Checking optional west/nrfutil availability for Heltec T114 nRF52840 firmware work..."
     if command -v west >/dev/null 2>&1; then
       echo "  west: $(command -v west)"
     else
@@ -137,7 +137,7 @@ case "${INSTALL_HELTEC_NRF_TOOLS}" in
     fi
     ;;
   1|true|True|yes|YES)
-    echo "Preparing west/nrfutil and nRF Connect SDK tooling for future Heltec T114 firmware work..."
+    echo "Preparing west/nrfutil and nRF Connect SDK tooling for Heltec T114 combined-safe firmware work..."
     STRICT_NRF_TOOLS="${STRICT_HELTEC_T114_TOOLS}" INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS:-auto}" PYTHON_BIN="${PY}" bash "${ROOT}/scripts/setup_nrf_tools.sh"
     INSTALL_NCS_TOOLCHAIN="${INSTALL_NCS_TOOLCHAIN:-auto}" STRICT_NCS_TOOLCHAIN="${STRICT_HELTEC_T114_TOOLS}" PYTHON_BIN="${PY}" bash "${ROOT}/scripts/setup_nrf_connect_sdk_toolchain.sh"
     ;;

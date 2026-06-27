@@ -46,11 +46,16 @@ REQUIRED_FILES = [
     "scripts/configure_koalabyte_external_antennas.sh",
     "scripts/check_external_antenna_readiness.py",
     "scripts/flash_t114_when_plugged.sh",
+    "scripts/build_t114_combined_safe.sh",
+    "scripts/flash_t114_combined_safe.sh",
     "scripts/flash_heltec_mouth.sh",
     "scripts/flash_esp32.sh",
     "scripts/install_koalabyte_one_shot.sh",
     "firmware/esp32-dualeye/platformio.ini",
     "firmware/heltec-mouth/platformio.ini",
+    "firmware/t114-combined-safe/CMakeLists.txt",
+    "firmware/t114-combined-safe/prj.conf",
+    "firmware/t114-combined-safe/src/main.c",
     "training/killerkoala_lora/Modelfile.killerkoala-tinyllama",
     "docs/KILLERKOALA_LORA_TRAINING.md",
     "docs/EXTERNAL_ANTENNA_READINESS.md",
@@ -61,6 +66,8 @@ SHELL_HELPERS = [
     "install.sh",
     "scripts/configure_koalabyte_external_antennas.sh",
     "scripts/flash_t114_when_plugged.sh",
+    "scripts/build_t114_combined_safe.sh",
+    "scripts/flash_t114_combined_safe.sh",
     "scripts/flash_heltec_mouth.sh",
     "scripts/preflight_all_hardware.sh",
     "scripts/setup_killerkoala_ollama.sh",
@@ -177,6 +184,23 @@ def check_menu_catalog(failures: list[str]) -> None:
         failures.append(f"menu action readiness: {failure}")
 
 
+def check_t114_combined_firmware(failures: list[str]) -> None:
+    combined = REPO_ROOT / "firmware" / "t114-combined-safe" / "src" / "main.c"
+    conf = REPO_ROOT / "firmware" / "t114-combined-safe" / "prj.conf"
+    firmware_needles = [
+        "ble_adv_seen",
+        "ble_lab_advertise_start",
+        "ble_lab_advertise_stop",
+        "ble_tx_status",
+        "killerkoala_face",
+        "node_roles",
+        "heltec-t114-nrf52840",
+    ]
+    conf_needles = ["CONFIG_BT_OBSERVER=y", "CONFIG_BT_BROADCASTER=y", "CONFIG_USB_CDC_ACM=y"]
+    failures.extend(_file_contains(combined, firmware_needles))
+    failures.extend(_file_contains(conf, conf_needles))
+
+
 def check_helpers(failures: list[str]) -> None:
     for helper in SHELL_HELPERS:
         path = REPO_ROOT / helper
@@ -191,6 +215,13 @@ def check_helpers(failures: list[str]) -> None:
             failures.append(f"shell syntax failed for {helper}: {result.stderr.strip()}")
 
 
+def _file_contains(path: Path, needles: list[str]) -> list[str]:
+    if not path.exists():
+        return [f"missing file: {path.relative_to(REPO_ROOT)}"]
+    text = path.read_text(encoding="utf-8", errors="ignore")
+    return [f"{path.relative_to(REPO_ROOT)} missing {needle}" for needle in needles if needle not in text]
+
+
 def main() -> int:
     failures: list[str] = []
     check_required_files(failures)
@@ -198,6 +229,7 @@ def main() -> int:
     check_config(failures)
     check_ai_requirements(failures)
     check_menu_catalog(failures)
+    check_t114_combined_firmware(failures)
     check_helpers(failures)
     if failures:
         print("KoalaByte Blue V2 Heltec Edition repo readiness check failed:", file=sys.stderr)

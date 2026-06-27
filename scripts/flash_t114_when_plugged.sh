@@ -4,7 +4,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPO_ROOT}"
 
-PROFILE="${T114_PLUG_FLASH_PROFILE:-color-mouth}"
+PROFILE="${T114_PLUG_FLASH_PROFILE:-combined-safe}"
 TIMEOUT_SECONDS="${T114_PLUG_FLASH_TIMEOUT_SECONDS:-120}"
 POLL_SECONDS="${T114_PLUG_FLASH_POLL_SECONDS:-2}"
 PORT="${KOALABYTE_HELTEC_USB_PORT:-${KOALABYTE_PRIMARY_BLE_PORT:-${HELTEC_PORT:-}}}"
@@ -17,18 +17,17 @@ KoalaByte Blue T114 plug-in firmware flash helper
 
 Usage:
   bash scripts/flash_t114_when_plugged.sh
+  T114_PLUG_FLASH_PROFILE=combined-safe bash scripts/flash_t114_when_plugged.sh
   T114_PLUG_FLASH_PROFILE=color-mouth bash scripts/flash_t114_when_plugged.sh
   T114_PLUG_FLASH_PROFILE=hci-usb bash scripts/flash_t114_when_plugged.sh
   T114_PLUG_FLASH_PROFILE=skip bash scripts/flash_t114_when_plugged.sh
   bash scripts/flash_t114_when_plugged.sh --check-only
 
-Behavior:
-  Waits for the Heltec T114 USB-C device, writes a status artifact, then runs the selected firmware flash helper if that helper exists.
-
 Profiles:
-  color-mouth  Runs scripts/flash_heltec_mouth.sh when present.
-  hci-usb      Runs scripts/flash_nrf52840_t114_hci_usb.sh when present.
-  skip         Records skipped status and does not flash.
+  combined-safe  Default combined T114 firmware for primary BLE JSON plus KillerKoala mouth/status JSON.
+  color-mouth    Legacy mouth/status profile.
+  hci-usb        Optional USB Bluetooth adapter profile.
+  skip           Do not flash.
 EOF
 }
 
@@ -85,6 +84,7 @@ resolve_port() {
 
 helper_for_profile() {
   case "${PROFILE}" in
+    combined-safe|combined_safe|combined) echo "scripts/flash_t114_combined_safe.sh" ;;
     color-mouth|mouth|color_mouth) echo "scripts/flash_heltec_mouth.sh" ;;
     hci-usb|hci_usb|koala-konnect|koala_konnect) echo "scripts/flash_nrf52840_t114_hci_usb.sh" ;;
     skip|none|disabled) echo "" ;;
@@ -94,7 +94,7 @@ helper_for_profile() {
 
 HELPER="$(helper_for_profile)"
 if [[ "${HELPER}" == "unsupported" ]]; then
-  write_status "unsupported_profile" "Unsupported T114_PLUG_FLASH_PROFILE. Use color-mouth, hci-usb, or skip." "" ""
+  write_status "unsupported_profile" "Unsupported T114_PLUG_FLASH_PROFILE. Use combined-safe, color-mouth, hci-usb, or skip." "" ""
   echo "Unsupported T114_PLUG_FLASH_PROFILE=${PROFILE}" >&2
   exit 2
 fi

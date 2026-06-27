@@ -27,7 +27,7 @@ Useful environment:
   KOALABYTE_BRANCH=koalabyte-blue-v2-heltec-edition
   ESP32_PORT=/dev/ttyUSB0
   KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0
-  T114_PLUG_FLASH_PROFILE=color-mouth|hci-usb|skip
+  T114_PLUG_FLASH_PROFILE=combined-safe|color-mouth|hci-usb|skip
   INSTALL_INNOMAKER_CAN=optional|0|1
   STRICT_INNOMAKER_CAN=1
   KOALABYTE_ALLOW_DIRTY=1
@@ -119,6 +119,6 @@ case "${RUN_MODE}" in
     ;;
   install)
     echo "Running KoalaByte one-shot installer..."
-    bash scripts/install_koalabyte_one_shot.sh "$@"
+    T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE:-combined-safe}" bash scripts/install_koalabyte_one_shot.sh "$@"
     ;;
 esac
