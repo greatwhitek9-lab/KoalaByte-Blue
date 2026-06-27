@@ -87,6 +87,12 @@ def _write_result(item: MenuItem, status: str, result: object, note: str = "") -
     print(f"\n{item.label} written → {path}\n")
 
 
+def _asdict_result(result: object) -> object:
+    if isinstance(result, list):
+        return [asdict(item) for item in result]
+    return asdict(result)
+
+
 def run_boomerang_action(_item: MenuItem) -> None:
     from koalablue import boomerang
 
@@ -109,6 +115,59 @@ def run_anteater_action(_item: MenuItem) -> None:
     print("\n== AntEater ==")
     report = run_once(scan_seconds=12.0)
     print(render_summary(report))
+
+
+def run_koala_bluez_manifest(item: MenuItem) -> None:
+    from koalablue.bluez_tools import module_manifest
+
+    _write_result(item, "complete", asdict(module_manifest()))
+
+
+def run_koala_bluez_inventory(item: MenuItem) -> None:
+    from koalablue.bluez_tools import inventory
+
+    _write_result(item, "complete", asdict(inventory()))
+
+
+def run_koala_bluez_status(item: MenuItem) -> None:
+    from koalablue.bluez_tools import status
+
+    _write_result(item, "complete", asdict(status()))
+
+
+def run_koala_bluez_scan(item: MenuItem) -> None:
+    from koalablue.bluez_tools import scan
+
+    _write_result(item, "complete", asdict(scan(duration_seconds=15)))
+
+
+def run_koala_bluez_monitor(item: MenuItem) -> None:
+    from koalablue.bluez_tools import monitor
+
+    _write_result(item, "complete", asdict(monitor(duration_seconds=20)))
+
+
+def run_koala_bluez_all_safe(item: MenuItem) -> None:
+    from koalablue.bluez_tools import all_safe
+
+    _write_result(item, "complete", _asdict_result(all_safe(duration_seconds=15)))
+
+
+def run_protected_bluez_menu_action(item: MenuItem) -> None:
+    from koalablue import bluez_protected_lab
+
+    handlers = {
+        "koala_bluez_info": bluez_protected_lab.protected_target_info,
+        "koala_bluez_services": bluez_protected_lab.protected_target_services,
+        "koala_bluez_gatt_readiness": bluez_protected_lab.protected_gatt_readiness,
+        "bluez_outback_radio_ledger": bluez_protected_lab.outback_radio_ledger,
+        "bluez_classic_track_finder": bluez_protected_lab.classic_track_finder,
+        "bluez_treehouse_rfcomm_wiremap": bluez_protected_lab.treehouse_rfcomm_wiremap,
+        "bluez_pouch_link_echo": bluez_protected_lab.pouch_link_echo,
+        "bluez_gumnut_gatt_ghostmap": bluez_protected_lab.gumnut_gatt_ghostmap,
+    }
+    result = handlers[item.command]()
+    _write_result(item, "complete" if not result.results or not result.results[0].skipped else "blocked", asdict(result), "Protected BlueZ lab action; unlock protected actions and set owned-device target env when required.")
 
 
 def run_t114_primary_controller_check(item: MenuItem) -> None:
@@ -190,6 +249,23 @@ def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
     menu.register_handler("boomerang", run_boomerang_action)
     menu.register_handler("eucalyptus_mode", run_eucalyptus_mode_action)
     menu.register_handler("anteater", run_anteater_action)
+    menu.register_handler("koala_bluez_manifest", run_koala_bluez_manifest)
+    menu.register_handler("koala_bluez_inventory", run_koala_bluez_inventory)
+    menu.register_handler("koala_bluez_status", run_koala_bluez_status)
+    menu.register_handler("koala_bluez_scan", run_koala_bluez_scan)
+    menu.register_handler("koala_bluez_monitor", run_koala_bluez_monitor)
+    menu.register_handler("koala_bluez_all_safe", run_koala_bluez_all_safe)
+    for command in [
+        "koala_bluez_info",
+        "koala_bluez_services",
+        "koala_bluez_gatt_readiness",
+        "bluez_outback_radio_ledger",
+        "bluez_classic_track_finder",
+        "bluez_treehouse_rfcomm_wiremap",
+        "bluez_pouch_link_echo",
+        "bluez_gumnut_gatt_ghostmap",
+    ]:
+        menu.register_handler(command, run_protected_bluez_menu_action)
     menu.register_handler("t114_primary_controller_check", run_t114_primary_controller_check)
     menu.register_handler("t114_primary_status", run_t114_primary_status)
     menu.register_handler("t114_primary_ble_scan", run_t114_primary_ble_scan)
