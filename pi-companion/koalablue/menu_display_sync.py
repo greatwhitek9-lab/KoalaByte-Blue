@@ -89,8 +89,10 @@ def build_menu_sync_payload(menu: Any, event: Any | None = None) -> dict[str, ob
             "select": ["B3", "touch_long_press", "keyboard_enter"],
             "back": ["B2", "keyboard_left"],
             "main_menu": ["B1", "keyboard_m"],
+            "reopen_menu": ["B1", "touch_double_tap"],
         },
         "execute_hint": "Highlight a menu item, then press B3/select or long-press the touchscreen.",
+        "idle_face_rule": "AI face returns after 30 seconds idle and after actions until B1/menu or double-tap reopens menu.",
         "synced_displays": ["heltec-t114", "esp32-s3-dualeye"],
         "updated_at": time.time(),
     }
@@ -106,6 +108,34 @@ def build_menu_sync_payload(menu: Any, event: Any | None = None) -> dict[str, ob
         payload["event_type"] = str(event_payload.get("event_type", "unknown"))
     else:
         payload["event_type"] = "state"
+    return payload
+
+
+def build_ai_face_payload(menu: Any, event: Any | None = None, *, state: str = "idle", message: str = "KillerKoala is watching the canopy") -> dict[str, object]:
+    selected = getattr(menu, "selected_item", None)
+    label = str(getattr(selected, "label", "")) if selected is not None else ""
+    command = str(getattr(selected, "command", "")) if selected is not None else ""
+    payload: dict[str, object] = {
+        "type": "ai_face_sync",
+        "source": "koalabyte-blue-pi",
+        "display_mode": "ai_face",
+        "state": state,
+        "message": message,
+        "selected_label": label,
+        "selected_command": command,
+        "menu_reopen_hint": "Press B1/menu or double-tap touchscreen to reopen the menu.",
+        "idle_timeout_seconds": int(getattr(menu, "idle_face_seconds", 30)),
+        "synced_displays": ["heltec-t114", "esp32-s3-dualeye"],
+        "updated_at": time.time(),
+    }
+    if event is not None:
+        try:
+            payload["event"] = asdict(event)
+            payload["event_type"] = payload["event"].get("event_type", state)  # type: ignore[union-attr]
+        except Exception:
+            payload["event_type"] = state
+    else:
+        payload["event_type"] = state
     return payload
 
 
@@ -133,6 +163,15 @@ def _send_json_line(port: str, payload: dict[str, object]) -> tuple[bool, str]:
 
 
 def _heltec_face_payload(payload: dict[str, object]) -> dict[str, object]:
+    if payload.get("type") == "ai_face_sync":
+        return {
+            "type": "killerkoala_face",
+            "state": str(payload.get("state", "idle"))[:31],
+            "message": str(payload.get("message", "KillerKoala idle"))[:92],
+            "menu_sync": False,
+            "duration_ms": 60000,
+            "enabled": True,
+        }
     position = int(payload.get("selected_position", 1))
     total = int(payload.get("total_items", 1))
     label = str(payload.get("selected_label", "Menu"))
@@ -169,6 +208,38 @@ def _esp32_menu_payload(payload: dict[str, object]) -> dict[str, object]:
     }
 
 
+def _esp32_face_payload(payload: dict[str, object]) -> dict[str, object]:
+    state = str(payload.get("state", "idle"))
+    message = str(payload.get("message", "KillerKoala idle"))
+    return {
+        "type": "killerkoala_face",
+        "state": state[:31],
+        "message": message[:92],
+        "left_eye": "#A54BFF",
+        "right_eye": "#32FF71",
+        "brightness": 92,
+        "enabled": True,
+        "menu_reopen_hint": "B1/menu or touchscreen double-tap",
+    }
+
+
+def _send_to_displays(payload: dict[str, object]) -> dict[str, list[dict[str, object]]]:
+    results: dict[str, list[dict[str, object]]] = {"heltec": [], "esp32": []}
+    for kind in ("heltec", "esp32"):
+        if kind == "heltec":
+            wire_payload = _heltec_face_payload(payload)
+            wire_payload["target_display"] = "heltec-t114"
+        else:
+            wire_payload = _esp32_face_payload(payload) if payload.get("type") == "ai_face_sync" else _esp32_menu_payload(payload)
+            wire_payload["target_display"] = "esp32-s3-dualeye"
+        for port in _tool_port_candidates(kind):
+            sent, status = _send_json_line(port, wire_payload)
+            results[kind].append({"port": port, "sent": sent, "status": status})
+            if sent:
+                break
+    return results
+
+
 def sync_menu_state(menu: Any, event: Any | None = None) -> dict[str, object]:
     payload = build_menu_sync_payload(menu, event)
     _write_local(payload)
@@ -176,20 +247,18 @@ def sync_menu_state(menu: Any, event: Any | None = None) -> dict[str, object]:
         payload["sync_status"] = "disabled"
         DEFAULT_STATE_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
         return payload
+    payload["sync_results"] = _send_to_displays(payload)
+    DEFAULT_STATE_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    return payload
 
-    results: dict[str, list[dict[str, object]]] = {"heltec": [], "esp32": []}
-    for kind in ("heltec", "esp32"):
-        if kind == "heltec":
-            wire_payload = _heltec_face_payload(payload)
-            wire_payload["target_display"] = "heltec-t114"
-        else:
-            wire_payload = _esp32_menu_payload(payload)
-            wire_payload["target_display"] = "esp32-s3-dualeye"
-        for port in _tool_port_candidates(kind):
-            sent, status = _send_json_line(port, wire_payload)
-            results[kind].append({"port": port, "sent": sent, "status": status})
-            if sent:
-                break
-    payload["sync_results"] = results
+
+def sync_ai_face_display(menu: Any, event: Any | None = None, *, state: str = "idle", message: str = "KillerKoala is watching the canopy") -> dict[str, object]:
+    payload = build_ai_face_payload(menu, event, state=state, message=message)
+    _write_local(payload)
+    if not _enabled():
+        payload["sync_status"] = "disabled"
+        DEFAULT_STATE_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        return payload
+    payload["sync_results"] = _send_to_displays(payload)
     DEFAULT_STATE_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     return payload
