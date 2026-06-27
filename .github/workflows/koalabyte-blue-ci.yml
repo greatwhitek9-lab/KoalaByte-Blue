@@ -36,6 +36,7 @@ jobs:
           echo "bootstrap_sha=$(git rev-parse HEAD:install.sh)"
           echo "install_pi_sha=$(git rev-parse HEAD:scripts/install_pi.sh)"
           echo "one_shot_sha=$(git rev-parse HEAD:scripts/install_koalabyte_one_shot.sh)"
+          echo "menu_display_sync_sha=$(git rev-parse HEAD:scripts/check_menu_display_sync.py)"
           echo "preflight_sha=$(git rev-parse HEAD:scripts/preflight_all_hardware.py)"
           echo "ollama_helper_sha=$(git rev-parse HEAD:scripts/setup_killerkoala_ollama.sh)"
           echo "bluez_helper_sha=$(git rev-parse HEAD:scripts/setup_bluez_gatttool.sh)"
@@ -85,6 +86,7 @@ jobs:
       - name: Validate menu and hardware readiness reports
         run: |
           PYTHONPATH=pi-companion python scripts/check_menu_actions.py
+          PYTHONPATH=pi-companion python scripts/check_menu_display_sync.py
           PYTHONPATH=pi-companion python scripts/check_one_shot_controls.py
           python scripts/preflight_all_hardware.py --profile heltec
 
