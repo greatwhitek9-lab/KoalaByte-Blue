@@ -15,7 +15,7 @@ if str(PI_ROOT) not in sys.path:
     sys.path.insert(0, str(PI_ROOT))
 
 from koalablue.gpio_buttons import DEFAULT_BUTTONS, DEFAULT_ELECTRICAL_MODE
-from koalblue.menu_catalog import MAIN_MENU_ITEMS, SUBMENU_ITEMS
+from koalablue.menu_catalog import MAIN_MENU_ITEMS, SUBMENU_ITEMS
 from scripts.check_menu_actions import build_manifest
 from scripts.check_killerkoala_face_mouth_sync import validate_protocol
 
