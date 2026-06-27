@@ -109,6 +109,14 @@ def run_eucalyptus_mode_action(_item: MenuItem) -> None:
         run_terminal()
 
 
+def run_eucalyptus_control_action(item: MenuItem) -> None:
+    from koalablue.eucalyptus_wigle import control_status
+
+    action = item.command.split(" ", 1)[1] if " " in item.command else "status"
+    result = control_status(action)
+    _write_result(item, str(result.get("status", "complete")), result, "Eucalyptus passive BLE/GPS/WiGLE helper. Upload requires explicit WiGLE env enablement and credentials.")
+
+
 def run_anteater_action(_item: MenuItem) -> None:
     from koalablue.anteater import render_summary, run_once
 
@@ -249,6 +257,16 @@ def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
             menu.register_handler(command, route_leaf)
     menu.register_handler("boomerang", run_boomerang_action)
     menu.register_handler("eucalyptus_mode", run_eucalyptus_mode_action)
+    for command in [
+        "eucalyptus status",
+        "eucalyptus start",
+        "eucalyptus stop",
+        "eucalyptus restart",
+        "eucalyptus upload-status",
+        "eucalyptus gps-trail",
+        "eucalyptus wigle-upload",
+    ]:
+        menu.register_handler(command, run_eucalyptus_control_action)
     menu.register_handler("anteater", run_anteater_action)
     menu.register_handler("koala_bluez_manifest", run_koala_bluez_manifest)
     menu.register_handler("koala_bluez_inventory", run_koala_bluez_inventory)
