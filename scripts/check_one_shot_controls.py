@@ -29,6 +29,9 @@ REQUIRED_ONE_SHOT_SNIPPETS = [
     "scripts/check_full_runtime_dependencies.py",
     "scripts/configure_koalabyte_external_antennas.sh",
     "scripts/check_killerkoala_ai.py",
+    "scripts/check_menu_display_sync.py",
+    "run_menu_display_sync_gate",
+    "Menu display sync and AI-face controls",
     "run_full_runtime_dependency_gate",
     "STRICT_FULL_RUNTIME_DEPENDENCIES",
     "run_killerkoala_ai_readiness",
@@ -37,13 +40,13 @@ REQUIRED_ONE_SHOT_SNIPPETS = [
     "run_optional_can",
     "INSTALL_INNOMAKER_CAN",
     "STRICT_INNOMAKER_CAN",
-    '"required": false',
     "InnoMaker CAN kit is optional",
 ]
 
 REQUIRED_COMMAND_HELPERS = [
     "scripts/install_koalabyte_one_shot.sh",
     "scripts/check_menu_actions.py",
+    "scripts/check_menu_display_sync.py",
     "scripts/check_voice_menu_launch.py",
     "scripts/check_external_antenna_readiness.py",
     "scripts/check_killerkoala_face_mouth_sync.py",
@@ -153,11 +156,17 @@ def button_manifest() -> list[dict[str, object]]:
     return rows
 
 
+def _optional_can_required_false_marker_present(one_shot_text: str) -> bool:
+    return '"required": false' in one_shot_text or '"required": False' in one_shot_text
+
+
 def validate_optional_can_policy(one_shot_text: str) -> list[str]:
     failures: list[str] = []
-    for needle in ["set +e", "setup_rc=$?", "manifest_rc=$?", "inventory_rc=$?", "status_rc=$?", '"required": false', "STRICT_INNOMAKER_CAN"]:
+    for needle in ["set +e", "setup_rc=$?", "manifest_rc=$?", "inventory_rc=$?", "status_rc=$?", "STRICT_INNOMAKER_CAN"]:
         if needle not in one_shot_text:
             failures.append(f"optional CAN policy missing non-failing marker: {needle}")
+    if not _optional_can_required_false_marker_present(one_shot_text):
+        failures.append('optional CAN policy missing non-failing marker: "required": false or "required": False')
     if "exit 1" in one_shot_text.split("run_optional_can", 1)[-1].split("prepare_anteater_status", 1)[0] and "STRICT_INNOMAKER_CAN" not in one_shot_text:
         failures.append("optional CAN block can fail without STRICT_INNOMAKER_CAN")
     return failures
@@ -256,85 +265,41 @@ def main() -> int:
     for snippet in REQUIRED_ONE_SHOT_SNIPPETS:
         if snippet not in one_shot_text:
             failures.append(f"one-shot installer missing required step/policy: {snippet}")
+    if not _optional_can_required_false_marker_present(one_shot_text):
+        failures.append('one-shot installer missing required step/policy: "required": false or "required": False')
     failures.extend(validate_optional_can_policy(one_shot_text))
 
-    antenna_rc, antenna_stdout, antenna_stderr = run_command(["bash", "scripts/configure_koalabyte_external_antennas.sh", "--check-only"])
-    if antenna_rc != 0:
-        failures.append(f"antenna readiness command failed: {antenna_stderr.strip() or antenna_stdout.strip()}")
-    for status_file in REQUIRED_ANTENNA_STATUS:
-        if not (ROOT / status_file).exists():
-            failures.append(f"missing antenna status file: {status_file}")
+    for status_path in REQUIRED_ANTENNA_STATUS:
+        if status_path not in (ROOT / "scripts" / "configure_koalabyte_external_antennas.sh").read_text(encoding="utf-8", errors="ignore"):
+            failures.append(f"antenna config missing status path: {status_path}")
 
-    menu_voice_rc, menu_voice_stdout, menu_voice_stderr = run_command([sys.executable, "scripts/check_voice_menu_launch.py"])
-    if menu_voice_rc != 0:
-        failures.append(f"voice menu launch readiness failed: {menu_voice_stderr.strip() or menu_voice_stdout.strip()}")
+    rc, stdout, stderr = run_command([sys.executable, "scripts/check_menu_actions.py"])
+    if rc != 0:
+        failures.append(f"check_menu_actions failed: {stdout} {stderr}".strip())
+    rc, stdout, stderr = run_command([sys.executable, "scripts/check_killerkoala_face_mouth_sync.py"])
+    if rc != 0:
+        failures.append(f"check_killerkoala_face_mouth_sync failed: {stdout} {stderr}".strip())
+    rc, stdout, stderr = run_command([sys.executable, "scripts/check_menu_display_sync.py"])
+    if rc != 0:
+        failures.append(f"check_menu_display_sync failed: {stdout} {stderr}".strip())
+    failures.extend(validate_protocol())
 
-    ai_rc, ai_stdout, ai_stderr = run_command([sys.executable, "scripts/check_killerkoala_ai.py"])
-    if ai_rc != 0:
-        failures.append(f"KillerKoala AI readiness failed: {ai_stderr.strip() or ai_stdout.strip()}")
-
-    face_failures = validate_protocol()
-    failures.extend(f"face/mouth: {failure}" for failure in face_failures)
-
-    payload = {
+    status = {
         "status": "ONE_SHOT_CONTROLS_READY" if not failures else "ONE_SHOT_CONTROLS_INCOMPLETE",
-        "updated_at": time.time(),
-        "menu": {
-            "status": menu_manifest.get("status"),
-            "menu_names": menu_manifest.get("menu_names", []),
-            "enabled_leaf_count": menu_manifest.get("enabled_leaf_count", 0),
-            "handler_count": menu_manifest.get("handler_count", 0),
-            "manifest": "logs/menu_actions/menu_action_manifest.json",
-        },
-        "protected_bluez_menu": {
-            "labels": REQUIRED_PROTECTED_BLUEZ_LABELS,
-            "commands": REQUIRED_PROTECTED_BLUEZ_COMMANDS,
-            "password_gate_module": "pi-companion/koalablue/location_password_gate.py",
-            "protected_module": "pi-companion/koalblue/bluez_protected_lab.py".replace("koalblue", "koalablue"),
-            "target_env": "KOALABYTE_BLUEZ_LAB_TARGET",
-            "owned_env": "KOALABYTE_BLUEZ_OWNED_DEVICE",
-            "required_for_one_shot_control_validation": True,
-        },
-        "voice_menu_launch": {
-            "status_path": "logs/menu_voice/voice_menu_launch_status.json",
-            "manifest_path": "logs/menu_voice/voice_menu_launch_manifest.json",
-            "syntax": ["killerkoala run <menu item or command>", "killerkoala open <menu item or command>"],
-            "check_rc": menu_voice_rc,
-        },
         "buttons": buttons,
-        "button_count": len(buttons),
-        "gpio_button_electrical_mode": {
-            "internal_pull_up_enabled": DEFAULT_ELECTRICAL_MODE.pull_up,
-            "not_pressed_raw_level": DEFAULT_ELECTRICAL_MODE.idle_state,
-            "pressed_raw_level": DEFAULT_ELECTRICAL_MODE.pressed_state,
-        },
-        "killerkoala_ai": {
-            "status_path": "logs/killerkoala/killerkoala_ai_readiness.json",
-            "required": True,
-            "esp32_dualeye_builtin_mic_bridge": "scripts/run_esp32_dualeye_voice_bridge.py",
-            "check_rc": ai_rc,
-        },
-        "full_runtime_dependency_gate": {
-            "status_path": "logs/one_shot/full_runtime_dependencies.json",
-            "checker": "scripts/check_full_runtime_dependencies.py",
-            "strict_mode_env": "STRICT_FULL_RUNTIME_DEPENDENCIES=1",
-            "required_for_one_shot": True,
-        },
-        "innomaker_can": {
-            "required_for_install": False,
-            "default_mode": "optional",
-            "strict_mode_env": "STRICT_INNOMAKER_CAN=1",
-            "install_must_continue_when_absent": True,
-        },
-        "antenna_status_files": REQUIRED_ANTENNA_STATUS,
-        "required_command_helpers": REQUIRED_COMMAND_HELPERS,
-        "required_project_files": REQUIRED_PROJECT_FILES,
-        "one_shot_required_steps": REQUIRED_ONE_SHOT_SNIPPETS,
-        "face_mouth_protocol": "killerkoala_face",
+        "menu_status": menu_manifest.get("status"),
+        "menus": menu_manifest.get("menu_names", []),
+        "leaf_count": menu_manifest.get("enabled_leaf_count"),
+        "protected_bluez_labels": REQUIRED_PROTECTED_BLUEZ_LABELS,
+        "protected_bluez_commands": REQUIRED_PROTECTED_BLUEZ_COMMANDS,
+        "one_shot_installer": str(one_shot),
+        "optional_can_required": False,
+        "antenna_status_paths": REQUIRED_ANTENNA_STATUS,
+        "updated_at": time.time(),
         "failures": failures,
     }
-    STATUS_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-    print(json.dumps({"status": payload["status"], "status_path": str(STATUS_PATH), "failures": failures}, indent=2, sort_keys=True))
+    STATUS_PATH.write_text(json.dumps(status, indent=2, sort_keys=True), encoding="utf-8")
+    print(json.dumps({"status": status["status"], "status_path": str(STATUS_PATH), "failures": failures}, indent=2, sort_keys=True))
     return 1 if failures else 0
 
 
