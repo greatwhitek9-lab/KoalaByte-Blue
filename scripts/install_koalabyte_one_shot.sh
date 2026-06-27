@@ -8,7 +8,7 @@ ESP32_PORT="${ESP32_PORT:-}"
 NO_MONITOR="${NO_MONITOR:-1}"
 FLASH_T114_ON_PLUG="${FLASH_T114_ON_PLUG:-auto}"
 STRICT_T114_PLUG_FLASH="${STRICT_T114_PLUG_FLASH:-1}"
-T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE:-color-mouth}"
+T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE:-combined-safe}"
 INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN:-optional}"
 STRICT_INNOMAKER_CAN="${STRICT_INNOMAKER_CAN:-0}"
 INSTALL_BLE_NODE_MANAGER_SERVICE="${INSTALL_BLE_NODE_MANAGER_SERVICE:-auto}"
@@ -33,11 +33,11 @@ Required/default actions:
   - install/check KillerKoala AI dependencies, phrase engine, optional TinyLlama/Ollama model path, and voice-command routing
   - install/start the ESP32-S3 DualEye built-in mic voice bridge service when systemd is available
   - generate protocol and antenna readiness artifacts
-  - wait for and flash the Heltec T114 selected profile
+  - wait for and flash the Heltec T114 combined-safe profile
   - flash the ESP32-S3 DualEye firmware
   - validate ESP32 eyes and Heltec mouth face-state sync
   - validate all menus, submenu routes, button mappings, controls, command helpers, and antenna paths
-  - install/start the BLE node manager service
+  - install/start the BLE node manager service with Heltec T114 as primary and ESP32/Pi as secondary nodes
   - validate the Didgeridoo/menu action manifest
   - prepare AntEater passive-readiness status
 
@@ -48,7 +48,7 @@ Useful env:
   ESP32_PORT=/dev/ttyUSB0
   KOALABYTE_ESP32_MIC_PORT=/dev/koalabyte-esp32-dualeye
   KOALABYTE_HELTEC_USB_PORT=/dev/koalabyte-heltec
-  T114_PLUG_FLASH_PROFILE=color-mouth|hci-usb
+  T114_PLUG_FLASH_PROFILE=combined-safe|color-mouth|hci-usb
   FLASH_T114_ON_PLUG=auto|1|0
   STRICT_T114_PLUG_FLASH=1|0
   STRICT_FACE_MOUTH_SYNC=1
@@ -210,7 +210,7 @@ trap 'write_status "failed" "one_shot_install" "one-shot installer exited before
 
 run_required "Repo readiness" python3 scripts/check_repo_readiness.py
 
-run_required "Raspberry Pi companion + Heltec plug-in flash" \
+run_required "Raspberry Pi companion + Heltec combined-safe flash" \
   env FLASH_T114_ON_PLUG="${FLASH_T114_ON_PLUG}" \
       STRICT_T114_PLUG_FLASH="${STRICT_T114_PLUG_FLASH}" \
       T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE}" \
@@ -248,7 +248,7 @@ run_required "External antenna readiness" bash scripts/configure_koalabyte_exter
 run_required "AntEater passive readiness" prepare_anteater_status
 run_optional_can
 
-write_status "complete" "one_shot_install" "Pi, Heltec, ESP32-S3, DualEye mic voice bridge, KillerKoala AI/voice, eyes/mouth sync, controls/commands, services, menu, antenna, and passive-readiness steps complete; InnoMaker CAN optional"
+write_status "complete" "one_shot_install" "Pi, Heltec combined-safe primary BLE/mouth profile, ESP32-S3, DualEye mic voice bridge, KillerKoala AI/voice, eyes/mouth sync, controls/commands, services, menu, antenna, and passive-readiness steps complete; InnoMaker CAN optional"
 trap - ERR
 
 echo
