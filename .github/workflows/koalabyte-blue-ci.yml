@@ -36,6 +36,13 @@ jobs:
           echo "bootstrap_sha=$(git rev-parse HEAD:install.sh)"
           echo "install_pi_sha=$(git rev-parse HEAD:scripts/install_pi.sh)"
           echo "one_shot_sha=$(git rev-parse HEAD:scripts/install_koalabyte_one_shot.sh)"
+          echo "field_readiness_sha=$(git rev-parse HEAD:scripts/check_field_readiness.py)"
+          echo "doctor_sha=$(git rev-parse HEAD:scripts/koalabyte_doctor.py)"
+          echo "udev_rules_sha=$(git rev-parse HEAD:udev/99-koalabyte-blue.rules)"
+          echo "boot_services_sha=$(git rev-parse HEAD:scripts/install_koalabyte_boot_services.sh)"
+          echo "version_handshake_sha=$(git rev-parse HEAD:scripts/check_koalabyte_version_handshake.py)"
+          echo "status_server_sha=$(git rev-parse HEAD:scripts/run_koalabyte_status_server.py)"
+          echo "release_workflow_sha=$(git rev-parse HEAD:.github/workflows/release-package.yml)"
           echo "menu_display_sync_sha=$(git rev-parse HEAD:scripts/check_menu_display_sync.py)"
           echo "preflight_sha=$(git rev-parse HEAD:scripts/preflight_all_hardware.py)"
           echo "ollama_helper_sha=$(git rev-parse HEAD:scripts/setup_killerkoala_ollama.sh)"
@@ -60,6 +67,12 @@ jobs:
           bash -n scripts/setup_heltec_t114_tools.sh
           bash -n scripts/setup_nrf_tools.sh
           bash -n scripts/setup_nrf_connect_sdk_toolchain.sh
+          bash -n scripts/koalabyte_doctor.sh
+          bash -n scripts/install_koalabyte_udev_rules.sh
+          bash -n scripts/install_koalabyte_boot_services.sh
+          bash -n scripts/koalabyte_safe_mode.sh
+          bash -n scripts/export_koalabyte_logs.sh
+          bash -n scripts/build_koalabyte_release_package.sh
 
       - name: Compile Python modules and scripts
         run: python -m compileall pi-companion scripts
@@ -82,13 +95,29 @@ jobs:
           bash scripts/setup_bluez_gatttool.sh --check-only
           bash scripts/flash_t114_when_plugged.sh --check-only
           bash scripts/configure_koalabyte_external_antennas.sh --check-only
+          bash scripts/install_koalabyte_udev_rules.sh --check-only
+          bash scripts/install_koalabyte_boot_services.sh --check-only
 
-      - name: Validate menu and hardware readiness reports
+      - name: Validate menu, field, and hardware readiness reports
         run: |
           PYTHONPATH=pi-companion python scripts/check_menu_actions.py
           PYTHONPATH=pi-companion python scripts/check_menu_display_sync.py
           PYTHONPATH=pi-companion python scripts/check_one_shot_controls.py
+          PYTHONPATH=pi-companion python scripts/check_field_readiness.py
+          PYTHONPATH=pi-companion python scripts/check_koalabyte_version_handshake.py
+          PYTHONPATH=pi-companion python scripts/run_koalabyte_status_server.py --json
+          bash scripts/koalabyte_doctor.sh --quick
           python scripts/preflight_all_hardware.py --profile heltec
+
+      - name: Validate one-shot dry run
+        run: bash scripts/install_koalabyte_one_shot.sh --check-only
+
+      - name: Validate release/log helpers
+        run: |
+          bash scripts/build_koalabyte_release_package.sh
+          bash scripts/export_koalabyte_logs.sh
+          test -f dist/KoalaByte-Blue-install-package.zip -o -f dist/KoalaByte-Blue-install-package.tar.gz
+          test -d exports
 
   esp32-firmware-build:
     name: Build ESP32-S3 DualEye firmware
