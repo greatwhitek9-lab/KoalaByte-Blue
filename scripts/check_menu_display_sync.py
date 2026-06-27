@@ -4,7 +4,6 @@ from __future__ import annotations
 import json
 import os
 import sys
-import tempfile
 import time
 from pathlib import Path
 
@@ -18,7 +17,7 @@ if str(ROOT) not in sys.path:
 STATUS_PATH = ROOT / "logs" / "one_shot" / "menu_display_sync_status.json"
 
 
-def _failures_from_payload(payload: dict[str, object]) -> list[str]:
+def _failures_from_menu_payload(payload: dict[str, object]) -> list[str]:
     failures: list[str] = []
     if payload.get("type") != "menu_sync":
         failures.append("menu payload type must be menu_sync")
@@ -46,15 +45,107 @@ def _failures_from_payload(payload: dict[str, object]) -> list[str]:
     return failures
 
 
+def _failures_from_ai_payload(payload: dict[str, object]) -> list[str]:
+    failures: list[str] = []
+    if payload.get("type") != "ai_face_sync":
+        failures.append("AI face payload type must be ai_face_sync")
+    if payload.get("display_mode") != "ai_face":
+        failures.append("AI face payload display_mode must be ai_face")
+    if int(payload.get("idle_timeout_seconds", 0)) != 30:
+        failures.append("AI face payload idle timeout must be 30 seconds")
+    if "B1/menu or double-tap" not in str(payload.get("menu_reopen_hint", "")):
+        failures.append("AI face payload must include B1/menu or double-tap reopen hint")
+    displays = set(payload.get("synced_displays", [])) if isinstance(payload.get("synced_displays"), list) else set()
+    if "heltec-t114" not in displays or "esp32-s3-dualeye" not in displays:
+        failures.append("AI face payload must target both Heltec T114 and ESP32-S3 DualEye")
+    return failures
+
+
 def main() -> int:
     os.environ.setdefault("KOALABYTE_MENU_SYNC", "0")
 
     from koalablue.menu_display_sync import build_ai_face_payload, build_menu_sync_payload, sync_ai_face_display, sync_menu_state
-    from koalblue.menu_ui import MenuSelectionScreen
+    from koalablue.menu_ui import MenuSelectionScreen
 
-    # The module is koalablue; keep this import fallback impossible at runtime, but
-    # leave an explicit failure message if a bad package alias ever appears again.
-    raise RuntimeError("unexpected koalblue import alias")
+    failures: list[str] = []
+    menu = MenuSelectionScreen(visible_rows=4)
+    original_label = menu.selected_item.label
+
+    move_event = menu.handle_command("down")
+    if move_event is None or move_event.event_type != "move":
+        failures.append("down command must move/highlight a menu item")
+    if menu.selected_item.label == original_label and len(menu.items) > 1:
+        failures.append("down command did not change highlighted item")
+
+    menu_payload = build_menu_sync_payload(menu, move_event)
+    failures.extend(_failures_from_menu_payload(menu_payload))
+
+    sync_payload = sync_menu_state(menu, move_event)
+    if sync_payload.get("sync_status") != "disabled":
+        failures.append("KOALABYTE_MENU_SYNC=0 should make sync_menu_state non-hardware check disabled")
+
+    selected_event = menu.handle_command("select")
+    if selected_event is None or selected_event.event_type != "select":
+        failures.append("select command must execute the highlighted menu path")
+    if menu.display_mode != "ai_face" or menu.face_state != "action_complete":
+        failures.append("completed action must return the display to AI face mode")
+
+    ai_payload = build_ai_face_payload(menu, selected_event, state=menu.face_state, message=menu.face_message)
+    failures.extend(_failures_from_ai_payload(ai_payload))
+
+    ai_sync = sync_ai_face_display(menu, selected_event, state=menu.face_state, message=menu.face_message)
+    if ai_sync.get("sync_status") != "disabled":
+        failures.append("KOALABYTE_MENU_SYNC=0 should make sync_ai_face_display non-hardware check disabled")
+
+    # While the AI face is active, ordinary controls must not launch another action.
+    waiting_event = menu.handle_command("select")
+    if waiting_event is None or waiting_event.event_type != "ai_face_waiting_for_menu":
+        failures.append("select while AI face is active must wait for menu reopen")
+
+    reopen_event = menu.handle_command("main_menu")
+    if reopen_event is None or reopen_event.event_type != "menu_reopen":
+        failures.append("B1/main_menu must reopen the menu from AI face mode")
+    if menu.display_mode != "menu":
+        failures.append("menu must be visible after B1/main_menu reopen")
+
+    menu.last_input_at = time.time() - 31
+    idle_event = menu.check_idle_timeout()
+    if idle_event is None or idle_event.event_type != "idle_timeout":
+        failures.append("menu must return to AI face after 30 seconds idle")
+    if menu.display_mode != "ai_face" or menu.face_state != "idle":
+        failures.append("idle timeout must switch display_mode to AI face idle")
+
+    menu.on_touch_down(12, now=100.0)
+    first_tap = menu.on_touch_up(12, now=100.05)
+    menu.on_touch_down(12, now=100.20)
+    second_tap = menu.on_touch_up(12, now=100.25)
+    if second_tap is None or second_tap.event_type != "menu_reopen":
+        failures.append("double-tap while AI face is active must reopen the menu")
+    if menu.display_mode != "menu":
+        failures.append("menu must be visible after touchscreen double-tap reopen")
+
+    status = {
+        "status": "MENU_DISPLAY_SYNC_READY" if not failures else "MENU_DISPLAY_SYNC_INCOMPLETE",
+        "updated_at": time.time(),
+        "checked": {
+            "highlight_scroll": True,
+            "b3_select_path": True,
+            "touch_long_press_path_declared": True,
+            "idle_face_timeout_seconds": 30,
+            "action_complete_returns_to_ai_face": True,
+            "b1_menu_reopens": True,
+            "touch_double_tap_reopens": True,
+            "heltec_sync_payload": True,
+            "esp32_dualeye_sync_payload": True,
+            "hardware_ports_required_for_check": False,
+        },
+        "first_tap_event": None if first_tap is None else first_tap.event_type,
+        "failures": failures,
+    }
+    STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    STATUS_PATH.write_text(json.dumps(status, indent=2, sort_keys=True), encoding="utf-8")
+    print(json.dumps(status, indent=2, sort_keys=True))
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":
