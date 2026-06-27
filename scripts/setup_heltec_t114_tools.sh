@@ -22,14 +22,9 @@ Environment:
   PYTHON_BIN                  Python interpreter to use. Defaults to pi-companion/.venv/bin/python, then python3.
   INSTALL_HELTEC_T114_TOOLS   auto/1/0. Default: auto. Installs/checks runtime helpers when possible.
   STRICT_HELTEC_T114_TOOLS    1 fails when required Heltec runtime dependencies are missing.
-  INSTALL_HELTEC_NRF_TOOLS    auto/1/0. Default: 1. Prepares west/nrfutil/NCS tools required by the combined-safe one-shot Heltec firmware flash.
+  INSTALL_HELTEC_NRF_TOOLS    auto/1/0. Default: 1 for real one-shot firmware setup.
 
-Covers:
-  - pyserial and bleak Python runtime dependencies
-  - USB/udev/BlueZ command availability checks for secondary Pi BlueZ node support
-  - KoalaByte stable udev aliases, especially /dev/koalabyte-heltec
-  - Heltec-priority port discovery and preflight env output
-  - west/nrfutil/NCS checks for Heltec T114 nRF52840 combined-safe firmware builds
+Check-only mode is non-installing. It does not prepare west, nrfutil, or NCS.
 EOF
 }
 
@@ -38,6 +33,7 @@ while [[ $# -gt 0 ]]; do
     --check-only)
       CHECK_ONLY=1
       INSTALL_HELTEC_T114_TOOLS=0
+      INSTALL_HELTEC_NRF_TOOLS=0
       ;;
     -h|--help)
       usage
@@ -67,7 +63,7 @@ fi
 
 echo "== Heltec Mesh Node T114 dependency setup/check =="
 echo "Python: ${PY}"
-echo "INSTALL_HELTEC_T114_TOOLS=${INSTALL_HELTEC_T114_TOOLS} STRICT_HELTEC_T114_TOOLS=${STRICT_HELTEC_T114_TOOLS} INSTALL_HELTEC_NRF_TOOLS=${INSTALL_HELTEC_NRF_TOOLS}"
+echo "INSTALL_HELTEC_T114_TOOLS=${INSTALL_HELTEC_T114_TOOLS} STRICT_HELTEC_T114_TOOLS=${STRICT_HELTEC_T114_TOOLS} INSTALL_HELTEC_NRF_TOOLS=${INSTALL_HELTEC_NRF_TOOLS} CHECK_ONLY=${CHECK_ONLY}"
 
 missing=()
 for cmd in lsusb udevadm bluetoothctl btmgmt rfkill; do
@@ -82,7 +78,7 @@ if [[ "${#missing[@]}" -gt 0 ]]; then
 fi
 
 if [[ "${CHECK_ONLY}" != "1" && "${INSTALL_HELTEC_T114_TOOLS}" != "0" ]]; then
-  echo "Installing/checking Python runtime packages for Heltec serial/BLE node support..."
+  echo "Installing/checking Python runtime packages for Heltec serial support..."
   if ! "${PY}" -m pip install --upgrade pyserial bleak >/dev/null; then
     echo "Could not install/upgrade pyserial and bleak with ${PY}." >&2
     [[ "${STRICT_HELTEC_T114_TOOLS}" == "1" ]] && exit 1
@@ -97,7 +93,7 @@ if missing:
 print("Python modules OK: pyserial, bleak")
 PY
 then
-  echo "Python runtime modules for Heltec serial/BLE support are incomplete." >&2
+  echo "Python runtime modules for Heltec serial support are incomplete." >&2
   [[ "${STRICT_HELTEC_T114_TOOLS}" == "1" ]] && exit 1
 fi
 
@@ -121,23 +117,23 @@ fi
 
 case "${INSTALL_HELTEC_NRF_TOOLS}" in
   0|false|False|no|NO|skip|SKIP)
-    echo "Skipping west/nrfutil/NCS checks for Heltec T114 firmware work. The combined-safe one-shot flash will require these tools later."
+    echo "Skipping Heltec firmware toolchain checks."
     ;;
   auto|AUTO)
-    echo "Checking optional west/nrfutil availability for Heltec T114 nRF52840 firmware work..."
+    echo "Checking optional west/nrfutil availability..."
     if command -v west >/dev/null 2>&1; then
       echo "  west: $(command -v west)"
     else
-      echo "  west not found. Set INSTALL_HELTEC_NRF_TOOLS=1 to prepare nRF/Zephyr tooling." >&2
+      echo "  west not found. Set INSTALL_HELTEC_NRF_TOOLS=1 for real firmware setup." >&2
     fi
     if command -v nrfutil >/dev/null 2>&1; then
       echo "  nrfutil: $(command -v nrfutil)"
     else
-      echo "  nrfutil not found. Set INSTALL_HELTEC_NRF_TOOLS=1 to prepare nRF/Zephyr tooling." >&2
+      echo "  nrfutil not found. Set INSTALL_HELTEC_NRF_TOOLS=1 for real firmware setup." >&2
     fi
     ;;
   1|true|True|yes|YES)
-    echo "Preparing west/nrfutil and nRF Connect SDK tooling for Heltec T114 combined-safe firmware work..."
+    echo "Preparing west/nrfutil and NCS tooling for Heltec T114 firmware work..."
     STRICT_NRF_TOOLS="${STRICT_HELTEC_T114_TOOLS}" INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS:-auto}" PYTHON_BIN="${PY}" bash "${ROOT}/scripts/setup_nrf_tools.sh"
     INSTALL_NCS_TOOLCHAIN="${INSTALL_NCS_TOOLCHAIN:-auto}" STRICT_NCS_TOOLCHAIN="${STRICT_HELTEC_T114_TOOLS}" PYTHON_BIN="${PY}" bash "${ROOT}/scripts/setup_nrf_connect_sdk_toolchain.sh"
     ;;
