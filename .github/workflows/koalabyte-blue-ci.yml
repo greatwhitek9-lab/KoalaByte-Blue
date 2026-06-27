@@ -34,6 +34,7 @@ jobs:
           echo "branch=${GITHUB_REF_NAME}"
           echo "readiness_sha=$(git rev-parse HEAD:scripts/check_repo_readiness.py)"
           echo "bootstrap_sha=$(git rev-parse HEAD:install.sh)"
+          echo "install_pi_sha=$(git rev-parse HEAD:scripts/install_pi.sh)"
           echo "one_shot_sha=$(git rev-parse HEAD:scripts/install_koalabyte_one_shot.sh)"
           echo "preflight_sha=$(git rev-parse HEAD:scripts/preflight_all_hardware.py)"
           echo "ollama_helper_sha=$(git rev-parse HEAD:scripts/setup_killerkoala_ollama.sh)"
@@ -45,6 +46,8 @@ jobs:
           bash -n scripts/install_pi.sh
           bash -n scripts/flash_esp32.sh
           bash -n scripts/flash_t114_when_plugged.sh
+          bash -n scripts/flash_t114_combined_safe.sh
+          bash -n scripts/build_t114_combined_safe.sh
           bash -n scripts/flash_heltec_mouth.sh
           bash -n scripts/preflight_all_hardware.sh
           bash -n scripts/setup_killerkoala_ollama.sh
@@ -52,6 +55,8 @@ jobs:
           bash -n scripts/setup_system_packages.sh
           bash -n scripts/setup_esp32_tools.sh
           bash -n scripts/setup_heltec_t114_tools.sh
+          bash -n scripts/setup_nrf_tools.sh
+          bash -n scripts/setup_nrf_connect_sdk_toolchain.sh
 
       - name: Compile Python modules and scripts
         run: python -m compileall pi-companion scripts
@@ -68,6 +73,8 @@ jobs:
           bash scripts/setup_system_packages.sh --check-only
           bash scripts/setup_esp32_tools.sh --check-only
           bash scripts/setup_heltec_t114_tools.sh --check-only
+          bash scripts/setup_nrf_tools.sh --check-only
+          bash scripts/setup_nrf_connect_sdk_toolchain.sh --check-only
           bash scripts/setup_killerkoala_ollama.sh --check-only
           bash scripts/flash_t114_when_plugged.sh --check-only
           bash scripts/configure_koalabyte_external_antennas.sh --check-only

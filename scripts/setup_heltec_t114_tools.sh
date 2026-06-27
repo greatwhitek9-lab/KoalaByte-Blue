@@ -24,6 +24,10 @@ Environment:
   STRICT_HELTEC_T114_TOOLS    1 fails when required Heltec runtime dependencies are missing.
   INSTALL_HELTEC_NRF_TOOLS    auto/1/0. Default: 1 for real one-shot firmware setup.
 
+Combined-safe dependency split:
+  Required for default T114 combined-safe: pyserial, bleak, west, NCS/Zephyr, stable /dev/koalabyte-heltec path.
+  Optional legacy workflows: nrfutil for older dongle/DFU helper paths.
+
 Check-only mode is non-installing. It does not prepare west, nrfutil, or NCS.
 EOF
 }
@@ -78,7 +82,7 @@ if [[ "${#missing[@]}" -gt 0 ]]; then
 fi
 
 if [[ "${CHECK_ONLY}" != "1" && "${INSTALL_HELTEC_T114_TOOLS}" != "0" ]]; then
-  echo "Installing/checking Python runtime packages for Heltec serial support..."
+  echo "Installing/checking Python runtime packages for Heltec serial/BLE/GNSS support..."
   if ! "${PY}" -m pip install --upgrade pyserial bleak >/dev/null; then
     echo "Could not install/upgrade pyserial and bleak with ${PY}." >&2
     [[ "${STRICT_HELTEC_T114_TOOLS}" == "1" ]] && exit 1
@@ -93,7 +97,7 @@ if missing:
 print("Python modules OK: pyserial, bleak")
 PY
 then
-  echo "Python runtime modules for Heltec serial support are incomplete." >&2
+  echo "Python runtime modules for Heltec serial/BLE/GNSS support are incomplete." >&2
   [[ "${STRICT_HELTEC_T114_TOOLS}" == "1" ]] && exit 1
 fi
 
@@ -120,21 +124,21 @@ case "${INSTALL_HELTEC_NRF_TOOLS}" in
     echo "Skipping Heltec firmware toolchain checks."
     ;;
   auto|AUTO)
-    echo "Checking optional west/nrfutil availability..."
+    echo "Checking optional west/NCS availability for Heltec T114 firmware work..."
     if command -v west >/dev/null 2>&1; then
       echo "  west: $(command -v west)"
     else
       echo "  west not found. Set INSTALL_HELTEC_NRF_TOOLS=1 for real firmware setup." >&2
     fi
-    if command -v nrfutil >/dev/null 2>&1; then
-      echo "  nrfutil: $(command -v nrfutil)"
+    if [[ -d "${NCS_WORKSPACE:-${HOME}/ncs}/zephyr" ]]; then
+      echo "  NCS/Zephyr checkout: ${NCS_WORKSPACE:-${HOME}/ncs}/zephyr"
     else
-      echo "  nrfutil not found. Set INSTALL_HELTEC_NRF_TOOLS=1 for real firmware setup." >&2
+      echo "  NCS/Zephyr checkout not found. Set INSTALL_HELTEC_NRF_TOOLS=1 for real firmware setup." >&2
     fi
     ;;
   1|true|True|yes|YES)
-    echo "Preparing west/nrfutil and NCS tooling for Heltec T114 firmware work..."
-    STRICT_NRF_TOOLS="${STRICT_HELTEC_T114_TOOLS}" INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS:-auto}" PYTHON_BIN="${PY}" bash "${ROOT}/scripts/setup_nrf_tools.sh"
+    echo "Preparing west and NCS/Zephyr tooling for Heltec T114 combined-safe firmware work..."
+    STRICT_NRF_TOOLS="${STRICT_HELTEC_T114_TOOLS}" INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS:-auto}" PYTHON_BIN="${PY}" bash "${ROOT}/scripts/setup_nrf_tools.sh" --west-only
     INSTALL_NCS_TOOLCHAIN="${INSTALL_NCS_TOOLCHAIN:-auto}" STRICT_NCS_TOOLCHAIN="${STRICT_HELTEC_T114_TOOLS}" PYTHON_BIN="${PY}" bash "${ROOT}/scripts/setup_nrf_connect_sdk_toolchain.sh"
     ;;
   *)

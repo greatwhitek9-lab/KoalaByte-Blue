@@ -12,7 +12,7 @@ INSTALL_ESP32_TOOLS="${INSTALL_ESP32_TOOLS:-auto}"
 STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-0}"
 INSTALL_HELTEC_T114_TOOLS="${INSTALL_HELTEC_T114_TOOLS:-auto}"
 STRICT_HELTEC_T114_TOOLS="${STRICT_HELTEC_T114_TOOLS:-0}"
-INSTALL_HELTEC_NRF_TOOLS="${INSTALL_HELTEC_NRF_TOOLS:-auto}"
+INSTALL_HELTEC_NRF_TOOLS="${INSTALL_HELTEC_NRF_TOOLS:-1}"
 INSTALL_HELTEC_V2_EXTRAS="${INSTALL_HELTEC_V2_EXTRAS:-auto}"
 STRICT_HELTEC_V2_EXTRAS="${STRICT_HELTEC_V2_EXTRAS:-0}"
 INSTALL_KILLERKOALA_OLLAMA="${INSTALL_KILLERKOALA_OLLAMA:-auto}"
@@ -21,7 +21,7 @@ KILLERKOALA_BASE_MODEL="${KILLERKOALA_BASE_MODEL:-tinyllama:1.1b}"
 KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-tinyllama:latest}"
 FLASH_T114_ON_PLUG="${FLASH_T114_ON_PLUG:-auto}"
 STRICT_T114_PLUG_FLASH="${STRICT_T114_PLUG_FLASH:-1}"
-T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE:-color-mouth}"
+T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE:-combined-safe}"
 PREPARE_DONGLE_CACHE="${PREPARE_DONGLE_CACHE:-0}"
 STRICT_DONGLE_CACHE="${STRICT_DONGLE_CACHE:-0}"
 INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS:-auto}"
@@ -37,7 +37,7 @@ cd "${REPO_ROOT}"
 
 echo "KoalaByte Blue V2 Heltec Edition Pi companion installer"
 echo "Repository root: ${REPO_ROOT}"
-echo "System dependency helper covers WiFi, BlueZ, Heltec T114 USB serial/udev, SDL2, can-utils, iproute2, USB, build, and GPIO packages when apt is available."
+echo "System dependency helper covers WiFi, BlueZ, Heltec T114 USB serial/udev, SDL2, can-utils, iproute2, USB, build, GPIO, GNSS, voice, and audio packages when apt is available."
 echo
 
 if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
@@ -107,7 +107,7 @@ KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL}" \
   bash "${REPO_ROOT}/scripts/setup_killerkoala_ollama.sh"
 
 echo
-echo "Checking/preparing Heltec T114 runtime dependencies and port discovery..."
+echo "Checking/preparing Heltec T114 runtime dependencies, GNSS/BLE serial path, and firmware build tools..."
 INSTALL_HELTEC_T114_TOOLS="${INSTALL_HELTEC_T114_TOOLS}" \
 STRICT_HELTEC_T114_TOOLS="${STRICT_HELTEC_T114_TOOLS}" \
 INSTALL_HELTEC_NRF_TOOLS="${INSTALL_HELTEC_NRF_TOOLS}" \
@@ -139,7 +139,7 @@ echo "Running repo readiness check..."
 python "${REPO_ROOT}/scripts/check_repo_readiness.py"
 
 echo
-echo "Generating default T114 HCI USB, color-mouth, GNSS, face-state, and passive BLE protocol artifacts..."
+echo "Generating default T114 combined BLE/GNSS, HCI USB, color-mouth, face-state, and passive BLE protocol artifacts..."
 PYTHONPATH="${REPO_ROOT}/pi-companion" python "${REPO_ROOT}/scripts/write_optional_t114_firmware_artifacts.py"
 
 echo
@@ -192,13 +192,13 @@ echo
 echo "Legacy external nRF52840 Dongle cache policy: PREPARE_DONGLE_CACHE=${PREPARE_DONGLE_CACHE}, STRICT_DONGLE_CACHE=${STRICT_DONGLE_CACHE}"
 case "${PREPARE_DONGLE_CACHE}" in
   0|false|False|no|NO|skip|SKIP)
-    echo "Skipping legacy external dongle firmware cache preparation. Heltec T114 is the default primary BLE board."
+    echo "Skipping legacy external dongle firmware cache preparation. Heltec T114 is the default primary BLE/GNSS board."
     ;;
   auto|AUTO|1|true|True|yes|YES)
     echo "Preparing legacy external dongle cache because PREPARE_DONGLE_CACHE requested it."
-    STRICT_NRF_TOOLS="${STRICT_DONGLE_CACHE}" INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS}" PYTHON_BIN="${VENV_DIR}/bin/python" bash "${REPO_ROOT}/scripts/setup_nrf_tools.sh" || {
+    STRICT_NRF_TOOLS="${STRICT_DONGLE_CACHE}" INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS}" PYTHON_BIN="${VENV_DIR}/bin/python" bash "${REPO_ROOT}/scripts/setup_nrf_tools.sh" --with-nrfutil || {
       if [[ "${STRICT_DONGLE_CACHE}" == "1" ]]; then
-        echo "STRICT_DONGLE_CACHE=1 is set, failing install because west/nrfutil setup did not complete." >&2
+        echo "STRICT_DONGLE_CACHE=1 is set and legacy west/nrfutil setup did not complete." >&2
         exit 1
       fi
       echo "Continuing install because STRICT_DONGLE_CACHE is not enabled." >&2
@@ -268,6 +268,8 @@ echo "  cat ${REPO_ROOT}/logs/gpio_buttons/gpio_button_manifest.json"
 echo "GPIO button live test on a Raspberry Pi:"
 echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/setup_gpio_buttons.py --live-test --seconds 20"
 echo "T114 plug-in firmware flash:"
+echo "  T114_PLUG_FLASH_PROFILE=combined-safe bash ${REPO_ROOT}/scripts/flash_t114_when_plugged.sh"
+echo "  T114_GNSS_UART_LABEL=UART_1 T114_PLUG_FLASH_PROFILE=combined-safe bash ${REPO_ROOT}/scripts/flash_t114_when_plugged.sh"
 echo "  T114_PLUG_FLASH_PROFILE=color-mouth bash ${REPO_ROOT}/scripts/flash_t114_when_plugged.sh"
 echo "  T114_PLUG_FLASH_PROFILE=hci-usb bash ${REPO_ROOT}/scripts/flash_t114_when_plugged.sh"
 echo "Optional T114 protocol artifact manifest:"
@@ -276,10 +278,11 @@ echo "  bash ${REPO_ROOT}/scripts/configure_t114_2g4_antenna.sh --check-only"
 echo "ESP32 PlatformIO helper:"
 echo "  bash ${REPO_ROOT}/scripts/setup_esp32_tools.sh"
 echo
-echo "Heltec primary BLE node check:"
+echo "Heltec primary BLE/GNSS node check:"
 echo "  python3 ${REPO_ROOT}/scripts/discover_koalabyte_ports.py --profile heltec"
 echo "  cat ${REPO_ROOT}/logs/preflight/koalabyte_ports.env"
 echo "  KOALABYTE_PRIMARY_BLE_PORT=/dev/koalabyte-heltec PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_ble_node_manager.py --duration 30"
+echo "  cat ${REPO_ROOT}/logs/gnss/current_fix.json"
 echo
 echo "Koala Kan Kommander InnoMaker manifest test:"
 echo "  PYTHONPATH=${REPO_ROOT}/pi-companion ${VENV_DIR}/bin/python ${REPO_ROOT}/scripts/run_koala_kan_kommander.py manifest"

@@ -7,7 +7,7 @@ INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS:-auto}"
 STRICT_NRF_TOOLS="${STRICT_NRF_TOOLS:-0}"
 SETUP_NCS_TOOLCHAIN="${SETUP_NCS_TOOLCHAIN:-0}"
 NEED_WEST=1
-NEED_NRFUTIL=1
+NEED_NRFUTIL=0
 CHECK_ONLY=0
 
 usage() {
@@ -19,6 +19,7 @@ Usage:
   STRICT_NRF_TOOLS=1 bash scripts/setup_nrf_tools.sh
   bash scripts/setup_nrf_tools.sh --west-only
   bash scripts/setup_nrf_tools.sh --nrfutil-only
+  bash scripts/setup_nrf_tools.sh --with-nrfutil
   bash scripts/setup_nrf_tools.sh --full-toolchain
   bash scripts/setup_nrf_tools.sh --check-only
 
@@ -30,11 +31,8 @@ Environment:
   NRFUTIL_INSTALL_CMD  Optional custom command to install nrfutil if pip install is not desired.
 
 Tools checked:
-  west                 Zephyr/nRF Connect SDK build tool
-  nrfutil              Nordic DFU package/USB serial flashing tool
-
-Full toolchain helper:
-  scripts/setup_nrf_connect_sdk_toolchain.sh
+  west                 Zephyr/nRF Connect SDK build tool. Required for combined-safe T114 firmware builds.
+  nrfutil              Optional legacy DFU helper for dongle/HCI workflows. Not required for the default combined-safe T114 profile.
 EOF
 }
 
@@ -48,10 +46,14 @@ while [[ $# -gt 0 ]]; do
       NEED_WEST=0
       NEED_NRFUTIL=1
       ;;
+    --with-nrfutil)
+      NEED_WEST=1
+      NEED_NRFUTIL=1
+      ;;
     --full-toolchain)
       SETUP_NCS_TOOLCHAIN=1
       NEED_WEST=1
-      NEED_NRFUTIL=1
+      NEED_NRFUTIL=0
       ;;
     --check-only)
       CHECK_ONLY=1
@@ -88,9 +90,20 @@ have_tool() {
   command -v "$1" >/dev/null 2>&1
 }
 
+python_in_venv() {
+  "${PYTHON_BIN}" - <<'PY'
+import sys
+raise SystemExit(0 if sys.prefix != sys.base_prefix else 1)
+PY
+}
+
 pip_install() {
   local package="$1"
-  "${PYTHON_BIN}" -m pip install --user --upgrade "$package"
+  if python_in_venv; then
+    "${PYTHON_BIN}" -m pip install --upgrade "$package"
+  else
+    "${PYTHON_BIN}" -m pip install --user --upgrade "$package"
+  fi
 }
 
 attempt_install_west() {
@@ -104,7 +117,8 @@ attempt_install_nrfutil() {
     echo "nrfutil not found. Running NRFUTIL_INSTALL_CMD..."
     bash -lc "${NRFUTIL_INSTALL_CMD}" || true
   else
-    echo "nrfutil not found. Attempting to install nrfutil with pip..."
+    echo "nrfutil not found. Attempting to install nrfutil with pip."
+    echo "Note: nrfutil is optional for the default combined-safe T114 profile and may have older Python dependency pins."
     pip_install nrfutil || true
   fi
   export PATH="${HOME}/.local/bin:${PATH}"
@@ -114,7 +128,7 @@ failures=()
 
 echo "== KoalaByte Blue nRF tool setup =="
 echo "Repository root: ${REPO_ROOT}"
-echo "INSTALL_NRF_TOOLS=${INSTALL_NRF_TOOLS} STRICT_NRF_TOOLS=${STRICT_NRF_TOOLS} SETUP_NCS_TOOLCHAIN=${SETUP_NCS_TOOLCHAIN}"
+echo "INSTALL_NRF_TOOLS=${INSTALL_NRF_TOOLS} STRICT_NRF_TOOLS=${STRICT_NRF_TOOLS} SETUP_NCS_TOOLCHAIN=${SETUP_NCS_TOOLCHAIN} NEED_WEST=${NEED_WEST} NEED_NRFUTIL=${NEED_NRFUTIL}"
 
 if [[ "${NEED_WEST}" == "1" ]]; then
   if ! have_tool west && [[ "${CHECK_ONLY}" != "1" ]] && install_enabled; then
@@ -143,9 +157,8 @@ if [[ "${NEED_NRFUTIL}" == "1" ]]; then
 fi
 
 if (( ${#failures[@]} > 0 )); then
-  echo "Missing required nRF tool(s): ${failures[*]}" >&2
-  echo "Install nRF Connect SDK/west and Nordic nrfutil, then rerun the flash/cache command." >&2
-  echo "Override nrfutil installation with NRFUTIL_INSTALL_CMD='your install command' if needed." >&2
+  echo "Missing requested nRF tool(s): ${failures[*]}" >&2
+  echo "For the default combined-safe T114 firmware, west + NCS/Zephyr are required; nrfutil is optional unless explicitly requested." >&2
   if strict_enabled; then
     exit 1
   fi
