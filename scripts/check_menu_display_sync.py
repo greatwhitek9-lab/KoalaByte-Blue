@@ -65,12 +65,12 @@ def main() -> int:
     os.environ.setdefault("KOALABYTE_MENU_SYNC", "0")
 
     from koalablue.menu_display_sync import build_ai_face_payload, build_menu_sync_payload, sync_ai_face_display, sync_menu_state
-    from koalablue.menu_ui import MenuSelectionScreen
+    from koalablue.menu_ui import MenuItem, MenuSelectionScreen
 
     failures: list[str] = []
+
     menu = MenuSelectionScreen(visible_rows=4)
     original_label = menu.selected_item.label
-
     move_event = menu.handle_command("down")
     if move_event is None or move_event.event_type != "move":
         failures.append("down command must move/highlight a menu item")
@@ -79,49 +79,52 @@ def main() -> int:
 
     menu_payload = build_menu_sync_payload(menu, move_event)
     failures.extend(_failures_from_menu_payload(menu_payload))
-
     sync_payload = sync_menu_state(menu, move_event)
     if sync_payload.get("sync_status") != "disabled":
         failures.append("KOALABYTE_MENU_SYNC=0 should make sync_menu_state non-hardware check disabled")
 
-    selected_event = menu.handle_command("select")
+    leaf = MenuSelectionScreen(items=[MenuItem(label="Display Sync Test Action", command="display_sync_test_action", description="Deterministic no-hardware leaf action", group="System / Companion")], visible_rows=1)
+    ran: list[str] = []
+    leaf.register_handler("display_sync_test_action", lambda item: ran.append(item.command))
+
+    selected_event = leaf.handle_command("select")
     if selected_event is None or selected_event.event_type != "select":
         failures.append("select command must execute the highlighted menu path")
-    if menu.display_mode != "ai_face" or menu.face_state != "action_complete":
+    if ran != ["display_sync_test_action"]:
+        failures.append("registered leaf handler did not run from select path")
+    if leaf.display_mode != "ai_face" or leaf.face_state != "action_complete":
         failures.append("completed action must return the display to AI face mode")
 
-    ai_payload = build_ai_face_payload(menu, selected_event, state=menu.face_state, message=menu.face_message)
+    ai_payload = build_ai_face_payload(leaf, selected_event, state=leaf.face_state, message=leaf.face_message)
     failures.extend(_failures_from_ai_payload(ai_payload))
-
-    ai_sync = sync_ai_face_display(menu, selected_event, state=menu.face_state, message=menu.face_message)
+    ai_sync = sync_ai_face_display(leaf, selected_event, state=leaf.face_state, message=leaf.face_message)
     if ai_sync.get("sync_status") != "disabled":
         failures.append("KOALABYTE_MENU_SYNC=0 should make sync_ai_face_display non-hardware check disabled")
 
-    # While the AI face is active, ordinary controls must not launch another action.
-    waiting_event = menu.handle_command("select")
+    waiting_event = leaf.handle_command("select")
     if waiting_event is None or waiting_event.event_type != "ai_face_waiting_for_menu":
         failures.append("select while AI face is active must wait for menu reopen")
 
-    reopen_event = menu.handle_command("main_menu")
+    reopen_event = leaf.handle_command("main_menu")
     if reopen_event is None or reopen_event.event_type != "menu_reopen":
         failures.append("B1/main_menu must reopen the menu from AI face mode")
-    if menu.display_mode != "menu":
+    if leaf.display_mode != "menu":
         failures.append("menu must be visible after B1/main_menu reopen")
 
-    menu.last_input_at = time.time() - 31
-    idle_event = menu.check_idle_timeout()
+    leaf.last_input_at = time.time() - 31
+    idle_event = leaf.check_idle_timeout()
     if idle_event is None or idle_event.event_type != "idle_timeout":
         failures.append("menu must return to AI face after 30 seconds idle")
-    if menu.display_mode != "ai_face" or menu.face_state != "idle":
+    if leaf.display_mode != "ai_face" or leaf.face_state != "idle":
         failures.append("idle timeout must switch display_mode to AI face idle")
 
-    menu.on_touch_down(12, now=100.0)
-    first_tap = menu.on_touch_up(12, now=100.05)
-    menu.on_touch_down(12, now=100.20)
-    second_tap = menu.on_touch_up(12, now=100.25)
+    leaf.on_touch_down(12, now=100.0)
+    first_tap = leaf.on_touch_up(12, now=100.05)
+    leaf.on_touch_down(12, now=100.20)
+    second_tap = leaf.on_touch_up(12, now=100.25)
     if second_tap is None or second_tap.event_type != "menu_reopen":
         failures.append("double-tap while AI face is active must reopen the menu")
-    if menu.display_mode != "menu":
+    if leaf.display_mode != "menu":
         failures.append("menu must be visible after touchscreen double-tap reopen")
 
     status = {
