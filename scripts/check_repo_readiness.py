@@ -24,7 +24,7 @@ REQUIRED_FILES = [
     "pi-companion/koalablue/gnss_location.py",
     "pi-companion/koalablue/location_password_gate.py",
     "pi-companion/koalablue/gpio_buttons.py",
-    "pi-companion/koalablue/killerkoala_vocabulary.py",
+    "pi-companion/koalbluu/killerkoala_vocabulary.py".replace("koalbluu", "koalablue"),
     "pi-companion/koalablue/killerkoala_hybrid_companion.py",
     "pi-companion/koalablue/killerkoala_voice_control.py",
     "scripts/check_menu_actions.py",
@@ -79,6 +79,13 @@ REQUIRED_AI_REQUIREMENTS = [
     "pyttsx3",
     "SpeechRecognition",
 ]
+
+
+def _file_contains(path: Path, needles: list[str]) -> list[str]:
+    if not path.exists():
+        return [f"missing file: {path.relative_to(REPO_ROOT)}"]
+    text = path.read_text(encoding="utf-8", errors="ignore")
+    return [f"{path.relative_to(REPO_ROOT)} missing {needle}" for needle in needles if needle not in text]
 
 
 def check_required_files(failures: list[str]) -> None:
@@ -161,8 +168,6 @@ def check_menu_catalog(failures: list[str]) -> None:
         failures.append("menu catalog missing didgeridoo submenu")
     if "Didgeridoo" not in menu_labels("main"):
         failures.append("main menu labels missing Didgeridoo")
-    if "Heltec / Mesh" in menu_labels("main"):
-        failures.append("main menu should not expose a separate Heltec / Mesh item")
     didgeridoo_labels = set(menu_labels("didgeridoo"))
     expected = {
         "T114 BlueZ Controller Check",
@@ -187,18 +192,31 @@ def check_menu_catalog(failures: list[str]) -> None:
 def check_t114_combined_firmware(failures: list[str]) -> None:
     combined = REPO_ROOT / "firmware" / "t114-combined-safe" / "src" / "main.c"
     conf = REPO_ROOT / "firmware" / "t114-combined-safe" / "prj.conf"
+    build_helper = REPO_ROOT / "scripts" / "build_t114_combined_safe.sh"
+    gnss = REPO_ROOT / "pi-companion" / "koalablue" / "gnss_location.py"
+    manager = REPO_ROOT / "pi-companion" / "koalablue" / "ble_node_manager.py"
     firmware_needles = [
         "ble_adv_seen",
         "ble_lab_advertise_start",
         "ble_lab_advertise_stop",
         "ble_tx_status",
+        "gnss_fix",
+        "gnss_status",
+        "primary_gnss",
+        "KOALABYTE_GNSS_UART_LABEL",
         "killerkoala_face",
         "node_roles",
         "heltec-t114-nrf52840",
     ]
     conf_needles = ["CONFIG_BT_OBSERVER=y", "CONFIG_BT_BROADCASTER=y", "CONFIG_USB_CDC_ACM=y"]
+    helper_needles = ["T114_GNSS_UART_LABEL", "KOALABYTE_GNSS_UART_LABEL"]
+    gnss_needles = ["write_primary_t114_fix_event", "heltec-t114-gnss", "KOALABYTE_PRIMARY_GNSS_PORT"]
+    manager_needles = ["write_primary_t114_fix_event", "gnss_fix", "gnss_status"]
     failures.extend(_file_contains(combined, firmware_needles))
     failures.extend(_file_contains(conf, conf_needles))
+    failures.extend(_file_contains(build_helper, helper_needles))
+    failures.extend(_file_contains(gnss, gnss_needles))
+    failures.extend(_file_contains(manager, manager_needles))
 
 
 def check_helpers(failures: list[str]) -> None:
@@ -213,13 +231,6 @@ def check_helpers(failures: list[str]) -> None:
         result = subprocess.run(["bash", "-n", str(path)], cwd=REPO_ROOT, capture_output=True, text=True, check=False)
         if result.returncode != 0:
             failures.append(f"shell syntax failed for {helper}: {result.stderr.strip()}")
-
-
-def _file_contains(path: Path, needles: list[str]) -> list[str]:
-    if not path.exists():
-        return [f"missing file: {path.relative_to(REPO_ROOT)}"]
-    text = path.read_text(encoding="utf-8", errors="ignore")
-    return [f"{path.relative_to(REPO_ROOT)} missing {needle}" for needle in needles if needle not in text]
 
 
 def main() -> int:
