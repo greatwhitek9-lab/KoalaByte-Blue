@@ -2,7 +2,7 @@
 
 KoalaByte Blue V2 Heltec Edition is the beginner-friendly Raspberry Pi 3B+ build of the KillerKoala cyber companion. It combines a Raspberry Pi, an ESP32-S3 DualEye display board, a Heltec Mesh Node T114, six front buttons, optional antennas, and an optional InnoMaker USB-to-CAN kit.
 
-The project is designed for lawful owned-device labs, defensive Bluetooth observation, Koalagotchi-style companion feedback, Didgeridoo mesh/GNSS status, safe local reports, voice control, and optional isolated CAN bench work.
+The project is designed for lawful owned-device labs, defensive Bluetooth observation, Koalagotchi-style companion feedback, Didgeridoo mesh/GNSS status, safe local reports, voice control, protected lab-only helper actions, and optional isolated CAN bench work.
 
 Use KoalaByte Blue only on your own equipment, your own lab traffic, or systems you have written permission to test.
 
@@ -10,7 +10,7 @@ Use KoalaByte Blue only on your own equipment, your own lab traffic, or systems 
 
 ## Beginner summary
 
-Think of the device as four main parts working together:
+Think of the device as five main parts working together:
 
 | Part | Simple role | What it does in KoalaByte Blue |
 |---|---|---|
@@ -28,7 +28,7 @@ No custom PCB is required for this profile.
 
 ### Raspberry Pi 3B+
 
-The Pi is the host computer. It boots Raspberry Pi OS from the SD card and runs the KoalaByte Blue software. It owns the main menu, Python companion code, logs, system services, voice command routing, KillerKoala AI fallback, BLE node manager, CAN helper scripts, and readiness checks.
+The Pi is the host computer. It boots Raspberry Pi OS from the SD card and runs the KoalaByte Blue software. It owns the main menu, Python companion code, logs, system services, voice command routing, KillerKoala AI fallback, BLE node manager, CAN helper scripts, protected action gates, and readiness checks.
 
 The Pi connects to the other boards over USB data cables. Power the Pi from a regulated USB power source or power bank. Do not feed raw lithium battery voltage directly into the Pi.
 
@@ -260,8 +260,8 @@ The one-shot installer now checks and prepares the full build path:
 4. **Heltec T114 combined-safe firmware** — builds/flashes the T114 profile used by BLE/GNSS/status dashboard paths.
 5. **ESP32-S3 DualEye firmware** — builds/flashes the DualEye firmware for eyes, face, and display behavior.
 6. **KillerKoala eyes and mouth sync** — validates the shared face-state protocol between the ESP32-S3 and Heltec T114.
-7. **Menus, buttons, antennas, controls, and commands** — confirms menu routing, front button mapping, antenna readiness, and helper scripts.
-8. **Full runtime dependencies and board helpers** — checks required Python imports, project modules, board helper files, and command availability.
+7. **Menus, buttons, antennas, controls, and commands** — confirms menu routing, front button mapping, antenna readiness, BlueZ menu coverage, protected lab-only action coverage, and helper scripts.
+8. **Full runtime dependencies and board helpers** — checks required Python imports, project modules, board helper files, BlueZ helper coverage, and command availability.
 9. **BLE node manager service** — installs the Pi-side node service with the T114 as the primary board path.
 10. **T114 live dashboard status phrases** — verifies the live dashboard phrases used by Heltec Link, Radio/GPS, and Lab Beacon TX.
 11. **Didgeridoo/menu action readiness** — validates that menu actions and display-only status rows are registered correctly.
@@ -279,6 +279,7 @@ logs/menu_actions/menu_action_manifest.json
 logs/menu_actions/t114_status_dashboard_status.json
 logs/killerkoala/killerkoala_ai_readiness.json
 logs/killerkoala/ollama_setup_status.json
+logs/koala_bluez/koala_bluez_module_manifest.json
 ```
 
 ---
@@ -290,12 +291,12 @@ The main menu is the top-level screen. Each item opens a submenu.
 | Main item | Plain-English meaning |
 |---|---|
 | Eucalyptus | Always-on passive BLE logger controls and Koalagotchi mode. |
-| Bluetooth Tools | Local Bluetooth/BLE inventory, summaries, helper checks, and defensive review tools. |
+| Bluetooth Tools | Local Bluetooth/BLE inventory, summaries, BlueZ helper checks, protected lab-only actions, and defensive review tools. |
 | Didgeridoo | Heltec T114, GNSS/GPS, Meshtastic, mesh, and protected location tools. |
 | CAN Bench Tools | Optional InnoMaker USB-to-CAN bench tools. |
 | Reports & Reviews | Report builders, defensive review templates, and Boomerang camera-awareness logbook. |
 | System / Companion | KillerKoala voice, XP/status, buttons, settings, and helper controls. |
-| Lab | A shorter authorized-lab menu with the most common safe lab review items. |
+| Lab | A shorter authorized-lab menu with the most common safe lab review items and protected BlueZ helpers. |
 | Power & Exit | Shutdown, quit, and return controls. |
 
 ---
@@ -318,7 +319,9 @@ Eucalyptus is the always-on passive BLE logger and Koalagotchi area. It is separ
 
 ## Bluetooth Tools submenu
 
-Bluetooth Tools is the local BLE toolbox. It is built around safe inventory, local status, report generation, and owned-lab helpers.
+Bluetooth Tools is the local BLE toolbox. It is built around safe inventory, local status, report generation, owned-lab helpers, and protected lab-only tools.
+
+### Basic BLE and local observation actions
 
 | Item | What it does |
 |---|---|
@@ -329,15 +332,51 @@ Bluetooth Tools is the local BLE toolbox. It is built around safe inventory, loc
 | Koala Kry | Replays saved local metadata into the report pipeline. |
 | Ear Tag | Named lab BLE beacon helper. |
 | KoalaByte Lab | Synthetic owned-device BLE lab advertisement helper. |
-| Gumleaf Gear Check | Inventories local BlueZ helper tools. |
-| Eucalyptus Bus Scout | Collects local adapter/controller status. |
-| Dropbear Discovery Sweep | Runs bounded local discovery with safe defaults. |
-| Billabong HCI Watch | Runs bounded local HCI capture for local analysis. |
-| Kookaburra Safe Nest Run | Runs local inventory, status, and bounded discovery together. |
 | that’s not a knife | Defensive local BLE pressure guard. |
 | AntEater | Passive BLE risk triage with redacted reports. |
 | Urban Poaching | Authorized BLE RSSI lab game. |
 | Back to Main Canopy | Returns to the main menu. |
+
+### Outback BlueZ Module Deck
+
+These actions wrap local Linux BlueZ helpers with KoalaByte names and safety defaults.
+
+| Item | What it does |
+|---|---|
+| Outback Module Deck | Shows the complete KoalaByte BlueZ module manifest. |
+| Gumleaf Gear Check | Inventories local BlueZ helper tools and records what is installed. |
+| Eucalyptus Bus Scout | Collects local adapter/controller status. |
+| Dropbear Discovery Sweep | Runs bounded local discovery with safe defaults and redacted address handling. |
+| Billabong HCI Watch | Runs bounded local HCI capture for local analysis. |
+| Kookaburra Safe Nest Run | Runs local inventory, status, and bounded discovery together. |
+| Joey Target Dossier | Protected lab-only owned-device target info card. |
+| Treehouse Service Trace | Protected lab-only owned-device service notes. |
+| Gumnut GATT Gatecheck | Protected lab-only owned-device GATT readiness checklist. |
+
+### Protected lab-only BlueZ actions
+
+These actions are password protected through the same protected-actions gate used by protected location/GNSS actions. They are for owned-device lab use only. If the password gate or owned-device target requirements are not satisfied, KoalaByte writes a blocked artifact under `logs/koala_bluez/` and does not run the backend helper.
+
+| Item | What it does |
+|---|---|
+| Outback Radio Ledger | Protected lab-only local adapter ledger. |
+| Classic Track Finder | Protected lab-only classic controller listing. |
+| Treehouse RFCOMM Wiremap | Protected lab-only RFCOMM binding/status map. |
+| Pouch Link Echo | Protected lab-only single owned-device link echo. Requires a target. |
+| Gumnut GATT Ghostmap | Protected lab-only owned-device primary GATT service map. Requires a target. |
+
+Set up the protected-actions password:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_location_password_gate.py setup
+```
+
+Target-specific protected actions also require:
+
+```bash
+export KOALABYTE_BLUEZ_LAB_TARGET=AA:BB:CC:DD:EE:FF
+export KOALABYTE_BLUEZ_OWNED_DEVICE=1
+```
 
 ---
 
@@ -377,7 +416,7 @@ CAN tools are optional and only for isolated bench-simulator or owned-harness wo
 | Item | What it does |
 |---|---|
 | Koala Kan Kommander | Opens the InnoMaker USB-to-CAN listen/check workflow. |
-| CAN Bench Safety Check | Opens the CAN safe manifest, inventory, and status workflow. |
+| CAN Bench Safety Check | Opens the CAN safe manifest/inventory/status workflow. |
 | Back to Main Canopy | Returns to the main menu. |
 
 ---
@@ -420,7 +459,7 @@ System / Companion is where KillerKoala, buttons, XP/status, and settings live.
 
 ## Lab submenu
 
-The Lab submenu groups common authorized-lab review items in one place.
+The Lab submenu groups common authorized-lab review items and protected tools in one place.
 
 | Item | What it does |
 |---|---|
@@ -429,6 +468,14 @@ The Lab submenu groups common authorized-lab review items in one place.
 | Pairing Security Review | Reviews owned-device pairing/access-control posture. |
 | Lab Beacon Plan | Creates a safe ESP32 demo beacon/peripheral testing plan. |
 | CAN Bench Safety Check | Opens Koala Kan safe manifest/inventory/status workflow. |
+| Joey Target Dossier | Protected lab-only owned-device target info card. |
+| Treehouse Service Trace | Protected lab-only owned-device service notes. |
+| Gumnut GATT Gatecheck | Protected lab-only owned-device GATT readiness checklist. |
+| Outback Radio Ledger | Protected lab-only local adapter ledger. |
+| Classic Track Finder | Protected lab-only classic controller listing. |
+| Treehouse RFCOMM Wiremap | Protected lab-only RFCOMM binding/status map. |
+| Pouch Link Echo | Protected lab-only single owned-device link echo. Requires a target. |
+| Gumnut GATT Ghostmap | Protected lab-only owned-device primary GATT service map. Requires a target. |
 | Protected Location Gate Status | Shows protected-actions password gate state. |
 | Back to Main Canopy | Returns to the main menu. |
 
@@ -497,6 +544,8 @@ Examples:
 killerkoala open Eucalyptus
 killerkoala open Didgeridoo
 killerkoala run T114 Quick BLE Test Scan
+killerkoala open Outback Module Deck
+killerkoala open Gumnut GATT Gatecheck
 killerkoala open Reports & Reviews
 killerkoala status
 ```
@@ -593,6 +642,15 @@ KOALABYTE_PRIMARY_BLE_PORT=/dev/koalabyte-heltec PYTHONPATH=pi-companion python3
 cat logs/gnss/current_fix.json
 ```
 
+Check BlueZ helper coverage:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_koala_bluez.py manifest
+bash scripts/run_koala_bluez_manifest.sh
+bash scripts/run_koala_bluez_inventory.sh
+bash scripts/run_koala_bluez_status.sh
+```
+
 ---
 
 ## Troubleshooting basics
@@ -640,6 +698,16 @@ Skip model setup:
 INSTALL_KILLERKOALA_OLLAMA=0 bash scripts/install_koalabyte_one_shot.sh
 ```
 
+### Protected BlueZ action is blocked
+
+That means the protected-actions password gate or owned-target requirement was not satisfied. Set up the password and, for target-specific checks, set the target variables:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/run_location_password_gate.py setup
+export KOALABYTE_BLUEZ_LAB_TARGET=AA:BB:CC:DD:EE:FF
+export KOALABYTE_BLUEZ_OWNED_DEVICE=1
+```
+
 ### CAN is missing
 
 That is okay unless you requested strict CAN. The InnoMaker CAN kit is optional.
@@ -648,4 +716,4 @@ That is okay unless you requested strict CAN. The InnoMaker CAN kit is optional.
 
 ## Safety boundary
 
-KoalaByte Blue is for lawful owned-device labs and defensive review. The repository focuses on passive observation, local status, reports, readiness checks, companion UI, and isolated bench workflows. Do not use it on systems, vehicles, networks, radios, or devices you do not own or do not have permission to test.
+KoalaByte Blue is for lawful owned-device labs and defensive review. The repository focuses on passive observation, local status, reports, readiness checks, companion UI, password-protected lab-only helpers, and isolated bench workflows. Do not use it on systems, vehicles, networks, radios, or devices you do not own or do not have permission to test.
