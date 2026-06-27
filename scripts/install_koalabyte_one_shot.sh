@@ -14,6 +14,7 @@ STRICT_INNOMAKER_CAN="${STRICT_INNOMAKER_CAN:-0}"
 INSTALL_BLE_NODE_MANAGER_SERVICE="${INSTALL_BLE_NODE_MANAGER_SERVICE:-auto}"
 STRICT_BLE_NODE_MANAGER_SERVICE="${STRICT_BLE_NODE_MANAGER_SERVICE:-0}"
 STRICT_T114_STATUS_DASHBOARD="${STRICT_T114_STATUS_DASHBOARD:-0}"
+STRICT_FULL_RUNTIME_DEPENDENCIES="${STRICT_FULL_RUNTIME_DEPENDENCIES:-0}"
 INSTALL_DUALEYE_VOICE_BRIDGE_SERVICE="${INSTALL_DUALEYE_VOICE_BRIDGE_SERVICE:-auto}"
 STRICT_DUALEYE_VOICE_BRIDGE_SERVICE="${STRICT_DUALEYE_VOICE_BRIDGE_SERVICE:-0}"
 STRICT_FACE_MOUTH_SYNC="${STRICT_FACE_MOUTH_SYNC:-0}"
@@ -38,6 +39,7 @@ Required/default actions:
   - flash the ESP32-S3 DualEye firmware
   - validate ESP32 eyes and Heltec mouth face-state sync
   - validate all menus, submenu routes, button mappings, controls, command helpers, and antenna paths
+  - validate Python/runtime imports, project modules, board helper files, and optional board command availability
   - install/start the BLE node manager service with Heltec T114 as primary and ESP32/Pi as secondary nodes
   - validate live T114 dashboard status phrases for Heltec Link, Radio/GPS, and Lab Beacon TX
   - validate the Didgeridoo/menu action manifest
@@ -54,6 +56,7 @@ Useful env:
   FLASH_T114_ON_PLUG=auto|1|0
   STRICT_T114_PLUG_FLASH=1|0
   STRICT_T114_STATUS_DASHBOARD=1
+  STRICT_FULL_RUNTIME_DEPENDENCIES=1
   STRICT_FACE_MOUTH_SYNC=1
   STRICT_KILLERKOALA_AI=1
   INSTALL_DUALEYE_VOICE_BRIDGE_SERVICE=auto|1|0
@@ -210,6 +213,14 @@ run_t114_status_dashboard_readiness() {
   PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_t114_status_dashboard.py "${dashboard_args[@]}"
 }
 
+run_full_runtime_dependency_gate() {
+  local dependency_args=()
+  if [[ "${STRICT_FULL_RUNTIME_DEPENDENCIES}" == "1" ]]; then
+    dependency_args+=(--strict-commands)
+  fi
+  PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_full_runtime_dependencies.py "${dependency_args[@]}"
+}
+
 run_dualeye_voice_bridge_service() {
   INSTALL_DUALEYE_VOICE_BRIDGE_SERVICE="${INSTALL_DUALEYE_VOICE_BRIDGE_SERVICE}" \
   STRICT_DUALEYE_VOICE_BRIDGE_SERVICE="${STRICT_DUALEYE_VOICE_BRIDGE_SERVICE}" \
@@ -244,6 +255,7 @@ run_required "ESP32-S3 DualEye firmware flash" \
 
 run_required "KillerKoala eyes and mouth sync" run_face_mouth_sync
 run_required "Menus buttons antennas controls and commands" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_one_shot_controls.py
+run_required "Full runtime dependencies and board helpers" run_full_runtime_dependency_gate
 
 run_required "BLE node manager service" \
   env KOALABYTE_PRIMARY_BLE_PORT="${KOALABYTE_PRIMARY_BLE_PORT:-${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-/dev/koalabyte-heltec}}}" \
@@ -261,7 +273,7 @@ run_required "External antenna readiness" bash scripts/configure_koalabyte_exter
 run_required "AntEater passive readiness" prepare_anteater_status
 run_optional_can
 
-write_status "complete" "one_shot_install" "Pi, Heltec combined-safe primary BLE/mouth profile, ESP32-S3, DualEye mic voice bridge, KillerKoala AI/voice, eyes/mouth sync, live T114 dashboard phrases, controls/commands, services, menu, antenna, and passive-readiness steps complete; InnoMaker CAN optional"
+write_status "complete" "one_shot_install" "Pi, Heltec combined-safe primary BLE/mouth profile, ESP32-S3, DualEye mic voice bridge, KillerKoala AI/voice, eyes/mouth sync, full runtime dependency gate, live T114 dashboard phrases, controls/commands, services, menu, antenna, and passive-readiness steps complete; InnoMaker CAN optional"
 trap - ERR
 
 echo
