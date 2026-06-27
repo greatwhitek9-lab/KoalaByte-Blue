@@ -186,7 +186,7 @@ The InnoMaker CAN kit does not need to be plugged in for a normal install. If it
 From a fresh Pi, run:
 
 ```bash
-curl -fsSL -o koalabyte-install.sh https://raw.githubusercontent.com/greatwhitek9-lab/KoalaByte-Blue/koalabyte-blue-v2-heltec-edition/install.sh
+curl -fsSL -o koalabyte-install.sh https://raw.githubusercontent.com/greatwhitek9-lab/KoalaByte-Blue/Main/install.sh
 bash koalabyte-install.sh
 ```
 
@@ -543,7 +543,7 @@ logrotate/koalabyte-blue
 | Koala Kapture | Records authorized lab observation metadata. |
 | Koala Kry | Replays saved local metadata into the report pipeline. |
 | Ear Tag | Named lab BLE beacon helper. |
-| KoalaByte Lab | Synthetic owned-device BLE lab advertisement helper. |
+| KoalaByte Lab | Synthetic owned-device BLE advertisement firmware helper. |
 | Outback Module Deck | Shows the complete KoalaByte BlueZ module manifest. |
 | Gumleaf Gear Check | Inventories local BlueZ helper tools. |
 | Eucalyptus Bus Scout | Collects local adapter/controller status. |
