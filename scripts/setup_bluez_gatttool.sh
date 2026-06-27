@@ -28,6 +28,7 @@ Checks/records:
   bluetoothctl  required modern BlueZ control/GATT workflow tool
   btmon         required BlueZ HCI monitor/log capture helper
   gatttool      optional deprecated legacy GATT discovery helper
+  btproxy       optional protected lab-only BT proxy readiness helper
 EOF
       exit 0
       ;;
@@ -51,9 +52,10 @@ write_status() {
   local bluetoothctl_path="$(tool_path bluetoothctl)"
   local btmon_path="$(tool_path btmon)"
   local gatttool_path="$(tool_path gatttool)"
-  python3 - <<'PY' "${STATUS_PATH}" "${status}" "${reason}" "${bluetoothctl_path}" "${btmon_path}" "${gatttool_path}" "${INSTALL_GATTTOOL}" "${STRICT_GATTTOOL}"
+  local btproxy_path="$(tool_path btproxy)"
+  python3 - <<'PY' "${STATUS_PATH}" "${status}" "${reason}" "${bluetoothctl_path}" "${btmon_path}" "${gatttool_path}" "${btproxy_path}" "${INSTALL_GATTTOOL}" "${STRICT_GATTTOOL}"
 import json, sys, time
-path, status, reason, bluetoothctl_path, btmon_path, gatttool_path, install_mode, strict = sys.argv[1:]
+path, status, reason, bluetoothctl_path, btmon_path, gatttool_path, btproxy_path, install_mode, strict = sys.argv[1:]
 core_ready = bool(bluetoothctl_path) and bool(btmon_path)
 payload = {
     "status": status,
@@ -62,13 +64,15 @@ payload = {
         "bluetoothctl": {"path": bluetoothctl_path, "available": bool(bluetoothctl_path), "required": True},
         "btmon": {"path": btmon_path, "available": bool(btmon_path), "required": True},
         "gatttool": {"path": gatttool_path, "available": bool(gatttool_path), "required": False, "deprecated": True},
+        "btproxy": {"path": btproxy_path, "available": bool(btproxy_path), "required": False, "protected_menu_label": "Platypus BT-Proxy"},
     },
     "bluez_core_ready": core_ready,
     "modern_gatt_tool": "bluetoothctl",
     "legacy_gatttool_optional": True,
+    "btproxy_optional": True,
     "install_mode": install_mode,
     "strict": strict == "1",
-    "used_by": "Gumnut GATT Gatechecker readiness artifact",
+    "used_by": "Gumnut GATT Gatechecker and Platypus BT-Proxy readiness artifacts",
     "owned_device_required": True,
     "read_only_gatechecker": True,
     "updated_at": time.time(),
