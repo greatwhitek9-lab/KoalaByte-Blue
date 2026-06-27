@@ -14,7 +14,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     -h|--help)
       cat <<'EOF'
-KoalaByte Blue gatttool availability helper
+KoalaByte Blue BlueZ legacy helper availability check
 
 Usage:
   bash scripts/setup_bluez_gatttool.sh
@@ -23,6 +23,10 @@ Usage:
 Env:
   INSTALL_GATTTOOL=auto|1|0
   STRICT_GATTTOOL=1
+
+Checks/records:
+  gatttool  legacy owned-device GATT discovery helper
+  btmon     BlueZ HCI monitor/log capture helper
 EOF
       exit 0
       ;;
@@ -39,18 +43,24 @@ mkdir -p "$(dirname "${STATUS_PATH}")"
 write_status() {
   local status="$1"
   local reason="$2"
-  local found_path=""
+  local gatttool_path=""
+  local btmon_path=""
   if command -v gatttool >/dev/null 2>&1; then
-    found_path="$(command -v gatttool)"
+    gatttool_path="$(command -v gatttool)"
   fi
-  python3 - <<'PY' "${STATUS_PATH}" "${status}" "${reason}" "${found_path}" "${INSTALL_GATTTOOL}" "${STRICT_GATTTOOL}"
+  if command -v btmon >/dev/null 2>&1; then
+    btmon_path="$(command -v btmon)"
+  fi
+  python3 - <<'PY' "${STATUS_PATH}" "${status}" "${reason}" "${gatttool_path}" "${btmon_path}" "${INSTALL_GATTTOOL}" "${STRICT_GATTTOOL}"
 import json, sys, time
-path, status, reason, found_path, install_mode, strict = sys.argv[1:]
+path, status, reason, gatttool_path, btmon_path, install_mode, strict = sys.argv[1:]
 payload = {
     "status": status,
     "reason": reason,
-    "command": "gatttool",
-    "path": found_path,
+    "tools": {
+        "gatttool": {"path": gatttool_path, "available": bool(gatttool_path)},
+        "btmon": {"path": btmon_path, "available": bool(btmon_path)},
+    },
     "install_mode": install_mode,
     "strict": strict == "1",
     "used_by": "Gumnut GATT Gatechecker readiness artifact",
@@ -62,20 +72,24 @@ open(path, "w", encoding="utf-8").write(json.dumps(payload, indent=2, sort_keys=
 PY
 }
 
+all_ready() {
+  command -v gatttool >/dev/null 2>&1 && command -v btmon >/dev/null 2>&1
+}
+
 missing_ok() {
   local reason="$1"
-  write_status "GATTTOOL_MISSING" "${reason}"
+  write_status "BLUEZ_LEGACY_HELPERS_INCOMPLETE" "${reason}"
   if [[ "${STRICT_GATTTOOL}" == "1" ]]; then
-    echo "STRICT_GATTTOOL=1 and gatttool is missing: ${reason}" >&2
+    echo "STRICT_GATTTOOL=1 and BlueZ legacy helpers are incomplete: ${reason}" >&2
     exit 1
   fi
-  echo "gatttool missing, continuing in non-strict mode: ${reason}" >&2
+  echo "BlueZ legacy helper setup incomplete, continuing in non-strict mode: ${reason}" >&2
   exit 0
 }
 
 case "${INSTALL_GATTTOOL}" in
   0|false|False|no|NO|skip|SKIP)
-    write_status "GATTTOOL_SKIPPED" "disabled by INSTALL_GATTTOOL"
+    write_status "BLUEZ_LEGACY_HELPERS_SKIPPED" "disabled by INSTALL_GATTTOOL"
     exit 0
     ;;
   auto|AUTO|1|true|True|yes|YES)
@@ -86,8 +100,8 @@ case "${INSTALL_GATTTOOL}" in
     ;;
 esac
 
-if command -v gatttool >/dev/null 2>&1; then
-  write_status "GATTTOOL_READY" "gatttool already present"
+if all_ready; then
+  write_status "BLUEZ_LEGACY_HELPERS_READY" "gatttool and btmon already present"
   cat "${STATUS_PATH}"
   exit 0
 fi
@@ -123,10 +137,10 @@ fi
 "${apt_runner[@]}" update
 "${apt_runner[@]}" install -y "${packages[@]}"
 
-if command -v gatttool >/dev/null 2>&1; then
-  write_status "GATTTOOL_READY" "gatttool available after BlueZ package setup"
+if all_ready; then
+  write_status "BLUEZ_LEGACY_HELPERS_READY" "gatttool and btmon available after BlueZ package setup"
   cat "${STATUS_PATH}"
   exit 0
 fi
 
-missing_ok "BlueZ packages installed but gatttool was not provided by this OS image"
+missing_ok "BlueZ packages installed, but this OS image did not provide every legacy helper"
