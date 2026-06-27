@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .ble_event_log import BleEventDeduper, BleEventLog, normalize_ble_event
+from .gnss_location import write_gnss_status_event, write_primary_t114_fix_event
 
 PRIMARY_USB_PORT_HINTS = (
     "koalabyte-heltec",
@@ -113,13 +114,13 @@ class PiBluezSecondaryScanner:
 
 
 class BleNodeManager:
-    """Coordinate KoalaByte Blue V2 Heltec Edition BLE node roles.
+    """Coordinate KoalaByte Blue V2 Heltec Edition BLE and GNSS node roles.
 
     The Heltec Mesh Node T114 onboard nRF52840 is the primary BLE board and
-    canonical passive BLE source. ESP32-S3 DualEye and Raspberry Pi BlueZ are
-    additional BLE nodes used for UI-adjacent observations, enrichment, and
-    fallback checks. Legacy ``dongle_port`` naming is still accepted as an alias
-    so older wrapper scripts do not break.
+    canonical passive BLE source. The same USB CDC JSON stream also carries the
+    Heltec T114 GNSS fix, which is the main GPS source for the device. ESP32-S3
+    DualEye and Raspberry Pi BlueZ are additional BLE nodes used for UI-adjacent
+    observations, enrichment, and fallback checks.
     """
 
     def __init__(
@@ -182,12 +183,21 @@ class BleNodeManager:
                 except Exception:
                     pass
 
+    def _handle_primary_gnss_payload(self, payload: dict[str, Any]) -> None:
+        if payload.get("source") not in {"heltec-t114-nrf52840", "heltec-t114", self.primary_ble.name}:
+            return
+        if payload.get("type") == "gnss_fix":
+            write_primary_t114_fix_event(payload)
+        elif payload.get("type") == "gnss_status":
+            write_gnss_status_event(payload)
+
     def run(self, *, duration_seconds: float | None = None):
         nodes = [self.primary_ble]
         if self.esp32:
             nodes.append(self.esp32)
 
         for payload in self.iter_serial_json(nodes, duration_seconds=duration_seconds):
+            self._handle_primary_gnss_payload(payload)
             if payload.get("type") == "ble_seen":
                 payload = dict(payload)
                 payload["type"] = "ble_adv_seen"
