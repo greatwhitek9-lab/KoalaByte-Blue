@@ -5,6 +5,16 @@ on:
   push:
     branches:
       - main
+      - koalabyte-blue-v2-heltec-edition
+    paths:
+      - ".github/workflows/esp32-dualeye-platformio-build.yml"
+      - "firmware/esp32-dualeye/**"
+      - "scripts/flash_esp32.sh"
+      - "scripts/configure_esp32s3_dualeye_2g4_antenna.sh"
+  pull_request:
+    branches:
+      - main
+      - koalabyte-blue-v2-heltec-edition
     paths:
       - ".github/workflows/esp32-dualeye-platformio-build.yml"
       - "firmware/esp32-dualeye/**"
