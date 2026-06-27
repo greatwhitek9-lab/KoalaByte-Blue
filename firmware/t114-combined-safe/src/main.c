@@ -2,16 +2,11 @@
  *
  * Default one-shot role:
  *   - Heltec T114 onboard nRF52840 is the primary BLE radio endpoint.
- *   - BLE RX: passive advertisement observation emits normalized JSON to the Pi.
- *   - BLE TX: Pi-commanded, bounded, non-connectable owned-lab beacon only.
+ *   - Heltec T114 GNSS is the primary GPS/GNSS source for the device.
+ *   - BLE RX, bounded lab BLE TX, GNSS NMEA parsing, and mouth/status JSON share USB CDC.
  *   - ESP32-S3 DualEye BLE and Raspberry Pi BlueZ remain secondary/fallback nodes.
- *   - KillerKoala mouth/status commands share the same USB CDC JSON stream.
- *   - GNSS and LoRa status hooks are exposed, but direct GNSS UART and SX1262 radio
- *     driving stay guarded until the exact T114 pin map and recovery path are validated.
- *
- * Safety boundary: no pairing, no GATT writes, no spoofing, no jamming, and no LoRa
- * transmit path in this firmware. BLE transmit is limited to a local, non-connectable
- * lab beacon started by an explicit Pi command.
+ *   - SX1262 LoRa status hooks remain present; direct LoRa radio driving stays guarded
+ *     until the exact T114 pin map, region, and recovery path are validated.
  */
 
 #include <zephyr/kernel.h>
@@ -30,16 +25,22 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef KOALABYTE_GNSS_UART_LABEL
+#define KOALABYTE_GNSS_UART_LABEL "UART_1"
+#endif
+
 #define KOALA_DEVICE "heltec-t114-nrf52840"
 #define KOALA_ROLE "primary"
-#define KOALA_FW "0.3.0-t114-combined-safe-ble-txrx"
+#define KOALA_FW "0.4.0-t114-combined-safe-ble-gnss"
 #define KOALA_DUPLICATE_SUPPRESS_MS 5000
 #define KOALA_RSSI_CHANGE_DB 8
 #define KOALA_CACHE_SIZE 48
 #define KOALA_NAME_MAX 31
 #define KOALA_MFG_MAX 20
 #define KOALA_LINE_MAX 256
+#define KOALA_NMEA_MAX 128
 #define KOALA_STATUS_MS 15000
+#define KOALA_GNSS_STATUS_MS 5000
 #define KOALA_FACE_DEFAULT_MS 4500
 #define KOALA_TX_DEFAULT_MS 30000
 #define KOALA_TX_MAX_MS 60000
@@ -79,11 +80,25 @@ static int64_t face_until_ms;
 static char rx_line[KOALA_LINE_MAX];
 static size_t rx_len;
 
+static const struct device *gnss_dev;
+static char gnss_label[24] = KOALABYTE_GNSS_UART_LABEL;
+static char gnss_line[KOALA_NMEA_MAX];
+static size_t gnss_len;
+static bool gnss_ready;
+static bool gnss_has_fix;
+static int32_t gnss_lat_micro;
+static int32_t gnss_lon_micro;
+static int32_t gnss_alt_cm;
+static uint8_t gnss_sats;
+static int64_t last_gnss_emit_ms;
+static int64_t last_gnss_status_ms;
+static uint32_t total_gnss_sentences;
+static uint32_t total_gnss_fixes;
+
 static void bytes_to_hex(const uint8_t *data, uint8_t len, char *out, size_t out_len)
 {
     static const char hex[] = "0123456789abcdef";
     size_t pos = 0;
-
     if (!out || out_len == 0) {
         return;
     }
@@ -126,7 +141,6 @@ static bool extract_json_string(const char *line, const char *key, char *out, si
     const char *p;
     const char *q;
     size_t len;
-
     if (!line || !key || !out || out_len == 0) {
         return false;
     }
@@ -162,7 +176,6 @@ static int extract_json_int(const char *line, const char *key, int fallback)
 {
     char pattern[48];
     const char *p;
-
     if (!line || !key) {
         return fallback;
     }
@@ -186,7 +199,6 @@ static bool json_true(const char *line, const char *key)
 {
     char pattern[48];
     const char *p;
-
     if (!line || !key) {
         return false;
     }
@@ -217,7 +229,6 @@ static bool should_emit(const bt_addr_le_t *addr, int8_t rssi)
     int empty = -1;
     int oldest = 0;
     int64_t oldest_ms = INT64_MAX;
-
     for (int i = 0; i < KOALA_CACHE_SIZE; i++) {
         if (!seen[i].used) {
             if (empty < 0) {
@@ -237,7 +248,6 @@ static bool should_emit(const bt_addr_le_t *addr, int8_t rssi)
             oldest = i;
         }
     }
-
     int slot = empty >= 0 ? empty : oldest;
     seen[slot].addr = *addr;
     seen[slot].rssi = rssi;
@@ -249,7 +259,6 @@ static bool should_emit(const bt_addr_le_t *addr, int8_t rssi)
 static bool parse_ad_cb(struct bt_data *data, void *user_data)
 {
     struct adv_summary *summary = user_data;
-
     if (!summary || !data) {
         return true;
     }
@@ -273,6 +282,154 @@ static const char *addr_type_name(uint8_t type)
         return "random";
     default:
         return "unknown";
+    }
+}
+
+static void print_microdeg(int32_t value)
+{
+    int32_t whole;
+    int32_t frac;
+    if (value < 0) {
+        printk("-");
+        value = -value;
+    }
+    whole = value / 1000000;
+    frac = value % 1000000;
+    printk("%d.%06d", whole, frac);
+}
+
+static int32_t nmea_coord_to_microdegrees(const char *value, const char hemi)
+{
+    double raw;
+    int degrees;
+    double minutes;
+    double decimal;
+    int32_t micro;
+    if (!value || value[0] == '\0') {
+        return 0;
+    }
+    raw = atof(value);
+    degrees = (int)(raw / 100.0);
+    minutes = raw - ((double)degrees * 100.0);
+    decimal = (double)degrees + (minutes / 60.0);
+    if (hemi == 'S' || hemi == 'W') {
+        decimal = -decimal;
+    }
+    micro = (int32_t)(decimal * 1000000.0);
+    return micro;
+}
+
+static bool split_csv(char *line, char *fields[], size_t max_fields)
+{
+    size_t count = 0;
+    char *p = line;
+    if (!line || !fields || max_fields == 0) {
+        return false;
+    }
+    while (count < max_fields) {
+        fields[count++] = p;
+        p = strchr(p, ',');
+        if (!p) {
+            break;
+        }
+        *p = '\0';
+        p++;
+    }
+    return count > 0;
+}
+
+static void emit_gnss_fix(const char *reason)
+{
+    if (!gnss_has_fix) {
+        return;
+    }
+    printk("{\"type\":\"gnss_fix\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"role\":\"primary_gnss\",\"transport\":\"usb-cdc\",\"reason\":\"%s\",\"latitude\":", KOALA_DEVICE, reason ? reason : "fix");
+    print_microdeg(gnss_lat_micro);
+    printk(",\"longitude\":");
+    print_microdeg(gnss_lon_micro);
+    printk(",\"altitude_meters\":%d.%02d,\"satellites\":%u,\"gnss_ready\":%s,\"main_device_gps\":true,\"works_alongside\":[\"ble\",\"lora\",\"wifi\"]}\n",
+           gnss_alt_cm / 100, abs(gnss_alt_cm % 100), gnss_sats, gnss_ready ? "true" : "false");
+}
+
+static void emit_gnss_status(void)
+{
+    printk("{\"type\":\"gnss_status\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"role\":\"primary_gnss\",\"transport\":\"usb-cdc\",\"enabled\":%s,\"has_fix\":%s,\"main_device_gps\":true,\"uart_label\":\"%s\",\"total_sentences\":%u,\"total_fixes\":%u,\"works_alongside\":[\"ble\",\"lora\",\"wifi\"]}\n",
+           KOALA_DEVICE, gnss_ready ? "true" : "false", gnss_has_fix ? "true" : "false", gnss_label, total_gnss_sentences, total_gnss_fixes);
+}
+
+static void parse_nmea_sentence(char *sentence)
+{
+    char *fields[16] = {0};
+    char copy[KOALA_NMEA_MAX];
+    int64_t now;
+    if (!sentence || sentence[0] != '$') {
+        return;
+    }
+    total_gnss_sentences++;
+    snprintf(copy, sizeof(copy), "%s", sentence);
+    char *star = strchr(copy, '*');
+    if (star) {
+        *star = '\0';
+    }
+    if (!split_csv(copy, fields, ARRAY_SIZE(fields))) {
+        return;
+    }
+    if (strstr(fields[0], "RMC") && fields[2] && fields[2][0] == 'A' && fields[3] && fields[4] && fields[5] && fields[6]) {
+        gnss_lat_micro = nmea_coord_to_microdegrees(fields[3], fields[4][0]);
+        gnss_lon_micro = nmea_coord_to_microdegrees(fields[5], fields[6][0]);
+        gnss_has_fix = true;
+    } else if (strstr(fields[0], "GGA") && fields[2] && fields[3] && fields[4] && fields[5] && fields[6] && atoi(fields[6]) > 0) {
+        gnss_lat_micro = nmea_coord_to_microdegrees(fields[2], fields[3][0]);
+        gnss_lon_micro = nmea_coord_to_microdegrees(fields[4], fields[5][0]);
+        gnss_sats = fields[7] ? (uint8_t)atoi(fields[7]) : gnss_sats;
+        gnss_alt_cm = fields[9] ? (int32_t)(atof(fields[9]) * 100.0) : gnss_alt_cm;
+        gnss_has_fix = true;
+    }
+    if (gnss_has_fix) {
+        total_gnss_fixes++;
+        now = k_uptime_get();
+        if (now - last_gnss_emit_ms >= 1000) {
+            last_gnss_emit_ms = now;
+            emit_gnss_fix("nmea");
+        }
+    }
+}
+
+static void init_gnss(void)
+{
+    const char *candidates[] = {KOALABYTE_GNSS_UART_LABEL, "UART_1", "UARTE_1", "uart1"};
+    for (size_t i = 0; i < ARRAY_SIZE(candidates); i++) {
+        if (!candidates[i] || candidates[i][0] == '\0') {
+            continue;
+        }
+        gnss_dev = device_get_binding(candidates[i]);
+        if (gnss_dev && device_is_ready(gnss_dev)) {
+            copy_safe(gnss_label, sizeof(gnss_label), candidates[i], "UART_1");
+            gnss_ready = true;
+            return;
+        }
+    }
+    gnss_ready = false;
+}
+
+static void poll_gnss(void)
+{
+    unsigned char ch;
+    if (!gnss_ready || !gnss_dev) {
+        return;
+    }
+    while (uart_poll_in(gnss_dev, &ch) == 0) {
+        if (ch == '\n' || ch == '\r') {
+            if (gnss_len > 0) {
+                gnss_line[gnss_len] = '\0';
+                parse_nmea_sentence(gnss_line);
+                gnss_len = 0;
+            }
+        } else if (gnss_len + 1 < sizeof(gnss_line)) {
+            gnss_line[gnss_len++] = (char)ch;
+        } else {
+            gnss_len = 0;
+        }
     }
 }
 
@@ -301,32 +458,25 @@ static void emit_mouth_status(void)
 
 static void emit_ack(const char *state)
 {
-    printk("{\"type\":\"killerkoala_tft_ack\",\"device\":\"heltec-t114-color\",\"source\":\"%s\",\"state\":\"%s\",\"active\":true,\"gnss_enabled\":false,\"ble_primary_enabled\":true,\"ble_scan_active\":%s,\"ble_tx_active\":%s,\"transport\":\"usb-cdc\"}\n",
-           KOALA_DEVICE, state ? state : current_state, ble_scan_active ? "true" : "false", ble_adv_active ? "true" : "false");
-}
-
-static void emit_gnss_status(void)
-{
-    printk("{\"type\":\"gnss_status\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"transport\":\"usb-cdc\",\"enabled\":false,\"guarded\":true,\"status\":\"pin_validation_required\",\"note\":\"GNSS JSON hook is present; direct GNSS UART parsing is disabled until the exact T114 GNSS UART pins are validated.\"}\n",
-           KOALA_DEVICE);
+    printk("{\"type\":\"killerkoala_tft_ack\",\"device\":\"heltec-t114-color\",\"source\":\"%s\",\"state\":\"%s\",\"active\":true,\"gnss_enabled\":%s,\"gnss_primary\":true,\"ble_primary_enabled\":true,\"ble_scan_active\":%s,\"ble_tx_active\":%s,\"transport\":\"usb-cdc\"}\n",
+           KOALA_DEVICE, state ? state : current_state, gnss_ready ? "true" : "false", ble_scan_active ? "true" : "false", ble_adv_active ? "true" : "false");
 }
 
 static void emit_lora_status(void)
 {
-    printk("{\"type\":\"lora_status\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"transport\":\"usb-cdc\",\"enabled\":false,\"guarded\":true,\"status\":\"pin_validation_required\",\"note\":\"SX1262/LoRa transmit and receive are disabled in combined-safe firmware until the exact SPI, DIO, reset, busy, RF switch, and region settings are validated.\"}\n",
+    printk("{\"type\":\"lora_status\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"transport\":\"usb-cdc\",\"enabled\":false,\"guarded\":true,\"status\":\"pin_validation_required\",\"coexists_with\":[\"gnss\",\"ble\",\"wifi\"],\"note\":\"SX1262/LoRa direct driver is guarded until SPI, DIO, reset, busy, RF switch, region, and recovery settings are validated.\"}\n",
            KOALA_DEVICE);
 }
 
 static void emit_node_roles(void)
 {
-    printk("{\"type\":\"node_roles\",\"device\":\"heltec-t114\",\"primary_ble\":\"heltec-t114-nrf52840\",\"rx_path\":\"passive_adv_observer\",\"tx_path\":\"pi_commanded_non_connectable_lab_beacon\",\"secondary_ble_nodes\":[\"esp32-s3-dualeye\",\"raspberry-pi-bluez\"],\"transport\":\"usb-cdc\",\"active_scan\":false}\n");
+    printk("{\"type\":\"node_roles\",\"device\":\"heltec-t114\",\"primary_ble\":\"heltec-t114-nrf52840\",\"primary_gnss\":\"heltec-t114-gnss\",\"rx_path\":\"passive_adv_observer\",\"tx_path\":\"pi_commanded_non_connectable_lab_beacon\",\"secondary_ble_nodes\":[\"esp32-s3-dualeye\",\"raspberry-pi-bluez\"],\"transport\":\"usb-cdc\",\"coexists_with\":[\"lora\",\"wifi\"],\"active_scan\":false}\n");
 }
 
 static void handle_face_command(const char *line)
 {
     char value[96];
     int duration_ms = extract_json_int(line, "duration_ms", KOALA_FACE_DEFAULT_MS);
-
     if (duration_ms < 250) {
         duration_ms = KOALA_FACE_DEFAULT_MS;
     }
@@ -349,15 +499,13 @@ static void handle_face_command(const char *line)
 static void stop_lab_advertising(const char *reason)
 {
     int err;
-
     if (!ble_adv_active) {
         emit_tx_status("idle", reason ? reason : "already_stopped");
         return;
     }
     err = bt_le_adv_stop();
     if (err) {
-        printk("{\"type\":\"ble_tx_error\",\"device\":\"%s\",\"source\":\"%s\",\"message\":\"advertise stop failed\",\"err\":%d}\n",
-               KOALA_DEVICE, KOALA_DEVICE, err);
+        printk("{\"type\":\"ble_tx_error\",\"device\":\"%s\",\"source\":\"%s\",\"message\":\"advertise stop failed\",\"err\":%d}\n", KOALA_DEVICE, KOALA_DEVICE, err);
         return;
     }
     ble_adv_active = false;
@@ -370,13 +518,8 @@ static void start_lab_advertising(const char *line)
     int err;
     int duration_ms = extract_json_int(line, "duration_ms", KOALA_TX_DEFAULT_MS);
     char value[KOALA_ADV_NAME_MAX + 1];
-    const struct bt_data ad[] = {
-        BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
-    };
-    struct bt_data sd[] = {
-        BT_DATA(BT_DATA_NAME_COMPLETE, ble_adv_name, strlen(ble_adv_name)),
-    };
-
+    const struct bt_data ad[] = {BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR))};
+    struct bt_data sd[] = {BT_DATA(BT_DATA_NAME_COMPLETE, ble_adv_name, strlen(ble_adv_name))};
     if (!json_true(line, "confirm")) {
         emit_tx_status("blocked", "confirm_true_required");
         return;
@@ -396,14 +539,12 @@ static void start_lab_advertising(const char *line)
     }
     sd[0].data = ble_adv_name;
     sd[0].data_len = strlen(ble_adv_name);
-
     if (ble_adv_active) {
         stop_lab_advertising("restart");
     }
     err = bt_le_adv_start(BT_LE_ADV_NCONN, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
     if (err) {
-        printk("{\"type\":\"ble_tx_error\",\"device\":\"%s\",\"source\":\"%s\",\"message\":\"non-connectable advertising start failed\",\"err\":%d}\n",
-               KOALA_DEVICE, KOALA_DEVICE, err);
+        printk("{\"type\":\"ble_tx_error\",\"device\":\"%s\",\"source\":\"%s\",\"message\":\"non-connectable advertising start failed\",\"err\":%d}\n", KOALA_DEVICE, KOALA_DEVICE, err);
         return;
     }
     ble_adv_active = true;
@@ -423,6 +564,9 @@ static void handle_line(const char *line)
         emit_mouth_status();
     } else if (strstr(line, "\"type\":\"gnss_status\"")) {
         emit_gnss_status();
+    } else if (strstr(line, "\"type\":\"gnss_current_fix\"") || strstr(line, "\"type\":\"gnss_fix\"")) {
+        emit_gnss_status();
+        emit_gnss_fix("command");
     } else if (strstr(line, "\"type\":\"lora_status\"")) {
         emit_lora_status();
     } else if (strstr(line, "\"type\":\"ble_status\"")) {
@@ -443,7 +587,6 @@ static void handle_line(const char *line)
 static void poll_usb_commands(void)
 {
     unsigned char ch;
-
     if (!device_is_ready(console_dev)) {
         return;
     }
@@ -467,18 +610,14 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t adv_type
 {
     char addr_str[BT_ADDR_LE_STR_LEN];
     struct adv_summary summary = {0};
-
     total_seen++;
     if (!addr || !ad || !should_emit(addr, rssi)) {
         return;
     }
-
     bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
     bt_data_parse(ad, parse_ad_cb, &summary);
-
     printk("{\"type\":\"ble_adv_seen\",\"device\":\"%s\",\"source\":\"%s\",\"role\":\"%s\",\"transport\":\"usb-cdc\",\"addr\":\"%s\",\"addr_type\":\"%s\",\"addr_type_id\":%u,\"rssi\":%d,\"adv_type\":%u,\"active_scan\":false,\"seen_ms\":%lld,\"total_seen\":%u",
-           KOALA_DEVICE, KOALA_DEVICE, KOALA_ROLE, addr_str, addr_type_name(addr->type), addr->type,
-           rssi, adv_type, (long long)k_uptime_get(), total_seen);
+           KOALA_DEVICE, KOALA_DEVICE, KOALA_ROLE, addr_str, addr_type_name(addr->type), addr->type, rssi, adv_type, (long long)k_uptime_get(), total_seen);
     if (summary.name[0] != '\0') {
         printk(",\"name\":\"%s\"", summary.name);
     }
@@ -498,19 +637,15 @@ static void start_ble_primary(void)
         .interval = BT_GAP_SCAN_FAST_INTERVAL,
         .window = BT_GAP_SCAN_FAST_WINDOW,
     };
-
     err = bt_enable(NULL);
     if (err) {
-        printk("{\"type\":\"ble_error\",\"device\":\"%s\",\"source\":\"%s\",\"role\":\"%s\",\"message\":\"Bluetooth init failed\",\"err\":%d}\n",
-               KOALA_DEVICE, KOALA_DEVICE, KOALA_ROLE, err);
+        printk("{\"type\":\"ble_error\",\"device\":\"%s\",\"source\":\"%s\",\"role\":\"%s\",\"message\":\"Bluetooth init failed\",\"err\":%d}\n", KOALA_DEVICE, KOALA_DEVICE, KOALA_ROLE, err);
         return;
     }
     ble_ready = true;
-
     err = bt_le_scan_start(&scan_param, device_found);
     if (err) {
-        printk("{\"type\":\"ble_error\",\"device\":\"%s\",\"source\":\"%s\",\"role\":\"%s\",\"message\":\"passive scan start failed\",\"err\":%d}\n",
-               KOALA_DEVICE, KOALA_DEVICE, KOALA_ROLE, err);
+        printk("{\"type\":\"ble_error\",\"device\":\"%s\",\"source\":\"%s\",\"role\":\"%s\",\"message\":\"passive scan start failed\",\"err\":%d}\n", KOALA_DEVICE, KOALA_DEVICE, KOALA_ROLE, err);
         return;
     }
     ble_scan_active = true;
@@ -520,25 +655,22 @@ static void start_ble_primary(void)
 int main(void)
 {
     int64_t now;
-
     boot_ms = k_uptime_get();
-
     if (usb_enable(NULL) != 0) {
         printk("{\"type\":\"usb_error\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"message\":\"usb_enable failed\"}\n", KOALA_DEVICE);
     }
-
+    init_gnss();
     k_sleep(K_MSEC(1200));
-    printk("{\"type\":\"boot\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"role\":\"%s\",\"fw\":\"%s\",\"transport\":\"usb-cdc\",\"scope\":\"primary BLE RX plus guarded Pi-commanded BLE TX and mouth/status JSON; GNSS and LoRa hooks guarded until pin validation\"}\n",
-           KOALA_DEVICE, KOALA_ROLE, KOALA_FW);
+    printk("{\"type\":\"boot\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"role\":\"%s\",\"fw\":\"%s\",\"transport\":\"usb-cdc\",\"scope\":\"primary BLE RX/TX plus primary GNSS and mouth/status JSON; LoRa hook guarded; WiFi handled by Pi/ESP32\"}\n", KOALA_DEVICE, KOALA_ROLE, KOALA_FW);
     emit_node_roles();
     emit_mouth_status();
     emit_gnss_status();
     emit_lora_status();
     emit_tx_status("idle", "boot");
     start_ble_primary();
-
     while (true) {
         poll_usb_commands();
+        poll_gnss();
         now = k_uptime_get();
         if (face_enabled && face_until_ms > 0 && now > face_until_ms) {
             face_until_ms = 0;
@@ -551,8 +683,12 @@ int main(void)
             last_status_ms = now;
             emit_ble_status("heartbeat");
         }
+        if (now - last_gnss_status_ms >= KOALA_GNSS_STATUS_MS) {
+            last_gnss_status_ms = now;
+            emit_gnss_status();
+            emit_gnss_fix("heartbeat");
+        }
         k_sleep(K_MSEC(30));
     }
-
     return 0;
 }
