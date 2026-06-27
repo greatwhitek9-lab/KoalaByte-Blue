@@ -28,11 +28,13 @@ MAIN_MENU_ITEMS: List[dict[str, object]] = [
 
 SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
     "eucalyptus": [
-        {"group": "Bluetooth Tools", "label": "Eucalyptus Canopy Status", "command": "eucalyptus status", "description": "Show always-on passive BLE logger status"},
-        {"group": "Bluetooth Tools", "label": "Eucalyptus Canopy Start", "command": "eucalyptus start", "description": "Start always-on passive BLE logging"},
-        {"group": "Bluetooth Tools", "label": "Eucalyptus Canopy Stop", "command": "eucalyptus stop", "description": "Stop always-on passive BLE logging"},
-        {"group": "Bluetooth Tools", "label": "Eucalyptus Canopy Restart", "command": "eucalyptus restart", "description": "Restart always-on passive BLE logging"},
-        {"group": "Bluetooth Tools", "label": "Eucalyptus Upload Trail", "command": "eucalyptus upload-status", "description": "Show upload readiness/status"},
+        {"group": "Bluetooth Tools", "label": "Eucalyptus Canopy Status", "command": "eucalyptus status", "description": "Show passive BLE, GPS, and WiGLE readiness status"},
+        {"group": "Bluetooth Tools", "label": "Eucalyptus Canopy Start", "command": "eucalyptus start", "description": "Start or record always-on passive BLE logging"},
+        {"group": "Bluetooth Tools", "label": "Eucalyptus Canopy Stop", "command": "eucalyptus stop", "description": "Stop or record always-on passive BLE logging"},
+        {"group": "Bluetooth Tools", "label": "Eucalyptus Canopy Restart", "command": "eucalyptus restart", "description": "Restart or record always-on passive BLE logging"},
+        {"group": "Bluetooth Tools", "label": "Eucalyptus GPS Trail", "command": "eucalyptus gps-trail", "description": "Build a GPS-enriched passive BLE trail from discovered devices"},
+        {"group": "Bluetooth Tools", "label": "Eucalyptus Upload Trail", "command": "eucalyptus upload-status", "description": "Show GPS/WiGLE upload readiness and status"},
+        {"group": "Bluetooth Tools", "label": "Eucalyptus WiGLE Upload", "command": "eucalyptus wigle-upload", "description": "Upload GPS-tagged passive BLE observations to WiGLE when explicitly armed"},
         {"group": "Bluetooth Tools", "label": "Eucalyptus Koalagotchi Mode", "command": "eucalyptus_mode", "description": "Open the Koalagotchi always-on Bluetooth scanner/logger screen"},
         {"group": "System / Companion", "label": "Back to Main Canopy", "command": "submenu:main", "description": "Return to the main KoalaByte Blue menu"},
     ],
