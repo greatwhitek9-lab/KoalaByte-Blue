@@ -57,7 +57,7 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
     "didgeridoo": [
         {"group": "Didgeridoo", "label": "T114 Primary Controller Check", "command": "t114_primary_controller_check", "description": "Check the Heltec T114 combined-safe USB CDC JSON controller"},
         {"group": "Didgeridoo", "label": "T114 Primary BLE/GNSS Status", "command": "t114_primary_status", "description": "Show primary T114 BLE, TX, GNSS, and mouth/status JSON state"},
-        {"group": "Didgeridoo", "label": "T114 Primary BLE Scan", "command": "t114_primary_ble_scan", "description": "Run bounded passive BLE scan through the T114 nRF52840 primary radio"},
+        {"group": "Didgeridoo", "label": "T114 Quick BLE Test Scan", "command": "t114_primary_ble_scan", "description": "Run bounded passive BLE test scan through the T114 nRF52840 primary radio"},
         {"group": "Didgeridoo", "label": "T114 BLE TX Status", "command": "t114_ble_tx_status", "description": "Show T114 bounded lab beacon transmit status"},
         {"group": "Didgeridoo", "label": "T114 Primary GNSS Fix", "command": "t114_primary_gnss_fix", "description": "Read the current primary GNSS/GPS fix from the Heltec T114 stream"},
         {"group": "Didgeridoo", "label": "Didgeridoo Status", "command": "meshtastic_status", "description": "Show local Meshtastic node status through the Didgeridoo app"},
