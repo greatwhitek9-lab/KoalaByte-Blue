@@ -1,6 +1,6 @@
 # KoalaByte Blue Field Readiness Upgrades
 
-This document summarizes the field-use additions on the default `koalabyte-blue-v2-heltec-edition` branch.
+This document summarizes the field-use additions on the default `Main` branch.
 
 ## 1. KoalaByte Doctor
 
@@ -78,78 +78,19 @@ Bundle the important logs for debugging:
 bash scripts/export_koalabyte_logs.sh
 ```
 
-Output goes to `exports/`.
+## 6. One-shot dry run
 
-## 6. One-shot dry-run target
-
-The preferred goal is:
+Run the same readiness gate that CI uses before flashing firmware or installing services:
 
 ```bash
 bash scripts/install_koalabyte_one_shot.sh --check-only
 ```
 
-The current supporting checks are already committed as standalone scripts. If the one-shot installer cannot be edited by the repo write guard in one pass, run these directly:
+## 7. Fresh install bootstrap
+
+From a new Raspberry Pi install, use the default `Main` branch bootstrapper:
 
 ```bash
-python3 scripts/check_repo_readiness.py
-PYTHONPATH=pi-companion python3 scripts/check_menu_display_sync.py
-PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
-PYTHONPATH=pi-companion python3 scripts/check_koalabyte_version_handshake.py
-bash scripts/koalabyte_doctor.sh --quick
-```
-
-## 7. Version handshake
-
-The version manifest is:
-
-```text
-version/koalabyte_protocol.json
-```
-
-Check Pi/ESP32/Heltec protocol readiness:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/check_koalabyte_version_handshake.py
-```
-
-## 8. Local status dashboard
-
-Run a local dashboard:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_koalabyte_status_server.py --host 0.0.0.0 --port 8080
-```
-
-JSON-only check:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_koalabyte_status_server.py --json
-```
-
-## 9. Log rotation
-
-Config template:
-
-```text
-logrotate/koalabyte-blue
-```
-
-Install manually on the Pi:
-
-```bash
-sudo install -m 0644 logrotate/koalabyte-blue /etc/logrotate.d/koalabyte-blue
-```
-
-## 10. Release package
-
-Build locally:
-
-```bash
-bash scripts/build_koalabyte_release_package.sh
-```
-
-Or run the GitHub workflow:
-
-```text
-.github/workflows/release-package.yml
+curl -fsSL -o koalabyte-install.sh https://raw.githubusercontent.com/greatwhitek9-lab/KoalaByte-Blue/Main/install.sh
+bash koalabyte-install.sh
 ```
