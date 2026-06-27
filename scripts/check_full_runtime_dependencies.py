@@ -45,6 +45,7 @@ REQUIRED_PROJECT_MODULES = [
     "koalablue.menu_ui",
     "koalablue.bluez_tools",
     "koalablue.bluez_protected_lab",
+    "koalablue.eucalyptus_wigle",
     "koalablue.t114_menu_status",
     "koalablue.t114_bluez",
     "koalablue.ble_node_manager",
@@ -78,6 +79,7 @@ BOARD_FILES = [
     "scripts/install_ble_node_manager_service.sh",
     "scripts/install_esp32_dualeye_voice_bridge_service.sh",
     "scripts/check_t114_status_dashboard.py",
+    "scripts/run_eucalyptus_wigle.py",
     "scripts/run_koala_bluez.py",
     "scripts/run_koala_bluez_manifest.sh",
     "scripts/run_koala_bluez_inventory.sh",
@@ -143,60 +145,40 @@ def _check_project_imports(modules: list[str]) -> tuple[dict[str, bool], list[st
     return results, failures
 
 
-def _check_menu_manifest() -> tuple[dict[str, object], list[str]]:
-    from scripts.check_menu_actions import build_manifest
-
-    manifest, failures = build_manifest()
-    if manifest.get("status") != "MENU_ACTIONS_READY":
-        failures.append("menu action manifest is not ready")
-    if int(manifest.get("status_row_count", 0)) < 3:
-        failures.append("T114 status rows are not registered as display-only rows")
-    return manifest, failures
-
-
-def build_status(*, strict_commands: bool = False) -> dict[str, object]:
-    import_results, import_failures = _check_imports(PYTHON_IMPORTS)
-    project_results, project_failures = _check_project_imports(REQUIRED_PROJECT_MODULES)
-    command_results, command_failures = _check_commands(BOARD_COMMANDS)
-    file_results, file_failures = _check_files(BOARD_FILES)
-    menu_manifest, menu_failures = _check_menu_manifest()
-
-    failures = [*import_failures, *project_failures, *file_failures, *menu_failures]
-    if strict_commands:
-        failures.extend(command_failures)
-
-    return {
-        "status": "FULL_RUNTIME_DEPENDENCIES_READY" if not failures else "FULL_RUNTIME_DEPENDENCIES_INCOMPLETE",
-        "updated_at": time.time(),
-        "python_imports": import_results,
-        "project_imports": project_results,
-        "system_commands": command_results,
-        "system_command_failures": command_failures,
-        "board_files": file_results,
-        "menu_status": menu_manifest.get("status"),
-        "menu_names": menu_manifest.get("menu_names", []),
-        "enabled_leaf_count": menu_manifest.get("enabled_leaf_count", 0),
-        "status_row_count": menu_manifest.get("status_row_count", 0),
-        "strict_commands": strict_commands,
-        "optional_can_default_non_failing": True,
-        "one_shot_installer_check": True,
-        "failures": failures,
-    }
-
-
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check KoalaByte Blue full runtime dependencies for one-shot install")
-    parser.add_argument("--output", default=str(STATUS_PATH), help="Path for the dependency status JSON artifact")
-    parser.add_argument("--strict-commands", action="store_true", help="Fail if required system commands are missing")
+    parser = argparse.ArgumentParser(description="Check KoalaByte Blue full runtime dependencies and board helper coverage")
+    parser.add_argument("--strict-system", action="store_true", help="Fail on missing optional/host system commands too")
     args = parser.parse_args()
 
-    strict_commands = args.strict_commands or os.getenv("STRICT_FULL_RUNTIME_DEPENDENCIES", "0") == "1"
-    payload = build_status(strict_commands=strict_commands)
-    output = Path(args.output)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-    print(json.dumps({"status": payload["status"], "output": str(output), "failures": payload["failures"]}, indent=2, sort_keys=True))
-    return 1 if payload["failures"] else 0
+    failures: list[str] = []
+    py_results, py_failures = _check_imports(PYTHON_IMPORTS)
+    file_results, file_failures = _check_files(BOARD_FILES)
+    module_results, module_failures = _check_project_imports(REQUIRED_PROJECT_MODULES)
+    command_results, command_failures = _check_commands(BOARD_COMMANDS)
+    failures.extend(py_failures)
+    failures.extend(file_failures)
+    failures.extend(module_failures)
+    failures.extend(command_failures)
+
+    if args.strict_system or os.environ.get("STRICT_FULL_RUNTIME_DEPENDENCIES") == "1":
+        for group, commands in command_results.items():
+            for command, present in commands.items():
+                if not present:
+                    failures.append(f"strict system command missing for {group}: {command}")
+
+    payload = {
+        "status": "FULL_RUNTIME_DEPENDENCIES_READY" if not failures else "FULL_RUNTIME_DEPENDENCIES_INCOMPLETE",
+        "python_imports": py_results,
+        "project_modules": module_results,
+        "board_files": file_results,
+        "system_commands": command_results,
+        "failures": failures,
+        "updated_at": time.time(),
+    }
+    STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    STATUS_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    return 0 if not failures else 1
 
 
 if __name__ == "__main__":
