@@ -58,6 +58,7 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         {"group": "Bluetooth Tools", "label": "Treehouse RFCOMM Wiremap", "command": "bluez_treehouse_rfcomm_wiremap", "description": "Protected lab-only RFCOMM binding/status map using rfcomm when installed"},
         {"group": "Bluetooth Tools", "label": "Pouch Link Echo", "command": "bluez_pouch_link_echo", "description": "Protected lab-only single owned-device link echo using l2ping when installed"},
         {"group": "Bluetooth Tools", "label": "Gumnut GATT Ghostmap", "command": "bluez_gumnut_gatt_ghostmap", "description": "Protected lab-only owned-device primary GATT service map using gatttool when installed"},
+        {"group": "Bluetooth Tools", "label": "Platypus BT-Proxy", "command": "bluez_platypus_bt_proxy", "description": "Protected lab-only btproxy readiness check; no proxy session is started"},
         {"group": "Bluetooth Tools", "label": "that’s not a knife", "command": "thats_not_a_knife", "description": "that’s not a knife defensive local BLE pressure guard"},
         {"group": "Bluetooth Tools", "label": "AntEater", "command": "anteater", "description": "Passive BLE payment-terminal risk triage with redacted reports"},
         {"group": "Bluetooth Tools", "label": "Urban Poaching", "command": "urban_poaching", "description": "Authorized BLE RSSI lab game"},
@@ -117,6 +118,7 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         {"group": "Bluetooth Tools", "label": "Treehouse RFCOMM Wiremap", "command": "bluez_treehouse_rfcomm_wiremap", "description": "Protected lab-only RFCOMM binding/status map"},
         {"group": "Bluetooth Tools", "label": "Pouch Link Echo", "command": "bluez_pouch_link_echo", "description": "Protected lab-only single owned-device link echo"},
         {"group": "Bluetooth Tools", "label": "Gumnut GATT Ghostmap", "command": "bluez_gumnut_gatt_ghostmap", "description": "Protected lab-only owned-device primary GATT service map"},
+        {"group": "Bluetooth Tools", "label": "Platypus BT-Proxy", "command": "bluez_platypus_bt_proxy", "description": "Protected lab-only btproxy readiness check"},
         {"group": "Didgeridoo", "label": "Protected Location Gate Status", "command": "location_gate_status", "description": "Show protected-actions password gate state"},
         {"group": "System / Companion", "label": "Back to Main Canopy", "command": "submenu:main", "description": "Return to the main KoalaByte Blue menu"},
     ],
@@ -170,10 +172,10 @@ def _entry_group(entry: dict[str, object]) -> str:
 
 
 def grouped_entries(menu_name: str = "main") -> Dict[str, List[dict[str, object]]]:
-    groups: Dict[str, List[dict[str, object]]] = OrderedDict((name, []) for name in MENU_GROUPS)
+    groups: Dict[str, List[str]] | Dict[str, List[dict[str, object]]] = OrderedDict((name, []) for name in MENU_GROUPS)
     for entry in _entries_for_menu(menu_name):
-        groups[_entry_group(entry)].append(entry)
-    return groups
+        groups[_entry_group(entry)].append(entry)  # type: ignore[index]
+    return groups  # type: ignore[return-value]
 
 
 def sorted_menu_entries(menu_name: str = "main") -> List[dict[str, object]]:
