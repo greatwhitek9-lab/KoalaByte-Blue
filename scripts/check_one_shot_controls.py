@@ -16,8 +16,8 @@ if str(PI_ROOT) not in sys.path:
 
 from koalablue.gpio_buttons import DEFAULT_BUTTONS, DEFAULT_ELECTRICAL_MODE
 from koalablue.menu_catalog import SUBMENU_ITEMS, menu_labels
-from scripts.check_menu_actions import build_manifest
 from scripts.check_killerkoala_face_mouth_sync import validate_protocol
+from scripts.check_menu_actions import build_manifest
 
 STATUS_PATH = ROOT / "logs" / "one_shot" / "control_surface_status.json"
 
@@ -126,6 +126,7 @@ REQUIRED_PROJECT_FILES = [
     "production/RevA25-heltec-powerbank/PRODUCTION_README_RevA25_HeltecPowerBank.md",
     "production/RevA25-heltec-powerbank/BOM_RevA25_HeltecPowerBank.csv",
     "production/RevA25-heltec-powerbank/USB_POWER_PACK.md",
+    "production/RevA25-heltec-powerbank/Safety_Test_Record_RevA25.csv",
     "production/WIRING_DIAGRAM_ANTENNAS.md",
     "production/WIRING_DIAGRAM_ANTENNAS.svg",
     ".github/workflows/release-package.yml",
@@ -152,6 +153,15 @@ FORBIDDEN_PRODUCTION_FILES = [
     "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md",
     "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv",
     "production/RevA17-dongle-only/BATTERY_POWER_2S_18650.md",
+    "production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv",
+]
+
+# Only fail on active old-BOM rows. The new USB power-pack guide intentionally
+# mentions 18650/BMS parts as removed/obsolete, so plain text mentions are OK.
+FORBIDDEN_ACTIVE_PRODUCTION_MARKERS = [
+    "Nordic nRF52840 USB Dongle,1,Production-default",
+    "2x18650 series holder,1",
+    "2S Li-ion BMS/protection board,1",
 ]
 
 REQUIRED_PROTECTED_BLUEZ_LABELS = [
@@ -276,6 +286,7 @@ def validate_field_readiness_files() -> list[str]:
         "production/RevA25-heltec-powerbank/PRODUCTION_README_RevA25_HeltecPowerBank.md",
         "production/RevA25-heltec-powerbank/BOM_RevA25_HeltecPowerBank.csv",
         "production/RevA25-heltec-powerbank/USB_POWER_PACK.md",
+        "production/RevA25-heltec-powerbank/Safety_Test_Record_RevA25.csv",
     ]:
         path = ROOT / relative
         if path.exists():
@@ -283,9 +294,9 @@ def validate_field_readiness_files() -> list[str]:
     for required in ["Heltec Mesh Node T114", "USB portable power pack", "power bank"]:
         if required not in production_text:
             failures.append(f"production package missing marker: {required}")
-    for forbidden in ["Nordic nRF52840 USB Dongle,1,Production-default", "2x18650 series holder", "2S Li-ion BMS/protection board"]:
+    for forbidden in FORBIDDEN_ACTIVE_PRODUCTION_MARKERS:
         if forbidden in production_text:
-            failures.append(f"production package still contains old marker: {forbidden}")
+            failures.append(f"production package still contains active old marker: {forbidden}")
     for forbidden_file in FORBIDDEN_PRODUCTION_FILES:
         if (ROOT / forbidden_file).exists():
             failures.append(f"old production file must be removed: {forbidden_file}")
@@ -298,7 +309,6 @@ def validate_protected_bluez_menu() -> list[str]:
     lab_labels = set(menu_labels("lab"))
     all_entries = [entry for entries in SUBMENU_ITEMS.values() for entry in entries]
     commands = {str(entry.get("command", "")) for entry in all_entries}
-
     for label in REQUIRED_PROTECTED_BLUEZ_LABELS:
         if label not in bluetooth_labels:
             failures.append(f"Bluetooth Tools menu missing protected BlueZ label: {label}")
@@ -308,18 +318,14 @@ def validate_protected_bluez_menu() -> list[str]:
     for command in REQUIRED_PROTECTED_BLUEZ_COMMANDS:
         if command not in commands:
             failures.append(f"menu catalog missing protected BlueZ command: {command}")
-
     return failures
 
 
 def validate_protected_bluez_code() -> list[str]:
     failures: list[str] = []
-    protected_module = ROOT / "pi-companion" / "koalablue" / "bluez_protected_lab.py"
-    menu_runner = ROOT / "scripts" / "run_menu_screen.py"
-    docs = ROOT / "docs" / "KOALA_BLUEZ_TOOLS_REVA16.md"
-    runtime_gate = ROOT / "scripts" / "check_full_runtime_dependencies.py"
     required_needles = {
-        protected_module: [
+        ROOT / "pi-companion" / "koalblue" / "bluez_protected_lab.py": [],
+        ROOT / "pi-companion" / "koalablue" / "bluez_protected_lab.py": [
             "ensure_unlocked",
             "KOALABYTE_BLUEZ_LAB_TARGET",
             "KOALABYTE_BLUEZ_OWNED_DEVICE",
@@ -329,18 +335,18 @@ def validate_protected_bluez_code() -> list[str]:
             "Pouch Link Echo",
             "Gumnut GATT Ghostmap",
         ],
-        menu_runner: [
+        ROOT / "scripts" / "run_menu_screen.py": [
             "run_koala_bluez_manifest",
             "run_protected_bluez_menu_action",
             "bluez_gumnut_gatt_ghostmap",
         ],
-        docs: [
+        ROOT / "docs" / "KOALA_BLUEZ_TOOLS_REVA16.md": [
             "Outback Module Deck",
             "Protected lab-only BlueZ menu actions",
             "KOALABYTE_BLUEZ_LAB_TARGET",
             "Gumnut GATT Ghostmap",
         ],
-        runtime_gate: [
+        ROOT / "scripts" / "check_full_runtime_dependencies.py": [
             "koalablue.bluez_protected_lab",
             "scripts/run_koala_bluez_info.sh",
             "scripts/run_koala_bluez_services.sh",
@@ -348,6 +354,8 @@ def validate_protected_bluez_code() -> list[str]:
         ],
     }
     for path, needles in required_needles.items():
+        if not needles:
+            continue
         if not path.exists():
             failures.append(f"missing protected BlueZ file: {path.relative_to(ROOT)}")
             continue
@@ -390,8 +398,9 @@ def main() -> int:
         failures.append('one-shot installer missing required step/policy: "required": false or "required": False')
     failures.extend(validate_optional_can_policy(one_shot_text))
 
+    antenna_config = (ROOT / "scripts" / "configure_koalabyte_external_antennas.sh").read_text(encoding="utf-8", errors="ignore")
     for status_path in REQUIRED_ANTENNA_STATUS:
-        if status_path not in (ROOT / "scripts" / "configure_koalabyte_external_antennas.sh").read_text(encoding="utf-8", errors="ignore"):
+        if status_path not in antenna_config:
             failures.append(f"antenna config missing status path: {status_path}")
 
     for check in [
@@ -421,6 +430,7 @@ def main() -> int:
         "optional_can_required": False,
         "field_readiness_files": FIELD_READINESS_SHELL_HELPERS + FIELD_READINESS_PYTHON_HELPERS + REQUIRED_PROJECT_FILES,
         "forbidden_production_files": FORBIDDEN_PRODUCTION_FILES,
+        "forbidden_active_production_markers": FORBIDDEN_ACTIVE_PRODUCTION_MARKERS,
         "antenna_status_paths": REQUIRED_ANTENNA_STATUS,
         "updated_at": time.time(),
         "failures": failures,
