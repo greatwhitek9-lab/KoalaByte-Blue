@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_URL="${KOALABYTE_REPO_URL:-https://github.com/greatwhitek9-lab/KoalaByte-Blue.git}"
-BRANCH="${KOALABYTE_BRANCH:-koalabyte-blue-v2-heltec-edition}"
+BRANCH="${KOALABYTE_BRANCH:-Main}"
 INSTALL_DIR="${KOALABYTE_INSTALL_DIR:-${HOME}/KoalaByte-Blue}"
 RUN_MODE="install"
 
@@ -14,17 +14,17 @@ Normal Raspberry Pi 3B+ install from a cloned repo:
   bash install.sh
 
 Fresh Pi download flow:
-  curl -fsSL -o koalabyte-install.sh https://raw.githubusercontent.com/greatwhitek9-lab/KoalaByte-Blue/koalabyte-blue-v2-heltec-edition/install.sh
+  curl -fsSL -o koalabyte-install.sh https://raw.githubusercontent.com/greatwhitek9-lab/KoalaByte-Blue/Main/install.sh
   bash koalabyte-install.sh
 
 Modes:
   install       Clone/update repo, then run scripts/install_koalabyte_one_shot.sh. Default.
-  check-only   Clone/update repo, then run repo and hardware preflight checks only.
+  check-only   Clone/update repo, then run the one-shot dry-run readiness gate.
   repo-only    Clone/update repo only.
 
 Useful environment:
   KOALABYTE_INSTALL_DIR=$HOME/KoalaByte-Blue
-  KOALABYTE_BRANCH=koalabyte-blue-v2-heltec-edition
+  KOALABYTE_BRANCH=Main
   ESP32_PORT=/dev/ttyUSB0
   KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0
   T114_PLUG_FLASH_PROFILE=combined-safe|color-mouth|hci-usb|skip
@@ -113,9 +113,8 @@ case "${RUN_MODE}" in
     echo "Repository ready at ${INSTALL_DIR}"
     ;;
   check-only)
-    echo "Running KoalaByte repo and hardware preflight checks..."
-    python3 scripts/check_repo_readiness.py
-    bash scripts/preflight_all_hardware.sh --profile heltec "$@"
+    echo "Running KoalaByte one-shot dry-run readiness gate..."
+    bash scripts/install_koalabyte_one_shot.sh --check-only "$@"
     ;;
   install)
     echo "Running KoalaByte one-shot installer..."
