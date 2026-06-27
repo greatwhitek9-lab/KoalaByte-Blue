@@ -53,10 +53,6 @@ _MODE_BADGES = {
     "boomerang": "BOOMERANG MODE // Camera-awareness logbook",
 }
 
-
-# Every graphical text box uses these limits before rendering. The goal is to
-# keep long tool names/descriptions inside the eucalyptus branch panels on the
-# Pi touchscreen, while preserving the jungle/cyberpunk theme.
 GRAPHICAL_LABEL_MAX_LINES = 1
 GRAPHICAL_DESCRIPTION_MAX_LINES = 2
 TERMINAL_LABEL_WIDTH = 68
@@ -78,6 +74,24 @@ def _terminal_fit(text: str, width: int, suffix: str = "…") -> str:
 
 def render_terminal_jungle_menu(menu: Any, theme: JungleMenuTheme = DEFAULT_JUNGLE_MENU_THEME) -> str:
     """Render a terminal-safe preview of the jungle/eucalyptus menu theme."""
+
+    if hasattr(menu, "check_idle_timeout"):
+        menu.check_idle_timeout()
+    if getattr(menu, "display_mode", "menu") != "menu":
+        title = "KILLERKOALA AI FACE"
+        message = str(getattr(menu, "face_message", "KillerKoala is watching the canopy"))
+        state = str(getattr(menu, "face_state", "idle"))
+        width = 74
+        top = f"{_TERMINAL_BRANCH}" + "═" * (width - 2) + f"{_TERMINAL_BRANCH}"
+        return "\n".join([
+            top,
+            title.center(width),
+            f"  STATE: {_terminal_fit(state.upper(), 54)}  ".center(width),
+            top,
+            f"🌿 {_terminal_fit(message, 68):<68} 🌿",
+            "  Press B1/Menu or double-tap touchscreen to reopen the menu.  ".center(width),
+            top,
+        ])
 
     visible = menu.visible_items()
     total = len(menu.items)
@@ -162,9 +176,7 @@ def _fit_text_for_width(font: Any, text: str, max_width: int, suffix: str = "…
         return ""
     if font.size(text)[0] <= max_width:
         return text
-    if max_width <= 0:
-        return ""
-    if font.size(suffix)[0] > max_width:
+    if max_width <= 0 or font.size(suffix)[0] > max_width:
         return ""
     low = 0
     high = len(text)
@@ -260,6 +272,8 @@ class JungleMenuRenderer:
             event_result = self._handle_events()
             if event_result == "quit":
                 return 0
+            if hasattr(self.menu, "check_idle_timeout"):
+                self.menu.check_idle_timeout()
             self.draw()
             pygame.display.flip()
             self.clock.tick(self.fps)
@@ -315,6 +329,9 @@ class JungleMenuRenderer:
         assert screen is not None
         self._draw_background()
         self._draw_leafy_border()
+        if getattr(self.menu, "display_mode", "menu") != "menu":
+            self._draw_ai_face()
+            return
         self._draw_title()
         self._draw_group_label()
         self._draw_items()
@@ -368,6 +385,32 @@ class JungleMenuRenderer:
         pygame.draw.line(screen, self.theme.leaf_glow, (int(center[0] - sx), int(center[1] - sy)), (int(center[0] + sx), int(center[1] + sy)), 2)
         inner = rect.inflate(-max(2, size // 5), -max(2, size // 5))
         pygame.draw.ellipse(screen, self.theme.leaf, inner)
+
+    def _draw_ai_face(self) -> None:
+        pygame = self.pygame
+        screen = self.screen
+        assert screen is not None
+        assert self.title_font is not None
+        assert self.item_font is not None
+        assert self.desc_font is not None
+        w, h = screen.get_size()
+        title = _fit_text_for_width(self.title_font, "KILLERKOALA", int(w * 0.78))
+        self._chunky_text(title, w // 2, int(h * 0.18), self.title_font, self.theme.title_fill, self.theme.title_outline, self.theme.title_shadow, outline_size=5)
+        state = str(getattr(self.menu, "face_state", "idle")).upper()
+        message = str(getattr(self.menu, "face_message", "KillerKoala is watching the canopy"))
+        panel = pygame.Rect(int(w * 0.12), int(h * 0.31), int(w * 0.76), int(h * 0.35))
+        pygame.draw.rect(screen, (12, 60, 28), panel, border_radius=max(24, panel.height // 4))
+        pygame.draw.rect(screen, self.theme.boomerang_accent, panel, 4, border_radius=max(24, panel.height // 4))
+        self._leaf((panel.left + 28, panel.top + 28), 24, 45)
+        self._leaf((panel.right - 28, panel.bottom - 28), 24, 225)
+        state_line = _fit_text_for_width(self.item_font, state, panel.width - 52)
+        self._chunky_text(state_line, panel.centerx, panel.top + int(panel.height * 0.35), self.item_font, self.theme.leaf_glow, self.theme.item_outline, self.theme.title_shadow, outline_size=2)
+        for idx, line in enumerate(_wrap_for_width(self.desc_font, message, panel.width - 60, max_lines=2)):
+            surf = self.desc_font.render(line, True, self.theme.title_fill)
+            screen.blit(surf, surf.get_rect(center=(panel.centerx, panel.top + int(panel.height * 0.62) + idx * (self.desc_font.get_height() + 3))))
+        hint = _fit_text_for_width(self.desc_font, "B1/Menu or touchscreen double-tap reopens menu", int(w * 0.78))
+        surf = self.desc_font.render(hint, True, self.theme.leaf_glow)
+        screen.blit(surf, surf.get_rect(center=(w // 2, int(h * 0.78))))
 
     def _draw_title(self) -> None:
         screen = self.screen
@@ -429,7 +472,6 @@ class JungleMenuRenderer:
                 self._leaf((rect.right + 26, rect.centery), 22, 180)
             pygame.draw.rect(screen, fill, rect, border_radius=max(20, rect.height // 2))
             pygame.draw.rect(screen, outline_color, rect, width=max(3, int(row_h * 0.045)), border_radius=max(20, rect.height // 2))
-
             label = f"{absolute_index + 1:02d}. {item.label}"
             if not item.enabled:
                 label += "  LOCKED"
@@ -438,14 +480,9 @@ class JungleMenuRenderer:
             elif is_boomerang:
                 label = f"🪃 {label}"
             label = _fit_text_for_width(self.item_font, label, inner.width)
-
             text_fill = self.theme.item_outline if selected else self.theme.item_shadow
-            if selected:
-                label_y = inner.top + int(inner.height * 0.30)
-            else:
-                label_y = rect.centery
+            label_y = inner.top + int(inner.height * 0.30) if selected else rect.centery
             self._chunky_text(label, rect.centerx, label_y, self.item_font, text_fill, fill, self.theme.title_shadow, outline_size=2)
-
             if selected:
                 badge = _mode_badge(command)
                 desc = str(getattr(item, "description", "") or "")
