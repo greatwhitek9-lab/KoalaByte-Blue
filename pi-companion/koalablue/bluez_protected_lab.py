@@ -85,7 +85,9 @@ def protected_target_info(output_dir: Path = DEFAULT_OUTPUT_DIR) -> BluezRunResu
         return _blocked("joey_target_dossier", "Joey Target Dossier", "protected actions password is locked", output_dir, target_required=True)
     if not target or not _owned():
         return _blocked("joey_target_dossier", "Joey Target Dossier", "owned-device target is required", output_dir, target_required=True)
-    return info(target, True, output_dir=output_dir, raw_addresses=False)
+    result = info(target, True, output_dir=output_dir, raw_addresses=False)
+    result.theme_title = "Joey Target Dossier"
+    return result
 
 
 def protected_target_services(output_dir: Path = DEFAULT_OUTPUT_DIR) -> BluezRunResult:
@@ -95,7 +97,9 @@ def protected_target_services(output_dir: Path = DEFAULT_OUTPUT_DIR) -> BluezRun
         return _blocked("treehouse_service_trace", "Treehouse Service Trace", "protected actions password is locked", output_dir, target_required=True)
     if not target or not _owned():
         return _blocked("treehouse_service_trace", "Treehouse Service Trace", "owned-device target is required", output_dir, target_required=True)
-    return services(target, True, output_dir=output_dir, raw_addresses=False)
+    result = services(target, True, output_dir=output_dir, raw_addresses=False)
+    result.theme_title = "Treehouse Service Trace"
+    return result
 
 
 def protected_gatt_readiness(output_dir: Path = DEFAULT_OUTPUT_DIR) -> BluezRunResult:
@@ -105,7 +109,9 @@ def protected_gatt_readiness(output_dir: Path = DEFAULT_OUTPUT_DIR) -> BluezRunR
         return _blocked("gumnut_gatt_gatecheck", "Gumnut GATT Gatecheck", "protected actions password is locked", output_dir, target_required=True)
     if not target or not _owned():
         return _blocked("gumnut_gatt_gatecheck", "Gumnut GATT Gatecheck", "owned-device target is required", output_dir, target_required=True)
-    return gatt_readiness(target, True, output_dir=output_dir)
+    result = gatt_readiness(target, True, output_dir=output_dir)
+    result.theme_title = "Gumnut GATT Gatecheck"
+    return result
 
 
 def _protected_command(action: str, title: str, command: list[str], output_name: str, *, target_required: bool = False) -> BluezRunResult:
