@@ -263,6 +263,8 @@ run_required "KillerKoala eyes and mouth sync" run_face_mouth_sync
 run_required "Menu display sync and AI-face controls" run_menu_display_sync_gate
 run_required "Menus buttons antennas controls and commands" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_one_shot_controls.py
 run_required "Full runtime dependencies and board helpers" run_full_runtime_dependency_gate
+run_required "Field readiness helpers" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_field_readiness.py
+run_required "KoalaByte Doctor quick check" bash scripts/koalabyte_doctor.sh --quick
 run_required "BLE node manager service" env KOALABYTE_PRIMARY_BLE_PORT="${KOALABYTE_PRIMARY_BLE_PORT:-${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-/dev/koalabyte-heltec}}}" KOALABYTE_HELTEC_USB_PORT="${KOALABYTE_HELTEC_USB_PORT:-${KOALABYTE_PRIMARY_BLE_PORT:-/dev/koalabyte-heltec}}" KOALABYTE_ESP32_FACE_PORT="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-}}" KOALABYTE_PI_BLUEZ_NODE="${KOALABYTE_PI_BLUEZ_NODE:-1}" PYTHON_BIN="${PYTHON_BIN}" INSTALL_BLE_NODE_MANAGER_SERVICE="${INSTALL_BLE_NODE_MANAGER_SERVICE}" STRICT_BLE_NODE_MANAGER_SERVICE="${STRICT_BLE_NODE_MANAGER_SERVICE}" bash scripts/install_ble_node_manager_service.sh
 run_required "T114 live dashboard status phrases" run_t114_status_dashboard_readiness
 run_required "Didgeridoo/menu action readiness" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_menu_actions.py
@@ -270,7 +272,7 @@ run_required "External antenna readiness" bash scripts/configure_koalabyte_exter
 run_required "AntEater passive readiness" prepare_anteater_status
 run_optional_can
 
-write_status "complete" "one_shot_install" "Pi, Heltec combined-safe primary BLE/mouth profile, ESP32-S3, DualEye mic voice bridge, KillerKoala AI/voice, eyes/mouth sync, menu display sync, AI-face idle/action-complete return, full runtime dependency gate, live T114 dashboard phrases, controls/commands, services, menu, antenna, passive-readiness, and optional CAN handling complete"
+write_status "complete" "one_shot_install" "Pi, Heltec combined-safe primary BLE/mouth profile, ESP32-S3, DualEye mic voice bridge, KillerKoala AI/voice, eyes/mouth sync, menu display sync, AI-face idle/action-complete return, field readiness helpers, doctor quick check, full runtime dependency gate, live T114 dashboard phrases, controls/commands, services, menu, antenna, passive-readiness, and optional CAN handling complete"
 trap - ERR
 
 echo
