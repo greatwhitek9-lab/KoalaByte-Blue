@@ -46,7 +46,9 @@ Required/default actions:
   - prepare AntEater passive-readiness status
 
 Optional:
-  - InnoMaker CAN kit checks are optional and non-failing by default
+  - InnoMaker CAN kit setup is optional by default
+  - if the adapter is present, the installer sets it up and records status
+  - if the adapter is absent, the installer writes a skipped status and continues
 
 Useful env:
   ESP32_PORT=/dev/ttyUSB0
@@ -61,7 +63,7 @@ Useful env:
   STRICT_KILLERKOALA_AI=1
   INSTALL_DUALEYE_VOICE_BRIDGE_SERVICE=auto|1|0
   STRICT_DUALEYE_VOICE_BRIDGE_SERVICE=1
-  INSTALL_INNOMAKER_CAN=optional|0|1
+  INSTALL_INNOMAKER_CAN=optional|auto|0|1
   STRICT_INNOMAKER_CAN=1
 EOF
 }
@@ -103,25 +105,79 @@ run_required() {
   write_status "ok" "${step}" "required step completed"
 }
 
+detect_innomaker_can() {
+  local interface="${CAN_INTERFACE:-can0}"
+  if [[ -d "/sys/class/net/${interface}" ]]; then
+    return 0
+  fi
+  if compgen -G "/sys/class/net/can*" >/dev/null; then
+    return 0
+  fi
+  if command -v lsusb >/dev/null 2>&1; then
+    if lsusb | grep -Eiq 'innomaker|usb.?can|canable|candle|gs[_ -]?usb|slcan|lawicel'; then
+      return 0
+    fi
+  fi
+  if [[ "${INSTALL_INNOMAKER_CAN}" == "1" || "${STRICT_INNOMAKER_CAN}" == "1" ]]; then
+    return 0
+  fi
+  return 1
+}
+
+write_innomaker_can_skipped_status() {
+  local interface="${CAN_INTERFACE:-can0}"
+  local can_interfaces=""
+  can_interfaces="$(find /sys/class/net -maxdepth 1 -type l -name 'can*' -printf '%f ' 2>/dev/null || true)"
+  python3 - <<'PY' "logs/can/innomaker_optional_status.json" "${interface}" "${can_interfaces}"
+import json, sys, time
+path, interface, can_interfaces = sys.argv[1:]
+payload = {
+    "status": "OPTIONAL_CAN_SKIPPED_NOT_PRESENT",
+    "required": False,
+    "detected": False,
+    "interface": interface,
+    "can_interfaces": [item for item in can_interfaces.split() if item],
+    "setup_rc": None,
+    "manifest_rc": None,
+    "inventory_rc": None,
+    "status_rc": None,
+    "note": "InnoMaker CAN kit is optional. Adapter was not detected, so setup was skipped and the one-shot installer continued.",
+    "updated_at": time.time(),
+}
+open(path, "w", encoding="utf-8").write(json.dumps(payload, indent=2, sort_keys=True))
+print(json.dumps(payload, sort_keys=True))
+PY
+}
+
 run_optional_can() {
   case "${INSTALL_INNOMAKER_CAN}" in
     0|false|False|no|NO|skip|SKIP)
       echo
       echo "== Optional InnoMaker CAN kit =="
       echo "Skipped by INSTALL_INNOMAKER_CAN=${INSTALL_INNOMAKER_CAN}."
-      write_status "ok" "optional_innomaker_can" "optional CAN skipped"
+      write_innomaker_can_skipped_status >/dev/null
+      write_status "ok" "optional_innomaker_can" "optional CAN skipped by configuration"
       return 0
       ;;
     optional|auto|AUTO|1|true|True|yes|YES)
       ;;
     *)
-      echo "Unknown INSTALL_INNOMAKER_CAN=${INSTALL_INNOMAKER_CAN}. Use optional, 1, or 0." >&2
+      echo "Unknown INSTALL_INNOMAKER_CAN=${INSTALL_INNOMAKER_CAN}. Use optional, auto, 1, or 0." >&2
       exit 2
       ;;
   esac
 
   echo
   echo "== Optional InnoMaker CAN kit readiness =="
+
+  if ! detect_innomaker_can; then
+    echo "InnoMaker CAN kit not detected; skipping optional CAN setup."
+    write_innomaker_can_skipped_status >/dev/null
+    write_status "ok" "optional_innomaker_can" "optional CAN not detected; skipped and continued"
+    return 0
+  fi
+
+  echo "InnoMaker CAN kit or CAN interface detected; running optional setup/checks."
   set +e
   CAN_INTERFACE="${CAN_INTERFACE:-can0}" CAN_BITRATE="${CAN_BITRATE:-500000}" STRICT_CAN_SETUP=0 \
     bash scripts/setup_can0.sh --interface "${CAN_INTERFACE:-can0}" --bitrate "${CAN_BITRATE:-500000}"
@@ -138,11 +194,13 @@ run_optional_can() {
 {
   "status": "OPTIONAL_CAN_CHECK_RECORDED",
   "required": false,
+  "detected": true,
+  "interface": "${CAN_INTERFACE:-can0}",
   "setup_rc": ${setup_rc},
   "manifest_rc": ${manifest_rc},
   "inventory_rc": ${inventory_rc},
   "status_rc": ${status_rc},
-  "note": "InnoMaker CAN kit is optional for the one-shot install and must not fail firmware deployment when absent.",
+  "note": "InnoMaker CAN kit is optional for the one-shot install. It was detected, so setup and status checks were attempted.",
   "updated_at": $(date +%s)
 }
 JSON
@@ -154,7 +212,7 @@ JSON
     fi
   fi
   echo "Optional InnoMaker CAN status written to logs/can/innomaker_optional_status.json"
-  write_status "ok" "optional_innomaker_can" "optional CAN check completed or was non-failing"
+  write_status "ok" "optional_innomaker_can" "optional CAN detected; setup/checks completed or were non-failing"
 }
 
 prepare_anteater_status() {
@@ -273,7 +331,7 @@ run_required "External antenna readiness" bash scripts/configure_koalabyte_exter
 run_required "AntEater passive readiness" prepare_anteater_status
 run_optional_can
 
-write_status "complete" "one_shot_install" "Pi, Heltec combined-safe primary BLE/mouth profile, ESP32-S3, DualEye mic voice bridge, KillerKoala AI/voice, eyes/mouth sync, full runtime dependency gate, live T114 dashboard phrases, controls/commands, services, menu, antenna, and passive-readiness steps complete; InnoMaker CAN optional"
+write_status "complete" "one_shot_install" "Pi, Heltec combined-safe primary BLE/mouth profile, ESP32-S3, DualEye mic voice bridge, KillerKoala AI/voice, eyes/mouth sync, full runtime dependency gate, live T114 dashboard phrases, controls/commands, services, menu, antenna, passive-readiness, and optional CAN handling complete"
 trap - ERR
 
 echo
