@@ -59,6 +59,6 @@ if [[ ! -d "${APP_DIR}" ]]; then
   exit 1
 fi
 
-west build -b "${BOARD}" "${APP_DIR}" -d "${BUILD_DIR}" -- -DKOALABYTE_GNSS_UART_LABEL="\"${T114_GNSS_UART_LABEL}\""
+west build -b "${BOARD}" "${APP_DIR}" -d "${BUILD_DIR}" -- -DKOALABYTE_GNSS_UART_LABEL="${T114_GNSS_UART_LABEL}"
 write_status "built" "T114 combined-safe firmware build completed."
 echo "T114 combined-safe build complete: ${BUILD_DIR}"
