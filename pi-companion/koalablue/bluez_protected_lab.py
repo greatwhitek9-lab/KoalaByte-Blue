@@ -164,3 +164,7 @@ def gumnut_gatt_ghostmap() -> BluezRunResult:
     target = _target()
     command = ["gatttool", "-b", target or "00:00:00:00:00:00", "--primary"]
     return _protected_command("gumnut_gatt_ghostmap", "Gumnut GATT Ghostmap", command, "koala_bluez_gumnut_gatt_ghostmap", target_required=True)
+
+
+def platypus_bt_proxy() -> BluezRunResult:
+    return _protected_command("platypus_bt_proxy", "Platypus BT-Proxy", ["btproxy", "--help"], "koala_bluez_platypus_bt_proxy")
