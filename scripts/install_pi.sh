@@ -196,9 +196,9 @@ case "${PREPARE_DONGLE_CACHE}" in
     ;;
   auto|AUTO|1|true|True|yes|YES)
     echo "Preparing legacy external dongle cache because PREPARE_DONGLE_CACHE requested it."
-    STRICT_NRF_TOOLS="${STRICT_DONGLE_CACHE}" INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS}" PYTHON_BIN="${VENV_DIR}/bin/python" bash "${REPO_ROOT}/scripts/setup_nrf_tools.sh" || {
+    STRICT_NRF_TOOLS="${STRICT_DONGLE_CACHE}" INSTALL_NRF_TOOLS="${INSTALL_NRF_TOOLS}" PYTHON_BIN="${VENV_DIR}/bin/python" bash "${REPO_ROOT}/scripts/setup_nrf_tools.sh" --with-nrfutil || {
       if [[ "${STRICT_DONGLE_CACHE}" == "1" ]]; then
-        echo "STRICT_DONGLE_CACHE=1 is set, failing install because west/nrfutil setup did not complete." >&2
+        echo "STRICT_DONGLE_CACHE=1 is set and legacy west/nrfutil setup did not complete." >&2
         exit 1
       fi
       echo "Continuing install because STRICT_DONGLE_CACHE is not enabled." >&2
