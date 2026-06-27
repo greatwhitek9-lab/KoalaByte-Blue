@@ -31,6 +31,7 @@ REQUIRED_FILES = [
     "production/RevA25-heltec-powerbank/PRODUCTION_README_RevA25_HeltecPowerBank.md",
     "production/RevA25-heltec-powerbank/BOM_RevA25_HeltecPowerBank.csv",
     "production/RevA25-heltec-powerbank/USB_POWER_PACK.md",
+    "production/RevA25-heltec-powerbank/Safety_Test_Record_RevA25.csv",
     "production/WIRING_DIAGRAM_ANTENNAS.md",
     "production/WIRING_DIAGRAM_ANTENNAS.svg",
     ".github/workflows/release-package.yml",
@@ -40,6 +41,7 @@ FORBIDDEN_PRODUCTION_FILES = [
     "production/RevA17-dongle-only/PRODUCTION_README_RevA17_DongleOnly.md",
     "production/RevA17-dongle-only/BOM_RevA17_DongleOnly.csv",
     "production/RevA17-dongle-only/BATTERY_POWER_2S_18650.md",
+    "production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv",
 ]
 
 
@@ -87,6 +89,7 @@ def main() -> int:
         "production/RevA25-heltec-powerbank/PRODUCTION_README_RevA25_HeltecPowerBank.md",
         "production/RevA25-heltec-powerbank/BOM_RevA25_HeltecPowerBank.csv",
         "production/RevA25-heltec-powerbank/USB_POWER_PACK.md",
+        "production/RevA25-heltec-powerbank/Safety_Test_Record_RevA25.csv",
     ]:
         path = ROOT / relative
         if path.exists():
