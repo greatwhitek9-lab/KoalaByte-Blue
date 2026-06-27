@@ -4,6 +4,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPO_ROOT}"
 
+CHECK_ONLY=0
 ESP32_PORT="${ESP32_PORT:-}"
 NO_MONITOR="${NO_MONITOR:-1}"
 FLASH_T114_ON_PLUG="${FLASH_T114_ON_PLUG:-auto}"
@@ -13,6 +14,10 @@ INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN:-optional}"
 STRICT_INNOMAKER_CAN="${STRICT_INNOMAKER_CAN:-0}"
 INSTALL_BLE_NODE_MANAGER_SERVICE="${INSTALL_BLE_NODE_MANAGER_SERVICE:-auto}"
 STRICT_BLE_NODE_MANAGER_SERVICE="${STRICT_BLE_NODE_MANAGER_SERVICE:-0}"
+INSTALL_UDEV_RULES="${INSTALL_UDEV_RULES:-auto}"
+STRICT_UDEV_RULES="${STRICT_UDEV_RULES:-0}"
+INSTALL_BOOT_SERVICES="${INSTALL_BOOT_SERVICES:-auto}"
+STRICT_BOOT_SERVICES="${STRICT_BOOT_SERVICES:-0}"
 STRICT_T114_STATUS_DASHBOARD="${STRICT_T114_STATUS_DASHBOARD:-0}"
 STRICT_FULL_RUNTIME_DEPENDENCIES="${STRICT_FULL_RUNTIME_DEPENDENCIES:-0}"
 STRICT_MENU_DISPLAY_SYNC="${STRICT_MENU_DISPLAY_SYNC:-0}"
@@ -31,12 +36,15 @@ Run from the repo root after plugging in the Raspberry Pi, ESP32-S3 DualEye,
 Heltec T114, and optional InnoMaker CAN kit:
 
   bash scripts/install_koalabyte_one_shot.sh
+  bash scripts/install_koalabyte_one_shot.sh --check-only
 
 This installer validates the repo, prepares the Pi companion environment, checks
 KillerKoala AI/voice, flashes ESP32/T114 firmware paths, checks menu/button/touch
 controls, validates menu display sync to Heltec and ESP32-S3 DualEye, checks the
-30-second AI face idle return, verifies action-complete AI face return, and keeps
-optional CAN non-fatal unless STRICT_INNOMAKER_CAN=1 is set.
+30-second AI face idle return, verifies action-complete AI face return, checks
+field readiness helpers, runs KoalaByte Doctor, installs udev/boot-service hooks
+when available, checks version/status dashboard helpers, and keeps optional CAN
+non-fatal unless STRICT_INNOMAKER_CAN=1 is set.
 
 Useful env:
   ESP32_PORT=/dev/ttyUSB0
@@ -55,23 +63,48 @@ Useful env:
   STRICT_DUALEYE_VOICE_BRIDGE_SERVICE=1
   INSTALL_INNOMAKER_CAN=optional|auto|0|1
   STRICT_INNOMAKER_CAN=1
+  INSTALL_UDEV_RULES=auto|1|0
+  STRICT_UDEV_RULES=1
+  INSTALL_BOOT_SERVICES=auto|1|0
+  STRICT_BOOT_SERVICES=1
 EOF
 }
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  usage
-  exit 0
-fi
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --check-only|--dry-run)
+      CHECK_ONLY=1
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
 
-mkdir -p "$(dirname "${STATUS_PATH}")" logs/anteater logs/menu_actions logs/menu_sync logs/can logs/killerkoala logs/killerkoala_face logs/one_shot
+mkdir -p "$(dirname "${STATUS_PATH}")" logs/anteater logs/menu_actions logs/menu_sync logs/can logs/killerkoala logs/killerkoala_face logs/one_shot logs/doctor logs/version exports
+
+python_for_checks() {
+  if [[ -x "${PYTHON_BIN}" ]]; then
+    printf '%s\n' "${PYTHON_BIN}"
+  else
+    printf '%s\n' "python3"
+  fi
+}
 
 write_status() {
   local status="$1"
   local step="$2"
   local reason="$3"
-  python3 - <<'PY' "${STATUS_PATH}" "${status}" "${step}" "${reason}" "${T114_PLUG_FLASH_PROFILE}" "${INSTALL_INNOMAKER_CAN}"
+  python3 - <<'PY' "${STATUS_PATH}" "${status}" "${step}" "${reason}" "${T114_PLUG_FLASH_PROFILE}" "${INSTALL_INNOMAKER_CAN}" "${CHECK_ONLY}"
 import json, sys, time
-path, status, step, reason, profile, can_mode = sys.argv[1:]
+path, status, step, reason, profile, can_mode, check_only = sys.argv[1:]
 payload = {
     "status": status,
     "step": step,
@@ -79,6 +112,7 @@ payload = {
     "heltec_profile": profile,
     "innomaker_can_mode": can_mode,
     "innomaker_can_required": False,
+    "check_only": check_only == "1",
     "updated_at": time.time(),
 }
 open(path, "w", encoding="utf-8").write(json.dumps(payload, indent=2, sort_keys=True))
@@ -154,6 +188,12 @@ run_optional_can() {
       exit 2
       ;;
   esac
+
+  if [[ "${CHECK_ONLY}" == "1" ]]; then
+    write_innomaker_can_status "OPTIONAL_CAN_CHECK_ONLY" "false" "InnoMaker CAN kit is optional. Dry-run recorded policy only." >/dev/null
+    write_status "ok" "optional_innomaker_can" "optional CAN check-only policy recorded"
+    return 0
+  fi
 
   echo
   echo "== Optional InnoMaker CAN kit readiness =="
@@ -245,7 +285,54 @@ run_menu_display_sync_gate() {
   KOALABYTE_MENU_SYNC=0 PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_menu_display_sync.py
 }
 
+run_field_readiness() {
+  local py
+  py="$(python_for_checks)"
+  PYTHONPATH=pi-companion "${py}" scripts/check_field_readiness.py
+}
+
+run_version_handshake() {
+  local py
+  py="$(python_for_checks)"
+  PYTHONPATH=pi-companion "${py}" scripts/check_koalabyte_version_handshake.py
+}
+
+run_status_dashboard_json() {
+  local py
+  py="$(python_for_checks)"
+  PYTHONPATH=pi-companion "${py}" scripts/run_koalabyte_status_server.py --json >/dev/null
+}
+
+run_doctor_quick() {
+  bash scripts/koalabyte_doctor.sh --quick
+}
+
+run_release_log_helper_checks() {
+  bash -n scripts/export_koalabyte_logs.sh
+  bash -n scripts/build_koalabyte_release_package.sh
+}
+
+run_udev_install_or_check() {
+  if [[ "${CHECK_ONLY}" == "1" ]]; then
+    bash scripts/install_koalabyte_udev_rules.sh --check-only
+  else
+    INSTALL_UDEV_RULES="${INSTALL_UDEV_RULES}" STRICT_UDEV_RULES="${STRICT_UDEV_RULES}" bash scripts/install_koalabyte_udev_rules.sh
+  fi
+}
+
+run_boot_services_install_or_check() {
+  if [[ "${CHECK_ONLY}" == "1" ]]; then
+    bash scripts/install_koalabyte_boot_services.sh --check-only
+  else
+    INSTALL_BOOT_SERVICES="${INSTALL_BOOT_SERVICES}" STRICT_BOOT_SERVICES="${STRICT_BOOT_SERVICES}" bash scripts/install_koalabyte_boot_services.sh
+  fi
+}
+
 run_dualeye_voice_bridge_service() {
+  if [[ "${CHECK_ONLY}" == "1" ]]; then
+    bash -n scripts/install_esp32_dualeye_voice_bridge_service.sh
+    return 0
+  fi
   INSTALL_DUALEYE_VOICE_BRIDGE_SERVICE="${INSTALL_DUALEYE_VOICE_BRIDGE_SERVICE}" \
   STRICT_DUALEYE_VOICE_BRIDGE_SERVICE="${STRICT_DUALEYE_VOICE_BRIDGE_SERVICE}" \
   KOALABYTE_ESP32_MIC_PORT="${KOALABYTE_ESP32_MIC_PORT:-${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-/dev/koalabyte-esp32-dualeye}}}" \
@@ -254,7 +341,31 @@ run_dualeye_voice_bridge_service() {
 
 trap 'write_status "failed" "one_shot_install" "one-shot installer exited before completion"' ERR
 
+if [[ "${CHECK_ONLY}" == "1" ]]; then
+  run_required "Repo readiness" python3 scripts/check_repo_readiness.py
+  run_required "udev rules readiness" run_udev_install_or_check
+  run_required "boot service templates readiness" run_boot_services_install_or_check
+  run_required "KillerKoala AI and voice readiness" run_killerkoala_ai_readiness
+  run_required "Menu display sync and AI-face controls" run_menu_display_sync_gate
+  run_required "Menus buttons antennas controls and commands" env PYTHONPATH=pi-companion "$(python_for_checks)" scripts/check_one_shot_controls.py
+  run_required "Full runtime dependencies and board helpers" run_full_runtime_dependency_gate
+  run_required "Field readiness helpers" run_field_readiness
+  run_required "Version handshake readiness" run_version_handshake
+  run_required "Status dashboard JSON check" run_status_dashboard_json
+  run_required "Release and log helper checks" run_release_log_helper_checks
+  run_required "KoalaByte Doctor quick check" run_doctor_quick
+  run_required "External antenna readiness" bash scripts/configure_koalabyte_external_antennas.sh --check-only
+  run_optional_can
+  write_status "complete" "one_shot_check_only" "dry-run checks complete; no firmware flashing or service install performed"
+  trap - ERR
+  echo
+  echo "KoalaByte Blue V2 Heltec Edition one-shot check-only complete."
+  echo "Status: ${STATUS_PATH}"
+  exit 0
+fi
+
 run_required "Repo readiness" python3 scripts/check_repo_readiness.py
+run_required "udev rules install" run_udev_install_or_check
 run_required "Raspberry Pi companion + Heltec combined-safe flash" env FLASH_T114_ON_PLUG="${FLASH_T114_ON_PLUG}" STRICT_T114_PLUG_FLASH="${STRICT_T114_PLUG_FLASH}" T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE}" bash scripts/install_pi.sh
 run_required "KillerKoala AI and voice readiness" run_killerkoala_ai_readiness
 run_required "ESP32-S3 DualEye mic voice bridge service" run_dualeye_voice_bridge_service
@@ -263,16 +374,20 @@ run_required "KillerKoala eyes and mouth sync" run_face_mouth_sync
 run_required "Menu display sync and AI-face controls" run_menu_display_sync_gate
 run_required "Menus buttons antennas controls and commands" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_one_shot_controls.py
 run_required "Full runtime dependencies and board helpers" run_full_runtime_dependency_gate
-run_required "Field readiness helpers" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_field_readiness.py
-run_required "KoalaByte Doctor quick check" bash scripts/koalabyte_doctor.sh --quick
+run_required "Field readiness helpers" run_field_readiness
+run_required "Version handshake readiness" run_version_handshake
+run_required "Status dashboard JSON check" run_status_dashboard_json
+run_required "Release and log helper checks" run_release_log_helper_checks
+run_required "KoalaByte Doctor quick check" run_doctor_quick
 run_required "BLE node manager service" env KOALABYTE_PRIMARY_BLE_PORT="${KOALABYTE_PRIMARY_BLE_PORT:-${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-/dev/koalabyte-heltec}}}" KOALABYTE_HELTEC_USB_PORT="${KOALABYTE_HELTEC_USB_PORT:-${KOALABYTE_PRIMARY_BLE_PORT:-/dev/koalabyte-heltec}}" KOALABYTE_ESP32_FACE_PORT="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-}}" KOALABYTE_PI_BLUEZ_NODE="${KOALABYTE_PI_BLUEZ_NODE:-1}" PYTHON_BIN="${PYTHON_BIN}" INSTALL_BLE_NODE_MANAGER_SERVICE="${INSTALL_BLE_NODE_MANAGER_SERVICE}" STRICT_BLE_NODE_MANAGER_SERVICE="${STRICT_BLE_NODE_MANAGER_SERVICE}" bash scripts/install_ble_node_manager_service.sh
+run_required "boot services install" run_boot_services_install_or_check
 run_required "T114 live dashboard status phrases" run_t114_status_dashboard_readiness
 run_required "Didgeridoo/menu action readiness" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_menu_actions.py
 run_required "External antenna readiness" bash scripts/configure_koalabyte_external_antennas.sh --check-only
 run_required "AntEater passive readiness" prepare_anteater_status
 run_optional_can
 
-write_status "complete" "one_shot_install" "Pi, Heltec combined-safe primary BLE/mouth profile, ESP32-S3, DualEye mic voice bridge, KillerKoala AI/voice, eyes/mouth sync, menu display sync, AI-face idle/action-complete return, field readiness helpers, doctor quick check, full runtime dependency gate, live T114 dashboard phrases, controls/commands, services, menu, antenna, passive-readiness, and optional CAN handling complete"
+write_status "complete" "one_shot_install" "Pi, Heltec combined-safe primary BLE/mouth profile, ESP32-S3, DualEye mic voice bridge, KillerKoala AI/voice, eyes/mouth sync, menu display sync, AI-face idle/action-complete return, udev rules, boot services, version handshake, status dashboard check, release/log helper checks, field readiness helpers, doctor quick check, full runtime dependency gate, live T114 dashboard phrases, controls/commands, services, menu, antenna, passive-readiness, and optional CAN handling complete"
 trap - ERR
 
 echo
