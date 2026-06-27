@@ -132,6 +132,34 @@ def _send_json_line(port: str, payload: dict[str, object]) -> tuple[bool, str]:
         return False, f"send_failed:{exc}"
 
 
+def _heltec_face_payload(payload: dict[str, object]) -> dict[str, object]:
+    position = int(payload.get("selected_position", 1))
+    total = int(payload.get("total_items", 1))
+    label = str(payload.get("selected_label", "Menu"))
+    command = str(payload.get("selected_command", ""))
+    event_type = str(payload.get("event_type", "highlight"))
+    message = f"{position:02d}/{max(total, 1):02d} {label}"
+    return {
+        "type": "killerkoala_face",
+        "state": "menu_select" if event_type in {"select", "touch_long_press_select"} else "menu_highlight",
+        "message": message[:92],
+        "menu_sync": True,
+        "selected_label": label,
+        "selected_command": command,
+        "event_type": event_type,
+        "duration_ms": 60000,
+        "enabled": True,
+    }
+
+
+def _esp32_menu_payload(payload: dict[str, object]) -> dict[str, object]:
+    wire_payload = dict(payload)
+    # Keep the serial line compact for the ESP32-S3 parser. The Pi still logs the
+    # full visible item list locally under logs/menu_sync/current_menu_state.json.
+    wire_payload.pop("visible_items", None)
+    return wire_payload
+
+
 def sync_menu_state(menu: Any, event: Any | None = None) -> dict[str, object]:
     payload = build_menu_sync_payload(menu, event)
     _write_local(payload)
@@ -142,8 +170,12 @@ def sync_menu_state(menu: Any, event: Any | None = None) -> dict[str, object]:
 
     results: dict[str, list[dict[str, object]]] = {"heltec": [], "esp32": []}
     for kind in ("heltec", "esp32"):
-        wire_payload = dict(payload)
-        wire_payload["target_display"] = "heltec-t114" if kind == "heltec" else "esp32-s3-dualeye"
+        if kind == "heltec":
+            wire_payload = _heltec_face_payload(payload)
+            wire_payload["target_display"] = "heltec-t114"
+        else:
+            wire_payload = _esp32_menu_payload(payload)
+            wire_payload["target_display"] = "esp32-s3-dualeye"
         for port in _tool_port_candidates(kind):
             sent, status = _send_json_line(port, wire_payload)
             results[kind].append({"port": port, "sent": sent, "status": status})
