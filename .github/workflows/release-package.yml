@@ -1,0 +1,35 @@
+name: KoalaByte Blue Release Package
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'koalabyte-blue-v*'
+
+jobs:
+  package:
+    name: Build release install package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build package folder
+        run: |
+          set -euo pipefail
+          mkdir -p dist/KoalaByte-Blue
+          rsync -a \
+            --exclude '.git' \
+            --exclude 'dist' \
+            --exclude 'exports' \
+            --exclude 'logs' \
+            README.md install.sh scripts pi-companion firmware docs systemd udev logrotate version training .github \
+            dist/KoalaByte-Blue/
+          (cd dist && zip -r KoalaByte-Blue-install-package.zip KoalaByte-Blue >/dev/null)
+
+      - name: Upload install package
+        uses: actions/upload-artifact@v4
+        with:
+          name: KoalaByte-Blue-install-package
+          path: dist/KoalaByte-Blue-install-package.zip
+          retention-days: 14
