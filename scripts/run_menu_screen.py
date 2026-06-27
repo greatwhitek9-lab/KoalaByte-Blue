@@ -78,6 +78,15 @@ def route_leaf(item: MenuItem) -> None:
     print(f"\n🌿 {item.label} routed → {path}\n")
 
 
+def _write_result(item: MenuItem, status: str, result: object, note: str = "") -> None:
+    payload = {"timestamp": time.time(), "label": item.label, "command": item.command, "group": item.group, "status": status, "result": result}
+    if note:
+        payload["note"] = note
+    path = write_action_payload(item, payload)
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    print(f"\n{item.label} written → {path}\n")
+
+
 def run_boomerang_action(_item: MenuItem) -> None:
     from koalablue import boomerang
 
@@ -102,79 +111,75 @@ def run_anteater_action(_item: MenuItem) -> None:
     print(render_summary(report))
 
 
-def run_t114_bluez_controller_check(item: MenuItem) -> None:
+def run_t114_primary_controller_check(item: MenuItem) -> None:
     from koalablue.t114_bluez import check_controller
 
     result = check_controller()
-    payload = {"timestamp": time.time(), "label": item.label, "command": item.command, "group": item.group, "status": result.status, "result": asdict(result)}
-    path = write_action_payload(item, payload)
-    print(json.dumps(payload, indent=2, sort_keys=True))
-    print(f"\nT114 BlueZ controller check written → {path}\n")
+    _write_result(item, result.status, asdict(result), "Checks the default combined-safe USB CDC JSON controller path.")
 
 
-def run_t114_bluez_status(item: MenuItem) -> None:
+def run_t114_primary_status(item: MenuItem) -> None:
     from koalablue.t114_bluez import run_wrapped_bluez
 
     result = run_wrapped_bluez("status", duration_seconds=10)
-    payload = {"timestamp": time.time(), "label": item.label, "command": item.command, "group": item.group, "status": result.status, "result": asdict(result)}
-    path = write_action_payload(item, payload)
-    print(json.dumps(payload, indent=2, sort_keys=True))
-    print(f"\nT114 BlueZ status written → {path}\n")
+    _write_result(item, result.status, asdict(result), "Shows primary T114 BLE/TX/mouth status; GNSS is also ingested by the node manager.")
+
+
+def run_t114_primary_ble_scan(item: MenuItem) -> None:
+    from koalablue.t114_bluez import run_wrapped_bluez
+
+    result = run_wrapped_bluez("scan", duration_seconds=30)
+    _write_result(item, result.status, asdict(result), "Bounded passive BLE scan through the T114 primary radio.")
+
+
+def run_t114_ble_tx_status(item: MenuItem) -> None:
+    from koalablue.t114_bluez import run_wrapped_bluez
+
+    result = run_wrapped_bluez("tx-status", duration_seconds=5)
+    _write_result(item, result.status, asdict(result), "Checks bounded non-connectable lab beacon TX status.")
+
+
+def run_t114_primary_gnss_fix(item: MenuItem) -> None:
+    from koalblue.gnss_location import current_fix, fix_to_dict  # type: ignore
+
+    fix = current_fix(authorized=None, prompt=False)
+    _write_result(item, "complete", {"fix": fix_to_dict(fix), "source_priority": "heltec-t114-gnss"}, "Protected location gate still controls coordinate visibility.")
 
 
 def run_meshtastic_status(item: MenuItem) -> None:
     from koalablue.meshtastic_app import status
 
-    payload = {"timestamp": time.time(), "label": item.label, "command": item.command, "group": item.group, "status": "complete", "result": status()}
-    path = write_action_payload(item, payload)
-    print(json.dumps(payload, indent=2, sort_keys=True))
-    print(f"\nMeshtastic status written → {path}\n")
+    _write_result(item, "complete", status())
 
 
 def run_meshtastic_nodes(item: MenuItem) -> None:
     from koalablue.meshtastic_app import nodes
 
-    payload = {"timestamp": time.time(), "label": item.label, "command": item.command, "group": item.group, "status": "complete", "result": nodes()}
-    path = write_action_payload(item, payload)
-    print(json.dumps(payload, indent=2, sort_keys=True))
-    print(f"\nMeshtastic nodes written → {path}\n")
+    _write_result(item, "complete", nodes())
 
 
 def run_meshtastic_gps(item: MenuItem) -> None:
     from koalablue.meshtastic_app import gps_info
 
-    payload = {"timestamp": time.time(), "label": item.label, "command": item.command, "group": item.group, "status": "complete", "result": gps_info()}
-    path = write_action_payload(item, payload)
-    print(json.dumps(payload, indent=2, sort_keys=True))
-    print(f"\nMeshtastic GPS status written → {path}\n")
+    _write_result(item, "complete", gps_info())
 
 
 def run_location_gate_status(item: MenuItem) -> None:
     from koalablue.location_password_gate import PASSWORD_FILE, UNLOCK_ENV, password_exists
 
     payload = {
-        "timestamp": time.time(),
-        "label": item.label,
-        "command": item.command,
-        "group": item.group,
         "configured": password_exists(),
         "unlocked": os.environ.get(UNLOCK_ENV) in {"1", "true", "TRUE", "yes", "YES"},
         "path": str(PASSWORD_FILE),
-        "status": "complete",
     }
-    path = write_action_payload(item, payload)
-    print(json.dumps(payload, indent=2, sort_keys=True))
-    print(f"\nProtected location gate status written → {path}\n")
+    _write_result(item, "complete", payload)
 
 
 def run_gnss_current_fix(item: MenuItem) -> None:
     from koalablue.gnss_location import current_fix, fix_to_dict
 
     fix = current_fix(authorized=None, prompt=False)
-    payload = {"timestamp": time.time(), "label": item.label, "command": item.command, "group": item.group, "status": "complete", "fix": fix_to_dict(fix)}
-    path = write_action_payload(item, payload)
-    print(json.dumps(payload, indent=2, sort_keys=True))
-    print(f"\nGNSS current-fix status written → {path}\n")
+    _write_result(item, "complete", {"fix": fix_to_dict(fix), "source_priority": "heltec-t114-gnss"})
 
 
 def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
@@ -185,8 +190,13 @@ def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
     menu.register_handler("boomerang", run_boomerang_action)
     menu.register_handler("eucalyptus_mode", run_eucalyptus_mode_action)
     menu.register_handler("anteater", run_anteater_action)
-    menu.register_handler("t114_bluez_controller_check", run_t114_bluez_controller_check)
-    menu.register_handler("t114_bluez_status", run_t114_bluez_status)
+    menu.register_handler("t114_primary_controller_check", run_t114_primary_controller_check)
+    menu.register_handler("t114_primary_status", run_t114_primary_status)
+    menu.register_handler("t114_primary_ble_scan", run_t114_primary_ble_scan)
+    menu.register_handler("t114_ble_tx_status", run_t114_ble_tx_status)
+    menu.register_handler("t114_primary_gnss_fix", run_t114_primary_gnss_fix)
+    menu.register_handler("t114_bluez_controller_check", run_t114_primary_controller_check)
+    menu.register_handler("t114_bluez_status", run_t114_primary_status)
     menu.register_handler("meshtastic_status", run_meshtastic_status)
     menu.register_handler("meshtastic_nodes", run_meshtastic_nodes)
     menu.register_handler("meshtastic_gps", run_meshtastic_gps)
