@@ -8,7 +8,7 @@ rm -rf "${PKG_DIR}"
 mkdir -p "${PKG_DIR}" "${OUT_DIR}"
 cd "${REPO_ROOT}"
 
-items=(README.md install.sh scripts pi-companion firmware docs systemd udev logrotate version training .github)
+items=(README.md install.sh scripts pi-companion firmware docs production systemd udev logrotate version training .github)
 for item in "${items[@]}"; do
   [[ -e "${item}" ]] && cp -a "${item}" "${PKG_DIR}/"
 done
