@@ -253,7 +253,7 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     menu = REPO_ROOT / "scripts" / "run_menu_screen.py"
     menu_ui = REPO_ROOT / "pi-companion" / "koalablue" / "menu_ui.py"
     menu_sync = REPO_ROOT / "pi-companion" / "koalablue" / "menu_display_sync.py"
-    menu_theme = REPO_ROOT / "pi-companion" / "koalblue" / "menu_theme.py"
+    menu_theme = REPO_ROOT / "pi-companion" / "koalablue" / "menu_theme.py"
     esp32 = REPO_ROOT / "firmware" / "esp32-dualeye" / "src" / "main.cpp"
     status = REPO_ROOT / "pi-companion" / "koalablue" / "t114_menu_status.py"
     status_check = REPO_ROOT / "scripts" / "check_t114_status_dashboard.py"
