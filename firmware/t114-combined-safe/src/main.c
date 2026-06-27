@@ -1,14 +1,17 @@
 /* KoalaByte Blue Heltec T114 combined-safe firmware.
  *
  * Default one-shot role:
- *   - Heltec T114 onboard nRF52840 is the primary passive BLE JSON node.
+ *   - Heltec T114 onboard nRF52840 is the primary BLE radio endpoint.
+ *   - BLE RX: passive advertisement observation emits normalized JSON to the Pi.
+ *   - BLE TX: Pi-commanded, bounded, non-connectable owned-lab beacon only.
  *   - ESP32-S3 DualEye BLE and Raspberry Pi BlueZ remain secondary/fallback nodes.
  *   - KillerKoala mouth/status commands share the same USB CDC JSON stream.
  *   - GNSS and LoRa status hooks are exposed, but direct GNSS UART and SX1262 radio
  *     driving stay guarded until the exact T114 pin map and recovery path are validated.
  *
- * Safety boundary: passive BLE advertisement observation only. No pairing, no GATT
- * writes, no spoofing, no jamming, and no LoRa transmit path in this firmware.
+ * Safety boundary: no pairing, no GATT writes, no spoofing, no jamming, and no LoRa
+ * transmit path in this firmware. BLE transmit is limited to a local, non-connectable
+ * lab beacon started by an explicit Pi command.
  */
 
 #include <zephyr/kernel.h>
@@ -29,7 +32,7 @@
 
 #define KOALA_DEVICE "heltec-t114-nrf52840"
 #define KOALA_ROLE "primary"
-#define KOALA_FW "0.2.0-t114-combined-safe"
+#define KOALA_FW "0.3.0-t114-combined-safe-ble-txrx"
 #define KOALA_DUPLICATE_SUPPRESS_MS 5000
 #define KOALA_RSSI_CHANGE_DB 8
 #define KOALA_CACHE_SIZE 48
@@ -38,6 +41,9 @@
 #define KOALA_LINE_MAX 256
 #define KOALA_STATUS_MS 15000
 #define KOALA_FACE_DEFAULT_MS 4500
+#define KOALA_TX_DEFAULT_MS 30000
+#define KOALA_TX_MAX_MS 60000
+#define KOALA_ADV_NAME_MAX 20
 
 #define CONSOLE_NODE DT_CHOSEN(zephyr_console)
 static const struct device *const console_dev = DEVICE_DT_GET(CONSOLE_NODE);
@@ -57,10 +63,14 @@ struct adv_summary {
 static struct seen_entry seen[KOALA_CACHE_SIZE];
 static uint32_t total_seen;
 static uint32_t total_emitted;
+static uint32_t total_tx_started;
 static int64_t boot_ms;
 static int64_t last_status_ms;
 static bool ble_scan_active;
 static bool ble_ready;
+static bool ble_adv_active;
+static int64_t ble_adv_until_ms;
+static char ble_adv_name[KOALA_ADV_NAME_MAX + 1] = "KoalaByte-T114";
 
 static char current_state[32] = "boot";
 static char current_message[96] = "killerkoala online";
@@ -172,6 +182,30 @@ static int extract_json_int(const char *line, const char *key, int fallback)
     return atoi(p);
 }
 
+static bool json_true(const char *line, const char *key)
+{
+    char pattern[48];
+    const char *p;
+
+    if (!line || !key) {
+        return false;
+    }
+    snprintf(pattern, sizeof(pattern), "\"%s\"", key);
+    p = strstr(line, pattern);
+    if (!p) {
+        return false;
+    }
+    p = strchr(p + strlen(pattern), ':');
+    if (!p) {
+        return false;
+    }
+    p++;
+    while (*p == ' ' || *p == '\t') {
+        p++;
+    }
+    return strncmp(p, "true", 4) == 0;
+}
+
 static bool same_addr(const bt_addr_le_t *a, const bt_addr_le_t *b)
 {
     return a && b && a->type == b->type && memcmp(&a->a, &b->a, sizeof(a->a)) == 0;
@@ -245,10 +279,17 @@ static const char *addr_type_name(uint8_t type)
 static void emit_ble_status(const char *reason)
 {
     int64_t now = k_uptime_get();
-    printk("{\"type\":\"ble_status\",\"device\":\"%s\",\"source\":\"%s\",\"role\":\"%s\",\"transport\":\"usb-cdc\",\"reason\":\"%s\",\"ble_ready\":%s,\"scan_active\":%s,\"active_scan\":false,\"total_seen\":%u,\"total_emitted\":%u,\"uptime_ms\":%lld}\n",
+    printk("{\"type\":\"ble_status\",\"device\":\"%s\",\"source\":\"%s\",\"role\":\"%s\",\"transport\":\"usb-cdc\",\"reason\":\"%s\",\"ble_ready\":%s,\"scan_active\":%s,\"adv_active\":%s,\"active_scan\":false,\"total_seen\":%u,\"total_emitted\":%u,\"total_tx_started\":%u,\"uptime_ms\":%lld}\n",
            KOALA_DEVICE, KOALA_DEVICE, KOALA_ROLE, reason ? reason : "status",
-           ble_ready ? "true" : "false", ble_scan_active ? "true" : "false",
-           total_seen, total_emitted, (long long)(now - boot_ms));
+           ble_ready ? "true" : "false", ble_scan_active ? "true" : "false", ble_adv_active ? "true" : "false",
+           total_seen, total_emitted, total_tx_started, (long long)(now - boot_ms));
+}
+
+static void emit_tx_status(const char *status, const char *reason)
+{
+    printk("{\"type\":\"ble_tx_status\",\"device\":\"%s\",\"source\":\"%s\",\"role\":\"%s\",\"transport\":\"usb-cdc\",\"status\":\"%s\",\"reason\":\"%s\",\"adv_active\":%s,\"adv_name\":\"%s\",\"non_connectable\":true,\"owned_lab_only\":true,\"total_tx_started\":%u}\n",
+           KOALA_DEVICE, KOALA_DEVICE, KOALA_ROLE, status ? status : "status", reason ? reason : "status",
+           ble_adv_active ? "true" : "false", ble_adv_name, total_tx_started);
 }
 
 static void emit_mouth_status(void)
@@ -260,8 +301,8 @@ static void emit_mouth_status(void)
 
 static void emit_ack(const char *state)
 {
-    printk("{\"type\":\"killerkoala_tft_ack\",\"device\":\"heltec-t114-color\",\"source\":\"%s\",\"state\":\"%s\",\"active\":true,\"gnss_enabled\":false,\"ble_primary_enabled\":true,\"ble_scan_active\":%s,\"transport\":\"usb-cdc\"}\n",
-           KOALA_DEVICE, state ? state : current_state, ble_scan_active ? "true" : "false");
+    printk("{\"type\":\"killerkoala_tft_ack\",\"device\":\"heltec-t114-color\",\"source\":\"%s\",\"state\":\"%s\",\"active\":true,\"gnss_enabled\":false,\"ble_primary_enabled\":true,\"ble_scan_active\":%s,\"ble_tx_active\":%s,\"transport\":\"usb-cdc\"}\n",
+           KOALA_DEVICE, state ? state : current_state, ble_scan_active ? "true" : "false", ble_adv_active ? "true" : "false");
 }
 
 static void emit_gnss_status(void)
@@ -278,7 +319,7 @@ static void emit_lora_status(void)
 
 static void emit_node_roles(void)
 {
-    printk("{\"type\":\"node_roles\",\"device\":\"heltec-t114\",\"primary_ble\":\"heltec-t114-nrf52840\",\"secondary_ble_nodes\":[\"esp32-s3-dualeye\",\"raspberry-pi-bluez\"],\"transport\":\"usb-cdc\",\"active_scan\":false}\n");
+    printk("{\"type\":\"node_roles\",\"device\":\"heltec-t114\",\"primary_ble\":\"heltec-t114-nrf52840\",\"rx_path\":\"passive_adv_observer\",\"tx_path\":\"pi_commanded_non_connectable_lab_beacon\",\"secondary_ble_nodes\":[\"esp32-s3-dualeye\",\"raspberry-pi-bluez\"],\"transport\":\"usb-cdc\",\"active_scan\":false}\n");
 }
 
 static void handle_face_command(const char *line)
@@ -305,6 +346,72 @@ static void handle_face_command(const char *line)
     emit_ack(current_state);
 }
 
+static void stop_lab_advertising(const char *reason)
+{
+    int err;
+
+    if (!ble_adv_active) {
+        emit_tx_status("idle", reason ? reason : "already_stopped");
+        return;
+    }
+    err = bt_le_adv_stop();
+    if (err) {
+        printk("{\"type\":\"ble_tx_error\",\"device\":\"%s\",\"source\":\"%s\",\"message\":\"advertise stop failed\",\"err\":%d}\n",
+               KOALA_DEVICE, KOALA_DEVICE, err);
+        return;
+    }
+    ble_adv_active = false;
+    ble_adv_until_ms = 0;
+    emit_tx_status("stopped", reason ? reason : "stopped");
+}
+
+static void start_lab_advertising(const char *line)
+{
+    int err;
+    int duration_ms = extract_json_int(line, "duration_ms", KOALA_TX_DEFAULT_MS);
+    char value[KOALA_ADV_NAME_MAX + 1];
+    const struct bt_data ad[] = {
+        BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
+    };
+    struct bt_data sd[] = {
+        BT_DATA(BT_DATA_NAME_COMPLETE, ble_adv_name, strlen(ble_adv_name)),
+    };
+
+    if (!json_true(line, "confirm")) {
+        emit_tx_status("blocked", "confirm_true_required");
+        return;
+    }
+    if (!ble_ready) {
+        emit_tx_status("blocked", "ble_not_ready");
+        return;
+    }
+    if (duration_ms < 1000) {
+        duration_ms = KOALA_TX_DEFAULT_MS;
+    }
+    if (duration_ms > KOALA_TX_MAX_MS) {
+        duration_ms = KOALA_TX_MAX_MS;
+    }
+    if (extract_json_string(line, "name", value, sizeof(value))) {
+        copy_safe(ble_adv_name, sizeof(ble_adv_name), value, "KoalaByte-T114");
+    }
+    sd[0].data = ble_adv_name;
+    sd[0].data_len = strlen(ble_adv_name);
+
+    if (ble_adv_active) {
+        stop_lab_advertising("restart");
+    }
+    err = bt_le_adv_start(BT_LE_ADV_NCONN, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
+    if (err) {
+        printk("{\"type\":\"ble_tx_error\",\"device\":\"%s\",\"source\":\"%s\",\"message\":\"non-connectable advertising start failed\",\"err\":%d}\n",
+               KOALA_DEVICE, KOALA_DEVICE, err);
+        return;
+    }
+    ble_adv_active = true;
+    ble_adv_until_ms = k_uptime_get() + duration_ms;
+    total_tx_started++;
+    emit_tx_status("started", "pi_commanded_owned_lab_beacon");
+}
+
 static void handle_line(const char *line)
 {
     if (!line || line[0] == '\0') {
@@ -320,6 +427,12 @@ static void handle_line(const char *line)
         emit_lora_status();
     } else if (strstr(line, "\"type\":\"ble_status\"")) {
         emit_ble_status("command");
+    } else if (strstr(line, "\"type\":\"ble_tx_status\"")) {
+        emit_tx_status("status", "command");
+    } else if (strstr(line, "\"type\":\"ble_lab_advertise_start\"")) {
+        start_lab_advertising(line);
+    } else if (strstr(line, "\"type\":\"ble_lab_advertise_stop\"")) {
+        stop_lab_advertising("pi_commanded_stop");
     } else if (strstr(line, "\"type\":\"node_roles\"")) {
         emit_node_roles();
     } else {
@@ -415,12 +528,13 @@ int main(void)
     }
 
     k_sleep(K_MSEC(1200));
-    printk("{\"type\":\"boot\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"role\":\"%s\",\"fw\":\"%s\",\"transport\":\"usb-cdc\",\"scope\":\"primary passive BLE plus mouth/status JSON; GNSS and LoRa hooks guarded until pin validation\"}\n",
+    printk("{\"type\":\"boot\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"role\":\"%s\",\"fw\":\"%s\",\"transport\":\"usb-cdc\",\"scope\":\"primary BLE RX plus guarded Pi-commanded BLE TX and mouth/status JSON; GNSS and LoRa hooks guarded until pin validation\"}\n",
            KOALA_DEVICE, KOALA_ROLE, KOALA_FW);
     emit_node_roles();
     emit_mouth_status();
     emit_gnss_status();
     emit_lora_status();
+    emit_tx_status("idle", "boot");
     start_ble_primary();
 
     while (true) {
@@ -429,6 +543,9 @@ int main(void)
         if (face_enabled && face_until_ms > 0 && now > face_until_ms) {
             face_until_ms = 0;
             copy_safe(current_state, sizeof(current_state), "idle", "idle");
+        }
+        if (ble_adv_active && ble_adv_until_ms > 0 && now > ble_adv_until_ms) {
+            stop_lab_advertising("duration_complete");
         }
         if (now - last_status_ms >= KOALA_STATUS_MS) {
             last_status_ms = now;
