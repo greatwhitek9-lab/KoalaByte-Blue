@@ -21,7 +21,7 @@ REQUIRED_FILES = [
     "pi-companion/koalablue/menu_catalog.py",
     "pi-companion/koalablue/menu_ui.py",
     "pi-companion/koalablue/t114_menu_status.py",
-    "pi-companion/koalblue/meshtastic_app.py".replace("koalblue", "koalablue"),
+    "pi-companion/koalablue/meshtastic_app.py",
     "pi-companion/koalablue/t114_bluez.py",
     "pi-companion/koalablue/gnss_location.py",
     "pi-companion/koalablue/location_password_gate.py",
@@ -31,6 +31,7 @@ REQUIRED_FILES = [
     "pi-companion/koalablue/killerkoala_voice_control.py",
     "scripts/check_menu_actions.py",
     "scripts/check_t114_status_dashboard.py",
+    "scripts/check_full_runtime_dependencies.py",
     "scripts/check_killerkoala_ai.py",
     "scripts/check_killerkoala_face_mouth_sync.py",
     "scripts/check_one_shot_controls.py",
@@ -94,6 +95,22 @@ REQUIRED_AI_REQUIREMENTS = [
     "SpeechRecognition",
 ]
 
+REQUIRED_RUNTIME_REQUIREMENTS = [
+    "bleak",
+    "pyserial",
+    "rich",
+    "pydantic",
+    "fastapi",
+    "uvicorn",
+    "requests",
+    "httpx",
+    "gpiozero",
+    "pygame",
+    "python-can",
+    "pyttsx3",
+    "SpeechRecognition",
+]
+
 
 def _file_contains(path: Path, needles: list[str]) -> list[str]:
     if not path.exists():
@@ -153,6 +170,9 @@ def check_ai_requirements(failures: list[str]) -> None:
     for requirement in REQUIRED_AI_REQUIREMENTS:
         if requirement.lower() not in lowered:
             failures.append(f"pi-companion/requirements.txt missing KillerKoala AI dependency: {requirement}")
+    for requirement in REQUIRED_RUNTIME_REQUIREMENTS:
+        if requirement.lower() not in lowered:
+            failures.append(f"pi-companion/requirements.txt missing runtime dependency: {requirement}")
 
     voice_control = REPO_ROOT / "pi-companion" / "koalablue" / "killerkoala_voice_control.py"
     if voice_control.exists():
@@ -171,6 +191,10 @@ def check_ai_requirements(failures: list[str]) -> None:
             "run_t114_status_dashboard_readiness",
             "scripts/check_t114_status_dashboard.py",
             "T114 live dashboard status phrases",
+            "run_full_runtime_dependency_gate",
+            "scripts/check_full_runtime_dependencies.py",
+            "Full runtime dependencies and board helpers",
+            "STRICT_FULL_RUNTIME_DEPENDENCIES",
         ]:
             if needle not in one_shot_text:
                 failures.append(f"one-shot installer missing readiness hook: {needle}")
@@ -227,6 +251,7 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     menu_ui = REPO_ROOT / "pi-companion" / "koalablue" / "menu_ui.py"
     status = REPO_ROOT / "pi-companion" / "koalablue" / "t114_menu_status.py"
     status_check = REPO_ROOT / "scripts" / "check_t114_status_dashboard.py"
+    runtime_check = REPO_ROOT / "scripts" / "check_full_runtime_dependencies.py"
     firmware_needles = [
         "ble_adv_seen",
         "ble_lab_advertise_start",
@@ -245,11 +270,12 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     gnss_needles = ["write_primary_t114_fix_event", "heltec-t114-gnss", "KOALABYTE_PRIMARY_GNSS_PORT"]
     manager_needles = ["write_primary_t114_fix_event", "gnss_fix", "gnss_status"]
     installer_needles = ["T114_PLUG_FLASH_PROFILE=\"${T114_PLUG_FLASH_PROFILE:-combined-safe}\"", "INSTALL_HELTEC_NRF_TOOLS=\"${INSTALL_HELTEC_NRF_TOOLS:-1}\""]
-    one_shot_needles = ["STRICT_T114_STATUS_DASHBOARD", "run_t114_status_dashboard_readiness", "T114 live dashboard status phrases"]
+    one_shot_needles = ["STRICT_T114_STATUS_DASHBOARD", "run_t114_status_dashboard_readiness", "T114 live dashboard status phrases", "STRICT_FULL_RUNTIME_DEPENDENCIES", "run_full_runtime_dependency_gate"]
     menu_needles = ["t114_primary_ble_scan", "t114_primary_gnss_fix", "koalablue.gnss_location"]
     menu_ui_needles = ["status:", "status_row", "status_label_description"]
     status_needles = ["Heltec Link: Connected", "Heltec Link: Disconnected", "Radio/GPS:", "Lab Beacon TX: On", "Lab Beacon TX: Off", "Lab Beacon TX: Blocked"]
     status_check_needles = ["status_label_description", "T114_STATUS_DASHBOARD_READY", "active_status_check_attempted"]
+    runtime_check_needles = ["FULL_RUNTIME_DEPENDENCIES_READY", "PYTHON_IMPORTS", "BOARD_COMMANDS", "REQUIRED_PROJECT_MODULES", "BOARD_FILES"]
     failures.extend(_file_contains(combined, firmware_needles))
     failures.extend(_file_contains(conf, conf_needles))
     failures.extend(_file_contains(build_helper, helper_needles))
@@ -261,6 +287,7 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     failures.extend(_file_contains(menu_ui, menu_ui_needles))
     failures.extend(_file_contains(status, status_needles))
     failures.extend(_file_contains(status_check, status_check_needles))
+    failures.extend(_file_contains(runtime_check, runtime_check_needles))
 
 
 def check_helpers(failures: list[str]) -> None:
