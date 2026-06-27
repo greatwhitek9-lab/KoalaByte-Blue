@@ -91,7 +91,7 @@ def build_menu_sync_payload(menu: Any, event: Any | None = None) -> dict[str, ob
             "main_menu": ["B1", "keyboard_m"],
             "reopen_menu": ["B1", "touch_double_tap"],
         },
-        "execute_hint": "Highlight a menu item, then press B3/select or long-press the touchscreen.",
+        "execute_hint": "Highlight a menu item, then press B3/select or touchscreen long-press to execute it.",
         "idle_face_rule": "AI face returns after 30 seconds idle and after actions until B1/menu or double-tap reopens menu.",
         "synced_displays": ["heltec-t114", "esp32-s3-dualeye"],
         "updated_at": time.time(),
