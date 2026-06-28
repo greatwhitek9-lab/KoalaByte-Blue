@@ -114,7 +114,9 @@ REQUIRED_COMMAND_HELPERS = [
 REQUIRED_PROJECT_FILES = [
     "pi-companion/koalablue/bluez_tools.py",
     "pi-companion/koalablue/bluez_protected_lab.py",
+    "pi-companion/koalablue/greatwhite_reef.py",
     "pi-companion/koalablue/menu_action_runner.py",
+    "docs/GREATWHITE_REEF.md",
     "docs/KOALA_BLUEZ_TOOLS_REVA16.md",
     "docs/FIELD_READINESS_UPGRADES.md",
     "version/koalabyte_protocol.json",
@@ -318,6 +320,18 @@ def validate_protected_bluez_menu() -> list[str]:
     return failures
 
 
+def validate_greatwhite_reef_menu() -> list[str]:
+    failures: list[str] = []
+    main_labels = set(menu_labels("main"))
+    reef_labels = set(menu_labels("greatwhite_reef"))
+    if "GreatWhite Reef" not in main_labels:
+        failures.append("Main Canopy missing GreatWhite Reef")
+    for label in ["Reef Status", "TigerShark Install Check", "TigerShark Interfaces", "TigerShark PCAP Folder", "TigerShark Read Latest PCAP", "Great Wire Shark Launch Notes", "Great Wire Shark Folder Notes", "GreatWhite Reef Report"]:
+        if label not in reef_labels:
+            failures.append(f"GreatWhite Reef menu missing label: {label}")
+    return failures
+
+
 def validate_protected_bluez_code() -> list[str]:
     failures: list[str] = []
     required_needles = {
@@ -337,6 +351,20 @@ def validate_protected_bluez_code() -> list[str]:
             "bluez_platypus_bt_proxy",
             "_protected_bluez",
         ],
+        ROOT / "pi-companion" / "koalblue" / "greatwhite_reef.py": [],
+        ROOT / "pi-companion" / "koalablue" / "greatwhite_reef.py": [
+            "GREATWHITE_REEF_COMMANDS",
+            "greatwhite_pcap_read:",
+            "TigerShark",
+            "Great Wire Shark",
+            "logs/greatwhite_reef",
+        ],
+        ROOT / "docs" / "GREATWHITE_REEF.md": [
+            "TigerShark",
+            "Great Wire Shark",
+            "logs/greatwhite_reef/pcaps/",
+            "PCAP 1",
+        ],
         ROOT / "docs" / "KOALA_BLUEZ_TOOLS_REVA16.md": [
             "Outback Module Deck",
             "Protected lab-only BlueZ menu actions",
@@ -345,19 +373,28 @@ def validate_protected_bluez_code() -> list[str]:
         ],
         ROOT / "scripts" / "check_full_runtime_dependencies.py": [
             "koalablue.bluez_protected_lab",
+            "koalablue.greatwhite_reef",
+            "greatwhite_reef_pcap_review",
+            "tshark",
+            "wireshark",
             "scripts/run_koala_bluez_info.sh",
             "scripts/run_koala_bluez_services.sh",
             "bluez_legacy_lab_optional",
         ],
+        ROOT / "scripts" / "setup_system_packages.sh": [
+            "tshark",
+            "wireshark",
+            "GreatWhite Reef",
+        ],
     }
     for path, needles in required_needles.items():
         if not path.exists():
-            failures.append(f"missing protected BlueZ file: {path.relative_to(ROOT)}")
+            failures.append(f"missing protected/reef file: {path.relative_to(ROOT)}")
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         for needle in needles:
             if needle not in text:
-                failures.append(f"{path.relative_to(ROOT)} missing protected BlueZ marker: {needle}")
+                failures.append(f"{path.relative_to(ROOT)} missing protected/reef marker: {needle}")
     return failures
 
 
@@ -368,6 +405,7 @@ def main() -> int:
     menu_manifest, menu_failures = build_manifest()
     failures.extend(f"menu: {failure}" for failure in menu_failures)
     failures.extend(validate_protected_bluez_menu())
+    failures.extend(validate_greatwhite_reef_menu())
     failures.extend(validate_protected_bluez_code())
     failures.extend(validate_field_readiness_files())
 
@@ -421,6 +459,7 @@ def main() -> int:
         "leaf_count": menu_manifest.get("enabled_leaf_count"),
         "protected_bluez_labels": REQUIRED_PROTECTED_BLUEZ_LABELS,
         "protected_bluez_commands": REQUIRED_PROTECTED_BLUEZ_COMMANDS,
+        "greatwhite_reef_enabled": "GreatWhite Reef" in set(menu_labels("main")),
         "one_shot_installer": str(one_shot),
         "optional_can_required": False,
         "field_readiness_files": FIELD_READINESS_SHELL_HELPERS + FIELD_READINESS_PYTHON_HELPERS + REQUIRED_PROJECT_FILES,
