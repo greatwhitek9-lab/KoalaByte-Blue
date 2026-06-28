@@ -2,7 +2,7 @@
 
 **KoalaByte Blue is a pocket-sized koala cyberdeck with attitude.** It is a Raspberry Pi 3B+ powered cyber companion with animated ESP32-S3 DualEye eyes, a Heltec Mesh Node T114/nRF52840 BLE/GNSS/LoRa board, six physical front buttons, eucalyptus-styled menus, KillerKoala voice responses, passive defensive Bluetooth visibility, Wi-Fi/BLE survey mapping, local reports, and optional InnoMaker CAN bench support.
 
-It is built to feel like a tiny field deck and cyber pet in one: boot it, watch the eyes and mouth come alive, open Eucalyptus mode, check Didgeridoo radio/GNSS status, review local Bluetooth signals, run Koala Kombat Kruisin’ surveys, export reports, and let KillerKoala bark back when the device does something useful.
+It is built to feel like a tiny field deck and cyber pet in one: boot it, watch the eyes and mouth come alive, open Eucalyptus mode, check Didgeridoo radio/GNSS status, open the Meshtastic App, review local Bluetooth signals, run Koala Kombat Kruisin’ surveys, export reports, and let KillerKoala bark back when the device does something useful.
 
 KoalaByte Blue is for lawful owned-device labs, defensive review, education, and your own hardware. Do not use it on systems, vehicles, radios, networks, or devices you do not own or do not have permission to test.
 
@@ -303,6 +303,7 @@ Common voice patterns:
 ```text
 killerkoala open Eucalyptus
 killerkoala open Koala Kombat Kruisin’
+killerkoala open Meshtastic App
 killerkoala run Wi-Fi + BLE Survey
 killerkoala run T114 Quick BLE Test Scan
 killerkoala open Koala Kan Kommander
@@ -338,7 +339,7 @@ The visible UI uses one shared jungle-adventure/eucalyptus theme for terminal an
 | Eucalyptus | Passive BLE logger controls, GPS trail builder, WiGLE status/upload, and Koalagotchi mode. |
 | Koala Kombat Kruisin’ | Passive Wi-Fi/BLE/GPS survey mapping and WiGLE upload tools. |
 | Bluetooth Tools | Custom BLE tools plus wrapped BlueZ tools with custom KoalaByte names. |
-| Didgeridoo | Heltec T114/nRF52840 BLE, GNSS, LoRa/Meshtastic, and protected location helpers. |
+| Didgeridoo | Heltec T114/nRF52840 BLE, GNSS, LoRa/Meshtastic, Meshtastic App, and protected location helpers. |
 | CAN Bench Tools | Optional InnoMaker USB-to-CAN bench workflow. |
 | Reports & Reviews | Documentation, review, inventory, and lab report builders. |
 | System / Companion | KillerKoala voice, XP/status, buttons, settings, and helper controls. |
@@ -407,12 +408,15 @@ Radio/GPS
 T114 Quick BLE Test Scan
 Lab Beacon TX
 Sextant
+Meshtastic App
 Didgeridoo Status
 Didgeridoo Nodes
 Didgeridoo GPS Info
 Protected Location Gate Status
 Protected GNSS Current Fix
 ```
+
+The Meshtastic App row opens the Didgeridoo Meshtastic hub. It shows the saved local node profile and links the safe status, nodes, GPS, protected listen, and protected send helpers without sending messages or starting a live listener by default.
 
 ### CAN Bench Tools
 
