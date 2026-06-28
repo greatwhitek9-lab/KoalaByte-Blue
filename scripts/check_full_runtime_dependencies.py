@@ -38,6 +38,7 @@ BOARD_COMMANDS = {
     "audio_voice": ["aplay"],
     "serial_console": ["picocom"],
     "build_flash": ["git", "cmake", "ninja", "west"],
+    "esp32_flash": ["pio"],
 }
 
 REQUIRED_PROJECT_MODULES = [
@@ -47,6 +48,7 @@ REQUIRED_PROJECT_MODULES = [
     "koalablue.menu_prompt_state",
     "koalablue.popup_keyboard",
     "koalablue.bluez_lab_scope",
+    "koalablue.esp32_touch_menu_bridge",
     "koalablue.menu_display_sync",
     "koalablue.menu_theme",
     "koalablue.meshtastic_menu_items",
@@ -69,6 +71,7 @@ REQUIRED_PROJECT_MODULES = [
     "scripts.check_menu_theme_fit",
     "scripts.check_menu_prompt_ui",
     "scripts.check_koala_kry_menu",
+    "scripts.check_esp32_touch_menu",
     "scripts.check_one_shot_controls",
     "scripts.check_t114_status_dashboard",
 ]
@@ -78,6 +81,10 @@ BOARD_FILES = [
     "firmware/t114-combined-safe/prj.conf",
     "firmware/t114-combined-safe/src/main.c",
     "firmware/esp32-dualeye/platformio.ini",
+    "firmware/esp32-dualeye/include/config.h",
+    "firmware/esp32-dualeye/src/main.cpp",
+    "firmware/esp32-dualeye/src/esp32_touch_menu.h",
+    "firmware/esp32-dualeye/src/esp32_touch_menu.cpp",
     "firmware/heltec-mouth/platformio.ini",
     "scripts/setup_system_packages.sh",
     "scripts/setup_heltec_t114_tools.sh",
@@ -94,10 +101,13 @@ BOARD_FILES = [
     "scripts/check_menu_theme_fit.py",
     "scripts/check_menu_prompt_ui.py",
     "scripts/check_koala_kry_menu.py",
+    "scripts/check_esp32_touch_menu.py",
     "scripts/run_eucalyptus_wigle.py",
     "scripts/check_eucalyptus_wigle.py",
     "scripts/run_koala_kombat_kruisin.py",
     "scripts/check_koala_kombat_kruisin.py",
+    "scripts/run_esp32_touch_menu_bridge.py",
+    "docs/ESP32_TOUCH_MENU_CALIBRATION.md",
     "docs/KOALA_KOMBAT_NODE_ROLES.md",
     "scripts/run_koala_bluez.py",
     "scripts/run_koala_bluez_manifest.sh",
