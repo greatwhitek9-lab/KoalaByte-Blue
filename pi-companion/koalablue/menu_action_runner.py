@@ -173,6 +173,23 @@ def _t114_action(command: str) -> dict[str, Any]:
 def _meshtastic(command: str) -> dict[str, Any]:
     from . import meshtastic_app
 
+    if command == "meshtastic_app":
+        profile = meshtastic_app.load_profile()
+        return {
+            "status": "MESHTASTIC_APP_READY",
+            "display_name": meshtastic_app.DISPLAY_NAME,
+            "profile": asdict(profile),
+            "actions": [
+                {"label": "Didgeridoo Status", "command": "meshtastic_status", "description": "Show local Meshtastic node info."},
+                {"label": "Didgeridoo Nodes", "command": "meshtastic_nodes", "description": "Show the local Meshtastic node table."},
+                {"label": "Didgeridoo GPS Info", "command": "meshtastic_gps", "description": "Show GNSS/status output from the connected Heltec node."},
+                {"label": "Protected Listen", "command": "scripts/run_meshtastic_app.py listen", "description": "Protected CLI helper; requires the protected-actions gate."},
+                {"label": "Protected Send", "command": "scripts/run_meshtastic_app.py send", "description": "Protected CLI helper; requires confirm-send and the protected-actions gate."},
+            ],
+            "artifact_dir": str(meshtastic_app.DEFAULT_LOG_DIR),
+            "manual_prompt_required": False,
+            "note": "This menu action opens the Didgeridoo Meshtastic app hub without sending messages or starting a live listener.",
+        }
     if command == "meshtastic_status":
         return meshtastic_app.status()
     if command == "meshtastic_nodes":
@@ -280,7 +297,7 @@ def run_automated_menu_action(command: str, label: str = "", group: str = "") ->
             return _ok(command, label, _protected_bluez(command))
         if command.startswith("t114_") or command == "gnss_current_fix":
             return _ok(command, label, _t114_action(command))
-        if command.startswith("meshtastic_"):
+        if command == "meshtastic_app" or command.startswith("meshtastic_"):
             return _ok(command, label, _meshtastic(command))
         if command == "location_gate_status":
             return _ok(command, label, _location_gate())
