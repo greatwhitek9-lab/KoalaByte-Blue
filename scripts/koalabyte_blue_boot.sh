@@ -2,7 +2,10 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PYTHON_BIN="${PYTHON_BIN:-python3}"
+PYTHON_BIN="${PYTHON_BIN:-${REPO_ROOT}/pi-companion/.venv/bin/python}"
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  PYTHON_BIN="$(command -v python3)"
+fi
 PREBOOT_SELECTOR="${PREBOOT_SELECTOR:-1}"
 PREBOOT_TIMEOUT="${PREBOOT_TIMEOUT:-8}"
 PREBOOT_DEFAULT_MODE="${PREBOOT_DEFAULT_MODE:-current}"
@@ -18,6 +21,10 @@ KOALABYTE_TTS="${KOALABYTE_TTS:-1}"
 cd "${REPO_ROOT}"
 export PYTHONPATH="${REPO_ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}"
 export KOALABYTE_TTS
+
+echo "== KoalaByte Blue boot launcher =="
+echo "Repo: ${REPO_ROOT}"
+echo "Python: ${PYTHON_BIN}"
 
 echo "== KillerKoala spoken alerts =="
 if [[ "${KOALABYTE_TTS}" == "1" ]]; then
