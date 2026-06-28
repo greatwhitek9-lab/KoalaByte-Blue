@@ -44,6 +44,23 @@ class TouchState:
     moved: bool = False
 
 
+def meshtastic_app_items() -> List[MenuItem]:
+    return [
+        MenuItem("Meshtastic Profile", "meshtastic_profile", "Show the saved/effective Meshtastic connection profile", group="Didgeridoo"),
+        MenuItem("Meshtastic Compatibility", "meshtastic_compatibility", "Show iPhone, Android, Heltec, and ESP32 compatibility notes", group="Didgeridoo"),
+        MenuItem("Phone App Pairing", "meshtastic_phone_pairing", "Show how KoalaByte coexists with the Meshtastic phone app", group="Didgeridoo"),
+        MenuItem("ESP32 Device Link", "meshtastic_esp32_device", "Show serial, TCP, and BLE options for an ESP32 Meshtastic node", group="Didgeridoo"),
+        MenuItem("Use Heltec USB Serial", "meshtastic_setup_serial", "Save a local profile using the Heltec USB serial node path", group="Didgeridoo"),
+        MenuItem("Use Network TCP", "meshtastic_setup_tcp", "Save a TCP profile when KOALABYTE_MESHTASTIC_HOST is set", group="Didgeridoo"),
+        MenuItem("Use BLE Link", "meshtastic_setup_ble", "Save a BLE profile using KOALABYTE_MESHTASTIC_BLE or CLI BLE selection", group="Didgeridoo"),
+        MenuItem("Meshtastic Status", "meshtastic_status", "Show local Meshtastic node status", group="Didgeridoo"),
+        MenuItem("Meshtastic Nodes", "meshtastic_nodes", "Show the Meshtastic node table", group="Didgeridoo"),
+        MenuItem("Meshtastic GPS Info", "meshtastic_gps", "Show GPS/GNSS status from the connected Meshtastic node", group="Didgeridoo"),
+        MenuItem("Back to Didgeridoo", "submenu:didgeridoo", "Return to the Didgeridoo menu", group="System / Companion"),
+        MenuItem("Back to Main Canopy", "submenu:main", "Return to the main KoalaByte Blue menu", group="System / Companion"),
+    ]
+
+
 DEFAULT_MENU_ITEMS: List[MenuItem] = make_menu_items(MenuItem)
 
 
@@ -90,6 +107,8 @@ class MenuSelectionScreen:
 
     @property
     def menu_title(self) -> str:
+        if self.menu_name == "meshtastic":
+            return "Meshtastic App"
         return submenu_title(self.menu_name)
 
     @property
@@ -126,6 +145,8 @@ class MenuSelectionScreen:
             self.move(1)
             return self._event("move", "down")
         if normalized in {"move_left", "left", "back"}:
+            if self.menu_name == "meshtastic":
+                return self._open_menu("didgeridoo", "submenu_back", "submenu:didgeridoo")
             if self.menu_name != "main":
                 return self._open_menu("main", "submenu_back", "submenu:main")
             self.move(-1)
@@ -169,6 +190,8 @@ class MenuSelectionScreen:
         item = self.selected_item
         if not item.enabled:
             return self._event("disabled", item.command)
+        if item.command == "meshtastic_app":
+            return self._open_menu("meshtastic", "submenu_open", "submenu:meshtastic")
         submenu = submenu_name_from_command(item.command)
         if submenu:
             return self._open_menu(submenu, "submenu_open" if submenu != "main" else "submenu_back", item.command)
@@ -307,7 +330,7 @@ class MenuSelectionScreen:
 
     def _open_menu(self, menu_name: str, event_type: str, command: str) -> MenuEvent:
         target = "main" if menu_name == "main" else menu_name
-        new_items = make_menu_items(MenuItem, target)
+        new_items = meshtastic_app_items() if target == "meshtastic" else make_menu_items(MenuItem, target)
         if new_items:
             self.display_mode = "menu"
             self.menu_name = target
