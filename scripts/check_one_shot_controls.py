@@ -351,7 +351,6 @@ def validate_protected_bluez_code() -> list[str]:
             "bluez_platypus_bt_proxy",
             "_protected_bluez",
         ],
-        ROOT / "pi-companion" / "koalblue" / "greatwhite_reef.py": [],
         ROOT / "pi-companion" / "koalablue" / "greatwhite_reef.py": [
             "GREATWHITE_REEF_COMMANDS",
             "greatwhite_pcap_read:",
