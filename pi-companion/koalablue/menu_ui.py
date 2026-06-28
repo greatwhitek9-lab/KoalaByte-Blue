@@ -153,6 +153,10 @@ class MenuSelectionScreen:
         try:
             if handler:
                 handler(item)
+            else:
+                from .menu_action_runner import run_automated_menu_action
+
+                run_automated_menu_action(item.command, item.label, item.group)
         except Exception:
             self.show_ai_face("error", f"{item.label} hit a snag", log_event_type="action_error")
             raise
@@ -163,10 +167,6 @@ class MenuSelectionScreen:
         if self.display_mode != "menu":
             return self._event("ai_face_waiting_for_menu", select_event_type)
         item = self.selected_item
-        if item.command.startswith("status:"):
-            if self._handlers.get(item.command):
-                return self._run_selected_handler(item, select_event_type)
-            return self._event("status_row", item.command)
         if not item.enabled:
             return self._event("disabled", item.command)
         submenu = submenu_name_from_command(item.command)
