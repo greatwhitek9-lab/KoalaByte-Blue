@@ -17,6 +17,8 @@ def make_meshtastic_items(menu_item_cls: Type[T]) -> List[T]:
         ("Meshtastic Status", "meshtastic_status", "Show local Meshtastic node status", "Didgeridoo"),
         ("Meshtastic Nodes", "meshtastic_nodes", "Show the Meshtastic node table", "Didgeridoo"),
         ("Meshtastic GPS Info", "meshtastic_gps", "Show GPS/GNSS status from the connected Meshtastic node", "Didgeridoo"),
+        ("Meshtastic Listen Gate", "meshtastic_listen", "Run protected receive/listen mode only when the gate is unlocked", "Didgeridoo"),
+        ("Meshtastic Send Gate", "meshtastic_send_gate", "Prepare protected text send; requires message, gate unlock, and explicit confirmation", "Didgeridoo"),
         ("Back to Didgeridoo", "submenu:didgeridoo", "Return to the Didgeridoo menu", "System / Companion"),
         ("Back to Main Canopy", "submenu:main", "Return to the main KoalaByte Blue menu", "System / Companion"),
     ]
