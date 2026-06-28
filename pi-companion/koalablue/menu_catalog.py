@@ -78,6 +78,7 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         {"group": "Didgeridoo", "label": "T114 Quick BLE Test Scan", "command": "t114_primary_ble_scan", "description": "Run bounded passive BLE test scan through the T114 nRF52840 primary radio"},
         {"group": "Didgeridoo", "label": "Lab Beacon TX", "command": "status:t114_tx", "description": "Constant status: safe lab beacon transmit mode is on, off, or blocked."},
         {"group": "Didgeridoo", "label": "Sextant", "command": "t114_primary_gnss_fix", "description": "Get the current GPS/GNSS location from the Heltec T114 stream"},
+        {"group": "Didgeridoo", "label": "Meshtastic App", "command": "meshtastic_app", "description": "Open the Didgeridoo Meshtastic application hub for local node status, nodes, GPS, listen, and send helpers"},
         {"group": "Didgeridoo", "label": "Didgeridoo Status", "command": "meshtastic_status", "description": "Show local Meshtastic node status through the Didgeridoo app"},
         {"group": "Didgeridoo", "label": "Didgeridoo Nodes", "command": "meshtastic_nodes", "description": "Show the Meshtastic node table through the Didgeridoo app"},
         {"group": "Didgeridoo", "label": "Didgeridoo GPS Info", "command": "meshtastic_gps", "description": "Show GPS/GNSS status from the connected Meshtastic node through the Didgeridoo app"},
