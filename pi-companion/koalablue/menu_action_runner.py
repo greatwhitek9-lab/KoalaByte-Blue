@@ -50,21 +50,18 @@ def _error(command: str, label: str, exc: Exception) -> dict[str, Any]:
 
 def _lab_action(command: str) -> dict[str, Any]:
     from .authorized_lab_actions import AuthorizedLabActions
-
     result = AuthorizedLabActions().run(command, authorized=True, context={"source": "menu_or_voice_select", "manual_prompt_required": False})
     return asdict(result)
 
 
 def _status_row(command: str) -> dict[str, Any]:
     from .t114_menu_status import status_label_description
-
     label, description = status_label_description(command)
     return {"status": "STATUS_ROW_CHECKED", "status_label": label, "description": description}
 
 
 def _ble_scan_summary(command: str) -> dict[str, Any]:
     from .bluez_tools import all_safe, scan, status
-
     if command == "scan":
         return asdict(scan(duration_seconds=10))
     if command == "summary":
@@ -74,28 +71,46 @@ def _ble_scan_summary(command: str) -> dict[str, Any]:
 
 def _koala_kapture() -> dict[str, Any]:
     from .koala_kapture import KoalaKaptureConfig, KoalaKaptureRecorder
-
     cfg = KoalaKaptureConfig(duration_seconds=float(os.getenv("KOALABYTE_MENU_KAPTURE_SECONDS", "12")), scan_window_seconds=4.0, max_records=300)
     return asdict(asyncio.run(KoalaKaptureRecorder(cfg).record()))
 
 
-def _koala_kry(review_only: bool = False) -> dict[str, Any]:
-    from .koala_kry import KoalaKryConfig, KoalaKryReplay
+def _koala_kry(command: str = "koala_kry") -> dict[str, Any]:
+    from . import koala_kry
 
-    cfg = KoalaKryConfig(max_records=200, speed=0, write_transmit_review=review_only, request_rf_transmit=False)
-    return asdict(KoalaKryReplay(cfg).replay())
+    handlers: dict[str, Callable[[], Any]] = {
+        "koala_kry": lambda: koala_kry.run_from_prompt(review_only=False),
+        "koala_kry_run_replay": lambda: koala_kry.run_from_prompt(review_only=False),
+        "koala_kry_transmit_review": lambda: koala_kry.run_from_prompt(review_only=True),
+        "koala_kry_run_review": lambda: koala_kry.run_from_prompt(review_only=True),
+        "koala_kry_prompt_status": koala_kry.prompt_status,
+        "koala_kry_use_latest_capture": koala_kry.set_latest_capture,
+        "koala_kry_speed_live": lambda: koala_kry.set_speed_preset("live"),
+        "koala_kry_speed_fast": lambda: koala_kry.set_speed_preset("fast"),
+        "koala_kry_speed_instant": lambda: koala_kry.set_speed_preset("instant"),
+        "koala_kry_limit_50": lambda: koala_kry.set_record_limit(50),
+        "koala_kry_limit_200": lambda: koala_kry.set_record_limit(200),
+        "koala_kry_limit_all": lambda: koala_kry.set_record_limit(None),
+        "koala_kry_rf_review_on": lambda: koala_kry.set_rf_review(True),
+        "koala_kry_rf_review_off": lambda: koala_kry.set_rf_review(False),
+        "koala_kry_lab_ack_on": lambda: koala_kry.set_lab_ack(True),
+        "koala_kry_owned_ack_on": lambda: koala_kry.set_owned_ack(True),
+        "koala_kry_clear_prompt": koala_kry.clear_prompt,
+    }
+    handler = handlers.get(command)
+    if handler is None:
+        return {"status": "KOALA_KRY_ACTION_RECORDED", "command": command}
+    return handler()
 
 
 def _urban_poaching() -> dict[str, Any]:
     from .urban_poaching import UrbanPoachingConfig, UrbanPoachingGame
-
     cfg = UrbanPoachingConfig(rounds=3, scan_seconds=3.0)
     return asdict(asyncio.run(UrbanPoachingGame(cfg).play()))
 
 
 def _koala_kan() -> dict[str, Any]:
     from .koala_kan_kommander import inventory, manifest, report, status
-
     return {"manifest": manifest(), "inventory": inventory(), "status": status(), "report": report()}
 
 
@@ -119,7 +134,6 @@ def _ear_tag_plan() -> dict[str, Any]:
 
 def _boomerang_export() -> dict[str, Any]:
     from .camera_awareness_logger import LOG_ROOT, build_summary, export_csv, export_json, load_observations
-
     root = Path(LOG_ROOT)
     observations = load_observations(root)
     return {"status": "BOOMERANG_EXPORT_READY", "records": len(observations), "summary": build_summary(observations), "json_path": str(export_json(observations, root)), "csv_path": str(export_csv(observations, root))}
@@ -127,14 +141,12 @@ def _boomerang_export() -> dict[str, Any]:
 
 def _eucalyptus(command: str) -> dict[str, Any]:
     from .eucalyptus_wigle import control_status
-
     action = command.split(" ", 1)[1] if " " in command else "status"
     return control_status(action)
 
 
 def _kruisin(command: str) -> dict[str, Any]:
     from .koala_kombat_kruisin import control
-
     os.environ.setdefault("KOALA_KOMBAT_NODE_MESH", "1")
     os.environ.setdefault("KOALA_KOMBAT_ESP32_PORT", "/dev/ttyACM1")
     os.environ.setdefault("KOALA_KOMBAT_HELTEC_PORT", "/dev/ttyACM0")
@@ -163,7 +175,6 @@ def _t114_action(command: str) -> dict[str, Any]:
 
 def _meshtastic(command: str) -> dict[str, Any]:
     from . import meshtastic_app
-
     if command in {"meshtastic_app", "meshtastic_profile"}:
         return meshtastic_app.profile_status()
     if command == "meshtastic_send_prompt":
@@ -205,13 +216,11 @@ def _meshtastic(command: str) -> dict[str, Any]:
 
 def _location_gate() -> dict[str, Any]:
     from .location_password_gate import PASSWORD_FILE, UNLOCK_ENV, password_exists
-
     return {"status": "LOCATION_GATE_STATUS_READY", "configured": password_exists(), "unlocked": os.environ.get(UNLOCK_ENV) in {"1", "true", "TRUE", "yes", "YES"}, "path": str(PASSWORD_FILE)}
 
 
 def _protected_bluez(command: str) -> dict[str, Any]:
     from . import bluez_protected_lab
-
     handlers: dict[str, Callable[[], Any]] = {
         "koala_bluez_info": bluez_protected_lab.protected_target_info,
         "koala_bluez_services": bluez_protected_lab.protected_target_services,
@@ -231,7 +240,6 @@ def _protected_bluez(command: str) -> dict[str, Any]:
 
 def _bluez_wrapper(command: str) -> dict[str, Any]:
     from .bluez_tools import all_safe, inventory, module_manifest, monitor, scan, status
-
     if command == "koala_bluez_manifest":
         return asdict(module_manifest())
     if command == "koala_bluez_inventory":
@@ -302,10 +310,8 @@ def run_automated_menu_action(command: str, label: str = "", group: str = "") ->
             return _ok(command, label, _location_gate())
         if command == "koala_kapture":
             return _ok(command, label, _koala_kapture())
-        if command == "koala_kry":
-            return _ok(command, label, _koala_kry(False))
-        if command == "koala_kry_transmit_review":
-            return _ok(command, label, _koala_kry(True))
+        if command == "koala_kry" or command.startswith("koala_kry_"):
+            return _ok(command, label, _koala_kry(command))
         if command == "boomerang":
             return _ok(command, label, _boomerang_export())
         if command in {"authorized_ble_inventory", "gatt_readiness_checklist", "pairing_security_review", "lab_beacon_plan", "packet_capture_notes", "defensive_report", "report", "restricted_placeholder"}:
