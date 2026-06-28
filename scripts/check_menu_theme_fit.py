@@ -85,6 +85,12 @@ def main() -> int:
         failures.append("menu theme border style must keep jungle/eucalyptus identity")
     if theme.font_family != theme.item_font_family:
         failures.append("title and item font stacks must stay aligned for a unified menu look")
+    if theme.keyboard_input_font_family != theme.item_font_family:
+        failures.append("popup keyboard input font stack must use the jungle/Jumanji menu font stack")
+    if theme.keyboard_input_fill != theme.title_fill:
+        failures.append("popup keyboard input fill color must use the carved jungle title color")
+    if theme.keyboard_input_outline != theme.item_outline:
+        failures.append("popup keyboard input outline must stay in the jungle item-outline palette")
     if GRAPHICAL_LABEL_MAX_LINES != 1:
         failures.append("graphical labels must fit one line inside menu row borders")
     if GRAPHICAL_DESCRIPTION_MAX_LINES > 2:
@@ -137,6 +143,10 @@ def main() -> int:
             "title": theme.title,
             "font_family": theme.font_family,
             "item_font_family": theme.item_font_family,
+            "keyboard_input_font_family": theme.keyboard_input_font_family,
+            "keyboard_input_fill": theme.keyboard_input_fill,
+            "keyboard_input_outline": theme.keyboard_input_outline,
+            "keyboard_input_shadow": theme.keyboard_input_shadow,
             "border_style": theme.border_style,
             "graphical_label_max_lines": GRAPHICAL_LABEL_MAX_LINES,
             "graphical_description_max_lines": GRAPHICAL_DESCRIPTION_MAX_LINES,
