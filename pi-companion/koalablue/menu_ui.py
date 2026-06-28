@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional
 
 from .menu_catalog import make_menu_items, submenu_name_from_command, submenu_title
+from .meshtastic_menu_items import make_didgeridoo_items, make_meshtastic_items
 
 
 @dataclass
@@ -42,23 +43,6 @@ class TouchState:
     current_y: Optional[int] = None
     down_time: Optional[float] = None
     moved: bool = False
-
-
-def meshtastic_app_items() -> List[MenuItem]:
-    return [
-        MenuItem("Meshtastic Profile", "meshtastic_profile", "Show the saved/effective Meshtastic connection profile", group="Didgeridoo"),
-        MenuItem("Meshtastic Compatibility", "meshtastic_compatibility", "Show iPhone, Android, Heltec, and ESP32 compatibility notes", group="Didgeridoo"),
-        MenuItem("Phone App Pairing", "meshtastic_phone_pairing", "Show how KoalaByte coexists with the Meshtastic phone app", group="Didgeridoo"),
-        MenuItem("ESP32 Device Link", "meshtastic_esp32_device", "Show serial, TCP, and BLE options for an ESP32 Meshtastic node", group="Didgeridoo"),
-        MenuItem("Use Heltec USB Serial", "meshtastic_setup_serial", "Save a local profile using the Heltec USB serial node path", group="Didgeridoo"),
-        MenuItem("Use Network TCP", "meshtastic_setup_tcp", "Save a TCP profile when KOALABYTE_MESHTASTIC_HOST is set", group="Didgeridoo"),
-        MenuItem("Use BLE Link", "meshtastic_setup_ble", "Save a BLE profile using KOALABYTE_MESHTASTIC_BLE or CLI BLE selection", group="Didgeridoo"),
-        MenuItem("Meshtastic Status", "meshtastic_status", "Show local Meshtastic node status", group="Didgeridoo"),
-        MenuItem("Meshtastic Nodes", "meshtastic_nodes", "Show the Meshtastic node table", group="Didgeridoo"),
-        MenuItem("Meshtastic GPS Info", "meshtastic_gps", "Show GPS/GNSS status from the connected Meshtastic node", group="Didgeridoo"),
-        MenuItem("Back to Didgeridoo", "submenu:didgeridoo", "Return to the Didgeridoo menu", group="System / Companion"),
-        MenuItem("Back to Main Canopy", "submenu:main", "Return to the main KoalaByte Blue menu", group="System / Companion"),
-    ]
 
 
 DEFAULT_MENU_ITEMS: List[MenuItem] = make_menu_items(MenuItem)
@@ -325,12 +309,17 @@ class MenuSelectionScreen:
 
             label, description = status_label_description(item.command)
             return MenuItem(label=label, command=item.command, description=description or item.description, enabled=item.enabled, group=item.group)
-        except Exception as exc:  # pragma: no cover - defensive display fallback
+        except Exception as exc:
             return MenuItem(label=f"{item.label}: Unknown", command=item.command, description=f"Status unavailable: {exc}", enabled=item.enabled, group=item.group)
 
     def _open_menu(self, menu_name: str, event_type: str, command: str) -> MenuEvent:
         target = "main" if menu_name == "main" else menu_name
-        new_items = meshtastic_app_items() if target == "meshtastic" else make_menu_items(MenuItem, target)
+        if target == "meshtastic":
+            new_items = make_meshtastic_items(MenuItem)
+        elif target == "didgeridoo":
+            new_items = make_didgeridoo_items(MenuItem)
+        else:
+            new_items = make_menu_items(MenuItem, target)
         if new_items:
             self.display_mode = "menu"
             self.menu_name = target
