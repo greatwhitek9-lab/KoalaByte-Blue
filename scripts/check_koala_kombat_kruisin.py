@@ -23,8 +23,11 @@ def main() -> int:
     gps = control("gps-status")
     assert gps["status"] == "KOALA_KOMBAT_GPS_READY"
     roles = node_role_manifest()
+    assert roles["primary_ble_node"] == "heltec-t114-nrf52840"
+    assert roles["main_wifi_node"] == "raspberry-pi"
     assert roles["heltec_t114_has_wifi"] is False
     assert roles["wifi_nodes"] == ["raspberry-pi", "esp32-s3-dualeye"]
+    assert roles["ble_support_nodes"] == ["raspberry-pi", "esp32-s3-dualeye"]
     assert "heltec-t114-nrf52840" in roles["ble_nodes"]
     assert wifi_allowed_for_node("esp32-s3-dualeye") is True
     assert wifi_allowed_for_node("heltec-t114-nrf52840") is False
