@@ -18,10 +18,11 @@ SPECIAL_KEYS = ["space", "back", "clear", "shift", "symbols", "voice", "save", "
 KEYBOARD_TARGETS: dict[str, dict[str, Any]] = {
     "wigle_api_name": {"label": "WiGLE API Name", "secret": False, "placeholder": "username or API name"},
     "wigle_api_token": {"label": "WiGLE API Token", "secret": True, "placeholder": "token"},
-    "location_password": {"label": "Set Location Password", "secret": True, "placeholder": "new local password"},
-    "location_unlock_password": {"label": "Unlock Location Password", "secret": True, "placeholder": "current local password"},
+    "location_password": {"label": "Create Location Password", "secret": True, "placeholder": "new local password"},
+    "location_unlock_password": {"label": "Unlock Current Process", "secret": True, "placeholder": "current local password"},
     "meshtastic_send_message": {"label": "Meshtastic Message", "secret": False, "placeholder": "message text"},
     "meshtastic_send_dest": {"label": "Meshtastic Destination", "secret": False, "placeholder": "optional node id"},
+    "bluez_lab_target": {"label": "BlueZ Lab Target", "secret": False, "placeholder": "owned device address"},
 }
 
 
@@ -188,6 +189,13 @@ def _save_meshtastic(target: str, value: str) -> dict[str, Any]:
     return {"status": "KEYBOARD_VALUE_SAVED", "target": target, "saved_key": saved_key, **saved}
 
 
+def _save_bluez_lab_target(value: str) -> dict[str, Any]:
+    from .bluez_lab_scope import set_target
+
+    result = set_target(value)
+    return {"target": "bluez_lab_target", **result}
+
+
 def save_keyboard_value(target: str, value: str) -> dict[str, Any]:
     if target in {"wigle_api_name", "wigle_api_token"}:
         payload = _save_wigle(target, value)
@@ -195,6 +203,8 @@ def save_keyboard_value(target: str, value: str) -> dict[str, Any]:
         payload = _save_location_password(target, value)
     elif target in {"meshtastic_send_message", "meshtastic_send_dest"}:
         payload = _save_meshtastic(target, value)
+    elif target == "bluez_lab_target":
+        payload = _save_bluez_lab_target(value)
     else:
         payload = {"status": "KEYBOARD_UNKNOWN_TARGET", "target": target, "value_length": len(value)}
     return _write_status(payload)
