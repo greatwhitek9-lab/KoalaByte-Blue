@@ -101,6 +101,7 @@ def build_menu_voice_manifest() -> dict[str, Any]:
         "syntax": [
             "killerkoala run <menu item or command>",
             "killerkoala open <menu item or command>",
+            "keyboard text <words> after a text-input page is open",
         ],
         "entry_count": len(entries),
         "entries": entries,
@@ -213,6 +214,27 @@ def _voice_result(
     )
 
 
+def _select_match_in_menu(menu: Any, match: MenuVoiceMatch) -> dict[str, Any]:
+    from scripts.run_menu_screen import open_submenu
+
+    if match.menu != "main":
+        if not open_submenu(menu, f"submenu:{match.menu}"):
+            raise RuntimeError(f"menu not available: {match.menu}")
+    for index, item in enumerate(menu.items):
+        if item.command == match.command and item.label == match.label:
+            menu.selected_index = index
+            menu._clamp_scroll_to_selection()
+            event = menu.select("voice_select")
+            return {
+                "event": asdict(event),
+                "display_mode_after_select": menu.display_mode,
+                "keyboard_opened": menu.display_mode == "keyboard",
+                "selected_command": item.command,
+                "selected_label": item.label,
+            }
+    raise RuntimeError(f"menu item not found in {match.menu}: {match.label} / {match.command}")
+
+
 def execute_menu_voice_launch(match: MenuVoiceMatch, output_dir: Path = DEFAULT_MENU_VOICE_DIR, xp_path: Path | None = None):
     from .killerkoala_voice_control import KillerKoalaXPState, load_xp_state, save_xp_state
     from scripts.run_menu_screen import make_menu, open_submenu, write_action_payload
@@ -249,15 +271,12 @@ def execute_menu_voice_launch(match: MenuVoiceMatch, output_dir: Path = DEFAULT_
             artifacts["menu_voice_action"] = str(path)
             details["menu_action"] = payload
         else:
-            handler = getattr(menu, "_handlers", {}).get(match.command)
-            if handler is None:
-                raise RuntimeError(f"no menu handler registered for command: {match.command}")
+            select_details = _select_match_in_menu(menu, match)
             item = MenuItem(label=match.label, command=match.command, description=match.description, enabled=True, group=match.group)
-            handler(item)
             payload = {
                 "timestamp": started,
-                "type": "menu_voice_run_leaf",
-                "status": "routed",
+                "type": "menu_voice_select_leaf",
+                "status": "keyboard_opened" if select_details.get("keyboard_opened") else "selected",
                 "voice_phrase": match.phrase,
                 "wake_word": WAKE_WORD,
                 "verb": match.verb,
@@ -265,6 +284,7 @@ def execute_menu_voice_launch(match: MenuVoiceMatch, output_dir: Path = DEFAULT_
                 "command": match.command,
                 "menu": match.menu,
                 "group": match.group,
+                **select_details,
             }
             path = write_action_payload(item, payload)
             artifacts["menu_voice_action"] = str(path)
@@ -283,7 +303,10 @@ def execute_menu_voice_launch(match: MenuVoiceMatch, output_dir: Path = DEFAULT_
             xp_state.failed_modules += 1
         save_xp_state(xp_state, xp_path)
     ended = time.time()
-    companion_line = f"Opening {match.label}, mate." if status == "success" else f"Could not open {match.requested_item}: {error}"
+    if status == "success" and match.command.startswith("keyboard:"):
+        companion_line = f"Opening text input for {match.label}, mate."
+    else:
+        companion_line = f"Opening {match.label}, mate." if status == "success" else f"Could not open {match.requested_item}: {error}"
     result = _voice_result(
         status=status,
         match=match,
