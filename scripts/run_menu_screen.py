@@ -17,12 +17,9 @@ from koalablue.menu_catalog import leaf_menu_entries, make_menu_items, submenu_n
 from koalablue.menu_ui import MenuEvent, MenuItem, MenuSelectionScreen
 
 try:
-    from koalblue.gpio_buttons import GPIOButtonManager  # type: ignore[import-not-found]
+    from koalablue.gpio_buttons import GPIOButtonManager
 except Exception:  # pragma: no cover
-    try:
-        from koalablue.gpio_buttons import GPIOButtonManager
-    except Exception:  # pragma: no cover
-        GPIOButtonManager = None  # type: ignore
+    GPIOButtonManager = None  # type: ignore
 
 KEY_MAP = {"w": "up", "s": "down", "a": "move_left", "d": "move_right", "": "select", "m": "main_menu", "q": "quit"}
 
@@ -83,7 +80,7 @@ def write_result(item: MenuItem, status: str, result: object, note: str = "") ->
     payload = {"timestamp": time.time(), "label": item.label, "command": item.command, "group": item.group, "status": status, "result": result}
     if note:
         payload["note"] = note
-    path = write_action_payload(item.command if isinstance(item, Path) else item, payload)  # type: ignore[arg-type]
+    path = write_action_payload(item, payload)
     print(json.dumps(payload, indent=2, sort_keys=True))
     print(f"\n{item.label} written -> {path}\n")
 
