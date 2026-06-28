@@ -34,6 +34,11 @@ ALLOWED_DUPLICATE_COMMANDS = {
     "bluez_gumnut_gatt_ghostmap",
     "bluez_platypus_bt_proxy",
     "location_gate_status",
+    "keyboard:bluez_lab_target",
+    "bluez_lab_scope_status",
+    "bluez_lab_owned_on",
+    "bluez_lab_owned_off",
+    "bluez_lab_scope_clear",
 }
 
 
@@ -169,10 +174,8 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
         "status_row_count": len(status_rows),
         "handler_count": len(handler_commands),
         "leaf_commands": leaf_commands,
-        "status_rows": status_rows,
         "handler_commands": handler_commands,
-        "visible_duplicate_commands": duplicate_commands,
-        "allowed_duplicate_commands": sorted(ALLOWED_DUPLICATE_COMMANDS),
+        "rows": rows,
         "theme": {
             "title": theme.title,
             "font_family": theme.font_family,
@@ -182,42 +185,19 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
             "graphical_description_max_lines": GRAPHICAL_DESCRIPTION_MAX_LINES,
             "terminal_frame_width": TERMINAL_FRAME_WIDTH,
         },
-        "entries": rows,
-        "one_shot_installer_safe": True,
-        "no_menu_actions_executed": True,
-        "notes": [
-            "This is a readiness/manifest check only.",
-            "It validates that every enabled menu leaf, including status rows, has an automated select handler.",
-            "It validates that terminal menu text stays inside the jungle/eucalyptus border frame.",
-            "It does not run scans, open long-running actions, flash firmware, or start live activity.",
-        ],
+        "visible_duplicate_commands": duplicate_commands,
+        "allowed_duplicate_commands": sorted(ALLOWED_DUPLICATE_COMMANDS),
         "failures": failures,
     }
     return manifest, failures
 
 
 def main() -> int:
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     manifest, failures = build_manifest()
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     MANIFEST_PATH.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
-    STATUS_PATH.write_text(
-        json.dumps(
-            {
-                "status": manifest["status"],
-                "updated_at": manifest["updated_at"],
-                "manifest": str(MANIFEST_PATH),
-                "enabled_leaf_count": manifest["enabled_leaf_count"],
-                "status_row_count": manifest["status_row_count"],
-                "handler_count": manifest["handler_count"],
-                "theme": manifest["theme"],
-                "failures": failures,
-            },
-            indent=2,
-            sort_keys=True,
-        ),
-        encoding="utf-8",
-    )
-    print(json.dumps({"status": manifest["status"], "manifest": str(MANIFEST_PATH), "failures": failures}, indent=2, sort_keys=True))
+    STATUS_PATH.write_text(json.dumps({"status": manifest["status"], "manifest_path": str(MANIFEST_PATH), "failures": failures, "updated_at": manifest["updated_at"]}, indent=2, sort_keys=True), encoding="utf-8")
+    print(json.dumps({"status": manifest["status"], "manifest_path": str(MANIFEST_PATH), "failures": failures}, indent=2, sort_keys=True))
     return 1 if failures else 0
 
 
