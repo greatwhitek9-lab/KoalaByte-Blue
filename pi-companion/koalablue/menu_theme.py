@@ -77,6 +77,8 @@ def render_terminal_jungle_menu(menu: Any, theme: JungleMenuTheme = DEFAULT_JUNG
 
     if hasattr(menu, "check_idle_timeout"):
         menu.check_idle_timeout()
+    if getattr(menu, "display_mode", "menu") == "keyboard" and hasattr(menu, "_render_keyboard_text"):
+        return menu._render_keyboard_text()
     if getattr(menu, "display_mode", "menu") != "menu":
         title = "KILLERKOALA AI FACE"
         message = str(getattr(menu, "face_message", "KillerKoala is watching the canopy"))
@@ -126,13 +128,13 @@ def render_terminal_jungle_menu(menu: Any, theme: JungleMenuTheme = DEFAULT_JUNG
                     lines.append(f"  {_terminal_fit('     ' + desc, 70):<70}")
     lines.append(top)
     lines.append(_terminal_fit("Buttons: B1 menu | B2 prev/back | B3 select/hold shutdown | B4 next | B5 up | B6 down", width))
+    lines.append(_terminal_fit("USB/Bluetooth keyboard: arrows/WASD move | Enter/Space select | q quit", width))
     lines.append(_terminal_fit("Touch: drag/scroll through eucalyptus branches | long press to select", width))
     return "\n".join(lines)
 
 
 def render_terminal_eucalyptus_card(title: str, rows: Iterable[str], subtitle: str = "THAT’S NOT A KNIFE", theme: JungleMenuTheme = DEFAULT_JUNGLE_MENU_THEME) -> str:
     """Render a terminal-safe status card in the same chunky menu style."""
-
     width = 74
     top = f"{_TERMINAL_BRANCH}" + "═" * (width - 2) + f"{_TERMINAL_BRANCH}"
     lines = [top]
@@ -230,7 +232,6 @@ class JungleMenuRenderer:
     def __init__(self, menu: Optional[Any] = None, theme: JungleMenuTheme = DEFAULT_JUNGLE_MENU_THEME, *, fullscreen: bool = True, width: int = 800, height: int = 480, fps: int = 30) -> None:
         if menu is None:
             from .menu_ui import MenuSelectionScreen
-
             menu = MenuSelectionScreen(visible_rows=5)
         self.menu = menu
         self.theme = theme
@@ -267,7 +268,6 @@ class JungleMenuRenderer:
         self.menu._clamp_scroll_to_selection()
         try:
             from .gpio_buttons import GPIOButtonManager
-
             self.buttons = GPIOButtonManager()
             self.buttons.start()
         except Exception:
@@ -307,6 +307,51 @@ class JungleMenuRenderer:
             return "quit"
         return None
 
+    def _select_keyboard_pointer(self, x: int, y: int) -> None:
+        keyboard = getattr(self.menu, "keyboard", None)
+        screen = self.screen
+        if keyboard is None or screen is None:
+            return
+        w, h = screen.get_size()
+        panel = self._keyboard_panel_rect()
+        top = panel.top + int(panel.height * 0.30)
+        row_h = max(32, int(panel.height * 0.095))
+        row = max(0, min(len(keyboard.rows), int((y - top) / row_h)))
+        keyboard.row = row
+        row_len = len(keyboard.rows[row]) if row < len(keyboard.rows) else len(getattr(keyboard, "special_keys", []) or ["space", "back", "clear", "shift", "symbols", "voice", "save", "cancel"])
+        rel = max(0.0, min(0.999, (x - panel.left - 24) / max(1, panel.width - 48)))
+        keyboard.col = max(0, min(max(0, row_len - 1), int(rel * row_len)))
+
+    def _handle_keyboard_keydown(self, event: Any) -> Optional[str]:
+        pygame = self.pygame
+        mods = pygame.key.get_mods()
+        if event.key in {pygame.K_ESCAPE}:
+            self.menu.handle_command("cancel")
+            return None
+        if event.key in {pygame.K_RETURN, pygame.K_KP_ENTER}:
+            self.menu.handle_command("save")
+            return None
+        if event.key == pygame.K_s and (mods & pygame.KMOD_CTRL):
+            self.menu.handle_command("save")
+            return None
+        if event.key in {pygame.K_BACKSPACE, pygame.K_DELETE}:
+            self.menu.handle_command("backspace")
+            return None
+        command = {
+            pygame.K_UP: "up",
+            pygame.K_DOWN: "down",
+            pygame.K_LEFT: "move_left",
+            pygame.K_RIGHT: "move_right",
+            pygame.K_TAB: "move_right",
+        }.get(event.key)
+        if command:
+            self.menu.handle_command(command)
+            return None
+        text = getattr(event, "unicode", "") or ""
+        if text and text.isprintable():
+            self.menu.handle_command(f"keyboard key {text}")
+        return None
+
     def _handle_events(self) -> Optional[str]:
         button_result = self._poll_gpio_buttons()
         if button_result == "quit":
@@ -316,6 +361,9 @@ class JungleMenuRenderer:
             if event.type == pygame.QUIT:
                 return "quit"
             if event.type == pygame.KEYDOWN:
+                if getattr(self.menu, "display_mode", "menu") == "keyboard":
+                    self._handle_keyboard_keydown(event)
+                    continue
                 command = {
                     pygame.K_w: "up",
                     pygame.K_UP: "up",
@@ -326,6 +374,7 @@ class JungleMenuRenderer:
                     pygame.K_d: "move_right",
                     pygame.K_RIGHT: "move_right",
                     pygame.K_RETURN: "select",
+                    pygame.K_KP_ENTER: "select",
                     pygame.K_SPACE: "select",
                     pygame.K_m: "main_menu",
                     pygame.K_ESCAPE: "quit",
@@ -345,10 +394,16 @@ class JungleMenuRenderer:
                 else:
                     self._touch_down_y = int(event.pos[1])
                     self._touch_down_at = time.time()
+                    if getattr(self.menu, "display_mode", "menu") == "keyboard":
+                        self._select_keyboard_pointer(int(event.pos[0]), int(event.pos[1]))
                     self.menu.on_touch_down(int(event.pos[1]))
             if event.type == pygame.MOUSEMOTION and self._touch_down_y is not None and event.buttons[0]:
+                if getattr(self.menu, "display_mode", "menu") == "keyboard":
+                    self._select_keyboard_pointer(int(event.pos[0]), int(event.pos[1]))
                 self.menu.on_touch_move(int(event.pos[1]))
             if event.type == pygame.MOUSEBUTTONUP and self._touch_down_y is not None:
+                if getattr(self.menu, "display_mode", "menu") == "keyboard":
+                    self._select_keyboard_pointer(int(event.pos[0]), int(event.pos[1]))
                 menu_event = self.menu.on_touch_up(int(event.pos[1]))
                 self._touch_down_y = None
                 self._touch_down_at = None
@@ -361,6 +416,9 @@ class JungleMenuRenderer:
         assert screen is not None
         self._draw_background()
         self._draw_leafy_border()
+        if getattr(self.menu, "display_mode", "menu") == "keyboard":
+            self._draw_keyboard()
+            return
         if getattr(self.menu, "display_mode", "menu") != "menu":
             self._draw_ai_face()
             return
@@ -417,6 +475,62 @@ class JungleMenuRenderer:
         pygame.draw.line(screen, self.theme.leaf_glow, (int(center[0] - sx), int(center[1] - sy)), (int(center[0] + sx), int(center[1] + sy)), 2)
         inner = rect.inflate(-max(2, size // 5), -max(2, size // 5))
         pygame.draw.ellipse(screen, self.theme.leaf, inner)
+
+    def _keyboard_panel_rect(self) -> Any:
+        pygame = self.pygame
+        screen = self.screen
+        assert screen is not None
+        w, h = screen.get_size()
+        return pygame.Rect(int(w * 0.07), int(h * 0.16), int(w * 0.86), int(h * 0.72))
+
+    def _draw_keyboard(self) -> None:
+        pygame = self.pygame
+        screen = self.screen
+        assert screen is not None
+        assert self.item_font is not None
+        assert self.desc_font is not None
+        keyboard = getattr(self.menu, "keyboard", None)
+        if keyboard is None:
+            self._draw_ai_face()
+            return
+        panel = self._keyboard_panel_rect()
+        pygame.draw.rect(screen, (9, 45, 24), panel, border_radius=24)
+        pygame.draw.rect(screen, self.theme.boomerang_accent, panel, 4, border_radius=24)
+        title = _fit_text_for_width(self.item_font, str(getattr(keyboard, "title", "Popup Keyboard")).upper(), panel.width - 50)
+        self._chunky_text(title, panel.centerx, panel.top + 36, self.item_font, self.theme.title_fill, self.theme.item_outline, self.theme.title_shadow, outline_size=2)
+        value = str(getattr(keyboard, "visible_text", "")) or f"[{getattr(keyboard, 'placeholder', 'text')}]"
+        value = _fit_text_for_width(self.desc_font, value, panel.width - 70)
+        value_rect = pygame.Rect(panel.left + 30, panel.top + 66, panel.width - 60, 34)
+        pygame.draw.rect(screen, (2, 18, 12), value_rect, border_radius=14)
+        pygame.draw.rect(screen, self.theme.leaf_glow, value_rect, 2, border_radius=14)
+        screen.blit(self.desc_font.render(value, True, self.theme.leaf_glow), (value_rect.left + 12, value_rect.top + 9))
+        row_top = panel.top + int(panel.height * 0.30)
+        row_h = max(32, int(panel.height * 0.095))
+        for row_index, row_text in enumerate(keyboard.rows):
+            row_len = max(1, len(row_text))
+            key_w = (panel.width - 54) / row_len
+            for col_index, char in enumerate(row_text):
+                selected = row_index == keyboard.row and col_index == keyboard.col
+                rect = pygame.Rect(int(panel.left + 24 + col_index * key_w), row_top + row_index * row_h, int(key_w - 4), int(row_h * 0.82))
+                pygame.draw.rect(screen, self.theme.selected_fill if selected else self.theme.item_fill, rect, border_radius=10)
+                pygame.draw.rect(screen, self.theme.selected_outline if selected else self.theme.item_outline, rect, 2, border_radius=10)
+                key_text = _fit_text_for_width(self.desc_font, char, rect.width - 8)
+                surf = self.desc_font.render(key_text, True, self.theme.item_shadow)
+                screen.blit(surf, surf.get_rect(center=rect.center))
+        special = getattr(keyboard, "special_keys", None) or ["space", "back", "clear", "shift", "symbols", "voice", "save", "cancel"]
+        special_y = row_top + len(keyboard.rows) * row_h
+        key_w = (panel.width - 54) / len(special)
+        for index, key in enumerate(special):
+            selected = keyboard.row == len(keyboard.rows) and keyboard.col == index
+            rect = pygame.Rect(int(panel.left + 24 + index * key_w), special_y, int(key_w - 4), int(row_h * 0.82))
+            pygame.draw.rect(screen, self.theme.selected_fill if selected else self.theme.blue_accent, rect, border_radius=10)
+            pygame.draw.rect(screen, self.theme.selected_outline if selected else self.theme.item_outline, rect, 2, border_radius=10)
+            surf = self.desc_font.render(_fit_text_for_width(self.desc_font, key, rect.width - 6), True, self.theme.item_shadow)
+            screen.blit(surf, surf.get_rect(center=rect.center))
+        hint = "USB/Bluetooth keyboard: type | Enter save | Backspace delete | Esc cancel | Touch long-press key | Voice: keyboard text ..."
+        hint = _fit_text_for_width(self.desc_font, hint, panel.width - 40)
+        surf = self.desc_font.render(hint, True, self.theme.leaf_glow)
+        screen.blit(surf, surf.get_rect(center=(panel.centerx, panel.bottom - 26)))
 
     def _draw_ai_face(self) -> None:
         pygame = self.pygame
@@ -536,7 +650,7 @@ class JungleMenuRenderer:
         assert screen is not None
         assert self.desc_font is not None
         w, h = screen.get_size()
-        footer = "B1 MENU   B2 BACK   B3 SELECT   B4 NEXT   B5 UP   B6 DOWN"
+        footer = "B1 MENU   B2 BACK   B3 SELECT   USB/BT KEYBOARD OK   TOUCH OK"
         rect = pygame.Rect(int(w * 0.13), int(h * 0.91), int(w * 0.74), max(30, int(h * 0.055)))
         pygame.draw.rect(screen, (7, 34, 22), rect, border_radius=rect.height // 2)
         pygame.draw.rect(screen, self.theme.leaf_glow, rect, 2, border_radius=rect.height // 2)
