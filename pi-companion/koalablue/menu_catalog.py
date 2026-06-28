@@ -17,6 +17,7 @@ _GROUP_ORDER = {name: index for index, name in enumerate(MENU_GROUPS)}
 
 MAIN_MENU_ITEMS: List[dict[str, object]] = [
     {"group": "Bluetooth Tools", "label": "Eucalyptus", "command": "submenu:eucalyptus", "description": "Open the eucalyptus canopy submenu for passive BLE logger controls"},
+    {"group": "Bluetooth Tools", "label": "Koala Kombat Kruisin’", "command": "submenu:kruisin", "description": "Open passive Wi-Fi/BLE/GPS survey mapping and WiGLE export tools"},
     {"group": "Bluetooth Tools", "label": "Bluetooth Tools", "command": "submenu:bluetooth", "description": "Open the jungle Bluetooth tool chest"},
     {"group": "Didgeridoo", "label": "Didgeridoo", "command": "submenu:didgeridoo", "description": "Open the Didgeridoo mesh app for T114 BLE, primary GNSS, Meshtastic, and protected location helpers"},
     {"group": "CAN Bench Tools", "label": "CAN Bench Tools", "command": "submenu:can_bench", "description": "Open isolated Koala Kan bench and simulator checks"},
@@ -36,6 +37,16 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         {"group": "Bluetooth Tools", "label": "Eucalyptus Upload Trail", "command": "eucalyptus upload-status", "description": "Show GPS/WiGLE upload readiness and status"},
         {"group": "Bluetooth Tools", "label": "Eucalyptus WiGLE Upload", "command": "eucalyptus wigle-upload", "description": "Upload GPS-tagged passive BLE observations to WiGLE when explicitly armed"},
         {"group": "Bluetooth Tools", "label": "Eucalyptus Koalagotchi Mode", "command": "eucalyptus_mode", "description": "Open the Koalagotchi always-on Bluetooth scanner/logger screen"},
+        {"group": "System / Companion", "label": "Back to Main Canopy", "command": "submenu:main", "description": "Return to the main KoalaByte Blue menu"},
+    ],
+    "kruisin": [
+        {"group": "Bluetooth Tools", "label": "Kruisin’ Status", "command": "kruisin status", "description": "Show Wi-Fi/BLE/GPS survey and WiGLE readiness"},
+        {"group": "Bluetooth Tools", "label": "Wi-Fi AP Survey", "command": "kruisin wifi-survey", "description": "Run a passive Wi-Fi access point survey with RSSI and optional GPS"},
+        {"group": "Bluetooth Tools", "label": "BLE Survey", "command": "kruisin ble-survey", "description": "Run a passive BLE survey with RSSI and optional GPS"},
+        {"group": "Bluetooth Tools", "label": "Wi-Fi + BLE Survey", "command": "kruisin survey", "description": "Run combined passive Wi-Fi/BLE survey and write mapping artifacts"},
+        {"group": "Didgeridoo", "label": "Kruisin’ GPS Status", "command": "kruisin gps-status", "description": "Show protected GNSS/fixed lab coordinate readiness for survey mapping"},
+        {"group": "Reports & Reviews", "label": "Kruisin’ Export Files", "command": "kruisin export", "description": "Export survey JSONL, CSV, GeoJSON, and WiGLE CSV files"},
+        {"group": "Reports & Reviews", "label": "Kruisin’ WiGLE Upload", "command": "kruisin wigle-upload", "description": "Upload Wi-Fi/BLE survey data to WiGLE when explicitly armed"},
         {"group": "System / Companion", "label": "Back to Main Canopy", "command": "submenu:main", "description": "Return to the main KoalaByte Blue menu"},
     ],
     "bluetooth": [
@@ -142,6 +153,7 @@ def submenu_title(menu_name: str) -> str:
     titles = {
         "main": "Main Canopy",
         "eucalyptus": "Eucalyptus",
+        "kruisin": "Koala Kombat Kruisin’",
         "bluetooth": "Bluetooth Tools",
         "didgeridoo": "Didgeridoo",
         "can_bench": "CAN Bench Tools",
