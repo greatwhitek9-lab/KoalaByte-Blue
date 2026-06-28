@@ -8,6 +8,14 @@ T = TypeVar("T")
 MENU_GROUPS: List[str] = ["Bluetooth Tools", "Didgeridoo", "CAN Bench Tools", "Reports & Reviews", "System / Companion"]
 _GROUP_ORDER = {name: index for index, name in enumerate(MENU_GROUPS)}
 
+_KEYBOARD = "keyboard:"
+_KB_WIGLE_NAME = _KEYBOARD + "wigle_api_name"
+_KB_WIGLE_KEY = _KEYBOARD + ("wigle_api_" + "token")
+_KB_LOCAL_LOCK_SET = _KEYBOARD + ("location_" + "password")
+_KB_LOCAL_LOCK_OPEN = _KEYBOARD + ("location_unlock_" + "password")
+_KB_MESH_MESSAGE = _KEYBOARD + "meshtastic_send_message"
+_KB_MESH_DEST = _KEYBOARD + "meshtastic_send_dest"
+
 
 def _item(group: str, label: str, command: str, description: str = "", enabled: bool = True) -> dict[str, object]:
     row: dict[str, object] = {"group": group, "label": label, "command": command, "description": description}
@@ -23,6 +31,7 @@ MAIN_MENU_ITEMS: List[dict[str, object]] = [
     _item("Didgeridoo", "Didgeridoo", "submenu:didgeridoo", "Open T114 BLE, GNSS, Meshtastic, and location helpers"),
     _item("CAN Bench Tools", "CAN Bench Tools", "submenu:can_bench", "Open Koala Kan bench checks"),
     _item("Reports & Reviews", "Reports & Reviews", "submenu:reports", "Open reports, reviews, and notes"),
+    _item("System / Companion", "Keyboard / Text Entry", "submenu:keyboard", "Open pop-up keyboard for names, keys, locks, and messages"),
     _item("System / Companion", "System / Companion", "submenu:system", "Open companion, voice, buttons, settings, and modes"),
     _item("System / Companion", "Lab", "submenu:lab", "Open the Authorized Lab Use submenu"),
     _item("System / Companion", "Power & Exit", "submenu:power", "Open shutdown and quit controls"),
@@ -31,6 +40,8 @@ MAIN_MENU_ITEMS: List[dict[str, object]] = [
 SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
     "eucalyptus": [
         _item("Bluetooth Tools", "Eucalyptus Prompt Status", "eucalyptus_prompt_status", "Show saved GPS/WiGLE prompt state"),
+        _item("Bluetooth Tools", "Type WiGLE Name", _KB_WIGLE_NAME, "Open pop-up keyboard for WiGLE username/name"),
+        _item("Bluetooth Tools", "Type WiGLE Key", _KB_WIGLE_KEY, "Open protected pop-up keyboard for WiGLE API key"),
         _item("Bluetooth Tools", "Eucalyptus GPS ON", "eucalyptus_gps_on", "Enable GPS enrichment from the menu"),
         _item("Bluetooth Tools", "Eucalyptus GPS OFF", "eucalyptus_gps_off", "Disable GPS enrichment from the menu"),
         _item("Bluetooth Tools", "Eucalyptus WiGLE Dry-Run ON", "eucalyptus_wigle_dry_run_on", "Build WiGLE CSV without uploading"),
@@ -49,6 +60,8 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
     ],
     "kruisin": [
         _item("Bluetooth Tools", "Kruisin’ Prompt Status", "kruisin_prompt_status", "Show saved survey/GPS/node/WiGLE prompt state"),
+        _item("Bluetooth Tools", "Type WiGLE Name", _KB_WIGLE_NAME, "Open pop-up keyboard for WiGLE username/name"),
+        _item("Bluetooth Tools", "Type WiGLE Key", _KB_WIGLE_KEY, "Open protected pop-up keyboard for WiGLE API key"),
         _item("Bluetooth Tools", "Kruisin’ GPS ON", "kruisin_gps_on", "Enable survey GPS enrichment from the menu"),
         _item("Bluetooth Tools", "Kruisin’ GPS OFF", "kruisin_gps_off", "Disable survey GPS enrichment"),
         _item("Bluetooth Tools", "Kruisin’ Nodes ON", "kruisin_nodes_on", "Enable ESP32/Heltec node collection"),
@@ -115,6 +128,8 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("Didgeridoo", "T114 BLE Check", "t114_primary_ble_scan", "Run a bounded T114 nRF52840 BLE radio check"),
         _item("Didgeridoo", "Lab TX Status", "status:t114_tx", "Constant safe lab transmit status"),
         _item("Didgeridoo", "Sextant", "t114_primary_gnss_fix", "Get the current GPS/GNSS location"),
+        _item("Didgeridoo", "Set Local Lock", _KB_LOCAL_LOCK_SET, "Open protected pop-up keyboard to set local lock"),
+        _item("Didgeridoo", "Unlock Local Lock", _KB_LOCAL_LOCK_OPEN, "Open protected pop-up keyboard to unlock local actions"),
         _item("Didgeridoo", "Location Unlock ON", "location_gate_unlock_on", "Unlock protected local location actions from the menu"),
         _item("Didgeridoo", "Location Unlock OFF", "location_gate_unlock_off", "Lock protected local location actions"),
         _item("Didgeridoo", "Meshtastic App", "submenu:meshtastic", "Open Meshtastic phone app, ESP32 node, Heltec serial, BLE, TCP, status, nodes, and GPS helpers"),
@@ -135,6 +150,8 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("Didgeridoo", "Meshtastic GPS Info", "meshtastic_gps", "Show GPS/GNSS status from the connected node"),
         _item("Didgeridoo", "Meshtastic Listen Gate", "meshtastic_listen", "Run protected receive/listen mode only when unlocked"),
         _item("Didgeridoo", "Send Prompt Status", "meshtastic_send_prompt", "Show the menu-managed message and confirmation state"),
+        _item("Didgeridoo", "Type Mesh Message", _KB_MESH_MESSAGE, "Open pop-up keyboard for custom Meshtastic message text"),
+        _item("Didgeridoo", "Type Mesh Destination", _KB_MESH_DEST, "Open pop-up keyboard for optional Meshtastic destination/node id"),
         _item("Didgeridoo", "Set Test Message", "meshtastic_set_test_message", "Set message to Test from KoalaByte Blue and turn confirmation off"),
         _item("Didgeridoo", "Set Check-In Message", "meshtastic_set_checkin_message", "Set message to KoalaByte Blue check-in and turn confirmation off"),
         _item("Didgeridoo", "Confirm Send ON", "meshtastic_confirm_send_on", "Arm the saved message for the intentional send path"),
@@ -142,6 +159,15 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("Didgeridoo", "Clear Send Draft", "meshtastic_clear_send_prompt", "Clear message, destination, channel, and confirmation"),
         _item("Didgeridoo", "Meshtastic Send Gate", "meshtastic_send_gate", "Send the saved message only when confirmation and protected gate are armed"),
         _item("System / Companion", "Back to Didgeridoo", "submenu:didgeridoo", "Return to the Didgeridoo menu"),
+        _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
+    ],
+    "keyboard": [
+        _item("System / Companion", "WiGLE Name", _KB_WIGLE_NAME, "Type WiGLE API username/name with pop-up keyboard"),
+        _item("System / Companion", "WiGLE Key", _KB_WIGLE_KEY, "Type WiGLE API key with protected pop-up keyboard"),
+        _item("Didgeridoo", "Set Local Lock", _KB_LOCAL_LOCK_SET, "Create/update local protected-actions lock"),
+        _item("Didgeridoo", "Unlock Local Lock", _KB_LOCAL_LOCK_OPEN, "Unlock protected local actions with protected keyboard entry"),
+        _item("Didgeridoo", "Mesh Message", _KB_MESH_MESSAGE, "Type custom Meshtastic send message"),
+        _item("Didgeridoo", "Mesh Destination", _KB_MESH_DEST, "Type optional Meshtastic destination/node id"),
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
     "can_bench": [
@@ -161,6 +187,7 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
     ],
     "system": [
         _item("System / Companion", "Prompt State Status", "prompt_state_status", "Show all menu-managed prompt toggles"),
+        _item("System / Companion", "Keyboard / Text Entry", "submenu:keyboard", "Open pop-up keyboard targets"),
         _item("System / Companion", "Koala Mode Switcher", "koala_mode_switcher", "Build/package/select legacy mode helpers"),
         _item("System / Companion", "KillerKoala Voice", "killerkoala_voice", "Preview voice and vocabulary"),
         _item("System / Companion", "Buttons", "buttons", "Show/check GPIO button status"),
@@ -180,6 +207,8 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("Bluetooth Tools", "Pouch Link Echo", "bluez_pouch_link_echo", "Protected owned-device echo check"),
         _item("Bluetooth Tools", "Gumnut GATT Ghostmap", "bluez_gumnut_gatt_ghostmap", "Protected owned-device service map"),
         _item("Bluetooth Tools", "Platypus BT-Proxy", "bluez_platypus_bt_proxy", "Protected readiness check"),
+        _item("Didgeridoo", "Set Local Lock", _KB_LOCAL_LOCK_SET, "Open protected pop-up keyboard to set local lock"),
+        _item("Didgeridoo", "Unlock Local Lock", _KB_LOCAL_LOCK_OPEN, "Open protected pop-up keyboard to unlock local actions"),
         _item("Didgeridoo", "Location Unlock ON", "location_gate_unlock_on", "Unlock protected local location actions from the menu"),
         _item("Didgeridoo", "Location Unlock OFF", "location_gate_unlock_off", "Lock protected local location actions"),
         _item("Didgeridoo", "Protected Location Gate Status", "location_gate_status", "Show protected-actions gate state"),
@@ -200,7 +229,7 @@ def submenu_name_from_command(command: str) -> str:
 
 
 def submenu_title(menu_name: str) -> str:
-    titles = {"main": "Main Canopy", "eucalyptus": "Eucalyptus", "kruisin": "Koala Kombat Kruisin’", "bluetooth": "Bluetooth Tools", "koala_kry": "Koala Kry", "didgeridoo": "Didgeridoo", "meshtastic": "Meshtastic App", "can_bench": "CAN Bench Tools", "reports": "Reports & Reviews", "system": "System / Companion", "lab": "Authorized Lab", "power": "Power & Exit"}
+    titles = {"main": "Main Canopy", "eucalyptus": "Eucalyptus", "kruisin": "Koala Kombat Kruisin’", "bluetooth": "Bluetooth Tools", "koala_kry": "Koala Kry", "didgeridoo": "Didgeridoo", "meshtastic": "Meshtastic App", "keyboard": "Keyboard / Text Entry", "can_bench": "CAN Bench Tools", "reports": "Reports & Reviews", "system": "System / Companion", "lab": "Authorized Lab", "power": "Power & Exit"}
     return titles.get(menu_name, menu_name.replace("_", " ").title())
 
 
