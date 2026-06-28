@@ -24,6 +24,7 @@ REQUIRED_FILES = [
     "pi-companion/koalablue/menu_theme.py",
     "pi-companion/koalablue/t114_menu_status.py",
     "pi-companion/koalablue/meshtastic_app.py",
+    "pi-companion/koalablue/meshtastic_menu_items.py",
     "pi-companion/koalablue/t114_bluez.py",
     "pi-companion/koalablue/gnss_location.py",
     "pi-companion/koalablue/location_password_gate.py",
@@ -93,12 +94,7 @@ SHELL_HELPERS = [
     "scripts/preflight_all_hardware.sh",
 ]
 
-REQUIRED_AI_REQUIREMENTS = [
-    "httpx",
-    "pyttsx3",
-    "SpeechRecognition",
-]
-
+REQUIRED_AI_REQUIREMENTS = ["httpx", "pyttsx3", "SpeechRecognition"]
 REQUIRED_RUNTIME_REQUIREMENTS = [
     "bleak",
     "pyserial",
@@ -113,6 +109,7 @@ REQUIRED_RUNTIME_REQUIREMENTS = [
     "python-can",
     "pyttsx3",
     "SpeechRecognition",
+    "meshtastic",
 ]
 
 
@@ -226,25 +223,20 @@ def check_menu_catalog(failures: list[str]) -> None:
             failures.append(f"main menu labels missing {label}")
     if "Didgeridoo" not in MENU_GROUPS:
         failures.append("menu catalog missing Didgeridoo group")
-    for submenu in ["eucalyptus", "kruisin", "bluetooth", "didgeridoo", "can_bench", "reports", "system", "lab", "power"]:
+    for submenu in ["eucalyptus", "kruisin", "bluetooth", "didgeridoo", "meshtastic", "can_bench", "reports", "system", "lab", "power"]:
         if submenu not in SUBMENU_ITEMS:
             failures.append(f"menu catalog missing {submenu} submenu")
+
     didgeridoo_labels = set(menu_labels("didgeridoo"))
-    expected_didgeridoo = {
-        "Heltec Link",
-        "Radio/GPS",
-        "T114 Quick BLE Test Scan",
-        "Lab Beacon TX",
-        "Sextant",
-        "Meshtastic App",
-        "Didgeridoo Status",
-        "Didgeridoo Nodes",
-        "Didgeridoo GPS Info",
-        "Protected Location Gate Status",
-        "Protected GNSS Current Fix",
-    }
+    expected_didgeridoo = {"Heltec Link", "Radio/GPS", "T114 BLE Check", "Lab TX Status", "Sextant", "Meshtastic App", "Protected Location Gate Status", "Protected GNSS Current Fix"}
     for label in sorted(expected_didgeridoo - didgeridoo_labels):
         failures.append(f"Didgeridoo submenu missing {label}")
+
+    meshtastic_labels = set(menu_labels("meshtastic"))
+    expected_meshtastic = {"Meshtastic Profile", "Meshtastic Compatibility", "Phone App Pairing", "ESP32 Device Link", "Use Heltec USB Serial", "Use Network TCP", "Use BLE Link", "Meshtastic Status", "Meshtastic Nodes", "Meshtastic GPS Info"}
+    for label in sorted(expected_meshtastic - meshtastic_labels):
+        failures.append(f"Meshtastic submenu missing {label}")
+
     bluetooth_labels = set(menu_labels("bluetooth"))
     for label in ["Koala Kapture", "Koala Kry", "KoalaByte Lab", "Dropbear Discovery Sweep", "Platypus BT-Proxy", "AntEater", "Urban Poaching"]:
         if label not in bluetooth_labels:
@@ -289,19 +281,7 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     status = REPO_ROOT / "pi-companion" / "koalablue" / "t114_menu_status.py"
     status_check = REPO_ROOT / "scripts" / "check_t114_status_dashboard.py"
     runtime_check = REPO_ROOT / "scripts" / "check_full_runtime_dependencies.py"
-    firmware_needles = [
-        "ble_adv_seen",
-        "ble_lab_advertise_start",
-        "ble_lab_advertise_stop",
-        "ble_tx_status",
-        "gnss_fix",
-        "gnss_status",
-        "primary_gnss",
-        "KOALABYTE_GNSS_UART_LABEL",
-        "killerkoala_face",
-        "node_roles",
-        "heltec-t114-nrf52840",
-    ]
+    firmware_needles = ["ble_adv_seen", "ble_lab_advertise_start", "ble_lab_advertise_stop", "ble_tx_status", "gnss_fix", "gnss_status", "primary_gnss", "KOALABYTE_GNSS_UART_LABEL", "killerkoala_face", "node_roles", "heltec-t114-nrf52840"]
     conf_needles = ["CONFIG_BT_OBSERVER=y", "CONFIG_BT_BROADCASTER=y", "CONFIG_USB_CDC_ACM=y"]
     helper_needles = ["T114_GNSS_UART_LABEL", "KOALABYTE_GNSS_UART_LABEL"]
     gnss_needles = ["write_primary_t114_fix_event", "heltec-t114-gnss", "KOALABYTE_PRIMARY_GNSS_PORT"]
@@ -309,7 +289,7 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     installer_needles = ["T114_PLUG_FLASH_PROFILE=\"${T114_PLUG_FLASH_PROFILE:-combined-safe}\"", "INSTALL_HELTEC_NRF_TOOLS=\"${INSTALL_HELTEC_NRF_TOOLS:-1}\""]
     one_shot_needles = ["STRICT_T114_STATUS_DASHBOARD", "run_t114_status_dashboard_readiness", "T114 live dashboard status phrases", "STRICT_FULL_RUNTIME_DEPENDENCIES", "run_full_runtime_dependency_gate", "run_menu_theme_fit_gate", "Jungle menu theme and text fit"]
     menu_needles = ["t114_primary_ble_scan", "t114_primary_gnss_fix", "koalablue.gnss_location", "bluez_platypus_bt_proxy"]
-    menu_ui_needles = ["sync_menu_state", "touch_long_press_select", "B3/select"]
+    menu_ui_needles = ["sync_menu_state", "touch_long_press_select", "B3/select", "make_meshtastic_items"]
     menu_sync_needles = ["menu_sync", "esp32-s3-dualeye", "heltec-t114", "killerkoala_face", "B3/select or touchscreen long-press"]
     menu_theme_needles = ["jungle_adventure_eucalyptus_branch_and_leaf_border", "_fit_text_for_width", "GRAPHICAL_DESCRIPTION_MAX_LINES", "GRAPHICAL_LABEL_MAX_LINES"]
     theme_check_needles = ["MENU_THEME_FIT_READY", "render_terminal_jungle_menu", "jungle", "eucalyptus", "visible_duplicate_commands"]
