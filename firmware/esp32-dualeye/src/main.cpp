@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <NimBLEDevice.h>
+#include <WiFi.h>
 #include <driver/i2s.h>
 #include <math.h>
 #include "boot_animation.h"
@@ -22,6 +23,7 @@ ButtonDef buttons[] = {
 };
 
 static uint32_t lastBleScan = 0;
+static uint32_t lastWifiSurveyScan = 0;
 static uint32_t lastHeartbeat = 0;
 static uint32_t lastVoiceWake = 0;
 static uint32_t lastVoiceStatus = 0;
@@ -112,14 +114,31 @@ void emitEyeStyleStatus(const char *statusType = "eye_style") {
   sendJson(doc);
 }
 
+void emitKoalaKombatStatus() {
+  StaticJsonDocument<640> doc;
+  doc["type"] = "koala_kombat_node_status";
+  doc["device"] = "esp32-dualeye";
+  doc["source"] = "esp32-s3-dualeye";
+  doc["role"] = "secondary_wifi_ble";
+  doc["wifi_node"] = ENABLE_KOALA_KOMBAT_WIFI_NODE;
+  doc["ble_node"] = ENABLE_LOCAL_BLE_SCAN;
+  doc["serial_commands"] = ENABLE_KOALA_KOMBAT_SERIAL_COMMANDS;
+  doc["wifi_mode"] = "station_scan_only";
+  doc["scan_policy"] = "survey observation JSON only; no association or pairing";
+  doc["interval_ms"] = KOALA_KOMBAT_WIFI_SCAN_INTERVAL_MS;
+  doc["max_aps"] = KOALA_KOMBAT_WIFI_MAX_APS;
+  sendJson(doc);
+}
+
 void emitBoot() {
-  StaticJsonDocument<1024> doc;
+  StaticJsonDocument<1152> doc;
   doc["type"] = "boot";
   doc["device"] = "esp32-dualeye";
   doc["fw"] = KOALABLUE_FW_VERSION;
   doc["companion"] = COMPANION_NAME;
   doc["wake_word"] = WAKE_WORD;
   doc["ble_scan"] = ENABLE_LOCAL_BLE_SCAN;
+  doc["wifi_survey_node"] = ENABLE_KOALA_KOMBAT_WIFI_NODE;
   doc["mic_wake"] = ENABLE_MIC_WAKE;
   doc["builtin_mic_present"] = ESP32S3_DUALEYE_BUILTIN_MIC;
   doc["mic_ready"] = micBackendReady;
@@ -137,6 +156,7 @@ void emitBoot() {
   emitVoiceStackStatus();
   emitMicStatus();
   emitEyeStyleStatus();
+  emitKoalaKombatStatus();
 }
 
 void setupButtons() {
@@ -170,13 +190,16 @@ void pollButtons() {
 #if ENABLE_LOCAL_BLE_SCAN
 class KoalaAdvertisedDeviceCallbacks : public NimBLEAdvertisedDeviceCallbacks {
   void onResult(NimBLEAdvertisedDevice *d) override {
-    StaticJsonDocument<384> doc;
+    StaticJsonDocument<448> doc;
     doc["type"] = "ble_seen";
+    doc["device"] = "esp32-dualeye";
+    doc["source"] = "esp32-s3-dualeye";
+    doc["role"] = "secondary_wifi_ble";
+    doc["transport"] = "esp32-nimble";
     doc["name"] = d->haveName() ? d->getName().c_str() : "";
     doc["addr"] = d->getAddress().toString().c_str();
     doc["rssi"] = d->getRSSI();
     doc["connectable"] = d->isConnectable();
-    doc["source"] = "esp32_local_scan";
     sendJson(doc);
   }
 };
@@ -190,14 +213,77 @@ void setupBle() {
   scan->setWindow(80);
 }
 
-void runBleScanCycle() {
-  if (millis() - lastBleScan < 7000) return;
+void runBleScanCycle(bool force = false) {
+  if (!force && millis() - lastBleScan < 7000) return;
   lastBleScan = millis();
   NimBLEScan *scan = NimBLEDevice::getScan();
   emitStatus("ble_scan_start");
   scan->start(BLE_SCAN_SECONDS, false);
   scan->clearResults();
   emitStatus("ble_scan_done");
+}
+#endif
+
+#if ENABLE_KOALA_KOMBAT_WIFI_NODE
+const char *wifiAuthName(wifi_auth_mode_t mode) {
+  switch (mode) {
+    case WIFI_AUTH_OPEN: return "OPEN";
+    case WIFI_AUTH_WEP: return "WEP";
+    case WIFI_AUTH_WPA_PSK: return "WPA_PSK";
+    case WIFI_AUTH_WPA2_PSK: return "WPA2_PSK";
+    case WIFI_AUTH_WPA_WPA2_PSK: return "WPA_WPA2_PSK";
+    case WIFI_AUTH_WPA2_ENTERPRISE: return "WPA2_ENTERPRISE";
+    case WIFI_AUTH_WPA3_PSK: return "WPA3_PSK";
+    case WIFI_AUTH_WPA2_WPA3_PSK: return "WPA2_WPA3_PSK";
+    default: return "UNKNOWN";
+  }
+}
+
+void setupWifiSurvey() {
+  WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
+  WiFi.disconnect(false, true);
+  emitStatus("koala_kombat_wifi_node_ready");
+}
+
+void runWifiSurveyCycle(bool force = false) {
+  if (!force && millis() - lastWifiSurveyScan < KOALA_KOMBAT_WIFI_SCAN_INTERVAL_MS) return;
+  lastWifiSurveyScan = millis();
+  StaticJsonDocument<256> start;
+  start["type"] = "wifi_survey_status";
+  start["device"] = "esp32-dualeye";
+  start["source"] = "esp32-s3-dualeye";
+  start["role"] = "secondary_wifi_ble";
+  start["status"] = "scan_start";
+  sendJson(start);
+
+  int count = WiFi.scanNetworks(false, true, KOALA_KOMBAT_WIFI_PASSIVE_SCAN, 120);
+  int limit = count < KOALA_KOMBAT_WIFI_MAX_APS ? count : KOALA_KOMBAT_WIFI_MAX_APS;
+  for (int i = 0; i < limit; i++) {
+    StaticJsonDocument<512> doc;
+    doc["type"] = "wifi_ap_seen";
+    doc["device"] = "esp32-dualeye";
+    doc["source"] = "esp32-s3-dualeye";
+    doc["role"] = "secondary_wifi_ble";
+    doc["transport"] = "esp32-wifi-scan";
+    doc["ssid"] = WiFi.SSID(i);
+    doc["bssid"] = WiFi.BSSIDstr(i);
+    doc["rssi"] = WiFi.RSSI(i);
+    doc["channel"] = WiFi.channel(i);
+    doc["security"] = wifiAuthName(WiFi.encryptionType(i));
+    doc["scan_policy"] = "scan_only_no_association";
+    sendJson(doc);
+  }
+  WiFi.scanDelete();
+
+  StaticJsonDocument<256> done;
+  done["type"] = "wifi_survey_status";
+  done["device"] = "esp32-dualeye";
+  done["source"] = "esp32-s3-dualeye";
+  done["role"] = "secondary_wifi_ble";
+  done["status"] = "scan_done";
+  done["ap_count"] = count;
+  sendJson(done);
 }
 #endif
 
@@ -340,23 +426,13 @@ void handleKillerKoalaFace(JsonDocument &doc) {
   const char *look = "round";
   const char *animation = "idle";
 
-  if (!enabled || !strcmp(state, "hidden")) {
-    animation = "sleepy";
-  } else if (!strcmp(state, "wake")) {
-    animation = "pulse";
-  } else if (!strcmp(state, "thinking")) {
-    animation = "scan";
-  } else if (!strcmp(state, "speaking")) {
-    animation = "blink";
-  } else if (!strcmp(state, "action")) {
-    animation = "glitch";
-  } else if (!strcmp(state, "success")) {
-    look = "star";
-    animation = "pulse";
-  } else if (!strcmp(state, "error")) {
-    look = "angry";
-    animation = "glitch";
-  }
+  if (!enabled || !strcmp(state, "hidden")) animation = "sleepy";
+  else if (!strcmp(state, "wake")) animation = "pulse";
+  else if (!strcmp(state, "thinking")) animation = "scan";
+  else if (!strcmp(state, "speaking")) animation = "blink";
+  else if (!strcmp(state, "action")) animation = "glitch";
+  else if (!strcmp(state, "success")) { look = "star"; animation = "pulse"; }
+  else if (!strcmp(state, "error")) { look = "angry"; animation = "glitch"; }
 
   setKoalagotchiEyeStyle(look, left, right, animation, brightness);
   drawKoalagotchiModeScreen("killerkoala", state, 85, 92);
@@ -403,10 +479,17 @@ void handlePiCommand(const String &line) {
   if (err) return;
 
   const char *type = doc["type"] | "";
-  if (!strcmp(type, "killerkoala_face") || !strcmp(type, "ai_face")) {
-    handleKillerKoalaFace(doc);
-  } else if (!strcmp(type, "menu_sync")) {
-    handleMenuSync(doc);
+  if (!strcmp(type, "killerkoala_face") || !strcmp(type, "ai_face")) handleKillerKoalaFace(doc);
+  else if (!strcmp(type, "menu_sync")) handleMenuSync(doc);
+  else if (!strcmp(type, "koala_kombat_status")) emitKoalaKombatStatus();
+  else if (!strcmp(type, "koala_kombat_scan")) {
+    emitKoalaKombatStatus();
+#if ENABLE_KOALA_KOMBAT_WIFI_NODE
+    if (doc["wifi"] | true) runWifiSurveyCycle(true);
+#endif
+#if ENABLE_LOCAL_BLE_SCAN
+    if (doc["ble"] | true) runBleScanCycle(true);
+#endif
   } else if (!strcmp(type, "koala_says")) {
     const char *msg = doc["message"] | "";
     StaticJsonDocument<192> ack;
@@ -415,13 +498,7 @@ void handlePiCommand(const String &line) {
     sendJson(ack);
   } else if (!strcmp(type, "screen")) {
     if (doc["eye_look"].is<const char*>() || doc["left_eye"].is<const char*>() || doc["right_eye"].is<const char*>()) {
-      setKoalagotchiEyeStyle(
-        doc["eye_look"] | getKoalagotchiEyeLook(),
-        doc["left_eye"] | getKoalagotchiLeftEyeHex(),
-        doc["right_eye"] | getKoalagotchiRightEyeHex(),
-        doc["eye_animation"] | getKoalagotchiEyeAnimation(),
-        doc["eye_brightness"] | getKoalagotchiEyeBrightness()
-      );
+      setKoalagotchiEyeStyle(doc["eye_look"] | getKoalagotchiEyeLook(), doc["left_eye"] | getKoalagotchiLeftEyeHex(), doc["right_eye"] | getKoalagotchiRightEyeHex(), doc["eye_animation"] | getKoalagotchiEyeAnimation(), doc["eye_brightness"] | getKoalagotchiEyeBrightness());
     }
     const char *mode = doc["mode"] | "eucalyptus";
     const char *mood = doc["mood"] | "";
@@ -436,29 +513,15 @@ void handlePiCommand(const String &line) {
     ack["eye_look"] = getKoalagotchiEyeLook();
     sendJson(ack);
   } else if (!strcmp(type, "eye_style") || !strcmp(type, "custom_eyes")) {
-    if (doc["reset"] | false) {
-      resetKoalagotchiEyeStyle();
-    } else {
-      setKoalagotchiEyeStyle(
-        doc["look"] | getKoalagotchiEyeLook(),
-        doc["left_color"] | getKoalagotchiLeftEyeHex(),
-        doc["right_color"] | getKoalagotchiRightEyeHex(),
-        doc["animation"] | getKoalagotchiEyeAnimation(),
-        doc["brightness"] | getKoalagotchiEyeBrightness()
-      );
-    }
+    if (doc["reset"] | false) resetKoalagotchiEyeStyle();
+    else setKoalagotchiEyeStyle(doc["look"] | getKoalagotchiEyeLook(), doc["left_color"] | getKoalagotchiLeftEyeHex(), doc["right_color"] | getKoalagotchiRightEyeHex(), doc["animation"] | getKoalagotchiEyeAnimation(), doc["brightness"] | getKoalagotchiEyeBrightness());
     drawKoalagotchiModeScreen(doc["mode"] | "eucalyptus", doc["mood"] | "custom", doc["contentment"] | 75, doc["xp_percent"] | 88);
     emitEyeStyleStatus("eye_style_ack");
-  } else if (!strcmp(type, "eye_status")) {
-    emitEyeStyleStatus();
-  } else if (!strcmp(type, "mic_status") || !strcmp(type, "voice_status")) {
-    emitVoiceStackStatus();
-    emitMicStatus();
-  } else if (!strcmp(type, "simulate_voice_wake")) {
+  } else if (!strcmp(type, "eye_status")) emitEyeStyleStatus();
+  else if (!strcmp(type, "mic_status") || !strcmp(type, "voice_status")) { emitVoiceStackStatus(); emitMicStatus(); }
+  else if (!strcmp(type, "simulate_voice_wake")) {
     const char *phrase = doc["phrase"] | WAKE_WORD;
-    if (strstr(phrase, WAKE_WORD) != nullptr) {
-      emitVoiceWakeEvent(1.0f, "serial_test");
-    }
+    if (strstr(phrase, WAKE_WORD) != nullptr) emitVoiceWakeEvent(1.0f, "serial_test");
   } else if (!strcmp(type, "simulate_voice_command")) {
     const char *phrase = doc["phrase"] | "killerkoala voice commands";
     emitVoiceCommandEvent(phrase, "serial_test");
@@ -469,20 +532,15 @@ void pollSerial() {
   static String line;
   while (Serial.available()) {
     char c = (char)Serial.read();
-    if (c == '\n') {
-      handlePiCommand(line);
-      line = "";
-    } else if (c != '\r') {
-      line += c;
-      if (line.length() > 1536) line = "";
-    }
+    if (c == '\n') { handlePiCommand(line); line = ""; }
+    else if (c != '\r') { line += c; if (line.length() > 1536) line = ""; }
   }
 }
 
 void heartbeat() {
   if (millis() - lastHeartbeat < 5000) return;
   lastHeartbeat = millis();
-  StaticJsonDocument<256> doc;
+  StaticJsonDocument<320> doc;
   doc["type"] = "heartbeat";
   doc["uptime_ms"] = millis();
   doc["free_heap"] = ESP.getFreeHeap();
@@ -490,20 +548,22 @@ void heartbeat() {
   doc["eye_animation"] = getKoalagotchiEyeAnimation();
   doc["mic_ready"] = micBackendReady;
   doc["mic_status"] = micBackendStatus;
+  doc["koala_kombat_wifi_node"] = ENABLE_KOALA_KOMBAT_WIFI_NODE;
   sendJson(doc);
 }
 
 void setup() {
   Serial.begin(SERIAL_BAUD);
   delay(1200);
-
   setupDisplay();
   runBootAnimation();
-
   setupButtons();
   setupMic();
 #if ENABLE_LOCAL_BLE_SCAN
   setupBle();
+#endif
+#if ENABLE_KOALA_KOMBAT_WIFI_NODE
+  setupWifiSurvey();
 #endif
   drawKoalagotchiModeScreen("eucalyptus", "calm", 75, 88);
   emitBoot();
@@ -515,8 +575,10 @@ void loop() {
   pollVoiceWake();
   tickKoalagotchiEyes();
 #if ENABLE_LOCAL_BLE_SCAN
-  runBleScanCycle();
+  runBleScanCycle(false);
+#endif
+#if ENABLE_KOALA_KOMBAT_WIFI_NODE
+  runWifiSurveyCycle(false);
 #endif
   heartbeat();
-  delay(10);
 }
