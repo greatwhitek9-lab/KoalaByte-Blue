@@ -8,6 +8,7 @@ from typing import Callable, Dict, Iterable, List, Optional
 
 from .menu_catalog import make_menu_items, submenu_name_from_command, submenu_title
 from .meshtastic_menu_items import make_didgeridoo_items, make_meshtastic_items
+from .popup_keyboard import PopupKeyboardState, open_keyboard
 
 
 @dataclass
@@ -56,6 +57,8 @@ class MenuSelectionScreen:
     - Touch scrolling through on_touch_down/on_touch_move/on_touch_up.
     - Touch long-press select.
     - Touch double-tap menu reopen while the AI face is showing.
+    - Pop-up keyboard mode for API names, tokens, passwords, and message text.
+    - Voice-to-text keyboard input through commands like "keyboard text ...".
     - Hierarchical submenus through commands like submenu:eucalyptus and submenu:lab.
 
     The menu, GPIO buttons, touchscreen, Heltec/T114 display path, and ESP32-S3
@@ -85,6 +88,7 @@ class MenuSelectionScreen:
         self.display_mode = "menu"
         self.face_state = "idle"
         self.face_message = "KillerKoala is watching the canopy"
+        self.keyboard: Optional[PopupKeyboardState] = None
         self.idle_face_seconds = 30
         self.last_input_at = time.time()
         self._last_tap_at = 0.0
@@ -111,8 +115,12 @@ class MenuSelectionScreen:
         self._handlers[command] = handler
 
     def handle_command(self, command: str) -> Optional[MenuEvent]:
-        normalized = command.strip().lower()
+        raw = command.strip()
+        normalized = raw.lower()
         now = time.time()
+
+        if self.display_mode == "keyboard":
+            return self._handle_keyboard_command(raw, normalized, now)
 
         if normalized in {"main_menu", "home", "menu"}:
             self.last_input_at = now
@@ -145,6 +153,45 @@ class MenuSelectionScreen:
             return self.select("select")
         return self._event("ignored", normalized)
 
+    def _handle_keyboard_command(self, raw: str, normalized: str, now: float) -> Optional[MenuEvent]:
+        if self.keyboard is None:
+            self.display_mode = "menu"
+            return self._event("keyboard_missing", normalized)
+        self.last_input_at = now
+        voice_prefixes = ("keyboard text ", "voice text ", "dictate ", "type ")
+        for prefix in voice_prefixes:
+            if normalized.startswith(prefix):
+                text = raw[len(prefix):].strip()
+                self.keyboard.apply_voice_text(text, append=True)
+                return self._event("keyboard_voice_text", "voice_text")
+        if normalized in {"up", "move_up"}:
+            self.keyboard.move(delta_row=-1)
+            return self._event("keyboard_move", "up")
+        if normalized in {"down", "move_down"}:
+            self.keyboard.move(delta_row=1)
+            return self._event("keyboard_move", "down")
+        if normalized in {"left", "move_left"}:
+            self.keyboard.move(delta_col=-1)
+            return self._event("keyboard_move", "left")
+        if normalized in {"right", "move_right", "forward"}:
+            self.keyboard.move(delta_col=1)
+            return self._event("keyboard_move", "right")
+        if normalized in {"back", "cancel", "main_menu", "home", "menu"}:
+            target = self.keyboard.target
+            self.keyboard = None
+            self.display_mode = "menu"
+            return self._event("keyboard_cancel", target)
+        if normalized in {"select", "enter"}:
+            result = self.keyboard.select()
+            status = str(result.get("status", ""))
+            if status in {"KEYBOARD_VALUE_SAVED", "LOCATION_GATE_UNLOCKED", "LOCATION_GATE_UNLOCK_FAILED", "KEYBOARD_CANCELLED"}:
+                message = status.replace("_", " ").title()
+                self.keyboard = None
+                self.show_ai_face("keyboard_complete", message, log_event_type="keyboard_complete")
+                return self._event("keyboard_complete", status)
+            return self._event("keyboard_select", str(result.get("action", "select")))
+        return self._event("keyboard_ignored", normalized)
+
     def move(self, delta: int) -> None:
         if not self.items:
             return
@@ -169,6 +216,8 @@ class MenuSelectionScreen:
         return event
 
     def select(self, select_event_type: str = "select") -> MenuEvent:
+        if self.display_mode == "keyboard":
+            return self._handle_keyboard_command("select", "select", time.time()) or self._event("keyboard_select", "select")
         if self.display_mode != "menu":
             return self._event("ai_face_waiting_for_menu", select_event_type)
         item = self.selected_item
@@ -176,10 +225,20 @@ class MenuSelectionScreen:
             return self._event("disabled", item.command)
         if item.command == "meshtastic_app":
             return self._open_menu("meshtastic", "submenu_open", "submenu:meshtastic")
+        if item.command.startswith("keyboard:"):
+            return self._open_keyboard(item.command.split(":", 1)[1], item.label)
         submenu = submenu_name_from_command(item.command)
         if submenu:
             return self._open_menu(submenu, "submenu_open" if submenu != "main" else "submenu_back", item.command)
         return self._run_selected_handler(item, select_event_type)
+
+    def _open_keyboard(self, target: str, label: str = "") -> MenuEvent:
+        self.keyboard = open_keyboard(target)
+        self.display_mode = "keyboard"
+        self.face_state = "keyboard"
+        self.face_message = f"Keyboard: {label or self.keyboard.title}"
+        self.last_input_at = time.time()
+        return self._event("keyboard_open", f"keyboard:{target}")
 
     def show_ai_face(self, state: str = "idle", message: str = "KillerKoala is watching the canopy", *, log_event_type: str = "ai_face") -> MenuEvent:
         self.display_mode = "ai_face"
@@ -190,6 +249,7 @@ class MenuSelectionScreen:
         return event
 
     def reopen_menu(self, reason: str = "main_menu") -> MenuEvent:
+        self.keyboard = None
         self.display_mode = "menu"
         self.face_state = "menu"
         self.face_message = "Menu open"
@@ -209,6 +269,11 @@ class MenuSelectionScreen:
     def on_touch_down(self, y: int, now: Optional[float] = None) -> None:
         t = now if now is not None else time.time()
         self.touch = TouchState(down_y=y, current_y=y, down_time=t, moved=False)
+        if self.display_mode == "keyboard" and self.keyboard is not None:
+            self.last_input_at = t
+            self._select_keyboard_row_at_y(y)
+            self._log_event(self._make_event("keyboard_touch_highlight", "touch_down"))
+            return
         if self.display_mode == "menu":
             self.last_input_at = t
             self._select_row_at_y(y)
@@ -218,6 +283,16 @@ class MenuSelectionScreen:
         if self.touch.down_y is None:
             return None
         self.touch.current_y = y
+        if self.display_mode == "keyboard" and self.keyboard is not None:
+            delta = y - self.touch.down_y
+            if abs(delta) < self.touch_config.scroll_threshold_px:
+                return None
+            rows = int(delta / self.touch_config.row_height_px) or (1 if delta > 0 else -1)
+            self.touch.down_y = y
+            self.touch.moved = True
+            self.last_input_at = now if now is not None else time.time()
+            self.keyboard.move(delta_row=rows)
+            return self._event("keyboard_touch_scroll", "touch_scroll")
         if self.display_mode != "menu":
             return None
         delta = y - self.touch.down_y
@@ -238,6 +313,16 @@ class MenuSelectionScreen:
             return None
         held = t - self.touch.down_time
 
+        if self.display_mode == "keyboard" and self.keyboard is not None:
+            self.last_input_at = t
+            self._select_keyboard_row_at_y(y)
+            if held >= self.touch_config.long_press_seconds and not self.touch.moved:
+                event = self._handle_keyboard_command("select", "select", t)
+            else:
+                event = self._event("keyboard_touch_tap", "touch_tap")
+            self.touch = TouchState()
+            return event
+
         if self.display_mode != "menu":
             self.touch = TouchState()
             if t - self._last_tap_at <= self.touch_config.double_tap_seconds:
@@ -257,6 +342,8 @@ class MenuSelectionScreen:
 
     def render_text(self) -> str:
         self.check_idle_timeout()
+        if self.display_mode == "keyboard":
+            return self._render_keyboard_text()
         if self.display_mode != "menu":
             return self._render_ai_face_text()
         try:
@@ -264,6 +351,32 @@ class MenuSelectionScreen:
             return render_terminal_jungle_menu(self)
         except Exception:
             return self._render_plain_text()
+
+    def _render_keyboard_text(self) -> str:
+        if self.keyboard is None:
+            return "Keyboard unavailable"
+        kb = self.keyboard
+        lines = [
+            "🌿════════════════════════════════════════════════════════════════════════🌿",
+            f"                         {kb.title[:48].center(48)}                         ",
+            "🌿════════════════════════════════════════════════════════════════════════🌿",
+            f"  Value: {kb.visible_text or '[' + kb.placeholder + ']'}",
+            "",
+        ]
+        for row_index, row_text in enumerate(kb.rows):
+            rendered = []
+            for col_index, char in enumerate(row_text):
+                rendered.append(f"[{char}]" if row_index == kb.row and col_index == kb.col else f" {char} ")
+            lines.append("  " + " ".join(rendered))
+        special = []
+        for index, key in enumerate(SPECIAL_KEYS := ["space", "back", "clear", "shift", "symbols", "voice", "save", "cancel"]):
+            special.append(f"[{key}]" if kb.row == len(kb.rows) and kb.col == index else f" {key} ")
+        lines.append("  " + " | ".join(special))
+        lines.append("")
+        lines.append("  Buttons: arrows move | B3/select presses key | B2/back cancels")
+        lines.append("  Touch: tap row, long-press to press | Voice: 'keyboard text <words>'")
+        lines.append("🌿════════════════════════════════════════════════════════════════════════🌿")
+        return "\n".join(lines)
 
     def _render_ai_face_text(self) -> str:
         lines = [
@@ -313,7 +426,7 @@ class MenuSelectionScreen:
             return MenuItem(label=f"{item.label}: Unknown", command=item.command, description=f"Status unavailable: {exc}", enabled=item.enabled, group=item.group)
 
     def _open_menu(self, menu_name: str, event_type: str, command: str) -> MenuEvent:
-        target = "main" if menu_name == "main" else menu_name
+        target = submenu_name_from_command(command) or menu_name
         if target == "meshtastic":
             new_items = make_meshtastic_items(MenuItem)
         elif target == "didgeridoo":
@@ -321,6 +434,7 @@ class MenuSelectionScreen:
         else:
             new_items = make_menu_items(MenuItem, target)
         if new_items:
+            self.keyboard = None
             self.display_mode = "menu"
             self.menu_name = target
             self.items = new_items
@@ -342,6 +456,14 @@ class MenuSelectionScreen:
         index = max(0, min(len(self.items) - 1, self.scroll_offset + row))
         self.selected_index = index
         self._clamp_scroll_to_selection()
+
+    def _select_keyboard_row_at_y(self, y: int) -> None:
+        if self.keyboard is None:
+            return
+        row = max(0, y // self.touch_config.row_height_px)
+        self.keyboard.row = max(0, min(len(self.keyboard.rows), row))
+        max_col = len(["space", "back", "clear", "shift", "symbols", "voice", "save", "cancel"]) - 1 if self.keyboard.row == len(self.keyboard.rows) else len(self.keyboard.rows[self.keyboard.row]) - 1
+        self.keyboard.col = max(0, min(self.keyboard.col, max_col))
 
     def _clamp_scroll_to_selection(self) -> None:
         if self.selected_index < self.scroll_offset:
@@ -372,7 +494,7 @@ class MenuSelectionScreen:
         try:
             from .menu_display_sync import sync_ai_face_display, sync_menu_state
 
-            if self.display_mode == "menu":
+            if self.display_mode in {"menu", "keyboard"}:
                 sync_menu_state(self, event)
             else:
                 sync_ai_face_display(self, event, state=self.face_state, message=self.face_message)
