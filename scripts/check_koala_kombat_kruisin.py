@@ -11,6 +11,7 @@ if str(PI_ROOT) not in sys.path:
     sys.path.insert(0, str(PI_ROOT))
 
 from koalablue.koala_kombat_kruisin import SurveyRecord, _wigle_row, control, status  # noqa: E402
+from koalablue.koala_kombat_node_roles import node_role_manifest, wifi_allowed_for_node  # noqa: E402
 
 
 def main() -> int:
@@ -21,6 +22,12 @@ def main() -> int:
     assert payload["gps_fix_available"] is True
     gps = control("gps-status")
     assert gps["status"] == "KOALA_KOMBAT_GPS_READY"
+    roles = node_role_manifest()
+    assert roles["heltec_t114_has_wifi"] is False
+    assert roles["wifi_nodes"] == ["raspberry-pi", "esp32-s3-dualeye"]
+    assert "heltec-t114-nrf52840" in roles["ble_nodes"]
+    assert wifi_allowed_for_node("esp32-s3-dualeye") is True
+    assert wifi_allowed_for_node("heltec-t114-nrf52840") is False
     row = _wigle_row(SurveyRecord(radio="wifi", identifier="AA:BB:CC:DD:EE:FF", name="KoalaAP", rssi=-55, channel="6", latitude=39.0001, longitude=-76.0001, first_seen="2026-01-01T00:00:00Z"))
     assert row is not None
     assert row["MAC"] == "AA:BB:CC:DD:EE:FF"
