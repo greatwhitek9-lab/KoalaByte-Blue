@@ -51,7 +51,7 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
     ],
     "bluetooth": [
         _item("Bluetooth Tools", "Koala Kapture", "koala_kapture", "Record authorized lab observation metadata"),
-        _item("Bluetooth Tools", "Koala Kry", "koala_kry", "Replay saved metadata into reports"),
+        _item("Bluetooth Tools", "Koala Kry", "submenu:koala_kry", "Open Koala Kry offline replay and review prompt controls"),
         _item("Bluetooth Tools", "KoalaByte Lab", "ear_tag_tx_lab", "Create an owned-device lab plan"),
         _item("Bluetooth Tools", "Outback Module Deck", "koala_bluez_manifest", "Show the BlueZ module manifest"),
         _item("Bluetooth Tools", "Gumleaf Gear Check", "koala_bluez_inventory", "Inventory local helpers"),
@@ -71,6 +71,25 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("Bluetooth Tools", "that’s not a knife", "thats_not_a_knife", "Defensive local BLE pressure guard"),
         _item("Bluetooth Tools", "AntEater", "anteater", "Passive BLE risk triage with redacted reports"),
         _item("Bluetooth Tools", "Urban Poaching", "urban_poaching", "Authorized BLE RSSI lab game"),
+        _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
+    ],
+    "koala_kry": [
+        _item("Bluetooth Tools", "Kry Prompt Status", "koala_kry_prompt_status", "Show saved Koala Kry replay/review prompt state"),
+        _item("Bluetooth Tools", "Use Latest Capture", "koala_kry_use_latest_capture", "Select the newest Koala Kapture file as the replay source"),
+        _item("Bluetooth Tools", "Speed Live", "koala_kry_speed_live", "Replay using captured timing at 1x speed"),
+        _item("Bluetooth Tools", "Speed Fast", "koala_kry_speed_fast", "Replay metadata at 5x speed"),
+        _item("Bluetooth Tools", "Speed Instant", "koala_kry_speed_instant", "Replay metadata as fast as possible"),
+        _item("Bluetooth Tools", "Limit 50 Records", "koala_kry_limit_50", "Limit the next replay/review to 50 records"),
+        _item("Bluetooth Tools", "Limit 200 Records", "koala_kry_limit_200", "Limit the next replay/review to 200 records"),
+        _item("Bluetooth Tools", "Replay All Records", "koala_kry_limit_all", "Clear the record limit for the next replay/review"),
+        _item("Bluetooth Tools", "RF Review ON", "koala_kry_rf_review_on", "Add RF bench isolation review artifact; no RF is sent"),
+        _item("Bluetooth Tools", "RF Review OFF", "koala_kry_rf_review_off", "Disable RF bench review artifact"),
+        _item("Bluetooth Tools", "Lab Ack ON", "koala_kry_lab_ack_on", "Mark the review as an owned/authorized lab setting"),
+        _item("Bluetooth Tools", "Owned Device Ack ON", "koala_kry_owned_ack_on", "Mark captures as owned or scope-approved"),
+        _item("Bluetooth Tools", "Clear Kry Draft", "koala_kry_clear_prompt", "Reset Koala Kry prompt state to safe defaults"),
+        _item("Bluetooth Tools", "Run Koala Kry Replay", "koala_kry_run_replay", "Run offline metadata replay using the saved prompt"),
+        _item("Bluetooth Tools", "Write RF Bench Review", "koala_kry_run_review", "Write replay summary plus RF bench review; no RF is sent"),
+        _item("System / Companion", "Back to Bluetooth Tools", "submenu:bluetooth", "Return to Bluetooth Tools"),
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
     "didgeridoo": [
@@ -159,7 +178,7 @@ def submenu_name_from_command(command: str) -> str:
 
 
 def submenu_title(menu_name: str) -> str:
-    titles = {"main": "Main Canopy", "eucalyptus": "Eucalyptus", "kruisin": "Koala Kombat Kruisin’", "bluetooth": "Bluetooth Tools", "didgeridoo": "Didgeridoo", "meshtastic": "Meshtastic App", "can_bench": "CAN Bench Tools", "reports": "Reports & Reviews", "system": "System / Companion", "lab": "Authorized Lab", "power": "Power & Exit"}
+    titles = {"main": "Main Canopy", "eucalyptus": "Eucalyptus", "kruisin": "Koala Kombat Kruisin’", "bluetooth": "Bluetooth Tools", "koala_kry": "Koala Kry", "didgeridoo": "Didgeridoo", "meshtastic": "Meshtastic App", "can_bench": "CAN Bench Tools", "reports": "Reports & Reviews", "system": "System / Companion", "lab": "Authorized Lab", "power": "Power & Exit"}
     return titles.get(menu_name, menu_name.replace("_", " ").title())
 
 
