@@ -11,3 +11,4 @@ pygame>=2.5.2
 python-can>=4.4.2
 pyttsx3>=2.90
 SpeechRecognition>=3.10.4
+meshtastic>=2.5.0
