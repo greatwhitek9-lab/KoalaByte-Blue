@@ -116,16 +116,23 @@ def _check_imports(groups: dict[str, list[str]]) -> tuple[dict[str, dict[str, bo
 
 
 def _check_commands(groups: dict[str, list[str]]) -> tuple[dict[str, dict[str, bool]], list[str]]:
+    """Check host commands without failing normal CI/check-only runs.
+
+    GitHub-hosted runners are not Raspberry Pi images and usually lack BlueZ,
+    Wi-Fi, ALSA, serial, and west tooling. In normal check-only mode those are
+    readiness warnings. Use --strict-system or STRICT_FULL_RUNTIME_DEPENDENCIES=1
+    on a real Pi image when missing host commands should fail the check.
+    """
     results: dict[str, dict[str, bool]] = {}
-    failures: list[str] = []
+    warnings: list[str] = []
     for group, commands in groups.items():
         results[group] = {}
         for command in commands:
             present = shutil.which(command) is not None
             results[group][command] = present
-            if not present and not group.endswith("_optional"):
-                failures.append(f"missing system command for {group}: {command}")
-    return results, failures
+            if not present:
+                warnings.append(f"missing host command for {group}: {command}")
+    return results, warnings
 
 
 def _check_files(paths: Iterable[str]) -> tuple[dict[str, bool], list[str]]:
@@ -154,20 +161,20 @@ def _check_project_imports(modules: list[str]) -> tuple[dict[str, bool], list[st
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check KoalaByte Blue full runtime dependencies and board helper coverage")
-    parser.add_argument("--strict-system", action="store_true", help="Fail on missing optional/host system commands too")
+    parser.add_argument("--strict-system", action="store_true", help="Fail on missing host system commands too")
     args = parser.parse_args()
 
     failures: list[str] = []
     py_results, py_failures = _check_imports(PYTHON_IMPORTS)
     file_results, file_failures = _check_files(BOARD_FILES)
     module_results, module_failures = _check_project_imports(REQUIRED_PROJECT_MODULES)
-    command_results, command_failures = _check_commands(BOARD_COMMANDS)
+    command_results, command_warnings = _check_commands(BOARD_COMMANDS)
     failures.extend(py_failures)
     failures.extend(file_failures)
     failures.extend(module_failures)
-    failures.extend(command_failures)
 
-    if args.strict_system or os.environ.get("STRICT_FULL_RUNTIME_DEPENDENCIES") == "1":
+    strict_system = args.strict_system or os.environ.get("STRICT_FULL_RUNTIME_DEPENDENCIES") == "1"
+    if strict_system:
         for group, commands in command_results.items():
             for command, present in commands.items():
                 if not present:
@@ -179,6 +186,8 @@ def main() -> int:
         "project_modules": module_results,
         "board_files": file_results,
         "system_commands": command_results,
+        "host_command_warnings": command_warnings,
+        "strict_system": strict_system,
         "failures": failures,
         "updated_at": time.time(),
     }
