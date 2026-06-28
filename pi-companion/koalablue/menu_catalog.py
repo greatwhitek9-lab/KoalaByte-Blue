@@ -15,6 +15,7 @@ _KB_LOCAL_LOCK_SET = _KEYBOARD + ("location_" + "password")
 _KB_LOCAL_LOCK_OPEN = _KEYBOARD + ("location_unlock_" + "password")
 _KB_MESH_MESSAGE = _KEYBOARD + "meshtastic_send_message"
 _KB_MESH_DEST = _KEYBOARD + "meshtastic_send_dest"
+_KB_BLUEZ_TARGET = _KEYBOARD + "bluez_lab_target"
 
 
 def _item(group: str, label: str, command: str, description: str = "", enabled: bool = True) -> dict[str, object]:
@@ -82,6 +83,11 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("Bluetooth Tools", "Koala Kapture", "koala_kapture", "Record authorized lab observation metadata"),
         _item("Bluetooth Tools", "Koala Kry", "submenu:koala_kry", "Open Koala Kry offline replay and review prompt controls"),
         _item("Bluetooth Tools", "KoalaByte Lab", "ear_tag_tx_lab", "Create an owned-device lab plan"),
+        _item("Bluetooth Tools", "BlueZ Lab Scope Status", "bluez_lab_scope_status", "Show owned-device target and scope readiness"),
+        _item("Bluetooth Tools", "Type BlueZ Lab Target", _KB_BLUEZ_TARGET, "Open pop-up keyboard for owned-device Bluetooth target address"),
+        _item("Bluetooth Tools", "Owned Device Scope ON", "bluez_lab_owned_on", "Mark the saved BlueZ target as owned or explicitly authorized"),
+        _item("Bluetooth Tools", "Owned Device Scope OFF", "bluez_lab_owned_off", "Clear the owned-device scope flag"),
+        _item("Bluetooth Tools", "Clear BlueZ Lab Scope", "bluez_lab_scope_clear", "Clear saved BlueZ target and owned-device flag"),
         _item("Bluetooth Tools", "Outback Module Deck", "koala_bluez_manifest", "Show the BlueZ module manifest"),
         _item("Bluetooth Tools", "Gumleaf Gear Check", "koala_bluez_inventory", "Inventory local helpers"),
         _item("Bluetooth Tools", "Eucalyptus Bus Scout", "koala_bluez_status", "Collect local adapter status"),
@@ -127,8 +133,8 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("Didgeridoo", "T114 BLE Check", "t114_primary_ble_scan", "Run a bounded T114 nRF52840 BLE radio check"),
         _item("Didgeridoo", "Lab TX Status", "status:t114_tx", "Constant safe lab transmit status"),
         _item("Didgeridoo", "Sextant", "t114_primary_gnss_fix", "Get the current GPS/GNSS location"),
-        _item("Didgeridoo", "Set Local Lock", _KB_LOCAL_LOCK_SET, "Open protected pop-up keyboard to set local lock"),
-        _item("Didgeridoo", "Unlock Local Lock", _KB_LOCAL_LOCK_OPEN, "Open protected pop-up keyboard to unlock local actions"),
+        _item("Didgeridoo", "Create Location Password", _KB_LOCAL_LOCK_SET, "Open protected pop-up keyboard to create or update the local password"),
+        _item("Didgeridoo", "Unlock Current Process", _KB_LOCAL_LOCK_OPEN, "Open protected pop-up keyboard to unlock this running process"),
         _item("Didgeridoo", "Location Unlock ON", "location_gate_unlock_on", "Unlock protected local location actions from the menu"),
         _item("Didgeridoo", "Location Unlock OFF", "location_gate_unlock_off", "Lock protected local location actions"),
         _item("Didgeridoo", "Meshtastic App", "submenu:meshtastic", "Open Meshtastic phone app, ESP32 node, Heltec serial, BLE, TCP, status, nodes, and GPS helpers"),
@@ -187,6 +193,11 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
     "lab": [
+        _item("Bluetooth Tools", "BlueZ Lab Scope Status", "bluez_lab_scope_status", "Show owned-device target and scope readiness"),
+        _item("Bluetooth Tools", "Type BlueZ Lab Target", _KB_BLUEZ_TARGET, "Open pop-up keyboard for owned-device Bluetooth target address"),
+        _item("Bluetooth Tools", "Owned Device Scope ON", "bluez_lab_owned_on", "Mark the saved BlueZ target as owned or explicitly authorized"),
+        _item("Bluetooth Tools", "Owned Device Scope OFF", "bluez_lab_owned_off", "Clear the owned-device scope flag"),
+        _item("Bluetooth Tools", "Clear BlueZ Lab Scope", "bluez_lab_scope_clear", "Clear saved BlueZ target and owned-device flag"),
         _item("Bluetooth Tools", "Joey Target Dossier", "koala_bluez_info", "Protected owned-device info card"),
         _item("Bluetooth Tools", "Treehouse Service Trace", "koala_bluez_services", "Protected owned-device service notes"),
         _item("Bluetooth Tools", "Gumnut GATT Gatecheck", "koala_bluez_gatt_readiness", "Protected owned-device checklist"),
@@ -196,8 +207,8 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("Bluetooth Tools", "Pouch Link Echo", "bluez_pouch_link_echo", "Protected owned-device echo check"),
         _item("Bluetooth Tools", "Gumnut GATT Ghostmap", "bluez_gumnut_gatt_ghostmap", "Protected owned-device service map"),
         _item("Bluetooth Tools", "Platypus BT-Proxy", "bluez_platypus_bt_proxy", "Protected readiness check"),
-        _item("Didgeridoo", "Set Local Lock", _KB_LOCAL_LOCK_SET, "Open protected pop-up keyboard to set local lock"),
-        _item("Didgeridoo", "Unlock Local Lock", _KB_LOCAL_LOCK_OPEN, "Open protected pop-up keyboard to unlock local actions"),
+        _item("Didgeridoo", "Create Location Password", _KB_LOCAL_LOCK_SET, "Open protected pop-up keyboard to create or update the local password"),
+        _item("Didgeridoo", "Unlock Current Process", _KB_LOCAL_LOCK_OPEN, "Open protected pop-up keyboard to unlock this running process"),
         _item("Didgeridoo", "Location Unlock ON", "location_gate_unlock_on", "Unlock protected local location actions from the menu"),
         _item("Didgeridoo", "Location Unlock OFF", "location_gate_unlock_off", "Lock protected local location actions"),
         _item("Didgeridoo", "Protected Location Gate Status", "location_gate_status", "Show protected-actions gate state"),
