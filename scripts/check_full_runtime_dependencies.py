@@ -46,6 +46,7 @@ REQUIRED_PROJECT_MODULES = [
     "koalablue.menu_action_runner",
     "koalablue.menu_prompt_state",
     "koalablue.popup_keyboard",
+    "koalablue.bluez_lab_scope",
     "koalablue.menu_display_sync",
     "koalablue.menu_theme",
     "koalablue.meshtastic_menu_items",
@@ -127,13 +128,6 @@ def _check_imports(groups: dict[str, list[str]]) -> tuple[dict[str, dict[str, bo
 
 
 def _check_commands(groups: dict[str, list[str]]) -> tuple[dict[str, dict[str, bool]], list[str]]:
-    """Check host commands without failing normal CI/check-only runs.
-
-    GitHub-hosted runners are not Raspberry Pi images and usually lack BlueZ,
-    Wi-Fi, ALSA, serial, and west tooling. In normal check-only mode those are
-    readiness warnings. Use --strict-system or STRICT_FULL_RUNTIME_DEPENDENCIES=1
-    on a real Pi image when missing host commands should fail the check.
-    """
     results: dict[str, dict[str, bool]] = {}
     warnings: list[str] = []
     for group, commands in groups.items():
