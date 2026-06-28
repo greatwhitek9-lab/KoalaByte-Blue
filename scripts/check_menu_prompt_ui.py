@@ -83,7 +83,6 @@ def main() -> int:
     kruisin_labels = set(menu_labels("kruisin"))
     didgeridoo_labels = set(menu_labels("didgeridoo"))
     meshtastic_labels = set(menu_labels("meshtastic"))
-    bluetooth_labels = set(menu_labels("bluetooth"))
     lab_labels = set(menu_labels("lab"))
     system_labels = set(menu_labels("system"))
 
@@ -104,9 +103,7 @@ def main() -> int:
     _require_labels(failures, kruisin_labels, "Kruisin", ["Kruisin’ Prompt Status", "Kruisin’ Default Ports", "Kruisin’ WiGLE Upload ON", "Type WiGLE Name", "Type WiGLE Key"])
     _require_labels(failures, didgeridoo_labels, "Didgeridoo", ["Location Unlock ON", "Location Unlock OFF", "Create Location Password", "Unlock Current Process"])
     _require_labels(failures, meshtastic_labels, "Meshtastic", ["Type Mesh Message", "Type Mesh Destination"])
-    lab_scope_labels = ["BlueZ Lab Scope Status", "Type BlueZ Lab Target", "Owned Device Scope ON", "Owned Device Scope OFF", "Clear BlueZ Lab Scope"]
-    _require_labels(failures, bluetooth_labels, "Bluetooth", lab_scope_labels)
-    _require_labels(failures, lab_labels, "Lab", lab_scope_labels)
+    _require_labels(failures, lab_labels, "Lab", ["BlueZ Lab Scope Status", "Type BlueZ Lab Target", "Owned Device Scope ON", "Owned Device Scope OFF", "Clear BlueZ Lab Scope"])
     if "Prompt State Status" not in system_labels:
         failures.append("System submenu missing Prompt State Status")
 
@@ -138,7 +135,6 @@ def main() -> int:
         ("didgeridoo", REQUIRED_KEYBOARD_COMMANDS[2]),
         ("didgeridoo", REQUIRED_KEYBOARD_COMMANDS[3]),
         ("meshtastic", REQUIRED_KEYBOARD_COMMANDS[4]),
-        ("bluetooth", REQUIRED_KEYBOARD_COMMANDS[6]),
         ("lab", REQUIRED_KEYBOARD_COMMANDS[6]),
     ]:
         menu = MenuSelectionScreen()
