@@ -15,16 +15,27 @@ KILLERKOALA_BOOT_WELCOME="${KILLERKOALA_BOOT_WELCOME:-1}"
 BOOT_SPLASH="${BOOT_SPLASH:-1}"
 MENU_GRAPHICAL="${MENU_GRAPHICAL:-1}"
 MENU_WINDOWED="${MENU_WINDOWED:-0}"
+MENU_NO_TERMINAL_FALLBACK="${MENU_NO_TERMINAL_FALLBACK:-1}"
 BOOT_SPLASH_DURATION="${BOOT_SPLASH_DURATION:-3}"
 KOALABYTE_TTS="${KOALABYTE_TTS:-1}"
 
 cd "${REPO_ROOT}"
 export PYTHONPATH="${REPO_ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}"
 export KOALABYTE_TTS
+export MENU_NO_TERMINAL_FALLBACK
+
+if [[ -z "${DISPLAY:-}" ]]; then
+  export SDL_VIDEODRIVER="${SDL_VIDEODRIVER:-kmsdrm}"
+  export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/koalabyte-runtime-$(id -u)}"
+  mkdir -p "${XDG_RUNTIME_DIR}"
+  chmod 700 "${XDG_RUNTIME_DIR}" || true
+fi
 
 echo "== KoalaByte Blue boot launcher =="
 echo "Repo: ${REPO_ROOT}"
 echo "Python: ${PYTHON_BIN}"
+echo "Interface: wrapped graphical jungle UI"
+echo "Terminal fallback: ${MENU_NO_TERMINAL_FALLBACK} means disabled"
 
 echo "== KillerKoala spoken alerts =="
 if [[ "${KOALABYTE_TTS}" == "1" ]]; then
@@ -55,13 +66,14 @@ if [[ "${BOOT_SPLASH}" == "1" ]]; then
   "${PYTHON_BIN}" "${REPO_ROOT}/scripts/run_boot_splash.py" --duration "${BOOT_SPLASH_DURATION}"
 fi
 
-echo "== KoalaByte Blue menu =="
+echo "== KoalaByte Blue wrapped menu interface =="
 if [[ "${MENU_GRAPHICAL}" == "1" ]]; then
+  MENU_ARGS=("${REPO_ROOT}/scripts/run_menu_screen.py" --graphical --no-terminal-fallback)
   if [[ "${MENU_WINDOWED}" == "1" ]]; then
-    "${PYTHON_BIN}" "${REPO_ROOT}/scripts/run_menu_screen.py" --graphical --windowed
-  else
-    "${PYTHON_BIN}" "${REPO_ROOT}/scripts/run_menu_screen.py" --graphical
+    MENU_ARGS+=(--windowed)
   fi
-else
-  "${PYTHON_BIN}" "${REPO_ROOT}/scripts/run_menu_screen.py"
+  exec "${PYTHON_BIN}" "${MENU_ARGS[@]}"
 fi
+
+echo "MENU_GRAPHICAL=${MENU_GRAPHICAL}; terminal mode is for explicit debugging only."
+exec "${PYTHON_BIN}" "${REPO_ROOT}/scripts/run_menu_screen.py" --terminal
