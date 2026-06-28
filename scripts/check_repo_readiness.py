@@ -22,6 +22,8 @@ REQUIRED_FILES = [
     "pi-companion/koalablue/menu_ui.py",
     "pi-companion/koalablue/menu_display_sync.py",
     "pi-companion/koalablue/menu_theme.py",
+    "pi-companion/koalablue/menu_prompt_state.py",
+    "pi-companion/koalablue/popup_keyboard.py",
     "pi-companion/koalablue/t114_menu_status.py",
     "pi-companion/koalablue/meshtastic_app.py",
     "pi-companion/koalablue/meshtastic_menu_items.py",
@@ -34,6 +36,8 @@ REQUIRED_FILES = [
     "pi-companion/koalablue/killerkoala_voice_control.py",
     "scripts/check_menu_actions.py",
     "scripts/check_menu_theme_fit.py",
+    "scripts/check_menu_prompt_ui.py",
+    "scripts/check_koala_kry_menu.py",
     "scripts/check_t114_status_dashboard.py",
     "scripts/check_full_runtime_dependencies.py",
     "scripts/check_killerkoala_ai.py",
@@ -205,6 +209,9 @@ def check_ai_requirements(failures: list[str]) -> None:
             "run_menu_theme_fit_gate",
             "scripts/check_menu_theme_fit.py",
             "Jungle menu theme and text fit",
+            "run_menu_prompt_ui_gate",
+            "scripts/check_menu_prompt_ui.py",
+            "Menu prompt UI controls",
         ]:
             if needle not in one_shot_text:
                 failures.append(f"one-shot installer missing readiness hook: {needle}")
@@ -221,19 +228,23 @@ def check_menu_catalog(failures: list[str]) -> None:
     for label in ["Eucalyptus", "Koala Kombat Kruisin’", "Bluetooth Tools", "Didgeridoo", "CAN Bench Tools", "Reports & Reviews", "System / Companion", "Lab", "Power & Exit"]:
         if label not in main_labels:
             failures.append(f"main menu labels missing {label}")
+    if "Keyboard / Text Entry" in main_labels:
+        failures.append("main menu should not expose standalone keyboard page")
     if "Didgeridoo" not in MENU_GROUPS:
         failures.append("menu catalog missing Didgeridoo group")
     for submenu in ["eucalyptus", "kruisin", "bluetooth", "didgeridoo", "meshtastic", "can_bench", "reports", "system", "lab", "power"]:
         if submenu not in SUBMENU_ITEMS:
             failures.append(f"menu catalog missing {submenu} submenu")
+    if "keyboard" in SUBMENU_ITEMS:
+        failures.append("keyboard submenu should be hidden; keyboard opens only from text input items")
 
     didgeridoo_labels = set(menu_labels("didgeridoo"))
-    expected_didgeridoo = {"Heltec Link", "Radio/GPS", "T114 BLE Check", "Lab TX Status", "Sextant", "Meshtastic App", "Protected Location Gate Status", "Protected GNSS Current Fix"}
+    expected_didgeridoo = {"Heltec Link", "Radio/GPS", "T114 BLE Check", "Lab TX Status", "Sextant", "Set Local Lock", "Unlock Local Lock", "Meshtastic App", "Protected Location Gate Status", "Protected GNSS Current Fix"}
     for label in sorted(expected_didgeridoo - didgeridoo_labels):
         failures.append(f"Didgeridoo submenu missing {label}")
 
     meshtastic_labels = set(menu_labels("meshtastic"))
-    expected_meshtastic = {"Meshtastic Profile", "Meshtastic Compatibility", "Phone App Pairing", "ESP32 Device Link", "Use Heltec USB Serial", "Use Network TCP", "Use BLE Link", "Meshtastic Status", "Meshtastic Nodes", "Meshtastic GPS Info"}
+    expected_meshtastic = {"Meshtastic Profile", "Meshtastic Compatibility", "Phone App Pairing", "ESP32 Device Link", "Use Heltec USB Serial", "Use Network TCP", "Use BLE Link", "Meshtastic Status", "Meshtastic Nodes", "Meshtastic GPS Info", "Type Mesh Message", "Type Mesh Destination"}
     for label in sorted(expected_meshtastic - meshtastic_labels):
         failures.append(f"Meshtastic submenu missing {label}")
 
@@ -277,6 +288,7 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     menu_sync = REPO_ROOT / "pi-companion" / "koalablue" / "menu_display_sync.py"
     menu_theme = REPO_ROOT / "pi-companion" / "koalablue" / "menu_theme.py"
     theme_check = REPO_ROOT / "scripts" / "check_menu_theme_fit.py"
+    prompt_check = REPO_ROOT / "scripts" / "check_menu_prompt_ui.py"
     esp32 = REPO_ROOT / "firmware" / "esp32-dualeye" / "src" / "main.cpp"
     status = REPO_ROOT / "pi-companion" / "koalablue" / "t114_menu_status.py"
     status_check = REPO_ROOT / "scripts" / "check_t114_status_dashboard.py"
@@ -287,16 +299,17 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     gnss_needles = ["write_primary_t114_fix_event", "heltec-t114-gnss", "KOALABYTE_PRIMARY_GNSS_PORT"]
     manager_needles = ["write_primary_t114_fix_event", "gnss_fix", "gnss_status"]
     installer_needles = ["T114_PLUG_FLASH_PROFILE=\"${T114_PLUG_FLASH_PROFILE:-combined-safe}\"", "INSTALL_HELTEC_NRF_TOOLS=\"${INSTALL_HELTEC_NRF_TOOLS:-1}\""]
-    one_shot_needles = ["STRICT_T114_STATUS_DASHBOARD", "run_t114_status_dashboard_readiness", "T114 live dashboard status phrases", "STRICT_FULL_RUNTIME_DEPENDENCIES", "run_full_runtime_dependency_gate", "run_menu_theme_fit_gate", "Jungle menu theme and text fit"]
-    menu_needles = ["t114_primary_ble_scan", "t114_primary_gnss_fix", "koalablue.gnss_location", "bluez_platypus_bt_proxy"]
-    menu_ui_needles = ["sync_menu_state", "touch_long_press_select", "B3/select", "make_meshtastic_items"]
+    one_shot_needles = ["STRICT_T114_STATUS_DASHBOARD", "run_t114_status_dashboard_readiness", "T114 live dashboard status phrases", "STRICT_FULL_RUNTIME_DEPENDENCIES", "run_full_runtime_dependency_gate", "run_menu_theme_fit_gate", "Jungle menu theme and text fit", "run_menu_prompt_ui_gate", "Menu prompt UI controls"]
+    menu_needles = ["t114_primary_ble_scan", "t114_primary_gnss_fix", "koalablue.gnss_location", "bluez_platypus_bt_proxy", "translate_terminal_input"]
+    menu_ui_needles = ["sync_menu_state", "touch_long_press_select", "B3/select", "make_meshtastic_items", "keyboard:", "open_keyboard", "save_keyboard_value"]
     menu_sync_needles = ["menu_sync", "esp32-s3-dualeye", "heltec-t114", "killerkoala_face", "B3/select or touchscreen long-press"]
-    menu_theme_needles = ["jungle_adventure_eucalyptus_branch_and_leaf_border", "_fit_text_for_width", "GRAPHICAL_DESCRIPTION_MAX_LINES", "GRAPHICAL_LABEL_MAX_LINES"]
+    menu_theme_needles = ["jungle_adventure_eucalyptus_branch_and_leaf_border", "_fit_text_for_width", "GRAPHICAL_DESCRIPTION_MAX_LINES", "GRAPHICAL_LABEL_MAX_LINES", "_draw_keyboard", "USB/Bluetooth keyboard"]
     theme_check_needles = ["MENU_THEME_FIT_READY", "render_terminal_jungle_menu", "jungle", "eucalyptus", "visible_duplicate_commands"]
+    prompt_check_needles = ["MENU_PROMPT_UI_READY", "keyboard should only open from text input actions", "Popup keyboard did not open"]
     esp32_needles = ["handleMenuSync", "menu_sync_ack", "B3/select or touchscreen long-press"]
     status_needles = ["Heltec Link: Connected", "Heltec Link: Disconnected", "Radio/GPS:", "Lab Beacon TX: On", "Lab Beacon TX: Off", "Lab Beacon TX: Blocked"]
     status_check_needles = ["status_label_description", "T114_STATUS_DASHBOARD_READY", "active_status_check_attempted"]
-    runtime_check_needles = ["FULL_RUNTIME_DEPENDENCIES_READY", "PYTHON_IMPORTS", "BOARD_COMMANDS", "REQUIRED_PROJECT_MODULES", "BOARD_FILES", "btproxy", "scripts.check_menu_theme_fit"]
+    runtime_check_needles = ["FULL_RUNTIME_DEPENDENCIES_READY", "PYTHON_IMPORTS", "BOARD_COMMANDS", "REQUIRED_PROJECT_MODULES", "BOARD_FILES", "btproxy", "scripts.check_menu_theme_fit", "scripts.check_menu_prompt_ui", "koalablue.popup_keyboard", "koalablue.menu_prompt_state"]
     failures.extend(_file_contains(combined, firmware_needles))
     failures.extend(_file_contains(conf, conf_needles))
     failures.extend(_file_contains(build_helper, helper_needles))
@@ -309,6 +322,7 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     failures.extend(_file_contains(menu_sync, menu_sync_needles))
     failures.extend(_file_contains(menu_theme, menu_theme_needles))
     failures.extend(_file_contains(theme_check, theme_check_needles))
+    failures.extend(_file_contains(prompt_check, prompt_check_needles))
     failures.extend(_file_contains(esp32, esp32_needles))
     failures.extend(_file_contains(status, status_needles))
     failures.extend(_file_contains(status_check, status_check_needles))
