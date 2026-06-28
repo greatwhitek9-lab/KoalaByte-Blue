@@ -37,16 +37,7 @@ def _write_json(name: str, payload: dict[str, Any]) -> str:
 
 
 def _ok(command: str, label: str, result: Any, status: str = "AUTOMATED_ACTION_COMPLETE") -> dict[str, Any]:
-    payload = {
-        "status": status,
-        "command": command,
-        "label": label,
-        "manual_prompt_required": False,
-        "selected_from_menu": True,
-        "voice_command_compatible": True,
-        "result": _jsonable(result),
-        "timestamp": time.time(),
-    }
+    payload = {"status": status, "command": command, "label": label, "manual_prompt_required": False, "selected_from_menu": True, "voice_command_compatible": True, "result": _jsonable(result), "timestamp": time.time()}
     payload["artifact_path"] = _write_json(command, payload)
     return payload
 
@@ -175,6 +166,18 @@ def _meshtastic(command: str) -> dict[str, Any]:
 
     if command in {"meshtastic_app", "meshtastic_profile"}:
         return meshtastic_app.profile_status()
+    if command == "meshtastic_send_prompt":
+        return meshtastic_app.send_prompt_status()
+    if command == "meshtastic_set_test_message":
+        return meshtastic_app.set_send_message_preset("test")
+    if command == "meshtastic_set_checkin_message":
+        return meshtastic_app.set_send_message_preset("checkin")
+    if command == "meshtastic_confirm_send_on":
+        return meshtastic_app.set_send_confirm(True)
+    if command == "meshtastic_confirm_send_off":
+        return meshtastic_app.set_send_confirm(False)
+    if command == "meshtastic_clear_send_prompt":
+        return meshtastic_app.clear_send_prompt()
     if command == "meshtastic_compatibility":
         return meshtastic_app.compatibility_status()
     if command == "meshtastic_phone_pairing":
@@ -196,19 +199,7 @@ def _meshtastic(command: str) -> dict[str, Any]:
     if command == "meshtastic_listen":
         return meshtastic_app.listen(seconds=int(os.getenv("KOALABYTE_MESHTASTIC_LISTEN_SECONDS", "30")), prompt_password=False)
     if command == "meshtastic_send_gate":
-        message = os.getenv("KOALABYTE_MESHTASTIC_SEND_MESSAGE", "")
-        dest = os.getenv("KOALABYTE_MESHTASTIC_SEND_DEST", "")
-        confirm = os.getenv("KOALABYTE_MESHTASTIC_CONFIRM_SEND", "0") == "1"
-        channel_env = os.getenv("KOALABYTE_MESHTASTIC_CHANNEL_INDEX", "")
-        channel_index = int(channel_env) if channel_env.isdigit() else None
-        if not message:
-            return {
-                "status": "MESHTASTIC_SEND_GATE_READY",
-                "note": "Set KOALABYTE_MESHTASTIC_SEND_MESSAGE plus KOALABYTE_MESHTASTIC_CONFIRM_SEND=1, then unlock the protected-actions gate before sending.",
-                "required_env": ["KOALABYTE_MESHTASTIC_SEND_MESSAGE", "KOALABYTE_MESHTASTIC_CONFIRM_SEND=1"],
-                "optional_env": ["KOALABYTE_MESHTASTIC_SEND_DEST", "KOALABYTE_MESHTASTIC_CHANNEL_INDEX"],
-            }
-        return meshtastic_app.send_text(message, dest=dest, channel_index=channel_index, confirm_send=confirm, prompt_password=False)
+        return meshtastic_app.send_from_prompt(prompt_password=False)
     return {"status": "MESHTASTIC_ACTION_RECORDED", "command": command}
 
 
