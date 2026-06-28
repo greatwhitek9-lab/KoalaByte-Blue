@@ -1,8 +1,8 @@
 # KoalaByte Blue V2 Heltec Edition
 
-**KoalaByte Blue is a pocket-sized koala cyberdeck with attitude.** It is a Raspberry Pi 3B+ powered cyber companion with animated ESP32-S3 DualEye eyes, a Heltec Mesh Node T114 radio/GNSS board, six physical front buttons, eucalyptus-styled menus, KillerKoala voice responses, passive defensive Bluetooth visibility, local reports, and optional InnoMaker CAN bench support.
+**KoalaByte Blue is a pocket-sized koala cyberdeck with attitude.** It is a Raspberry Pi 3B+ powered cyber companion with animated ESP32-S3 DualEye eyes, a Heltec Mesh Node T114/nRF52840 BLE/GNSS/LoRa board, six physical front buttons, eucalyptus-styled menus, KillerKoala voice responses, passive defensive Bluetooth visibility, Wi-Fi/BLE survey mapping, local reports, and optional InnoMaker CAN bench support.
 
-It is built to feel like a tiny field deck and cyber pet in one: boot it, watch the eyes come alive, open Eucalyptus mode, check Didgeridoo radio/GNSS status, review local Bluetooth signals, export reports, and let KillerKoala bark back when the device does something useful.
+It is built to feel like a tiny field deck and cyber pet in one: boot it, watch the eyes and mouth come alive, open Eucalyptus mode, check Didgeridoo radio/GNSS status, review local Bluetooth signals, run Koala Kombat Kruisin’ surveys, export reports, and let KillerKoala bark back when the device does something useful.
 
 KoalaByte Blue is for lawful owned-device labs, defensive review, education, and your own hardware. Do not use it on systems, vehicles, radios, networks, or devices you do not own or do not have permission to test.
 
@@ -12,14 +12,26 @@ KoalaByte Blue is for lawful owned-device labs, defensive review, education, and
 
 | Part | Role |
 |---|---|
-| Raspberry Pi 3B+ | Main Linux brain, installer, menus, logs, reports, voice routing, local services, and readiness checks. |
-| ESP32-S3 DualEye | Animated eyes, face/display feedback, mic/voice bridge path, and visual personality. |
-| Heltec Mesh Node T114 | Production BLE/GNSS/LoRa board for Didgeridoo, Meshtastic-related status, GNSS, and radio checks. |
-| Six 4-pin buttons | Front-panel controls for menu navigation. |
+| Raspberry Pi 3B+ | Main Linux brain, installer, menus, logs, reports, voice routing, local services, main Wi-Fi controller, and readiness checks. |
+| ESP32-S3 DualEye | Animated eyes, face/display feedback, mic/voice bridge path, secondary Wi-Fi survey node, BLE support node, and visual personality. |
+| Heltec Mesh Node T114 / nRF52840 | Primary BLE node plus GNSS and LoRa/Meshtastic path. It is not a Wi-Fi node. |
+| Six 4-pin buttons | Front-panel controls for menu navigation and select. |
 | USB power bank / regulated USB supply | Production power source. No loose 18650/raw battery wiring is required. |
 | InnoMaker USB-to-CAN kit | Optional isolated owned-bench CAN adapter. InnoMaker CAN kit is optional and skipped if absent. |
 
 No custom PCB is required for this profile.
+
+---
+
+## Current radio roles
+
+```text
+Heltec T114 / nRF52840 -> primary BLE node, GNSS node, and LoRa node; no Wi-Fi
+Raspberry Pi 3B+       -> main Wi-Fi controller and BLE support node
+ESP32-S3 DualEye       -> secondary Wi-Fi survey node and BLE support node
+```
+
+Koala Kombat Kruisin’ uses the Pi as the main Wi-Fi controller, the ESP32-S3 DualEye as the only extra Wi-Fi survey node, and the Heltec T114/nRF52840 as the primary BLE/GNSS/LoRa path.
 
 ---
 
@@ -35,6 +47,8 @@ No custom PCB is required for this profile.
 | Boot services | Provides systemd templates for the menu, menu sync, and doctor check. |
 | Version handshake | Checks Pi/ESP32/Heltec protocol readiness. |
 | Local status dashboard | Emits local JSON/HTML status for field checks. |
+| Cleaned jungle menu | Removes redundant front-end menu entries while keeping branded tools and wrapped BlueZ tools. |
+| Menu theme fit checks | Validates jungle/eucalyptus menu identity and keeps terminal menu text inside its border frame. |
 | Release ZIP package | Builds `dist/KoalaByte-Blue-install-package.zip`. |
 | Log export/logrotate | Bundles debug logs and installs optional log rotation. |
 
@@ -214,7 +228,7 @@ FLASH_T114_ON_PLUG=0 bash scripts/install_koalabyte_one_shot.sh
 # Do not fail the whole install if the T114 is not ready yet
 STRICT_T114_PLUG_FLASH=0 bash scripts/install_koalabyte_one_shot.sh
 
-# Make dependency checks strict
+# Make system command dependency checks strict on a real Pi image
 STRICT_FULL_RUNTIME_DEPENDENCIES=1 bash scripts/install_koalabyte_one_shot.sh
 
 # Stable serial aliases: auto/default, force, or skip
@@ -253,17 +267,17 @@ logs/one_shot/control_surface_status.json
 logs/one_shot/full_runtime_dependencies.json
 logs/one_shot/field_readiness_status.json
 logs/menu_actions/menu_action_manifest.json
+logs/menu_actions/menu_theme_fit_status.json
 logs/menu_sync/current_menu_state.json
 logs/doctor/koalabyte_doctor_status.json
 logs/version/koalabyte_version_handshake.json
 logs/killerkoala/killerkoala_ai_readiness.json
 logs/can/innomaker_optional_status.json
-exports/koalabyte_logs_<timestamp>.zip
 ```
 
 ---
 
-## Button map
+## Button, touchscreen, and voice control
 
 ```text
 Button 1 -> Main Menu -> GPIO5
@@ -275,6 +289,28 @@ Button 6 -> Down -> GPIO21
 ```
 
 Wire one side of each button to its GPIO input and the opposite side to ground. Do not tie GPIO pins together.
+
+Every enabled leaf action can be started from the same menu path:
+
+```text
+scroll / highlight -> select with B3, Enter, touchscreen long press, or KillerKoala voice command
+```
+
+Submenu rows open another menu. The tool rows inside that submenu run the actual action.
+
+Common voice patterns:
+
+```text
+killerkoala open Eucalyptus
+killerkoala open Koala Kombat Kruisin’
+killerkoala run Wi-Fi + BLE Survey
+killerkoala run T114 Quick BLE Test Scan
+killerkoala open Koala Kan Kommander
+killerkoala run Platypus BT-Proxy
+killerkoala status
+killerkoala level
+killerkoala buttons
+```
 
 ---
 
@@ -291,39 +327,132 @@ Do not swap LoRa and 2.4 GHz antennas. They are different radio paths.
 
 ---
 
-## Main menu overview
+## Jungle menu overview
 
-| Main item | Plain-English meaning |
+The visible UI uses one shared jungle-adventure/eucalyptus theme for terminal and touchscreen modes. The renderer uses a single shared font stack, carved title text, leaf borders, and automatic text fitting/wrapping so menu labels and selected-item descriptions stay inside their dialogue borders.
+
+### Main Canopy
+
+| Main item | What it opens |
 |---|---|
-| Eucalyptus | Passive BLE logger controls and Koalagotchi mode. |
-| Bluetooth Tools | Local Bluetooth/BLE inventory, summaries, BlueZ helper checks, protected lab-only actions, and defensive review tools. |
-| Didgeridoo | Heltec T114, GNSS/GPS, Meshtastic, mesh, and protected location tools. |
-| CAN Bench Tools | Optional InnoMaker USB-to-CAN bench tools. |
-| Reports & Reviews | Report builders, defensive review templates, and Boomerang camera-awareness logbook. |
+| Eucalyptus | Passive BLE logger controls, GPS trail builder, WiGLE status/upload, and Koalagotchi mode. |
+| Koala Kombat Kruisin’ | Passive Wi-Fi/BLE/GPS survey mapping and WiGLE upload tools. |
+| Bluetooth Tools | Custom BLE tools plus wrapped BlueZ tools with custom KoalaByte names. |
+| Didgeridoo | Heltec T114/nRF52840 BLE, GNSS, LoRa/Meshtastic, and protected location helpers. |
+| CAN Bench Tools | Optional InnoMaker USB-to-CAN bench workflow. |
+| Reports & Reviews | Documentation, review, inventory, and lab report builders. |
 | System / Companion | KillerKoala voice, XP/status, buttons, settings, and helper controls. |
-| Lab | A shorter authorized-lab menu with safe review items and protected BlueZ helpers. |
+| Lab | Protected lab-focused BlueZ shortcuts and location gate status. |
+| Power & Exit | Shutdown and quit controls. |
 
-### Common action groups
+### Eucalyptus
 
 ```text
-Eucalyptus Canopy Status / Start / Stop / Restart
+Eucalyptus Canopy Status
+Eucalyptus Canopy Start
+Eucalyptus Canopy Stop
+Eucalyptus Canopy Restart
+Eucalyptus GPS Trail
+Eucalyptus Upload Trail
+Eucalyptus WiGLE Upload
 Eucalyptus Koalagotchi Mode
+```
+
+### Koala Kombat Kruisin’
+
+```text
+Kruisin’ Status
+Wi-Fi AP Survey
+BLE Survey
+Wi-Fi + BLE Survey
+Kruisin’ GPS Status
+Kruisin’ WiGLE Upload
+```
+
+The removed `Kruisin’ Export Files` shortcut is no longer needed because survey runs already write JSONL, CSV, GeoJSON, and WiGLE CSV artifacts.
+
+### Bluetooth Tools
+
+```text
+Koala Kapture
+Koala Kry
+KoalaByte Lab
+Outback Module Deck
+Gumleaf Gear Check
+Eucalyptus Bus Scout
+Dropbear Discovery Sweep
+Billabong HCI Watch
+Kookaburra Safe Nest Run
+Joey Target Dossier
+Treehouse Service Trace
+Gumnut GATT Gatecheck
+Outback Radio Ledger
+Classic Track Finder
+Treehouse RFCOMM Wiremap
+Pouch Link Echo
+Gumnut GATT Ghostmap
+Platypus BT-Proxy
+that’s not a knife
+AntEater
+Urban Poaching
+```
+
+The generic `Scan`, `Summary`, `Show Devices`, and `Ear Tag` rows were removed from the visible menu to reduce clutter. Their useful behavior is covered by the branded/wrapped tools above.
+
+### Didgeridoo
+
+```text
 Heltec Link
 Radio/GPS
 T114 Quick BLE Test Scan
+Lab Beacon TX
+Sextant
 Didgeridoo Status
 Didgeridoo Nodes
 Didgeridoo GPS Info
-Koala Kan Kommander
-CAN Bench Safety Check
-Report
-Authorized BLE Inventory
-Defensive Lab Report
-KillerKoala Voice
-Buttons
-Level / Status
-Settings
+Protected Location Gate Status
+Protected GNSS Current Fix
 ```
+
+### CAN Bench Tools
+
+```text
+Koala Kan Kommander
+```
+
+The duplicate `CAN Bench Safety Check` row was removed because it pointed to the same backend command.
+
+### Reports & Reviews
+
+```text
+Koala Kry RF Review
+Boomerang
+Authorized BLE Inventory
+GATT Readiness Checklist
+Pairing Security Review
+Lab Beacon Plan
+Packet Capture Notes
+Defensive Lab Report
+```
+
+The generic `Report` alias was removed because `Defensive Lab Report` is the canonical report builder.
+
+### Lab
+
+```text
+Joey Target Dossier
+Treehouse Service Trace
+Gumnut GATT Gatecheck
+Outback Radio Ledger
+Classic Track Finder
+Treehouse RFCOMM Wiremap
+Pouch Link Echo
+Gumnut GATT Ghostmap
+Platypus BT-Proxy
+Protected Location Gate Status
+```
+
+The Lab submenu intentionally keeps protected BlueZ shortcuts for fast access. Repeated generic report rows were removed because they already live under Reports & Reviews.
 
 Protected Bluetooth actions use the protected-actions password gate. Target-specific protected actions also require:
 
@@ -353,18 +482,6 @@ AI helper:
 bash scripts/setup_killerkoala_ollama.sh
 ```
 
-Common voice patterns:
-
-```text
-killerkoala open Eucalyptus
-killerkoala open Didgeridoo
-killerkoala run T114 Quick BLE Test Scan
-killerkoala open Reports & Reviews
-killerkoala status
-killerkoala level
-killerkoala buttons
-```
-
 The face system syncs ESP32-S3 DualEye visuals with the Heltec status path. Menu inactivity and completed actions return the display to the AI face until B1/menu or touchscreen double-tap reopens the menu.
 
 ---
@@ -392,6 +509,10 @@ bash scripts/install_koalabyte_boot_services.sh
 # Version handshake and dashboard JSON
 PYTHONPATH=pi-companion python3 scripts/check_koalabyte_version_handshake.py
 PYTHONPATH=pi-companion python3 scripts/run_koalabyte_status_server.py --json
+
+# Menu action and theme readiness
+PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
+PYTHONPATH=pi-companion python3 scripts/check_menu_theme_fit.py
 
 # Local dashboard
 PYTHONPATH=pi-companion python3 scripts/run_koalabyte_status_server.py --host 0.0.0.0 --port 8080
@@ -425,6 +546,7 @@ PYTHONPATH=pi-companion python3 scripts/check_full_runtime_dependencies.py
 PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
 PYTHONPATH=pi-companion python3 scripts/check_field_readiness.py
 PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
+PYTHONPATH=pi-companion python3 scripts/check_menu_theme_fit.py
 PYTHONPATH=pi-companion python3 scripts/check_t114_status_dashboard.py
 PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py --emit-test
 PYTHONPATH=pi-companion python3 scripts/check_menu_display_sync.py
