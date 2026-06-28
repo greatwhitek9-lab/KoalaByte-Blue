@@ -117,6 +117,14 @@ def run_eucalyptus_control_action(item: MenuItem) -> None:
     _write_result(item, str(result.get("status", "complete")), result, "Eucalyptus passive BLE/GPS/WiGLE helper. Upload requires explicit WiGLE env enablement and credentials.")
 
 
+def run_kruisin_action(item: MenuItem) -> None:
+    from koalablue.koala_kombat_kruisin import control
+
+    action = item.command.split(" ", 1)[1] if " " in item.command else "status"
+    result = control(action)
+    _write_result(item, str(result.get("status", "complete")), result, "Koala Kombat Kruisin’ passive Wi-Fi/BLE/GPS survey helper. WiGLE upload requires explicit env enablement and credentials.")
+
+
 def run_anteater_action(_item: MenuItem) -> None:
     from koalablue.anteater import render_summary, run_once
 
@@ -267,6 +275,16 @@ def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
         "eucalyptus wigle-upload",
     ]:
         menu.register_handler(command, run_eucalyptus_control_action)
+    for command in [
+        "kruisin status",
+        "kruisin wifi-survey",
+        "kruisin ble-survey",
+        "kruisin survey",
+        "kruisin gps-status",
+        "kruisin export",
+        "kruisin wigle-upload",
+    ]:
+        menu.register_handler(command, run_kruisin_action)
     menu.register_handler("anteater", run_anteater_action)
     menu.register_handler("koala_bluez_manifest", run_koala_bluez_manifest)
     menu.register_handler("koala_bluez_inventory", run_koala_bluez_inventory)
