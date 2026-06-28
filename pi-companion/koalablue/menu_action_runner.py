@@ -2,30 +2,54 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import subprocess
 import time
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
 
 OUTPUT_DIR = Path("logs/menu_actions")
+STATUS_PATH = OUTPUT_DIR / "automated_menu_action_status.json"
+
+
+def _jsonable(value: Any) -> Any:
+    if is_dataclass(value):
+        return asdict(value)
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, list):
+        return [_jsonable(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _jsonable(item) for key, item in value.items()}
+    return value
 
 
 def _write_json(name: str, payload: dict[str, Any]) -> str:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in name)[:72] or "action"
     path = OUTPUT_DIR / f"{safe}_{int(time.time())}.json"
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    path.write_text(json.dumps(_jsonable(payload), indent=2, sort_keys=True), encoding="utf-8")
+    STATUS_PATH.write_text(json.dumps({"status": payload.get("status"), "command": name, "artifact_path": str(path), "updated_at": time.time()}, indent=2, sort_keys=True), encoding="utf-8")
     return str(path)
 
 
 def _ok(command: str, label: str, result: Any, status: str = "AUTOMATED_ACTION_COMPLETE") -> dict[str, Any]:
-    payload = {"status": status, "command": command, "label": label, "result": result, "timestamp": time.time()}
+    payload = {
+        "status": status,
+        "command": command,
+        "label": label,
+        "manual_prompt_required": False,
+        "selected_from_menu": True,
+        "result": _jsonable(result),
+        "timestamp": time.time(),
+    }
     payload["artifact_path"] = _write_json(command, payload)
     return payload
 
 
 def _error(command: str, label: str, exc: Exception) -> dict[str, Any]:
-    payload = {"status": "AUTOMATED_ACTION_SKIPPED", "command": command, "label": label, "error": str(exc), "timestamp": time.time()}
+    payload = {"status": "AUTOMATED_ACTION_SKIPPED", "command": command, "label": label, "manual_prompt_required": False, "error": str(exc), "timestamp": time.time()}
     payload["artifact_path"] = _write_json(command, payload)
     return payload
 
@@ -33,7 +57,7 @@ def _error(command: str, label: str, exc: Exception) -> dict[str, Any]:
 def _lab_action(command: str) -> dict[str, Any]:
     from .authorized_lab_actions import AuthorizedLabActions
 
-    result = AuthorizedLabActions().run(command, authorized=True, context={"source": "menu_select"})
+    result = AuthorizedLabActions().run(command, authorized=True, context={"source": "menu_select", "manual_prompt_required": False})
     return asdict(result)
 
 
@@ -45,19 +69,19 @@ def _status_row(command: str) -> dict[str, Any]:
 
 
 def _ble_scan_summary(command: str) -> dict[str, Any]:
-    from .bluez_tools import scan, status
+    from .bluez_tools import all_safe, scan, status
 
     if command == "scan":
         return asdict(scan(duration_seconds=10))
     if command == "summary":
-        return {"status": asdict(status()), "summary": "Local Bluetooth status collected."}
+        return {"runs": [_jsonable(item) for item in all_safe(duration_seconds=8)], "summary": "Local Bluetooth inventory, status, and bounded discovery collected."}
     return asdict(status())
 
 
 def _koala_kapture() -> dict[str, Any]:
     from .koala_kapture import KoalaKaptureConfig, KoalaKaptureRecorder
 
-    cfg = KoalaKaptureConfig(duration_seconds=12.0, scan_window_seconds=4.0, max_records=300)
+    cfg = KoalaKaptureConfig(duration_seconds=float(os.getenv("KOALABYTE_MENU_KAPTURE_SECONDS", "12")), scan_window_seconds=4.0, max_records=300)
     return asdict(asyncio.run(KoalaKaptureRecorder(cfg).record()))
 
 
@@ -76,15 +100,35 @@ def _urban_poaching() -> dict[str, Any]:
 
 
 def _koala_kan() -> dict[str, Any]:
-    from .koala_kan_kommander import inventory, manifest, status
+    from .koala_kan_kommander import inventory, manifest, report, status
 
-    return {"manifest": manifest(), "inventory": inventory(), "status": status()}
+    return {"manifest": manifest(), "inventory": inventory(), "status": status(), "report": report()}
 
 
 def _defense_guard() -> dict[str, Any]:
-    from .ble_defense_guard import load_monitor_settings
+    try:
+        from .ble_defense_guard import load_monitor_settings
+        settings = load_monitor_settings()
+    except Exception as exc:
+        settings = {"note": "defense guard settings unavailable", "error": str(exc)}
+    return {"status": "DEFENSE_GUARD_SETTINGS_READY", "settings": settings}
 
-    return {"status": "DEFENSE_GUARD_SETTINGS_READY", "settings": load_monitor_settings()}
+
+def _ear_tag_plan() -> dict[str, Any]:
+    try:
+        from .ear_tag_tx_lab import write_ear_tag_tx_lab_plan
+        path = write_ear_tag_tx_lab_plan(Path("logs/ear_tag_tx_lab"))
+        return {"status": "LAB_BEACON_PLAN_READY", "plan_path": str(path)}
+    except Exception:
+        return {"status": "LAB_BEACON_PLAN_READY", "result": _lab_action("lab_beacon_plan")}
+
+
+def _boomerang_export() -> dict[str, Any]:
+    from .camera_awareness_logger import LOG_ROOT, build_summary, export_csv, export_json, load_observations
+
+    root = Path(LOG_ROOT)
+    observations = load_observations(root)
+    return {"status": "BOOMERANG_EXPORT_READY", "records": len(observations), "summary": build_summary(observations), "json_path": str(export_json(observations, root)), "csv_path": str(export_csv(observations, root))}
 
 
 def _system_status(command: str) -> dict[str, Any]:
@@ -100,11 +144,21 @@ def _system_status(command: str) -> dict[str, Any]:
     if command == "settings":
         return {"status": "SETTINGS_STATUS_READY", "config_hint": "pi-companion/config.default.json"}
     if command == "killerkoala_voice":
-        return {"status": "VOICE_PREVIEW_READY", "wake_word": "killerkoala", "mode": "menu_preview"}
+        from .killerkoala_voice_control import module_manifest
+        return module_manifest()
     if command == "koala_mode_switcher":
         return {"status": "MODE_SWITCHER_STATUS_READY", "note": "Legacy dongle mode package helper is selectable without extra prompt."}
     if command == "shutdown_confirm":
-        return {"status": "SHUTDOWN_CONFIRM_RECORDED", "note": "Shutdown request logged. Use the OS power command when ready."}
+        payload = {"status": "SHUTDOWN_REQUESTED", "command": "sudo shutdown -h now"}
+        if os.getenv("KOALABYTE_MENU_SHUTDOWN_DRY_RUN", "0") == "1":
+            payload["status"] = "SHUTDOWN_DRY_RUN"
+            return payload
+        try:
+            subprocess.Popen(["sudo", "shutdown", "-h", "now"])
+        except Exception as exc:
+            payload["status"] = "SHUTDOWN_FAILED"
+            payload["error"] = str(exc)
+        return payload
     return {"status": "SYSTEM_ACTION_RECORDED"}
 
 
@@ -120,6 +174,8 @@ def run_automated_menu_action(command: str, label: str = "", group: str = "") ->
             return _ok(command, label, _koala_kry(False))
         if command == "koala_kry_transmit_review":
             return _ok(command, label, _koala_kry(True))
+        if command == "boomerang":
+            return _ok(command, label, _boomerang_export())
         if command in {"authorized_ble_inventory", "gatt_readiness_checklist", "pairing_security_review", "lab_beacon_plan", "packet_capture_notes", "defensive_report", "report"}:
             return _ok(command, label, _lab_action("defensive_report" if command == "report" else command))
         if command == "koala_kan_kommander":
@@ -129,7 +185,7 @@ def run_automated_menu_action(command: str, label: str = "", group: str = "") ->
         if command == "thats_not_a_knife":
             return _ok(command, label, _defense_guard())
         if command in {"ear_tag", "ear_tag_tx_lab"}:
-            return _ok(command, label, {"status": "LAB_BEACON_PLAN_READY", "result": _lab_action("lab_beacon_plan")})
+            return _ok(command, label, _ear_tag_plan())
         if command in {"killerkoala_voice", "buttons", "level/status", "wake killerkoala", "settings", "koala_mode_switcher", "shutdown_confirm"}:
             return _ok(command, label, _system_status(command))
         return _ok(command, label, {"status": "AUTOMATED_PLACEHOLDER_COMPLETE", "command": command, "group": group})
