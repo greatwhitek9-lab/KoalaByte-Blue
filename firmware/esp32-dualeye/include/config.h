@@ -3,7 +3,7 @@
 // killerkoala ESP32-S3 DualEye config RevA25
 // Confirm exact DualEye audio/display/touch pins against your board revision before relying on hardware wake-word capture or direct touch-controller reads.
 
-#define KOALABLUE_FW_VERSION "0.6.1-dualeye-mic-bridge"
+#define KOALABLUE_FW_VERSION "0.6.2-dualeye-kombat-node"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define SERIAL_BAUD 115200
@@ -37,12 +37,20 @@
 // Mic wake is enabled by default for the killerkoala build. If audio pins are not configured,
 // the firmware boots safely and reports that the built-in mic is present but needs board-specific I2S pin mapping.
 #define ENABLE_LOCAL_BLE_SCAN 1
+#define ENABLE_KOALA_KOMBAT_WIFI_NODE 1
+#define ENABLE_KOALA_KOMBAT_SERIAL_COMMANDS 1
 #define ENABLE_MIC_WAKE       1
 #define ENABLE_WAKE_WORD_FILTER 1
 #define ENABLE_DISPLAY_STUB   0
 #define ENABLE_DISPLAY_BOOT_ANIMATION 1
 #define ENABLE_AUDIO_SPEAKER  1
 #define ENABLE_TOUCH_MENU     1
+
+// Koala Kombat Kruisin' ESP32-S3 survey node behavior.
+// The ESP32-S3 acts as a secondary passive Wi-Fi/BLE node and emits JSON over USB CDC.
+#define KOALA_KOMBAT_WIFI_SCAN_INTERVAL_MS 15000
+#define KOALA_KOMBAT_WIFI_MAX_APS 16
+#define KOALA_KOMBAT_WIFI_PASSIVE_SCAN 1
 
 // Boot animation behavior.
 #define BOOT_ANIMATION_TOTAL_MS 2500
