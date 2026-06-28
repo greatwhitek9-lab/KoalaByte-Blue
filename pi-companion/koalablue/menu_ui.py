@@ -8,7 +8,7 @@ from typing import Callable, Dict, Iterable, List, Optional
 
 from .menu_catalog import make_menu_items, submenu_name_from_command, submenu_title
 from .meshtastic_menu_items import make_didgeridoo_items, make_meshtastic_items
-from .popup_keyboard import PopupKeyboardState, open_keyboard
+from .popup_keyboard import SPECIAL_KEYS, PopupKeyboardState, open_keyboard, save_keyboard_value
 
 
 @dataclass
@@ -54,17 +54,13 @@ class MenuSelectionScreen:
 
     Inputs supported:
     - GPIO button commands from gpio_buttons.py: left/right/up/down/select/main_menu/back.
+    - USB or Bluetooth keyboard arrows/WASD/Enter/backspace/text input.
     - Touch scrolling through on_touch_down/on_touch_move/on_touch_up.
     - Touch long-press select.
     - Touch double-tap menu reopen while the AI face is showing.
     - Pop-up keyboard mode for API names, tokens, passwords, and message text.
     - Voice-to-text keyboard input through commands like "keyboard text ...".
     - Hierarchical submenus through commands like submenu:eucalyptus and submenu:lab.
-
-    The menu, GPIO buttons, touchscreen, Heltec/T114 display path, and ESP32-S3
-    DualEye bridge all share this highlighted-item state. All action execution
-    goes through select(), so B3/select and touchscreen long-press run the same
-    highlighted menu item.
     """
 
     def __init__(
@@ -125,7 +121,6 @@ class MenuSelectionScreen:
         if normalized in {"main_menu", "home", "menu"}:
             self.last_input_at = now
             return self.reopen_menu("main_menu")
-
         if self.display_mode != "menu":
             return self._event("ai_face_waiting_for_menu", normalized)
 
@@ -153,17 +148,39 @@ class MenuSelectionScreen:
             return self.select("select")
         return self._event("ignored", normalized)
 
+    def _finish_keyboard(self, result: dict[str, object]) -> MenuEvent:
+        status = str(result.get("status", "KEYBOARD_COMPLETE"))
+        self.keyboard = None
+        self.show_ai_face("keyboard_complete", status.replace("_", " ").title(), log_event_type="keyboard_complete")
+        return self._event("keyboard_complete", status)
+
     def _handle_keyboard_command(self, raw: str, normalized: str, now: float) -> Optional[MenuEvent]:
         if self.keyboard is None:
             self.display_mode = "menu"
             return self._event("keyboard_missing", normalized)
         self.last_input_at = now
-        voice_prefixes = ("keyboard text ", "voice text ", "dictate ", "type ")
-        for prefix in voice_prefixes:
+        for prefix in ("keyboard key ", "key ", "char "):
+            if normalized.startswith(prefix):
+                text = raw[len(prefix):]
+                if text:
+                    self.keyboard.text += text[0]
+                return self._event("keyboard_key_text", "key_text")
+        for prefix in ("keyboard text ", "voice text ", "dictate ", "type "):
             if normalized.startswith(prefix):
                 text = raw[len(prefix):].strip()
                 self.keyboard.apply_voice_text(text, append=True)
                 return self._event("keyboard_voice_text", "voice_text")
+        if normalized in {"save", "done", "commit"}:
+            return self._finish_keyboard(save_keyboard_value(self.keyboard.target, self.keyboard.text))
+        if normalized in {"clear"}:
+            self.keyboard.text = ""
+            return self._event("keyboard_clear", "clear")
+        if normalized in {"space"}:
+            self.keyboard.text += " "
+            return self._event("keyboard_space", "space")
+        if normalized in {"backspace", "delete"}:
+            self.keyboard.text = self.keyboard.text[:-1]
+            return self._event("keyboard_backspace", "backspace")
         if normalized in {"up", "move_up"}:
             self.keyboard.move(delta_row=-1)
             return self._event("keyboard_move", "up")
@@ -176,7 +193,7 @@ class MenuSelectionScreen:
         if normalized in {"right", "move_right", "forward"}:
             self.keyboard.move(delta_col=1)
             return self._event("keyboard_move", "right")
-        if normalized in {"back", "cancel", "main_menu", "home", "menu"}:
+        if normalized in {"back", "cancel", "main_menu", "home", "menu", "escape"}:
             target = self.keyboard.target
             self.keyboard = None
             self.display_mode = "menu"
@@ -185,10 +202,7 @@ class MenuSelectionScreen:
             result = self.keyboard.select()
             status = str(result.get("status", ""))
             if status in {"KEYBOARD_VALUE_SAVED", "LOCATION_GATE_UNLOCKED", "LOCATION_GATE_UNLOCK_FAILED", "KEYBOARD_CANCELLED"}:
-                message = status.replace("_", " ").title()
-                self.keyboard = None
-                self.show_ai_face("keyboard_complete", message, log_event_type="keyboard_complete")
-                return self._event("keyboard_complete", status)
+                return self._finish_keyboard(result)
             return self._event("keyboard_select", str(result.get("action", "select")))
         return self._event("keyboard_ignored", normalized)
 
@@ -207,7 +221,6 @@ class MenuSelectionScreen:
                 handler(item)
             else:
                 from .menu_action_runner import run_automated_menu_action
-
                 run_automated_menu_action(item.command, item.label, item.group)
         except Exception:
             self.show_ai_face("error", f"{item.label} hit a snag", log_event_type="action_error")
@@ -312,17 +325,12 @@ class MenuSelectionScreen:
         if self.touch.down_time is None:
             return None
         held = t - self.touch.down_time
-
         if self.display_mode == "keyboard" and self.keyboard is not None:
             self.last_input_at = t
             self._select_keyboard_row_at_y(y)
-            if held >= self.touch_config.long_press_seconds and not self.touch.moved:
-                event = self._handle_keyboard_command("select", "select", t)
-            else:
-                event = self._event("keyboard_touch_tap", "touch_tap")
+            event = self._handle_keyboard_command("select", "select", t) if held >= self.touch_config.long_press_seconds and not self.touch.moved else self._event("keyboard_touch_tap", "touch_tap")
             self.touch = TouchState()
             return event
-
         if self.display_mode != "menu":
             self.touch = TouchState()
             if t - self._last_tap_at <= self.touch_config.double_tap_seconds:
@@ -330,13 +338,9 @@ class MenuSelectionScreen:
                 return self.reopen_menu("touch_double_tap_menu")
             self._last_tap_at = t
             return self._event("ai_face_touch_tap", "touch_tap")
-
         self.last_input_at = t
         self._select_row_at_y(y)
-        if held >= self.touch_config.long_press_seconds and not self.touch.moved:
-            event = self.select("touch_long_press_select")
-        else:
-            event = self._event("touch_tap", "touch_tap")
+        event = self.select("touch_long_press_select") if held >= self.touch_config.long_press_seconds and not self.touch.moved else self._event("touch_tap", "touch_tap")
         self.touch = TouchState()
         return event
 
@@ -364,16 +368,13 @@ class MenuSelectionScreen:
             "",
         ]
         for row_index, row_text in enumerate(kb.rows):
-            rendered = []
-            for col_index, char in enumerate(row_text):
-                rendered.append(f"[{char}]" if row_index == kb.row and col_index == kb.col else f" {char} ")
+            rendered = [f"[{char}]" if row_index == kb.row and col_index == kb.col else f" {char} " for col_index, char in enumerate(row_text)]
             lines.append("  " + " ".join(rendered))
-        special = []
-        for index, key in enumerate(SPECIAL_KEYS := ["space", "back", "clear", "shift", "symbols", "voice", "save", "cancel"]):
-            special.append(f"[{key}]" if kb.row == len(kb.rows) and kb.col == index else f" {key} ")
+        special = [f"[{key}]" if kb.row == len(kb.rows) and kb.col == index else f" {key} " for index, key in enumerate(SPECIAL_KEYS)]
         lines.append("  " + " | ".join(special))
         lines.append("")
         lines.append("  Buttons: arrows move | B3/select presses key | B2/back cancels")
+        lines.append("  USB/Bluetooth keyboard: type text, Enter=select, Backspace=delete, Ctrl+S/save")
         lines.append("  Touch: tap row, long-press to press | Voice: 'keyboard text <words>'")
         lines.append("🌿════════════════════════════════════════════════════════════════════════🌿")
         return "\n".join(lines)
@@ -419,7 +420,6 @@ class MenuSelectionScreen:
             return item
         try:
             from .t114_menu_status import status_label_description
-
             label, description = status_label_description(item.command)
             return MenuItem(label=label, command=item.command, description=description or item.description, enabled=item.enabled, group=item.group)
         except Exception as exc:
@@ -462,7 +462,7 @@ class MenuSelectionScreen:
             return
         row = max(0, y // self.touch_config.row_height_px)
         self.keyboard.row = max(0, min(len(self.keyboard.rows), row))
-        max_col = len(["space", "back", "clear", "shift", "symbols", "voice", "save", "cancel"]) - 1 if self.keyboard.row == len(self.keyboard.rows) else len(self.keyboard.rows[self.keyboard.row]) - 1
+        max_col = len(SPECIAL_KEYS) - 1 if self.keyboard.row == len(self.keyboard.rows) else len(self.keyboard.rows[self.keyboard.row]) - 1
         self.keyboard.col = max(0, min(self.keyboard.col, max_col))
 
     def _clamp_scroll_to_selection(self) -> None:
@@ -493,7 +493,6 @@ class MenuSelectionScreen:
             fh.write(json.dumps(asdict(event), sort_keys=True) + "\n")
         try:
             from .menu_display_sync import sync_ai_face_display, sync_menu_state
-
             if self.display_mode in {"menu", "keyboard"}:
                 sync_menu_state(self, event)
             else:
