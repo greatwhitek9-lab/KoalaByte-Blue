@@ -195,18 +195,27 @@ def _meshtastic(command: str) -> dict[str, Any]:
         return meshtastic_app.gps_info()
     if command == "meshtastic_listen":
         return meshtastic_app.listen(seconds=int(os.getenv("KOALABYTE_MESHTASTIC_LISTEN_SECONDS", "30")), prompt_password=False)
+    if command == "meshtastic_send_gate":
+        message = os.getenv("KOALABYTE_MESHTASTIC_SEND_MESSAGE", "")
+        dest = os.getenv("KOALABYTE_MESHTASTIC_SEND_DEST", "")
+        confirm = os.getenv("KOALABYTE_MESHTASTIC_CONFIRM_SEND", "0") == "1"
+        channel_env = os.getenv("KOALABYTE_MESHTASTIC_CHANNEL_INDEX", "")
+        channel_index = int(channel_env) if channel_env.isdigit() else None
+        if not message:
+            return {
+                "status": "MESHTASTIC_SEND_GATE_READY",
+                "note": "Set KOALABYTE_MESHTASTIC_SEND_MESSAGE plus KOALABYTE_MESHTASTIC_CONFIRM_SEND=1, then unlock the protected-actions gate before sending.",
+                "required_env": ["KOALABYTE_MESHTASTIC_SEND_MESSAGE", "KOALABYTE_MESHTASTIC_CONFIRM_SEND=1"],
+                "optional_env": ["KOALABYTE_MESHTASTIC_SEND_DEST", "KOALABYTE_MESHTASTIC_CHANNEL_INDEX"],
+            }
+        return meshtastic_app.send_text(message, dest=dest, channel_index=channel_index, confirm_send=confirm, prompt_password=False)
     return {"status": "MESHTASTIC_ACTION_RECORDED", "command": command}
 
 
 def _location_gate() -> dict[str, Any]:
     from .location_password_gate import PASSWORD_FILE, UNLOCK_ENV, password_exists
 
-    return {
-        "status": "LOCATION_GATE_STATUS_READY",
-        "configured": password_exists(),
-        "unlocked": os.environ.get(UNLOCK_ENV) in {"1", "true", "TRUE", "yes", "YES"},
-        "path": str(PASSWORD_FILE),
-    }
+    return {"status": "LOCATION_GATE_STATUS_READY", "configured": password_exists(), "unlocked": os.environ.get(UNLOCK_ENV) in {"1", "true", "TRUE", "yes", "YES"}, "path": str(PASSWORD_FILE)}
 
 
 def _protected_bluez(command: str) -> dict[str, Any]:
