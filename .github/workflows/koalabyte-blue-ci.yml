@@ -39,6 +39,8 @@ jobs:
           echo "install_pi_sha=$(git rev-parse HEAD:scripts/install_pi.sh)"
           echo "one_shot_sha=$(git rev-parse HEAD:scripts/install_koalabyte_one_shot.sh)"
           echo "field_readiness_sha=$(git rev-parse HEAD:scripts/check_field_readiness.py)"
+          echo "prompt_ui_sha=$(git rev-parse HEAD:scripts/check_menu_prompt_ui.py)"
+          echo "koala_kry_menu_sha=$(git rev-parse HEAD:scripts/check_koala_kry_menu.py)"
           echo "doctor_sha=$(git rev-parse HEAD:scripts/koalabyte_doctor.py)"
           echo "udev_rules_sha=$(git rev-parse HEAD:udev/99-koalabyte-blue.rules)"
           echo "boot_services_sha=$(git rev-parse HEAD:scripts/install_koalabyte_boot_services.sh)"
@@ -104,9 +106,12 @@ jobs:
           bash scripts/install_koalabyte_boot_services.sh --check-only
           bash scripts/install_koalabyte_logrotate.sh --check-only
 
-      - name: Validate menu, field, and hardware readiness reports
+      - name: Validate menu, prompt, field, and hardware readiness reports
         run: |
           PYTHONPATH=pi-companion python scripts/check_menu_actions.py
+          PYTHONPATH=pi-companion python scripts/check_menu_theme_fit.py
+          PYTHONPATH=pi-companion python scripts/check_menu_prompt_ui.py
+          PYTHONPATH=pi-companion python scripts/check_koala_kry_menu.py
           PYTHONPATH=pi-companion python scripts/check_menu_display_sync.py
           PYTHONPATH=pi-companion python scripts/check_one_shot_controls.py
           PYTHONPATH=pi-companion python scripts/check_field_readiness.py
