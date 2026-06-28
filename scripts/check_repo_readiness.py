@@ -24,6 +24,7 @@ REQUIRED_FILES = [
     "pi-companion/koalablue/menu_theme.py",
     "pi-companion/koalablue/menu_prompt_state.py",
     "pi-companion/koalablue/popup_keyboard.py",
+    "pi-companion/koalablue/greatwhite_reef.py",
     "pi-companion/koalablue/bluez_lab_scope.py",
     "pi-companion/koalablue/esp32_touch_menu_bridge.py",
     "pi-companion/koalablue/t114_menu_status.py",
@@ -53,6 +54,7 @@ REQUIRED_FILES = [
     "firmware/esp32-dualeye/src/esp32_touch_menu.cpp",
     "firmware/t114-combined-safe/CMakeLists.txt",
     "docs/ESP32_TOUCH_MENU_CALIBRATION.md",
+    "docs/GREATWHITE_REEF.md",
 ]
 
 SHELL_HELPERS = [
@@ -91,7 +93,23 @@ def check_required_files(failures: list[str]) -> None:
 
 def check_readme(failures: list[str]) -> None:
     text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    for needle in ["bash scripts/install_koalabyte_one_shot.sh", "InnoMaker CAN kit is optional", "ESP32-S3 DualEye", "Heltec Mesh Node T114", "Koala Kombat Kruisin", "Meshtastic App", "jungle/eucalyptus", "Didgeridoo", "GNSS", "TinyLlama", "Ollama"]:
+    for needle in [
+        "bash scripts/install_koalabyte_one_shot.sh",
+        "InnoMaker CAN kit is optional",
+        "ESP32-S3 DualEye",
+        "Heltec Mesh Node T114",
+        "Koala Kombat Kruisin",
+        "Meshtastic App",
+        "jungle/eucalyptus",
+        "Didgeridoo",
+        "GNSS",
+        "TinyLlama",
+        "Ollama",
+        "GreatWhite Reef",
+        "TigerShark",
+        "Great Wire Shark",
+        "logs/greatwhite_reef/pcaps/",
+    ]:
         if needle not in text:
             failures.append(f"README.md missing expected deployment text: {needle}")
 
@@ -122,20 +140,22 @@ def check_requirements(failures: list[str]) -> None:
 
 def check_menu_catalog(failures: list[str]) -> None:
     try:
+        import koalablue  # noqa: F401 - triggers GreatWhite Reef menu extension
         from koalablue.menu_catalog import MENU_GROUPS, SUBMENU_ITEMS, leaf_menu_entries, menu_labels
         from scripts.check_menu_actions import build_manifest
     except Exception as exc:
         failures.append(f"failed to import menu readiness helpers: {exc}")
         return
     main_labels = set(menu_labels("main"))
-    for label in ["Eucalyptus", "Koala Kombat Kruisin’", "Bluetooth Tools", "Didgeridoo", "CAN Bench Tools", "Reports & Reviews", "System / Companion", "Lab", "Power & Exit"]:
+    for label in ["Eucalyptus", "Koala Kombat Kruisin’", "Bluetooth Tools", "Didgeridoo", "CAN Bench Tools", "GreatWhite Reef", "Reports & Reviews", "System / Companion", "Lab", "Power & Exit"]:
         if label not in main_labels:
             failures.append(f"main menu labels missing {label}")
     if "Keyboard / Text Entry" in main_labels:
         failures.append("main menu should not expose standalone keyboard page")
-    if "Didgeridoo" not in MENU_GROUPS:
-        failures.append("menu catalog missing Didgeridoo group")
-    for submenu in ["eucalyptus", "kruisin", "bluetooth", "didgeridoo", "meshtastic", "can_bench", "reports", "system", "lab", "power"]:
+    for group in ["Didgeridoo", "GreatWhite Reef"]:
+        if group not in MENU_GROUPS:
+            failures.append(f"menu catalog missing {group} group")
+    for submenu in ["eucalyptus", "kruisin", "bluetooth", "didgeridoo", "meshtastic", "can_bench", "greatwhite_reef", "reports", "system", "lab", "power"]:
         if submenu not in SUBMENU_ITEMS:
             failures.append(f"menu catalog missing {submenu} submenu")
     if "keyboard" in SUBMENU_ITEMS:
@@ -145,6 +165,11 @@ def check_menu_catalog(failures: list[str]) -> None:
     expected_didgeridoo = {"Heltec Link", "Radio/GPS", "T114 BLE Check", "Lab TX Status", "Sextant", "Create Location Password", "Unlock Current Process", "Meshtastic App", "Protected Location Gate Status", "Protected GNSS Current Fix"}
     for label in sorted(expected_didgeridoo - didgeridoo_labels):
         failures.append(f"Didgeridoo submenu missing {label}")
+
+    greatwhite_labels = set(menu_labels("greatwhite_reef"))
+    expected_greatwhite = {"Reef Status", "TigerShark Install Check", "TigerShark Interfaces", "TigerShark PCAP Folder", "TigerShark Read Latest PCAP", "Great Wire Shark Launch Notes", "Great Wire Shark Folder Notes", "GreatWhite Reef Report"}
+    for label in sorted(expected_greatwhite - greatwhite_labels):
+        failures.append(f"GreatWhite Reef submenu missing {label}")
 
     meshtastic_labels = set(menu_labels("meshtastic"))
     expected_meshtastic = {"Meshtastic Profile", "Meshtastic Compatibility", "Phone App Pairing", "ESP32 Device Link", "Use Heltec USB Serial", "Use Network TCP", "Use BLE Link", "Meshtastic Status", "Meshtastic Nodes", "Meshtastic GPS Info", "Type Mesh Message", "Type Mesh Destination"}
@@ -171,9 +196,11 @@ def check_menu_catalog(failures: list[str]) -> None:
 def check_project_markers(failures: list[str]) -> None:
     checks = {
         "pi-companion/koalablue/popup_keyboard.py": ["bluez_lab_target", "Create Location Password", "Unlock Current Process"],
+        "pi-companion/koalablue/greatwhite_reef.py": ["GreatWhite Reef", "TigerShark", "Great Wire Shark", "greatwhite_pcap_read:", "logs/greatwhite_reef"],
         "pi-companion/koalablue/bluez_lab_scope.py": ["BLUEZ_LAB_SCOPE_READY", "apply_env", "set_owned", "set_target"],
         "pi-companion/koalablue/esp32_touch_menu_bridge.py": ["menu_touch", "calibration_command", "logs/esp32_touch_menu_events.jsonl"],
         "pi-companion/koalablue/menu_action_runner.py": ["_bluez_lab_scope", "bluez_lab_scope.apply_env", "manual_prompt_required"],
+        "scripts/setup_system_packages.sh": ["tshark", "wireshark", "GreatWhite Reef"],
         "scripts/check_menu_prompt_ui.py": ["bluez_lab_target", "Create Location Password", "Unlock Current Process"],
         "scripts/check_esp32_touch_menu.py": ["Esp32TouchMenuBridge", "menu_touch"],
         "firmware/esp32-dualeye/include/config.h": ["waveshare_cst816x_i2c", "TOUCH_MENU_CONTROLLER", "TOUCH_MENU_I2C_ADDR"],
@@ -182,6 +209,7 @@ def check_project_markers(failures: list[str]) -> None:
         "scripts/run_menu_screen.py": ["--terminal", "--no-terminal-fallback", "run_wrapped_interface", "WRAPPED_INTERFACE_START_FAILED"],
         "scripts/koalabyte_blue_boot.sh": ["MENU_NO_TERMINAL_FALLBACK", "--no-terminal-fallback", "wrapped graphical jungle UI"],
         "systemd/koalabyte-menu.service": ["koalabyte_blue_boot.sh", "WantedBy=multi-user.target", "MENU_GRAPHICAL=1", "MENU_NO_TERMINAL_FALLBACK=1"],
+        "docs/GREATWHITE_REEF.md": ["TigerShark", "Great Wire Shark", "logs/greatwhite_reef/pcaps/", "PCAP 1"],
     }
     for relative, needles in checks.items():
         failures.extend(_file_contains(REPO_ROOT / relative, needles))
