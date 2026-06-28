@@ -1,9 +1,12 @@
 #pragma once
 
-// killerkoala ESP32-S3 DualEye config RevA25
-// Confirm exact DualEye audio/display/touch pins against your board revision before relying on hardware wake-word capture or direct touch-controller reads.
+// killerkoala ESP32-S3 DualEye config RevA26
+// Waveshare ESP32-S3 DualEye/Touch 1.28 style boards use an I2C capacitive
+// touch controller on the shared board I2C bus. The firmware defaults to the
+// Waveshare CST816x-compatible backend and still accepts serial-calibrated
+// raw/simulated touch events for bench testing.
 
-#define KOALABLUE_FW_VERSION "0.6.2-dualeye-kombat-node"
+#define KOALABLUE_FW_VERSION "0.6.3-dualeye-touch"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define SERIAL_BAUD 115200
@@ -57,16 +60,24 @@
 #define BOOT_ANIMATION_FRAME_MS 50
 #define DISPLAY_ROTATION 0
 
-// ESP32-side touch menu bridge.
-// Default backend is serial_calibrated because the DualEye touch controller/pins vary by board revision.
-// When exact touch-controller wiring is confirmed, feed raw samples as raw_touch JSON or replace the backend reader.
-#define TOUCH_MENU_BACKEND "serial_calibrated"
+// ESP32-side touch menu bridge for Waveshare ESP32-S3 DualEye/Touch boards.
+// CST816x covers the common Waveshare CST816S/CST816T/CST816D I2C touch family.
+// Override these pins from PlatformIO build_flags if your exact revision differs.
+#define TOUCH_MENU_BACKEND "waveshare_cst816x_i2c"
+#define TOUCH_MENU_CONTROLLER "CST816x"
+#define TOUCH_MENU_I2C_ADDR 0x15
+#define TOUCH_MENU_I2C_SDA_PIN 6
+#define TOUCH_MENU_I2C_SCL_PIN 7
+#define TOUCH_MENU_INT_PIN 5
+#define TOUCH_MENU_RST_PIN 13
+#define TOUCH_MENU_I2C_CLOCK_HZ 400000
+#define TOUCH_MENU_POLL_MS 35
 #define TOUCH_MENU_SCREEN_W 240
 #define TOUCH_MENU_SCREEN_H 240
 #define TOUCH_MENU_RAW_MIN_X 0
-#define TOUCH_MENU_RAW_MAX_X 4095
+#define TOUCH_MENU_RAW_MAX_X 239
 #define TOUCH_MENU_RAW_MIN_Y 0
-#define TOUCH_MENU_RAW_MAX_Y 4095
+#define TOUCH_MENU_RAW_MAX_Y 239
 #define TOUCH_MENU_INVERT_X 0
 #define TOUCH_MENU_INVERT_Y 0
 #define TOUCH_MENU_SWAP_XY 0
