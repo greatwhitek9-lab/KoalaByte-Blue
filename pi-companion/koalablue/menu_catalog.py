@@ -5,14 +5,7 @@ from typing import Dict, List, Type, TypeVar
 
 T = TypeVar("T")
 
-MENU_GROUPS: List[str] = [
-    "Bluetooth Tools",
-    "Didgeridoo",
-    "CAN Bench Tools",
-    "Reports & Reviews",
-    "System / Companion",
-]
-
+MENU_GROUPS: List[str] = ["Bluetooth Tools", "Didgeridoo", "CAN Bench Tools", "Reports & Reviews", "System / Companion"]
 _GROUP_ORDER = {name: index for index, name in enumerate(MENU_GROUPS)}
 
 
@@ -102,6 +95,8 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("Didgeridoo", "Meshtastic Status", "meshtastic_status", "Show local Meshtastic node status"),
         _item("Didgeridoo", "Meshtastic Nodes", "meshtastic_nodes", "Show the Meshtastic node table"),
         _item("Didgeridoo", "Meshtastic GPS Info", "meshtastic_gps", "Show GPS/GNSS status from the connected node"),
+        _item("Didgeridoo", "Meshtastic Listen Gate", "meshtastic_listen", "Run protected receive/listen mode only when unlocked"),
+        _item("Didgeridoo", "Meshtastic Send Gate", "meshtastic_send_gate", "Prepare protected text send; requires message, unlock, and explicit confirmation"),
         _item("System / Companion", "Back to Didgeridoo", "submenu:didgeridoo", "Return to the Didgeridoo menu"),
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
@@ -158,19 +153,7 @@ def submenu_name_from_command(command: str) -> str:
 
 
 def submenu_title(menu_name: str) -> str:
-    titles = {
-        "main": "Main Canopy",
-        "eucalyptus": "Eucalyptus",
-        "kruisin": "Koala Kombat Kruisin’",
-        "bluetooth": "Bluetooth Tools",
-        "didgeridoo": "Didgeridoo",
-        "meshtastic": "Meshtastic App",
-        "can_bench": "CAN Bench Tools",
-        "reports": "Reports & Reviews",
-        "system": "System / Companion",
-        "lab": "Authorized Lab",
-        "power": "Power & Exit",
-    }
+    titles = {"main": "Main Canopy", "eucalyptus": "Eucalyptus", "kruisin": "Koala Kombat Kruisin’", "bluetooth": "Bluetooth Tools", "didgeridoo": "Didgeridoo", "meshtastic": "Meshtastic App", "can_bench": "CAN Bench Tools", "reports": "Reports & Reviews", "system": "System / Companion", "lab": "Authorized Lab", "power": "Power & Exit"}
     return titles.get(menu_name, menu_name.replace("_", " ").title())
 
 
