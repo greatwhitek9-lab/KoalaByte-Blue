@@ -15,11 +15,26 @@ if str(PI_ROOT) not in sys.path:
     sys.path.insert(0, str(PI_ROOT))
 
 from koalablue.menu_catalog import MAIN_MENU_ITEMS, SUBMENU_ITEMS, all_menu_entries, leaf_menu_entries, submenu_name_from_command  # noqa: E402
-from scripts.run_menu_screen import make_menu  # noqa: E402
+from koalablue.menu_theme import DEFAULT_JUNGLE_MENU_THEME, GRAPHICAL_DESCRIPTION_MAX_LINES, GRAPHICAL_LABEL_MAX_LINES, render_terminal_jungle_menu  # noqa: E402
+from scripts.run_menu_screen import make_menu, open_submenu  # noqa: E402
 
 OUTPUT_DIR = ROOT / "logs" / "menu_actions"
 MANIFEST_PATH = OUTPUT_DIR / "menu_action_manifest.json"
 STATUS_PATH = OUTPUT_DIR / "menu_action_status.json"
+TERMINAL_FRAME_WIDTH = 74
+
+ALLOWED_DUPLICATE_COMMANDS = {
+    "koala_bluez_info",
+    "koala_bluez_services",
+    "koala_bluez_gatt_readiness",
+    "bluez_outback_radio_ledger",
+    "bluez_classic_track_finder",
+    "bluez_treehouse_rfcomm_wiremap",
+    "bluez_pouch_link_echo",
+    "bluez_gumnut_gatt_ghostmap",
+    "bluez_platypus_bt_proxy",
+    "location_gate_status",
+}
 
 
 def _command(entry: dict[str, Any]) -> str:
@@ -46,6 +61,31 @@ def _walk_menu_entries() -> list[dict[str, Any]]:
         for entry in entries:
             rows.append({"menu": menu_name, **entry})
     return rows
+
+
+def _visible_duplicate_commands() -> dict[str, list[str]]:
+    seen: dict[str, list[str]] = {}
+    for entry in _walk_menu_entries():
+        if not _enabled(entry):
+            continue
+        command = _command(entry)
+        if not command or command.startswith("submenu:") or command == "quit":
+            continue
+        seen.setdefault(command, []).append(_label(entry))
+    return {command: labels for command, labels in seen.items() if len(set(labels)) > 1}
+
+
+def _check_terminal_theme_fit(menu_names: set[str]) -> list[str]:
+    failures: list[str] = []
+    for menu_name in sorted(menu_names):
+        menu = make_menu()
+        if menu_name != "main":
+            open_submenu(menu, f"submenu:{menu_name}")
+        text = render_terminal_jungle_menu(menu)
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            if len(line) > TERMINAL_FRAME_WIDTH:
+                failures.append(f"{menu_name} terminal theme line {line_no} exceeds {TERMINAL_FRAME_WIDTH} chars")
+    return failures
 
 
 def build_manifest() -> tuple[dict[str, Any], list[str]]:
@@ -99,6 +139,22 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
             }
         )
 
+    theme = DEFAULT_JUNGLE_MENU_THEME
+    if "jungle" not in theme.border_style or "eucalyptus" not in theme.border_style:
+        failures.append("menu theme no longer carries the jungle/eucalyptus border identity")
+    if theme.font_family != theme.item_font_family:
+        failures.append("menu title/item font stacks diverged")
+    if GRAPHICAL_LABEL_MAX_LINES != 1:
+        failures.append("graphical labels must be constrained to one line")
+    if GRAPHICAL_DESCRIPTION_MAX_LINES > 2:
+        failures.append("graphical descriptions must stay within two lines")
+    failures.extend(_check_terminal_theme_fit(menu_names))
+
+    duplicate_commands = _visible_duplicate_commands()
+    unexpected_duplicates = sorted(set(duplicate_commands) - ALLOWED_DUPLICATE_COMMANDS)
+    for command in unexpected_duplicates:
+        failures.append(f"unexpected duplicate visible command '{command}': {duplicate_commands[command]}")
+
     leaf_commands = sorted({_command(entry) for entry in leaf_menu_entries()})
     status_rows = sorted({_command(entry) for entry in leaf_menu_entries() if _command(entry).startswith("status:")})
     handler_commands = sorted(str(command) for command in handlers.keys())
@@ -115,12 +171,24 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
         "leaf_commands": leaf_commands,
         "status_rows": status_rows,
         "handler_commands": handler_commands,
+        "visible_duplicate_commands": duplicate_commands,
+        "allowed_duplicate_commands": sorted(ALLOWED_DUPLICATE_COMMANDS),
+        "theme": {
+            "title": theme.title,
+            "font_family": theme.font_family,
+            "item_font_family": theme.item_font_family,
+            "border_style": theme.border_style,
+            "graphical_label_max_lines": GRAPHICAL_LABEL_MAX_LINES,
+            "graphical_description_max_lines": GRAPHICAL_DESCRIPTION_MAX_LINES,
+            "terminal_frame_width": TERMINAL_FRAME_WIDTH,
+        },
         "entries": rows,
         "one_shot_installer_safe": True,
         "no_menu_actions_executed": True,
         "notes": [
             "This is a readiness/manifest check only.",
             "It validates that every enabled menu leaf, including status rows, has an automated select handler.",
+            "It validates that terminal menu text stays inside the jungle/eucalyptus border frame.",
             "It does not run scans, open long-running actions, flash firmware, or start live activity.",
         ],
         "failures": failures,
@@ -141,6 +209,7 @@ def main() -> int:
                 "enabled_leaf_count": manifest["enabled_leaf_count"],
                 "status_row_count": manifest["status_row_count"],
                 "handler_count": manifest["handler_count"],
+                "theme": manifest["theme"],
                 "failures": failures,
             },
             indent=2,
