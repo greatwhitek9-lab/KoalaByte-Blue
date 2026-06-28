@@ -116,9 +116,6 @@ class MenuSelectionScreen:
             return self.reopen_menu("main_menu")
 
         if self.display_mode != "menu":
-            # When the AI face is showing, the menu stays hidden until B1/menu or
-            # a touchscreen double-tap. Other button presses are ignored so an
-            # action cannot be launched accidentally while the face is active.
             return self._event("ai_face_waiting_for_menu", normalized)
 
         self.last_input_at = now
@@ -149,18 +146,7 @@ class MenuSelectionScreen:
         self.selected_index = (self.selected_index + delta) % len(self.items)
         self._clamp_scroll_to_selection()
 
-    def select(self, select_event_type: str = "select") -> MenuEvent:
-        if self.display_mode != "menu":
-            return self._event("ai_face_waiting_for_menu", select_event_type)
-        item = self.selected_item
-        if item.command.startswith("status:"):
-            return self._event("status_row", item.command)
-        if not item.enabled:
-            return self._event("disabled", item.command)
-        submenu = submenu_name_from_command(item.command)
-        if submenu:
-            return self._open_menu(submenu, "submenu_open" if submenu != "main" else "submenu_back", item.command)
-
+    def _run_selected_handler(self, item: MenuItem, select_event_type: str) -> MenuEvent:
         event = self._event(select_event_type, item.command)
         handler = self._handlers.get(item.command)
         self.show_ai_face("action_running", f"Running {item.label}", log_event_type="action_running")
@@ -172,6 +158,21 @@ class MenuSelectionScreen:
             raise
         self.show_ai_face("action_complete", f"{item.label} complete", log_event_type="action_complete")
         return event
+
+    def select(self, select_event_type: str = "select") -> MenuEvent:
+        if self.display_mode != "menu":
+            return self._event("ai_face_waiting_for_menu", select_event_type)
+        item = self.selected_item
+        if item.command.startswith("status:"):
+            if self._handlers.get(item.command):
+                return self._run_selected_handler(item, select_event_type)
+            return self._event("status_row", item.command)
+        if not item.enabled:
+            return self._event("disabled", item.command)
+        submenu = submenu_name_from_command(item.command)
+        if submenu:
+            return self._open_menu(submenu, "submenu_open" if submenu != "main" else "submenu_back", item.command)
+        return self._run_selected_handler(item, select_event_type)
 
     def show_ai_face(self, state: str = "idle", message: str = "KillerKoala is watching the canopy", *, log_event_type: str = "ai_face") -> MenuEvent:
         self.display_mode = "ai_face"
@@ -364,5 +365,4 @@ class MenuSelectionScreen:
             else:
                 sync_ai_face_display(self, event, state=self.face_state, message=self.face_message)
         except Exception:
-            # Display sync must never block local menu navigation or action execution.
             pass
