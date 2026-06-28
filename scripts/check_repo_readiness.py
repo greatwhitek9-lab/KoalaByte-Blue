@@ -19,7 +19,7 @@ REQUIRED_FILES = [
     "pi-companion/config.default.json",
     "pi-companion/requirements.txt",
     "pi-companion/koalablue/menu_catalog.py",
-    "pi-companion/koalblue/menu_ui.py",
+    "pi-companion/koalablue/menu_ui.py",
     "pi-companion/koalablue/menu_display_sync.py",
     "pi-companion/koalablue/menu_theme.py",
     "pi-companion/koalablue/menu_prompt_state.py",
@@ -46,7 +46,6 @@ REQUIRED_FILES = [
     "firmware/esp32-dualeye/platformio.ini",
     "firmware/t114-combined-safe/CMakeLists.txt",
 ]
-REQUIRED_FILES = [path.replace("koalblue/menu_ui.py", "koalablue/menu_ui.py") for path in REQUIRED_FILES]
 
 SHELL_HELPERS = [
     "install.sh",
