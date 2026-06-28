@@ -200,7 +200,7 @@ def main() -> int:
     parser.add_argument("--height", type=int, default=480, help="Window height when --windowed is used")
     args = parser.parse_args()
     if args.graphical:
-        from koalblue.menu_theme import JungleMenuRenderer, JungleMenuUnavailable
+        from koalablue.menu_theme import JungleMenuRenderer, JungleMenuUnavailable
         try:
             return JungleMenuRenderer(menu=make_menu(), fullscreen=not args.windowed, width=args.width, height=args.height).run()
         except JungleMenuUnavailable as exc:
