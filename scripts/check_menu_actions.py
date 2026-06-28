@@ -64,22 +64,23 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
         is_status_row = command.startswith("status:")
         handler_name = ""
         routed = False
+        automated = False
 
         if is_submenu:
             routed = submenu in menu_names
+            automated = routed
             if enabled and not routed:
                 failures.append(f"submenu item '{label}' points to missing submenu: {command}")
-        elif is_status_row:
-            routed = True
-            handler_name = "status_indicator"
         elif enabled:
             handler = handlers.get(command)
             routed = handler is not None
+            automated = routed
             handler_name = getattr(handler, "__name__", "") if handler is not None else ""
             if not routed:
-                failures.append(f"enabled menu item '{label}' has no handler: {command}")
+                failures.append(f"enabled menu item '{label}' has no automated select handler: {command}")
         else:
             routed = True
+            automated = True
 
         rows.append(
             {
@@ -92,12 +93,13 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
                 "is_submenu": is_submenu,
                 "is_status_row": is_status_row,
                 "routed": routed,
+                "automated_select": automated,
                 "handler": handler_name,
                 "description": entry.get("description", ""),
             }
         )
 
-    leaf_commands = sorted({_command(entry) for entry in leaf_menu_entries() if not _command(entry).startswith("status:")})
+    leaf_commands = sorted({_command(entry) for entry in leaf_menu_entries()})
     status_rows = sorted({_command(entry) for entry in leaf_menu_entries() if _command(entry).startswith("status:")})
     handler_commands = sorted(str(command) for command in handlers.keys())
     manifest = {
@@ -118,8 +120,8 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
         "no_menu_actions_executed": True,
         "notes": [
             "This is a readiness/manifest check only.",
-            "It validates that every enabled menu leaf has a handler, every status row is display-only, and every submenu target exists.",
-            "It does not run scans, open long-running actions, transmit, flash firmware, or start live BLE activity.",
+            "It validates that every enabled menu leaf, including status rows, has an automated select handler.",
+            "It does not run scans, open long-running actions, flash firmware, or start live activity.",
         ],
         "failures": failures,
     }
