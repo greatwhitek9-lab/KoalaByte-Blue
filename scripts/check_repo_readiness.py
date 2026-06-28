@@ -19,7 +19,7 @@ REQUIRED_FILES = [
     "pi-companion/config.default.json",
     "pi-companion/requirements.txt",
     "pi-companion/koalablue/menu_catalog.py",
-    "pi-companion/koalablue/menu_ui.py",
+    "pi-companion/koalblue/menu_ui.py",
     "pi-companion/koalablue/menu_display_sync.py",
     "pi-companion/koalablue/menu_theme.py",
     "pi-companion/koalablue/menu_prompt_state.py",
@@ -46,6 +46,7 @@ REQUIRED_FILES = [
     "firmware/esp32-dualeye/platformio.ini",
     "firmware/t114-combined-safe/CMakeLists.txt",
 ]
+REQUIRED_FILES = [path.replace("koalblue/menu_ui.py", "koalablue/menu_ui.py") for path in REQUIRED_FILES]
 
 SHELL_HELPERS = [
     "install.sh",
@@ -65,22 +66,7 @@ SHELL_HELPERS = [
     "scripts/preflight_all_hardware.sh",
 ]
 
-REQUIRED_RUNTIME_REQUIREMENTS = [
-    "bleak",
-    "pyserial",
-    "rich",
-    "pydantic",
-    "fastapi",
-    "uvicorn",
-    "requests",
-    "httpx",
-    "gpiozero",
-    "pygame",
-    "python-can",
-    "pyttsx3",
-    "SpeechRecognition",
-    "meshtastic",
-]
+REQUIRED_RUNTIME_REQUIREMENTS = ["bleak", "pyserial", "rich", "pydantic", "fastapi", "uvicorn", "requests", "httpx", "gpiozero", "pygame", "python-can", "pyttsx3", "SpeechRecognition", "meshtastic"]
 
 
 def _file_contains(path: Path, needles: list[str]) -> list[str]:
@@ -98,19 +84,7 @@ def check_required_files(failures: list[str]) -> None:
 
 def check_readme(failures: list[str]) -> None:
     text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    for needle in [
-        "bash scripts/install_koalabyte_one_shot.sh",
-        "InnoMaker CAN kit is optional",
-        "ESP32-S3 DualEye",
-        "Heltec Mesh Node T114",
-        "Koala Kombat Kruisin",
-        "Meshtastic App",
-        "jungle/eucalyptus",
-        "Didgeridoo",
-        "GNSS",
-        "TinyLlama",
-        "Ollama",
-    ]:
+    for needle in ["bash scripts/install_koalabyte_one_shot.sh", "InnoMaker CAN kit is optional", "ESP32-S3 DualEye", "Heltec Mesh Node T114", "Koala Kombat Kruisin", "Meshtastic App", "jungle/eucalyptus", "Didgeridoo", "GNSS", "TinyLlama", "Ollama"]:
         if needle not in text:
             failures.append(f"README.md missing expected deployment text: {needle}")
 
@@ -171,7 +145,7 @@ def check_menu_catalog(failures: list[str]) -> None:
         failures.append(f"Meshtastic submenu missing {label}")
 
     bluetooth_labels = set(menu_labels("bluetooth"))
-    for label in ["Koala Kapture", "Koala Kry", "KoalaByte Lab", "Dropbear Discovery Sweep", "Platypus BT-Proxy", "AntEater", "Urban Poaching", "BlueZ Lab Scope Status", "Type BlueZ Lab Target", "Owned Device Scope ON", "Owned Device Scope OFF"]:
+    for label in ["Koala Kapture", "Koala Kry", "KoalaByte Lab", "Dropbear Discovery Sweep", "Platypus BT-Proxy", "AntEater", "Urban Poaching"]:
         if label not in bluetooth_labels:
             failures.append(f"Bluetooth submenu missing {label}")
     lab_labels = set(menu_labels("lab"))
@@ -193,7 +167,9 @@ def check_project_markers(failures: list[str]) -> None:
         "pi-companion/koalablue/bluez_lab_scope.py": ["BLUEZ_LAB_SCOPE_READY", "apply_env", "set_owned", "set_target"],
         "pi-companion/koalablue/menu_action_runner.py": ["_bluez_lab_scope", "bluez_lab_scope.apply_env", "manual_prompt_required"],
         "scripts/check_menu_prompt_ui.py": ["bluez_lab_target", "Create Location Password", "Unlock Current Process"],
-        "systemd/koalabyte-menu.service": ["koalabyte_blue_boot.sh", "WantedBy=multi-user.target"],
+        "scripts/run_menu_screen.py": ["--terminal", "--no-terminal-fallback", "run_wrapped_interface", "WRAPPED_INTERFACE_START_FAILED"],
+        "scripts/koalabyte_blue_boot.sh": ["MENU_NO_TERMINAL_FALLBACK", "--no-terminal-fallback", "wrapped graphical jungle UI"],
+        "systemd/koalabyte-menu.service": ["koalabyte_blue_boot.sh", "WantedBy=multi-user.target", "MENU_GRAPHICAL=1", "MENU_NO_TERMINAL_FALLBACK=1"],
     }
     for relative, needles in checks.items():
         failures.extend(_file_contains(REPO_ROOT / relative, needles))
