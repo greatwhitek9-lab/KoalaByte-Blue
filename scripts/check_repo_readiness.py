@@ -19,7 +19,7 @@ REQUIRED_FILES = [
     "pi-companion/config.default.json",
     "pi-companion/requirements.txt",
     "pi-companion/koalablue/menu_catalog.py",
-    "pi-companion/koalablue/menu_ui.py",
+    "pi-companion/koalblue/menu_ui.py",
     "pi-companion/koalablue/menu_display_sync.py",
     "pi-companion/koalablue/menu_theme.py",
     "pi-companion/koalablue/t114_menu_status.py",
@@ -32,6 +32,7 @@ REQUIRED_FILES = [
     "pi-companion/koalablue/killerkoala_hybrid_companion.py",
     "pi-companion/koalablue/killerkoala_voice_control.py",
     "scripts/check_menu_actions.py",
+    "scripts/check_menu_theme_fit.py",
     "scripts/check_t114_status_dashboard.py",
     "scripts/check_full_runtime_dependencies.py",
     "scripts/check_killerkoala_ai.py",
@@ -136,6 +137,11 @@ def check_readme(failures: list[str]) -> None:
         "InnoMaker CAN kit is optional",
         "ESP32-S3 DualEye",
         "Heltec Mesh Node T114",
+        "nRF52840",
+        "Koala Kombat Kruisin",
+        "Platypus BT-Proxy",
+        "jungle/eucalyptus",
+        "check_menu_theme_fit.py",
         "Didgeridoo",
         "Meshtastic",
         "GNSS",
@@ -198,6 +204,9 @@ def check_ai_requirements(failures: list[str]) -> None:
             "scripts/check_full_runtime_dependencies.py",
             "Full runtime dependencies and board helpers",
             "STRICT_FULL_RUNTIME_DEPENDENCIES",
+            "run_menu_theme_fit_gate",
+            "scripts/check_menu_theme_fit.py",
+            "Jungle menu theme and text fit",
         ]:
             if needle not in one_shot_text:
                 failures.append(f"one-shot installer missing readiness hook: {needle}")
@@ -210,14 +219,17 @@ def check_menu_catalog(failures: list[str]) -> None:
     except Exception as exc:
         failures.append(f"failed to import menu readiness helpers: {exc}")
         return
+    main_labels = set(menu_labels("main"))
+    for label in ["Eucalyptus", "Koala Kombat Kruisin’", "Bluetooth Tools", "Didgeridoo", "CAN Bench Tools", "Reports & Reviews", "System / Companion", "Lab", "Power & Exit"]:
+        if label not in main_labels:
+            failures.append(f"main menu labels missing {label}")
     if "Didgeridoo" not in MENU_GROUPS:
         failures.append("menu catalog missing Didgeridoo group")
-    if "didgeridoo" not in SUBMENU_ITEMS:
-        failures.append("menu catalog missing didgeridoo submenu")
-    if "Didgeridoo" not in menu_labels("main"):
-        failures.append("main menu labels missing Didgeridoo")
+    for submenu in ["eucalyptus", "kruisin", "bluetooth", "didgeridoo", "can_bench", "reports", "system", "lab", "power"]:
+        if submenu not in SUBMENU_ITEMS:
+            failures.append(f"menu catalog missing {submenu} submenu")
     didgeridoo_labels = set(menu_labels("didgeridoo"))
-    expected = {
+    expected_didgeridoo = {
         "Heltec Link",
         "Radio/GPS",
         "T114 Quick BLE Test Scan",
@@ -229,8 +241,19 @@ def check_menu_catalog(failures: list[str]) -> None:
         "Protected Location Gate Status",
         "Protected GNSS Current Fix",
     }
-    for label in sorted(expected - didgeridoo_labels):
+    for label in sorted(expected_didgeridoo - didgeridoo_labels):
         failures.append(f"Didgeridoo submenu missing {label}")
+    bluetooth_labels = set(menu_labels("bluetooth"))
+    for label in ["Koala Kapture", "Koala Kry", "KoalaByte Lab", "Dropbear Discovery Sweep", "Platypus BT-Proxy", "AntEater", "Urban Poaching"]:
+        if label not in bluetooth_labels:
+            failures.append(f"Bluetooth submenu missing {label}")
+    for removed_label in ["Scan", "Summary", "Show Devices", "Ear Tag"]:
+        if removed_label in bluetooth_labels:
+            failures.append(f"Bluetooth submenu still exposes redundant item {removed_label}")
+    if "CAN Bench Safety Check" in set(menu_labels("can_bench")):
+        failures.append("CAN Bench submenu still exposes redundant CAN Bench Safety Check")
+    if "Report" in set(menu_labels("reports")):
+        failures.append("Reports submenu still exposes redundant generic Report alias")
     if not leaf_menu_entries():
         failures.append("menu catalog has no enabled leaf menu entries")
     manifest, menu_failures = build_manifest()
@@ -238,6 +261,11 @@ def check_menu_catalog(failures: list[str]) -> None:
         failures.append("menu action manifest is not ready")
     if manifest.get("status_row_count", 0) < 3:
         failures.append("menu action manifest missing expected T114 status rows")
+    theme = manifest.get("theme", {}) if isinstance(manifest, dict) else {}
+    if "jungle_adventure_eucalyptus_branch_and_leaf_border" not in str(theme.get("border_style", "")):
+        failures.append("menu action manifest missing jungle/eucalyptus border theme")
+    if manifest.get("visible_duplicate_commands") and set(manifest.get("visible_duplicate_commands", {})) - set(manifest.get("allowed_duplicate_commands", [])):
+        failures.append("menu action manifest contains unexpected duplicate visible commands")
     for failure in menu_failures:
         failures.append(f"menu action readiness: {failure}")
 
@@ -254,6 +282,7 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     menu_ui = REPO_ROOT / "pi-companion" / "koalablue" / "menu_ui.py"
     menu_sync = REPO_ROOT / "pi-companion" / "koalablue" / "menu_display_sync.py"
     menu_theme = REPO_ROOT / "pi-companion" / "koalablue" / "menu_theme.py"
+    theme_check = REPO_ROOT / "scripts" / "check_menu_theme_fit.py"
     esp32 = REPO_ROOT / "firmware" / "esp32-dualeye" / "src" / "main.cpp"
     status = REPO_ROOT / "pi-companion" / "koalablue" / "t114_menu_status.py"
     status_check = REPO_ROOT / "scripts" / "check_t114_status_dashboard.py"
@@ -276,15 +305,16 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     gnss_needles = ["write_primary_t114_fix_event", "heltec-t114-gnss", "KOALABYTE_PRIMARY_GNSS_PORT"]
     manager_needles = ["write_primary_t114_fix_event", "gnss_fix", "gnss_status"]
     installer_needles = ["T114_PLUG_FLASH_PROFILE=\"${T114_PLUG_FLASH_PROFILE:-combined-safe}\"", "INSTALL_HELTEC_NRF_TOOLS=\"${INSTALL_HELTEC_NRF_TOOLS:-1}\""]
-    one_shot_needles = ["STRICT_T114_STATUS_DASHBOARD", "run_t114_status_dashboard_readiness", "T114 live dashboard status phrases", "STRICT_FULL_RUNTIME_DEPENDENCIES", "run_full_runtime_dependency_gate"]
+    one_shot_needles = ["STRICT_T114_STATUS_DASHBOARD", "run_t114_status_dashboard_readiness", "T114 live dashboard status phrases", "STRICT_FULL_RUNTIME_DEPENDENCIES", "run_full_runtime_dependency_gate", "run_menu_theme_fit_gate", "Jungle menu theme and text fit"]
     menu_needles = ["t114_primary_ble_scan", "t114_primary_gnss_fix", "koalablue.gnss_location", "bluez_platypus_bt_proxy"]
     menu_ui_needles = ["sync_menu_state", "touch_long_press_select", "B3/select"]
     menu_sync_needles = ["menu_sync", "esp32-s3-dualeye", "heltec-t114", "killerkoala_face", "B3/select or touchscreen long-press"]
-    menu_theme_needles = ["jungle_adventure_eucalyptus_branch_and_leaf_border", "_fit_text_for_width", "GRAPHICAL_DESCRIPTION_MAX_LINES"]
+    menu_theme_needles = ["jungle_adventure_eucalyptus_branch_and_leaf_border", "_fit_text_for_width", "GRAPHICAL_DESCRIPTION_MAX_LINES", "GRAPHICAL_LABEL_MAX_LINES"]
+    theme_check_needles = ["MENU_THEME_FIT_READY", "render_terminal_jungle_menu", "jungle", "eucalyptus", "visible_duplicate_commands"]
     esp32_needles = ["handleMenuSync", "menu_sync_ack", "B3/select or touchscreen long-press"]
     status_needles = ["Heltec Link: Connected", "Heltec Link: Disconnected", "Radio/GPS:", "Lab Beacon TX: On", "Lab Beacon TX: Off", "Lab Beacon TX: Blocked"]
     status_check_needles = ["status_label_description", "T114_STATUS_DASHBOARD_READY", "active_status_check_attempted"]
-    runtime_check_needles = ["FULL_RUNTIME_DEPENDENCIES_READY", "PYTHON_IMPORTS", "BOARD_COMMANDS", "REQUIRED_PROJECT_MODULES", "BOARD_FILES", "btproxy"]
+    runtime_check_needles = ["FULL_RUNTIME_DEPENDENCIES_READY", "PYTHON_IMPORTS", "BOARD_COMMANDS", "REQUIRED_PROJECT_MODULES", "BOARD_FILES", "btproxy", "scripts.check_menu_theme_fit"]
     failures.extend(_file_contains(combined, firmware_needles))
     failures.extend(_file_contains(conf, conf_needles))
     failures.extend(_file_contains(build_helper, helper_needles))
@@ -296,6 +326,7 @@ def check_t114_combined_firmware(failures: list[str]) -> None:
     failures.extend(_file_contains(menu_ui, menu_ui_needles))
     failures.extend(_file_contains(menu_sync, menu_sync_needles))
     failures.extend(_file_contains(menu_theme, menu_theme_needles))
+    failures.extend(_file_contains(theme_check, theme_check_needles))
     failures.extend(_file_contains(esp32, esp32_needles))
     failures.extend(_file_contains(status, status_needles))
     failures.extend(_file_contains(status_check, status_check_needles))
