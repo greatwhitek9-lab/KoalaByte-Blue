@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 import json
 import re
 import time
@@ -32,6 +31,14 @@ class VoiceModuleSpec:
     target_required: bool = False
 
 
+@dataclass(frozen=True)
+class VoiceMenuAction:
+    command: str
+    label: str
+    group: str
+    aliases: List[str]
+
+
 @dataclass
 class KillerKoalaXPState:
     xp: int = 0
@@ -52,6 +59,7 @@ class ParsedVoiceCommand:
     owned_device: bool = False
     raw_addresses: bool = False
     duration_seconds: Optional[int] = None
+    menu_action: Optional[VoiceMenuAction] = None
 
 
 @dataclass
@@ -87,9 +95,23 @@ VOICE_MODULES: Dict[str, VoiceModuleSpec] = {
     "koala_kapture": VoiceModuleSpec("koala_kapture", "Koala Kapture", ["koala kapture", "kapture", "capture ble", "capture metadata", "metadata capture", "bag the beacons", "save the signals"], 15, "capture_saved", "Run passive BLE metadata capture only."),
     "koala_kry": VoiceModuleSpec("koala_kry", "Koala Kry", ["koala kry", "kry", "offline replay", "replay metadata", "chew through the logs"], 5, "koala_kry", "Replay captured metadata offline only. No RF transmission."),
     "ear_tag_tx_lab": VoiceModuleSpec("ear_tag_tx_lab", "KoalaByte Lab", ["koalabyte lab", "koala byte lab", "ear tag tx lab", "ear tag", "lab beacon plan", "beacon plan"], 5, "ear_tag_tx_lab", "Write a synthetic owned-device BLE advertisement plan artifact."),
-    "killerkoala_help": VoiceModuleSpec("killerkoala_help", "killerkoala Help", ["help", "what can you do", "list commands", "voice commands"], 1, "inquiry_help", "Show available voice-controlled modules."),
+    "killerkoala_help": VoiceModuleSpec("killerkoala_help", "killerkoala Help", ["help", "what can you do", "list commands", "voice commands", "menu voice commands"], 1, "inquiry_help", "Show available voice-controlled modules and menu actions."),
 }
 
+BASE_MODULE_TO_MENU_COMMAND = {
+    "bluez_manifest": ("koala_bluez_manifest", "Outback Module Deck", "Bluetooth Tools"),
+    "bluez_inventory": ("koala_bluez_inventory", "Gumleaf Gear Check", "Bluetooth Tools"),
+    "bluez_status": ("koala_bluez_status", "Eucalyptus Bus Scout", "Bluetooth Tools"),
+    "bluez_scan": ("scan", "Scan", "Bluetooth Tools"),
+    "bluez_monitor": ("koala_bluez_monitor", "Billabong HCI Watch", "Bluetooth Tools"),
+    "bluez_all_safe": ("koala_bluez_all_safe", "Kookaburra Safe Nest Run", "Bluetooth Tools"),
+    "bluez_info": ("koala_bluez_info", "Joey Target Dossier", "Bluetooth Tools"),
+    "bluez_services": ("koala_bluez_services", "Treehouse Service Trace", "Bluetooth Tools"),
+    "gatt_readiness": ("koala_bluez_gatt_readiness", "Gumnut GATT Gatecheck", "Bluetooth Tools"),
+    "koala_kapture": ("koala_kapture", "Koala Kapture", "Bluetooth Tools"),
+    "koala_kry": ("koala_kry", "Koala Kry", "Bluetooth Tools"),
+    "ear_tag_tx_lab": ("ear_tag_tx_lab", "KoalaByte Lab", "Bluetooth Tools"),
+}
 
 FLEXIBLE_BANTER_TRIGGERS = (
     "banter", "chat", "talk", "say something", "be cheeky", "surprise me", "what do you reckon", "give me some attitude"
@@ -137,10 +159,65 @@ def save_xp_state(state: KillerKoalaXPState, path: Path = DEFAULT_XP_PATH) -> No
     _write_json(path, asdict(state))
 
 
+def _normalize_phrase(phrase: str) -> str:
+    text = phrase.lower().replace("’", "'").replace("_", " ").replace("-", " ").replace("/", " ")
+    text = re.sub(r"[^a-z0-9:+ '\s]", " ", text)
+    return re.sub(r"\s+", " ", text.strip())
+
+
+def _menu_aliases(label: str, command: str) -> List[str]:
+    base = sorted({_normalize_phrase(label), _normalize_phrase(command), _normalize_phrase(command.replace(":", " "))})
+    aliases: list[str] = []
+    verbs = ["run", "start", "launch", "open", "select", "do", "execute", "activate"]
+    for item in base:
+        if item:
+            aliases.append(item)
+            aliases.extend([f"{verb} {item}" for verb in verbs])
+            aliases.extend([f"menu {item}", f"action {item}"])
+    return sorted(set(aliases), key=len, reverse=True)
+
+
+def voice_menu_actions() -> List[VoiceMenuAction]:
+    try:
+        from .menu_catalog import leaf_menu_entries
+    except Exception:
+        return []
+    actions: list[VoiceMenuAction] = []
+    for entry in leaf_menu_entries():
+        command = str(entry.get("command", "")).strip()
+        label = str(entry.get("label", command)).strip()
+        if not command or command == "quit":
+            continue
+        actions.append(VoiceMenuAction(command=command, label=label, group=str(entry.get("group", "")), aliases=_menu_aliases(label, command)))
+    return actions
+
+
+def _resolve_menu_action(working_phrase: str) -> Optional[VoiceMenuAction]:
+    normalized = _normalize_phrase(working_phrase)
+    best: Optional[VoiceMenuAction] = None
+    best_len = 0
+    for action in voice_menu_actions():
+        for alias in action.aliases:
+            if alias and (normalized == alias or alias in normalized):
+                if len(alias) > best_len:
+                    best = action
+                    best_len = len(alias)
+    return best
+
+
 def module_manifest() -> Dict[str, Any]:
+    menu_actions = voice_menu_actions()
     return {
         "wake_word": WAKE_WORD,
         "modules": {key: asdict(spec) for key, spec in sorted(VOICE_MODULES.items())},
+        "menu_actions": [asdict(action) for action in menu_actions],
+        "menu_action_count": len(menu_actions),
+        "voice_menu_examples": [
+            "killerkoala run Wi-Fi + BLE Survey",
+            "killerkoala select T114 Quick BLE Test Scan",
+            "killerkoala launch Eucalyptus GPS Trail",
+            "killerkoala open Koala Kan Kommander",
+        ],
         "companion": {
             "fast_default": "pi-companion/koalablue/killerkoala_vocabulary.py",
             "optional_flexible_banter": "pi-companion/koalblue/killerkoala_hybrid_companion.py",
@@ -154,12 +231,10 @@ def module_manifest() -> Dict[str, Any]:
             "xp_awarded_on_success_only": True,
             "target_specific_modules_require_owned_device_phrase": True,
             "voice_activation_can_be_tested_with_typed_phrases": True,
+            "all_enabled_menu_leaf_actions_voice_launchable": True,
+            "manual_prompt_required": False,
         },
     }
-
-
-def _normalize_phrase(phrase: str) -> str:
-    return re.sub(r"\s+", " ", phrase.strip().lower())
 
 
 def _extract_duration(phrase: str, default: int, minimum: int, maximum: int) -> int:
@@ -199,11 +274,17 @@ def parse_voice_command(phrase: str, require_wake_word: bool = True) -> ParsedVo
 
     module_key: Optional[str] = None
     for key, spec in VOICE_MODULES.items():
-        if any(alias in working for alias in spec.phrases):
+        if any(_normalize_phrase(alias) in working for alias in spec.phrases):
             module_key = key
             break
 
-    return ParsedVoiceCommand(phrase, normalized, wake_detected, module_key, _extract_target(normalized), _owned_device_ack(normalized), _raw_addresses_ack(normalized))
+    menu_action = None
+    if module_key is None:
+        menu_action = _resolve_menu_action(working)
+        if menu_action is not None:
+            module_key = f"menu:{menu_action.command}"
+
+    return ParsedVoiceCommand(phrase, normalized, wake_detected, module_key, _extract_target(normalized), _owned_device_ack(normalized), _raw_addresses_ack(normalized), menu_action=menu_action)
 
 
 def _artifacts_from_payload(payload: Any) -> Dict[str, str]:
@@ -214,7 +295,7 @@ def _artifacts_from_payload(payload: Any) -> Dict[str, str]:
         if isinstance(nested_artifacts, dict):
             for key, value in nested_artifacts.items():
                 artifacts[str(key)] = str(value)
-        for key in ("manifest_path", "jsonl_path", "csv_path", "summary_path", "plan_path", "output_jsonl_path"):
+        for key in ("artifact_path", "manifest_path", "jsonl_path", "csv_path", "summary_path", "plan_path", "output_jsonl_path", "wigle_csv_path", "geojson_path"):
             if data.get(key):
                 artifacts[key] = str(data[key])
     return artifacts
@@ -259,6 +340,31 @@ def _blocked_result(parsed: ParsedVoiceCommand, reason: str, xp: KillerKoalaXPSt
     return result
 
 
+def _spec_for_parsed(parsed: ParsedVoiceCommand) -> Optional[VoiceModuleSpec]:
+    if parsed.module_key in VOICE_MODULES:
+        return VOICE_MODULES[parsed.module_key]
+    if parsed.menu_action is not None:
+        return VoiceModuleSpec(parsed.module_key or "menu", f"Menu Action: {parsed.menu_action.label}", parsed.menu_action.aliases[:12], 3, "menu_action", "Run an enabled menu item through the same automated select path used by the UI.")
+    return None
+
+
+def _run_menu_payload(parsed: ParsedVoiceCommand) -> dict[str, Any]:
+    from .menu_action_runner import run_automated_menu_action
+
+    if parsed.menu_action is not None:
+        return run_automated_menu_action(parsed.menu_action.command, parsed.menu_action.label, parsed.menu_action.group)
+    command, label, group = BASE_MODULE_TO_MENU_COMMAND.get(parsed.module_key or "", ("", "", ""))
+    if not command:
+        raise ValueError(f"unsupported voice module: {parsed.module_key}")
+    return run_automated_menu_action(command, label, group)
+
+
+def _payload_success(payload: Any) -> bool:
+    data = _jsonable(payload)
+    status = str(data.get("status", "") if isinstance(data, dict) else "").upper()
+    return not any(token in status for token in ("ERROR", "FAILED", "SKIPPED", "BLOCKED"))
+
+
 def execute_module(parsed: ParsedVoiceCommand, output_dir: Path = DEFAULT_OUTPUT_DIR, xp_path: Path = DEFAULT_XP_PATH, force_flexible_banter: bool = False) -> VoiceExecutionResult:
     output_dir.mkdir(parents=True, exist_ok=True)
     xp_state = load_xp_state(xp_path)
@@ -268,14 +374,16 @@ def execute_module(parsed: ParsedVoiceCommand, output_dir: Path = DEFAULT_OUTPUT
 
     if not parsed.wake_word_detected:
         return _blocked_result(parsed, "wake word 'killerkoala' was not detected", xp_state, output_dir, xp_path, force_flexible_banter)
-    if parsed.module_key is None or parsed.module_key not in VOICE_MODULES:
-        return _blocked_result(parsed, "no supported module phrase was detected", xp_state, output_dir, xp_path, force_flexible_banter)
 
-    spec = VOICE_MODULES[parsed.module_key]
-    if spec.target_required and not parsed.target:
-        return _blocked_result(parsed, f"{spec.title} requires a target Bluetooth address", xp_state, output_dir, xp_path, force_flexible_banter)
-    if spec.owned_device_required and not parsed.owned_device:
-        return _blocked_result(parsed, f"{spec.title} requires the phrase 'owned device' or 'in scope'", xp_state, output_dir, xp_path, force_flexible_banter)
+    spec = _spec_for_parsed(parsed)
+    if parsed.module_key is None or spec is None:
+        return _blocked_result(parsed, "no supported module or menu action phrase was detected", xp_state, output_dir, xp_path, force_flexible_banter)
+
+    if parsed.module_key in VOICE_MODULES:
+        if spec.target_required and not parsed.target:
+            return _blocked_result(parsed, f"{spec.title} requires a target Bluetooth address", xp_state, output_dir, xp_path, force_flexible_banter)
+        if spec.owned_device_required and not parsed.owned_device:
+            return _blocked_result(parsed, f"{spec.title} requires the phrase 'owned device' or 'in scope'", xp_state, output_dir, xp_path, force_flexible_banter)
 
     details: Dict[str, Any] = {}
     artifacts: Dict[str, str] = {}
@@ -283,58 +391,14 @@ def execute_module(parsed: ParsedVoiceCommand, output_dir: Path = DEFAULT_OUTPUT
     error: Optional[str] = None
 
     try:
-        if parsed.module_key == "bluez_manifest":
-            from .bluez_tools import module_manifest as bluez_module_manifest
-            payload = bluez_module_manifest(output_dir / "bluez")
-        elif parsed.module_key == "bluez_inventory":
-            from .bluez_tools import inventory
-            payload = inventory(output_dir / "bluez")
-        elif parsed.module_key == "bluez_status":
-            from .bluez_tools import status as bluez_status
-            payload = bluez_status(output_dir / "bluez", raw_addresses=parsed.raw_addresses)
-        elif parsed.module_key == "bluez_scan":
-            from .bluez_tools import scan
-            duration = _extract_duration(parsed.normalized_phrase, 15, 3, 120)
-            parsed.duration_seconds = duration
-            payload = scan(duration, output_dir / "bluez", raw_addresses=parsed.raw_addresses)
-        elif parsed.module_key == "bluez_monitor":
-            from .bluez_tools import monitor
-            duration = _extract_duration(parsed.normalized_phrase, 20, 5, 300)
-            parsed.duration_seconds = duration
-            payload = monitor(duration, output_dir / "bluez")
-        elif parsed.module_key == "bluez_all_safe":
-            from .bluez_tools import all_safe
-            duration = _extract_duration(parsed.normalized_phrase, 15, 3, 120)
-            parsed.duration_seconds = duration
-            payload = all_safe(duration, output_dir / "bluez", raw_addresses=parsed.raw_addresses)
-        elif parsed.module_key == "bluez_info":
-            from .bluez_tools import info
-            payload = info(parsed.target or "", parsed.owned_device, output_dir / "bluez", raw_addresses=parsed.raw_addresses)
-        elif parsed.module_key == "bluez_services":
-            from .bluez_tools import services
-            payload = services(parsed.target or "", parsed.owned_device, output_dir / "bluez", raw_addresses=parsed.raw_addresses)
-        elif parsed.module_key == "gatt_readiness":
-            from .bluez_tools import gatt_readiness
-            payload = gatt_readiness(parsed.target or "", parsed.owned_device, output_dir / "bluez")
-        elif parsed.module_key == "koala_kapture":
-            from .koala_kapture import KoalaKaptureConfig, KoalaKaptureRecorder
-            duration = _extract_duration(parsed.normalized_phrase, 15, 3, 120)
-            parsed.duration_seconds = duration
-            config = KoalaKaptureConfig(output_dir=str(output_dir / "koala_kapture"), duration_seconds=float(duration), max_records=1000)
-            payload = asyncio.run(KoalaKaptureRecorder(config).record())
-        elif parsed.module_key == "koala_kry":
-            from .koala_kry import KoalaKryConfig, KoalaKryReplay
-            payload = KoalaKryReplay(KoalaKryConfig(input_dir=str(output_dir / "koala_kapture"), output_dir=str(output_dir / "koala_kry_replay"))).replay()
-        elif parsed.module_key == "ear_tag_tx_lab":
-            from .ear_tag_tx_lab import write_ear_tag_tx_lab_plan
-            plan_path = write_ear_tag_tx_lab_plan(output_dir / "koalabyte_lab")
-            payload = {"action": "KoalaByte Lab", "plan_path": str(plan_path)}
-        elif parsed.module_key == "killerkoala_help":
+        if parsed.module_key == "killerkoala_help":
             manifest_path = output_dir / "killerkoala_voice_modules.json"
             _write_json(manifest_path, module_manifest())
             payload = {"action": "killerkoala Help", "manifest_path": str(manifest_path)}
         else:
-            raise ValueError(f"unsupported module key: {parsed.module_key}")
+            payload = _run_menu_payload(parsed)
+            if not _payload_success(payload):
+                status_value = "blocked"
         details = _jsonable(payload)
         artifacts = _artifacts_from_payload(payload)
     except Exception as exc:
@@ -376,6 +440,8 @@ def execute_module(parsed: ParsedVoiceCommand, output_dir: Path = DEFAULT_OUTPUT
             "target": parsed.target,
             "restricted_placeholder_enabled": False,
             "xp_awarded_on_success_only": True,
+            "manual_prompt_required": False,
+            "voice_menu_action": parsed.menu_action is not None,
             "companion_source": companion.source,
             "llm_requested": companion.llm_requested,
             "llm_used": companion.llm_used,
@@ -416,14 +482,14 @@ def listen_once(timeout: int = 5, phrase_time_limit: int = 8) -> str:
 
 
 def run_cli() -> int:
-    parser = argparse.ArgumentParser(description="killerkoala spoken-command module executor")
-    parser.add_argument("--phrase", default=None, help="Typed spoken phrase for CI/testing, e.g. 'killerkoala run bluez inventory'")
+    parser = argparse.ArgumentParser(description="killerkoala spoken-command module and menu-action executor")
+    parser.add_argument("--phrase", default=None, help="Typed spoken phrase for CI/testing, e.g. 'killerkoala run Wi-Fi + BLE Survey'")
     parser.add_argument("--listen", action="store_true", help="Listen once from the microphone using optional SpeechRecognition/PyAudio")
     parser.add_argument("--loop", action="store_true", help="Continuously listen for commands until interrupted")
     parser.add_argument("--no-wake-required", action="store_true", help="Testing mode: do not require the killerkoala wake word")
     parser.add_argument("--flexible-banter", action="store_true", help="Allow optional tiny LLM/Ollama LoRA banter path for this response")
     parser.add_argument("--speak", action="store_true", help="Speak the response if optional pyttsx3 is installed")
-    parser.add_argument("--manifest", action="store_true", help="Write and print supported module manifest")
+    parser.add_argument("--manifest", action="store_true", help="Write and print supported module/menu-action manifest")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--xp-path", default=str(DEFAULT_XP_PATH))
     args = parser.parse_args()
@@ -434,7 +500,7 @@ def run_cli() -> int:
     if args.manifest:
         out = output_dir / "killerkoala_voice_modules.json"
         _write_json(out, module_manifest())
-        print(json.dumps({"manifest_path": str(out), "modules": sorted(VOICE_MODULES)}, indent=2, sort_keys=True))
+        print(json.dumps({"manifest_path": str(out), "modules": sorted(VOICE_MODULES), "menu_action_count": len(voice_menu_actions())}, indent=2, sort_keys=True))
         return 0
 
     def handle_phrase(phrase: str) -> VoiceExecutionResult:
