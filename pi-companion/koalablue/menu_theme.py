@@ -12,7 +12,7 @@ Color = Tuple[int, int, int]
 
 @dataclass(frozen=True)
 class JungleMenuTheme:
-    """KoalaByte Blue menu styling.
+    """KoalaByte Blue jungle/Jumanji-style menu styling.
 
     The visual target is a chunky jungle-adventure handheld firmware look:
     dark cyber-canopy background, oversized carved title text, yellow-green
@@ -23,6 +23,7 @@ class JungleMenuTheme:
     title: str = "KOALABYTE BLUE"
     font_family: str = "cooperblack,arialroundedmsbold,arialblack,dejavusanscondensed,dejavusans"
     item_font_family: str = "cooperblack,arialroundedmsbold,arialblack,dejavusanscondensed,dejavusans"
+    keyboard_input_font_family: str = "cooperblack,arialroundedmsbold,arialblack,dejavusanscondensed,dejavusans"
     border_style: str = "jungle_adventure_eucalyptus_branch_and_leaf_border"
     background: Color = (2, 9, 8)
     background_2: Color = (4, 22, 13)
@@ -44,6 +45,10 @@ class JungleMenuTheme:
     disabled_fill: Color = (113, 123, 91)
     blue_accent: Color = (62, 207, 255)
     boomerang_accent: Color = (255, 177, 60)
+    keyboard_input_fill: Color = (255, 214, 62)
+    keyboard_input_outline: Color = (35, 125, 45)
+    keyboard_input_shadow: Color = (3, 17, 7)
+    keyboard_input_box: Color = (6, 35, 18)
 
 
 DEFAULT_JUNGLE_MENU_THEME = JungleMenuTheme()
@@ -100,16 +105,12 @@ def render_terminal_jungle_menu(menu: Any, theme: JungleMenuTheme = DEFAULT_JUNG
     selected_group = getattr(menu, "selected_group", getattr(menu.selected_item, "group", "System / Companion"))
     width = 74
     top = f"{_TERMINAL_BRANCH}" + "═" * (width - 2) + f"{_TERMINAL_BRANCH}"
-    title = f"  {_terminal_fit(theme.title, width - 4)}  "
-    header = title.center(width)
-    sub = f"  {_terminal_fit(str(selected_group).upper(), 48)}  ({menu.selected_index + 1}/{total})  ".center(width)
-    lines = [top, header, sub, top]
+    lines = [top, f"  {_terminal_fit(theme.title, width - 4)}  ".center(width), f"  {_terminal_fit(str(selected_group).upper(), 48)}  ({menu.selected_index + 1}/{total})  ".center(width), top]
     previous_group: Optional[str] = None
     for absolute_index, item in visible:
         group = getattr(item, "group", "System / Companion")
         if group != previous_group:
-            group_label = f"  [{_terminal_fit(group, 58)}]  "
-            lines.append(group_label.center(width))
+            lines.append(f"  [{_terminal_fit(group, 58)}]  ".center(width))
             previous_group = group
         selected = absolute_index == menu.selected_index
         marker = "➤" if selected else " "
@@ -123,8 +124,7 @@ def render_terminal_jungle_menu(menu: Any, theme: JungleMenuTheme = DEFAULT_JUNG
             if badge:
                 lines.append(f"  {_terminal_fit('     ' + badge, 70):<70}")
             if item.description:
-                wrapped = textwrap.wrap(str(item.description), width=TERMINAL_DESCRIPTION_WIDTH)[:2]
-                for desc in wrapped:
+                for desc in textwrap.wrap(str(item.description), width=TERMINAL_DESCRIPTION_WIDTH)[:2]:
                     lines.append(f"  {_terminal_fit('     ' + desc, 70):<70}")
     lines.append(top)
     lines.append(_terminal_fit("Buttons: B1 menu | B2 prev/back | B3 select/hold shutdown | B4 next | B5 up | B6 down", width))
@@ -140,8 +140,7 @@ def render_terminal_eucalyptus_card(title: str, rows: Iterable[str], subtitle: s
     lines = [top]
     lines.append(f"  {_terminal_fit(theme.title, width - 4)}  ".center(width))
     lines.append(f"  {_terminal_fit(subtitle.upper(), width - 4)}  ".center(width))
-    style = f"style: jungle cyber menu | border: {theme.border_style}"
-    lines.append(f"  {_terminal_fit(style, width - 4)}  ".center(width))
+    lines.append(f"  {_terminal_fit('style: jungle cyber menu | border: ' + theme.border_style, width - 4)}  ".center(width))
     lines.append(top)
     lines.append(f"🌿 {_terminal_fit(title, 68):<68} 🌿")
     for row in rows:
@@ -246,6 +245,7 @@ class JungleMenuRenderer:
         self.item_font = None
         self.desc_font = None
         self.group_font = None
+        self.keyboard_input_font = None
         self.buttons = None
         self._touch_down_y: Optional[int] = None
         self._touch_down_at: Optional[float] = None
@@ -262,6 +262,7 @@ class JungleMenuRenderer:
         self.title_font = _pick_font(pygame, self.theme.font_family, max(34, min(78, int(w * 0.072))), bold=True)
         self.item_font = _pick_font(pygame, self.theme.item_font_family, max(18, min(38, int(w * 0.034))), bold=True)
         self.group_font = _pick_font(pygame, self.theme.item_font_family, max(16, min(28, int(w * 0.028))), bold=True)
+        self.keyboard_input_font = _pick_font(pygame, self.theme.keyboard_input_font_family, max(20, min(34, int(w * 0.030))), bold=True)
         self.desc_font = pygame.font.SysFont("dejavusans", max(12, min(18, int(w * 0.017))), bold=True)
         self.menu.touch_config.row_height_px = max(78, int(h * 0.145))
         self.menu.visible_rows = max(3, min(5, int((h * 0.62) / self.menu.touch_config.row_height_px)))
@@ -312,7 +313,6 @@ class JungleMenuRenderer:
         screen = self.screen
         if keyboard is None or screen is None:
             return
-        w, h = screen.get_size()
         panel = self._keyboard_panel_rect()
         top = panel.top + int(panel.height * 0.30)
         row_h = max(32, int(panel.height * 0.095))
@@ -337,13 +337,7 @@ class JungleMenuRenderer:
         if event.key in {pygame.K_BACKSPACE, pygame.K_DELETE}:
             self.menu.handle_command("backspace")
             return None
-        command = {
-            pygame.K_UP: "up",
-            pygame.K_DOWN: "down",
-            pygame.K_LEFT: "move_left",
-            pygame.K_RIGHT: "move_right",
-            pygame.K_TAB: "move_right",
-        }.get(event.key)
+        command = {pygame.K_UP: "up", pygame.K_DOWN: "down", pygame.K_LEFT: "move_left", pygame.K_RIGHT: "move_right", pygame.K_TAB: "move_right"}.get(event.key)
         if command:
             self.menu.handle_command(command)
             return None
@@ -365,20 +359,7 @@ class JungleMenuRenderer:
                     self._handle_keyboard_keydown(event)
                     continue
                 command = {
-                    pygame.K_w: "up",
-                    pygame.K_UP: "up",
-                    pygame.K_s: "down",
-                    pygame.K_DOWN: "down",
-                    pygame.K_a: "move_left",
-                    pygame.K_LEFT: "move_left",
-                    pygame.K_d: "move_right",
-                    pygame.K_RIGHT: "move_right",
-                    pygame.K_RETURN: "select",
-                    pygame.K_KP_ENTER: "select",
-                    pygame.K_SPACE: "select",
-                    pygame.K_m: "main_menu",
-                    pygame.K_ESCAPE: "quit",
-                    pygame.K_q: "quit",
+                    pygame.K_w: "up", pygame.K_UP: "up", pygame.K_s: "down", pygame.K_DOWN: "down", pygame.K_a: "move_left", pygame.K_LEFT: "move_left", pygame.K_d: "move_right", pygame.K_RIGHT: "move_right", pygame.K_RETURN: "select", pygame.K_KP_ENTER: "select", pygame.K_SPACE: "select", pygame.K_m: "main_menu", pygame.K_ESCAPE: "quit", pygame.K_q: "quit",
                 }.get(event.key)
                 if command == "quit":
                     return "quit"
@@ -473,8 +454,7 @@ class JungleMenuRenderer:
         rect.center = center
         pygame.draw.ellipse(screen, self.theme.leaf_dark, rect)
         pygame.draw.line(screen, self.theme.leaf_glow, (int(center[0] - sx), int(center[1] - sy)), (int(center[0] + sx), int(center[1] + sy)), 2)
-        inner = rect.inflate(-max(2, size // 5), -max(2, size // 5))
-        pygame.draw.ellipse(screen, self.theme.leaf, inner)
+        pygame.draw.ellipse(screen, self.theme.leaf, rect.inflate(-max(2, size // 5), -max(2, size // 5)))
 
     def _keyboard_panel_rect(self) -> Any:
         pygame = self.pygame
@@ -489,6 +469,7 @@ class JungleMenuRenderer:
         assert screen is not None
         assert self.item_font is not None
         assert self.desc_font is not None
+        assert self.keyboard_input_font is not None
         keyboard = getattr(self.menu, "keyboard", None)
         if keyboard is None:
             self._draw_ai_face()
@@ -498,12 +479,17 @@ class JungleMenuRenderer:
         pygame.draw.rect(screen, self.theme.boomerang_accent, panel, 4, border_radius=24)
         title = _fit_text_for_width(self.item_font, str(getattr(keyboard, "title", "Popup Keyboard")).upper(), panel.width - 50)
         self._chunky_text(title, panel.centerx, panel.top + 36, self.item_font, self.theme.title_fill, self.theme.item_outline, self.theme.title_shadow, outline_size=2)
+
         value = str(getattr(keyboard, "visible_text", "")) or f"[{getattr(keyboard, 'placeholder', 'text')}]"
-        value = _fit_text_for_width(self.desc_font, value, panel.width - 70)
-        value_rect = pygame.Rect(panel.left + 30, panel.top + 66, panel.width - 60, 34)
-        pygame.draw.rect(screen, (2, 18, 12), value_rect, border_radius=14)
-        pygame.draw.rect(screen, self.theme.leaf_glow, value_rect, 2, border_radius=14)
-        screen.blit(self.desc_font.render(value, True, self.theme.leaf_glow), (value_rect.left + 12, value_rect.top + 9))
+        value_rect = pygame.Rect(panel.left + 30, panel.top + 66, panel.width - 60, 42)
+        pygame.draw.rect(screen, self.theme.keyboard_input_box, value_rect, border_radius=16)
+        pygame.draw.rect(screen, self.theme.boomerang_accent, value_rect.inflate(4, 4), 2, border_radius=18)
+        pygame.draw.rect(screen, self.theme.leaf_glow, value_rect, 2, border_radius=16)
+        value = _fit_text_for_width(self.keyboard_input_font, value, value_rect.width - 24)
+        # Keyboard typed text intentionally uses the same chunky jungle/Jumanji font stack
+        # and carved yellow-green palette as the rest of the KoalaByte menu.
+        self._chunky_text(value, value_rect.centerx, value_rect.centery, self.keyboard_input_font, self.theme.keyboard_input_fill, self.theme.keyboard_input_outline, self.theme.keyboard_input_shadow, outline_size=2)
+
         row_top = panel.top + int(panel.height * 0.30)
         row_h = max(32, int(panel.height * 0.095))
         for row_index, row_text in enumerate(keyboard.rows):
@@ -514,8 +500,8 @@ class JungleMenuRenderer:
                 rect = pygame.Rect(int(panel.left + 24 + col_index * key_w), row_top + row_index * row_h, int(key_w - 4), int(row_h * 0.82))
                 pygame.draw.rect(screen, self.theme.selected_fill if selected else self.theme.item_fill, rect, border_radius=10)
                 pygame.draw.rect(screen, self.theme.selected_outline if selected else self.theme.item_outline, rect, 2, border_radius=10)
-                key_text = _fit_text_for_width(self.desc_font, char, rect.width - 8)
-                surf = self.desc_font.render(key_text, True, self.theme.item_shadow)
+                key_text = _fit_text_for_width(self.item_font, char, rect.width - 8)
+                surf = self.item_font.render(key_text, True, self.theme.item_shadow)
                 screen.blit(surf, surf.get_rect(center=rect.center))
         special = getattr(keyboard, "special_keys", None) or ["space", "back", "clear", "shift", "symbols", "voice", "save", "cancel"]
         special_y = row_top + len(keyboard.rows) * row_h
@@ -529,8 +515,7 @@ class JungleMenuRenderer:
             screen.blit(surf, surf.get_rect(center=rect.center))
         hint = "USB/Bluetooth keyboard: type | Enter save | Backspace delete | Esc cancel | Touch long-press key | Voice: keyboard text ..."
         hint = _fit_text_for_width(self.desc_font, hint, panel.width - 40)
-        surf = self.desc_font.render(hint, True, self.theme.leaf_glow)
-        screen.blit(surf, surf.get_rect(center=(panel.centerx, panel.bottom - 26)))
+        screen.blit(self.desc_font.render(hint, True, self.theme.leaf_glow), self.desc_font.render(hint, True, self.theme.leaf_glow).get_rect(center=(panel.centerx, panel.bottom - 26)))
 
     def _draw_ai_face(self) -> None:
         pygame = self.pygame
@@ -561,9 +546,9 @@ class JungleMenuRenderer:
     def _draw_title(self) -> None:
         screen = self.screen
         assert screen is not None
-        w, h = screen.get_size()
         assert self.title_font is not None
         assert self.desc_font is not None
+        w, h = screen.get_size()
         title = _fit_text_for_width(self.title_font, self.theme.title, int(w * 0.82))
         self._chunky_text(title, w // 2, int(h * 0.115), self.title_font, self.theme.title_fill, self.theme.title_outline, self.theme.title_shadow, outline_size=5)
         subtitle = _fit_text_for_width(self.desc_font, "MAIN MENU // JUNGLE CANOPY", int(w * 0.72))
@@ -633,15 +618,10 @@ class JungleMenuRenderer:
                 badge = _mode_badge(command)
                 desc = str(getattr(item, "description", "") or "")
                 detail = f"{badge} — {desc}" if badge and desc else (badge or desc)
-                max_desc_width = inner.width
-                detail_lines = _wrap_for_width(self.desc_font, detail, max_desc_width, max_lines=GRAPHICAL_DESCRIPTION_MAX_LINES)
                 first_y = inner.top + int(inner.height * 0.56)
-                line_step = self.desc_font.get_height() + 2
-                max_y = inner.bottom - self.desc_font.get_height() // 2
-                for idx, line in enumerate(detail_lines):
-                    center_y = min(first_y + idx * line_step, max_y)
-                    line = _fit_text_for_width(self.desc_font, line, max_desc_width)
-                    surf = self.desc_font.render(line, True, self.theme.item_shadow)
+                for idx, line in enumerate(_wrap_for_width(self.desc_font, detail, inner.width, max_lines=GRAPHICAL_DESCRIPTION_MAX_LINES)):
+                    center_y = min(first_y + idx * (self.desc_font.get_height() + 2), inner.bottom - self.desc_font.get_height() // 2)
+                    surf = self.desc_font.render(_fit_text_for_width(self.desc_font, line, inner.width), True, self.theme.item_shadow)
                     screen.blit(surf, surf.get_rect(center=(rect.centerx, center_y)))
 
     def _draw_footer(self) -> None:
@@ -654,8 +634,7 @@ class JungleMenuRenderer:
         rect = pygame.Rect(int(w * 0.13), int(h * 0.91), int(w * 0.74), max(30, int(h * 0.055)))
         pygame.draw.rect(screen, (7, 34, 22), rect, border_radius=rect.height // 2)
         pygame.draw.rect(screen, self.theme.leaf_glow, rect, 2, border_radius=rect.height // 2)
-        footer = _fit_text_for_width(self.desc_font, footer, rect.width - 18)
-        surf = self.desc_font.render(footer, True, self.theme.leaf_glow)
+        surf = self.desc_font.render(_fit_text_for_width(self.desc_font, footer, rect.width - 18), True, self.theme.leaf_glow)
         screen.blit(surf, surf.get_rect(center=rect.center))
 
     def _chunky_text(self, text: str, x: int, y: int, font: Any, fill: Color, outline_color: Color, shadow_color: Color, outline_size: int = 3) -> None:
