@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the KoalaByte Blue menu screen."""
+"""Run the KoalaByte Blue wrapped jungle menu interface."""
 
 from __future__ import annotations
 
@@ -112,13 +112,15 @@ def run_eucalyptus_mode_action(_item: MenuItem) -> None:
     try:
         run_graphical(fullscreen=True)
     except JungleMenuUnavailable as exc:
+        if os.environ.get("MENU_NO_TERMINAL_FALLBACK", "0") in {"1", "true", "TRUE", "yes", "YES"}:
+            raise
         print(f"Full-color Eucalyptus Mode unavailable; terminal renderer started: {exc}")
         run_terminal()
 
 
 def run_generic_action(item: MenuItem) -> None:
     result = run_automated_menu_action(item.command, item.label, item.group)
-    write_result(item, str(result.get("status", "AUTOMATED_ACTION_COMPLETE")), result, "Automated menu action selected from the menu; no command prompt required.")
+    write_result(item, str(result.get("status", "AUTOMATED_ACTION_COMPLETE")), result, "Automated menu action selected from the wrapped interface; no command prompt required.")
 
 
 def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
@@ -192,21 +194,40 @@ def run_terminal() -> int:
             buttons.close()
 
 
+def _write_graphical_failure(exc: Exception) -> Path:
+    out_dir = Path("logs/menu_actions")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / "wrapped_interface_start_failed.json"
+    path.write_text(json.dumps({"status": "WRAPPED_INTERFACE_START_FAILED", "error": str(exc), "timestamp": time.time(), "terminal_fallback": False}, indent=2, sort_keys=True), encoding="utf-8")
+    return path
+
+
+def run_wrapped_interface(*, windowed: bool, width: int, height: int, no_terminal_fallback: bool) -> int:
+    from koalablue.menu_theme import JungleMenuRenderer, JungleMenuUnavailable
+    try:
+        return JungleMenuRenderer(menu=make_menu(), fullscreen=not windowed, width=width, height=height).run()
+    except JungleMenuUnavailable as exc:
+        if no_terminal_fallback:
+            failure_path = _write_graphical_failure(exc)
+            print(f"Wrapped KoalaByte interface unavailable; refusing terminal fallback. Details: {failure_path}")
+            return 1
+        print(f"Graphical jungle menu unavailable: {exc}")
+        return run_terminal()
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the KoalaByte Blue menu screen")
-    parser.add_argument("--graphical", action="store_true", help="Run the large bubbly jungle/eucalyptus touchscreen menu")
+    parser = argparse.ArgumentParser(description="Run the KoalaByte Blue wrapped menu interface")
+    parser.add_argument("--graphical", action="store_true", help="Run the large bubbly jungle/eucalyptus touchscreen menu; this is the default")
+    parser.add_argument("--terminal", action="store_true", help="Debug only: force plain terminal mode")
+    parser.add_argument("--no-terminal-fallback", action="store_true", help="Exit instead of falling back to terminal if graphical startup fails")
     parser.add_argument("--windowed", action="store_true", help="Run graphical mode in a window instead of fullscreen")
     parser.add_argument("--width", type=int, default=800, help="Window width when --windowed is used")
     parser.add_argument("--height", type=int, default=480, help="Window height when --windowed is used")
     args = parser.parse_args()
-    if args.graphical:
-        from koalablue.menu_theme import JungleMenuRenderer, JungleMenuUnavailable
-        try:
-            return JungleMenuRenderer(menu=make_menu(), fullscreen=not args.windowed, width=args.width, height=args.height).run()
-        except JungleMenuUnavailable as exc:
-            print(f"Graphical jungle menu unavailable: {exc}")
-            return run_terminal()
-    return run_terminal()
+    env_blocks_fallback = os.environ.get("MENU_NO_TERMINAL_FALLBACK", "0") in {"1", "true", "TRUE", "yes", "YES"}
+    if args.terminal:
+        return run_terminal()
+    return run_wrapped_interface(windowed=args.windowed, width=args.width, height=args.height, no_terminal_fallback=args.no_terminal_fallback or env_blocks_fallback)
 
 
 if __name__ == "__main__":
