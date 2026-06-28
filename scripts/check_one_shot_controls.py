@@ -114,6 +114,7 @@ REQUIRED_COMMAND_HELPERS = [
 REQUIRED_PROJECT_FILES = [
     "pi-companion/koalablue/bluez_tools.py",
     "pi-companion/koalablue/bluez_protected_lab.py",
+    "pi-companion/koalablue/menu_action_runner.py",
     "docs/KOALA_BLUEZ_TOOLS_REVA16.md",
     "docs/FIELD_READINESS_UPGRADES.md",
     "version/koalabyte_protocol.json",
@@ -156,8 +157,6 @@ FORBIDDEN_PRODUCTION_FILES = [
     "production/RevA17-dongle-only/Safety_Test_Record_RevA17.csv",
 ]
 
-# Only fail on active old-BOM rows. The new USB power-pack guide intentionally
-# mentions 18650/BMS parts as removed/obsolete, so plain text mentions are OK.
 FORBIDDEN_ACTIVE_PRODUCTION_MARKERS = [
     "Nordic nRF52840 USB Dongle,1,Production-default",
     "2x18650 series holder,1",
@@ -211,25 +210,23 @@ def button_manifest() -> list[dict[str, object]]:
         pin = int(cfg["pin"])
         seen_numbers.add(number)
         seen_pins.add(pin)
-        rows.append(
-            {
-                "id": key,
-                "number": number,
-                "label": cfg.get("label"),
-                "pin_bcm": pin,
-                "physical_pin": cfg.get("physical_pin"),
-                "press_command": cfg.get("press_command"),
-                "alias_command": cfg.get("alias_command", ""),
-                "hold_command": cfg.get("hold_command", ""),
-                "hold_seconds": cfg.get("hold_seconds", ""),
-                "electrical_mode": {
-                    "internal_pull_up_enabled": DEFAULT_ELECTRICAL_MODE.pull_up,
-                    "not_pressed_raw_level": DEFAULT_ELECTRICAL_MODE.idle_state,
-                    "pressed_raw_level": DEFAULT_ELECTRICAL_MODE.pressed_state,
-                    "wiring": DEFAULT_ELECTRICAL_MODE.wiring,
-                },
-            }
-        )
+        rows.append({
+            "id": key,
+            "number": number,
+            "label": cfg.get("label"),
+            "pin_bcm": pin,
+            "physical_pin": cfg.get("physical_pin"),
+            "press_command": cfg.get("press_command"),
+            "alias_command": cfg.get("alias_command", ""),
+            "hold_command": cfg.get("hold_command", ""),
+            "hold_seconds": cfg.get("hold_seconds", ""),
+            "electrical_mode": {
+                "internal_pull_up_enabled": DEFAULT_ELECTRICAL_MODE.pull_up,
+                "not_pressed_raw_level": DEFAULT_ELECTRICAL_MODE.idle_state,
+                "pressed_raw_level": DEFAULT_ELECTRICAL_MODE.pressed_state,
+                "wiring": DEFAULT_ELECTRICAL_MODE.wiring,
+            },
+        })
     if seen_numbers != {1, 2, 3, 4, 5, 6}:
         raise ValueError(f"front-panel button numbers must be 1..6, got {sorted(seen_numbers)}")
     if len(seen_pins) != 6:
@@ -324,7 +321,6 @@ def validate_protected_bluez_menu() -> list[str]:
 def validate_protected_bluez_code() -> list[str]:
     failures: list[str] = []
     required_needles = {
-        ROOT / "pi-companion" / "koalblue" / "bluez_protected_lab.py": [],
         ROOT / "pi-companion" / "koalablue" / "bluez_protected_lab.py": [
             "ensure_unlocked",
             "KOALABYTE_BLUEZ_LAB_TARGET",
@@ -335,10 +331,11 @@ def validate_protected_bluez_code() -> list[str]:
             "Pouch Link Echo",
             "Gumnut GATT Ghostmap",
         ],
-        ROOT / "scripts" / "run_menu_screen.py": [
-            "run_koala_bluez_manifest",
-            "run_protected_bluez_menu_action",
+        ROOT / "pi-companion" / "koalablue" / "menu_action_runner.py": [
+            "koala_bluez_manifest",
             "bluez_gumnut_gatt_ghostmap",
+            "bluez_platypus_bt_proxy",
+            "_protected_bluez",
         ],
         ROOT / "docs" / "KOALA_BLUEZ_TOOLS_REVA16.md": [
             "Outback Module Deck",
@@ -354,8 +351,6 @@ def validate_protected_bluez_code() -> list[str]:
         ],
     }
     for path, needles in required_needles.items():
-        if not needles:
-            continue
         if not path.exists():
             failures.append(f"missing protected BlueZ file: {path.relative_to(ROOT)}")
             continue
