@@ -6,6 +6,7 @@
 #include <math.h>
 #include "boot_animation.h"
 #include "config.h"
+#include "esp32_touch_menu.h"
 #include "koalagotchi_mode_screens.h"
 
 struct ButtonDef {
@@ -131,7 +132,7 @@ void emitKoalaKombatStatus() {
 }
 
 void emitBoot() {
-  StaticJsonDocument<1152> doc;
+  StaticJsonDocument<1280> doc;
   doc["type"] = "boot";
   doc["device"] = "esp32-dualeye";
   doc["fw"] = KOALABLUE_FW_VERSION;
@@ -146,6 +147,8 @@ void emitBoot() {
   doc["display_stub"] = ENABLE_DISPLAY_STUB;
   doc["boot_animation"] = ENABLE_DISPLAY_BOOT_ANIMATION;
   doc["custom_animated_eyes"] = 1;
+  doc["touch_menu"] = ENABLE_TOUCH_MENU;
+  doc["touch_backend"] = TOUCH_MENU_BACKEND;
   doc["voice_front_end"] = ESP32S3_VOICE_FRONTEND_STACK;
   doc["command_model"] = ESP32S3_COMMAND_MODEL;
   doc["companion_brain"] = KILLERKOALA_COMPANION_BRAIN;
@@ -157,6 +160,7 @@ void emitBoot() {
   emitMicStatus();
   emitEyeStyleStatus();
   emitKoalaKombatStatus();
+  emitTouchMenuStatus(sendJson);
 }
 
 void setupButtons() {
@@ -477,6 +481,7 @@ void handlePiCommand(const String &line) {
   StaticJsonDocument<1536> doc;
   DeserializationError err = deserializeJson(doc, line);
   if (err) return;
+  if (handleTouchMenuCommand(doc, sendJson)) return;
 
   const char *type = doc["type"] | "";
   if (!strcmp(type, "killerkoala_face") || !strcmp(type, "ai_face")) handleKillerKoalaFace(doc);
@@ -540,7 +545,7 @@ void pollSerial() {
 void heartbeat() {
   if (millis() - lastHeartbeat < 5000) return;
   lastHeartbeat = millis();
-  StaticJsonDocument<320> doc;
+  StaticJsonDocument<384> doc;
   doc["type"] = "heartbeat";
   doc["uptime_ms"] = millis();
   doc["free_heap"] = ESP.getFreeHeap();
@@ -548,6 +553,8 @@ void heartbeat() {
   doc["eye_animation"] = getKoalagotchiEyeAnimation();
   doc["mic_ready"] = micBackendReady;
   doc["mic_status"] = micBackendStatus;
+  doc["touch_menu"] = ENABLE_TOUCH_MENU;
+  doc["touch_backend"] = TOUCH_MENU_BACKEND;
   doc["koala_kombat_wifi_node"] = ENABLE_KOALA_KOMBAT_WIFI_NODE;
   sendJson(doc);
 }
@@ -558,6 +565,7 @@ void setup() {
   setupDisplay();
   runBootAnimation();
   setupButtons();
+  setupTouchMenu();
   setupMic();
 #if ENABLE_LOCAL_BLE_SCAN
   setupBle();
@@ -572,6 +580,7 @@ void setup() {
 void loop() {
   pollSerial();
   pollButtons();
+  pollTouchMenu(sendJson);
   pollVoiceWake();
   tickKoalagotchiEyes();
 #if ENABLE_LOCAL_BLE_SCAN
