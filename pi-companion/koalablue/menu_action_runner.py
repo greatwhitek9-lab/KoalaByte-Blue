@@ -7,7 +7,7 @@ import subprocess
 import time
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 OUTPUT_DIR = Path("logs/menu_actions")
 STATUS_PATH = OUTPUT_DIR / "automated_menu_action_status.json"
@@ -19,6 +19,8 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, Path):
         return str(value)
     if isinstance(value, list):
+        return [_jsonable(item) for item in value]
+    if isinstance(value, tuple):
         return [_jsonable(item) for item in value]
     if isinstance(value, dict):
         return {str(key): _jsonable(item) for key, item in value.items()}
@@ -41,6 +43,7 @@ def _ok(command: str, label: str, result: Any, status: str = "AUTOMATED_ACTION_C
         "label": label,
         "manual_prompt_required": False,
         "selected_from_menu": True,
+        "voice_command_compatible": True,
         "result": _jsonable(result),
         "timestamp": time.time(),
     }
@@ -49,7 +52,7 @@ def _ok(command: str, label: str, result: Any, status: str = "AUTOMATED_ACTION_C
 
 
 def _error(command: str, label: str, exc: Exception) -> dict[str, Any]:
-    payload = {"status": "AUTOMATED_ACTION_SKIPPED", "command": command, "label": label, "manual_prompt_required": False, "error": str(exc), "timestamp": time.time()}
+    payload = {"status": "AUTOMATED_ACTION_SKIPPED", "command": command, "label": label, "manual_prompt_required": False, "voice_command_compatible": True, "error": str(exc), "timestamp": time.time()}
     payload["artifact_path"] = _write_json(command, payload)
     return payload
 
@@ -57,7 +60,7 @@ def _error(command: str, label: str, exc: Exception) -> dict[str, Any]:
 def _lab_action(command: str) -> dict[str, Any]:
     from .authorized_lab_actions import AuthorizedLabActions
 
-    result = AuthorizedLabActions().run(command, authorized=True, context={"source": "menu_select", "manual_prompt_required": False})
+    result = AuthorizedLabActions().run(command, authorized=True, context={"source": "menu_or_voice_select", "manual_prompt_required": False})
     return asdict(result)
 
 
@@ -131,6 +134,103 @@ def _boomerang_export() -> dict[str, Any]:
     return {"status": "BOOMERANG_EXPORT_READY", "records": len(observations), "summary": build_summary(observations), "json_path": str(export_json(observations, root)), "csv_path": str(export_csv(observations, root))}
 
 
+def _eucalyptus(command: str) -> dict[str, Any]:
+    from .eucalyptus_wigle import control_status
+
+    action = command.split(" ", 1)[1] if " " in command else "status"
+    return control_status(action)
+
+
+def _kruisin(command: str) -> dict[str, Any]:
+    from .koala_kombat_kruisin import control
+
+    os.environ.setdefault("KOALA_KOMBAT_NODE_MESH", "1")
+    os.environ.setdefault("KOALA_KOMBAT_ESP32_PORT", "/dev/ttyACM1")
+    os.environ.setdefault("KOALA_KOMBAT_HELTEC_PORT", "/dev/ttyACM0")
+    os.environ.setdefault("KOALA_KOMBAT_GPS_LOGGING", "1")
+    action = command.split(" ", 1)[1] if " " in command else "status"
+    return control(action)
+
+
+def _t114_action(command: str) -> dict[str, Any]:
+    if command in {"t114_primary_ble_scan", "t114_bluez_status", "t114_primary_status"}:
+        from .t114_bluez import run_wrapped_bluez
+        action = "scan" if command == "t114_primary_ble_scan" else "status"
+        seconds = 30 if action == "scan" else 10
+        return asdict(run_wrapped_bluez(action, duration_seconds=seconds))
+    if command == "t114_ble_tx_status":
+        from .t114_bluez import run_wrapped_bluez
+        return asdict(run_wrapped_bluez("tx-status", duration_seconds=5))
+    if command in {"t114_primary_controller_check", "t114_bluez_controller_check"}:
+        from .t114_bluez import check_controller
+        return asdict(check_controller())
+    if command in {"t114_primary_gnss_fix", "gnss_current_fix"}:
+        from .gnss_location import current_fix, fix_to_dict
+        return {"status": "GNSS_FIX_READ", "fix": fix_to_dict(current_fix(authorized=None, prompt=False)), "source_priority": "heltec-t114-gnss"}
+    return {"status": "T114_ACTION_RECORDED", "command": command}
+
+
+def _meshtastic(command: str) -> dict[str, Any]:
+    from . import meshtastic_app
+
+    if command == "meshtastic_status":
+        return meshtastic_app.status()
+    if command == "meshtastic_nodes":
+        return meshtastic_app.nodes()
+    if command == "meshtastic_gps":
+        return meshtastic_app.gps_info()
+    return {"status": "MESHTASTIC_ACTION_RECORDED", "command": command}
+
+
+def _location_gate() -> dict[str, Any]:
+    from .location_password_gate import PASSWORD_FILE, UNLOCK_ENV, password_exists
+
+    return {
+        "status": "LOCATION_GATE_STATUS_READY",
+        "configured": password_exists(),
+        "unlocked": os.environ.get(UNLOCK_ENV) in {"1", "true", "TRUE", "yes", "YES"},
+        "path": str(PASSWORD_FILE),
+    }
+
+
+def _protected_bluez(command: str) -> dict[str, Any]:
+    from . import bluez_protected_lab
+
+    handlers: dict[str, Callable[[], Any]] = {
+        "koala_bluez_info": bluez_protected_lab.protected_target_info,
+        "koala_bluez_services": bluez_protected_lab.protected_target_services,
+        "koala_bluez_gatt_readiness": bluez_protected_lab.protected_gatt_readiness,
+        "bluez_outback_radio_ledger": bluez_protected_lab.outback_radio_ledger,
+        "bluez_classic_track_finder": bluez_protected_lab.classic_track_finder,
+        "bluez_treehouse_rfcomm_wiremap": bluez_protected_lab.treehouse_rfcomm_wiremap,
+        "bluez_pouch_link_echo": bluez_protected_lab.pouch_link_echo,
+        "bluez_gumnut_gatt_ghostmap": bluez_protected_lab.gumnut_gatt_ghostmap,
+        "bluez_platypus_bt_proxy": bluez_protected_lab.platypus_bt_proxy,
+    }
+    handler = handlers.get(command)
+    if handler is None:
+        return {"status": "PROTECTED_BLUEZ_ACTION_RECORDED", "command": command}
+    return asdict(handler())
+
+
+def _bluez_wrapper(command: str) -> dict[str, Any]:
+    from .bluez_tools import all_safe, inventory, module_manifest, monitor, scan, status
+
+    if command == "koala_bluez_manifest":
+        return asdict(module_manifest())
+    if command == "koala_bluez_inventory":
+        return asdict(inventory())
+    if command == "koala_bluez_status":
+        return asdict(status())
+    if command == "koala_bluez_scan":
+        return asdict(scan(duration_seconds=15))
+    if command == "koala_bluez_monitor":
+        return asdict(monitor(duration_seconds=20))
+    if command == "koala_bluez_all_safe":
+        return {"runs": [_jsonable(item) for item in all_safe(duration_seconds=15)]}
+    return {"status": "BLUEZ_WRAPPER_ACTION_RECORDED", "command": command}
+
+
 def _system_status(command: str) -> dict[str, Any]:
     if command == "buttons":
         return {"status": "BUTTON_CHECK_READY", "note": "GPIO button manager is loaded by the menu runner when available."}
@@ -164,10 +264,26 @@ def _system_status(command: str) -> dict[str, Any]:
 
 def run_automated_menu_action(command: str, label: str = "", group: str = "") -> dict[str, Any]:
     try:
+        if command.startswith("submenu:"):
+            return _ok(command, label, {"status": "SUBMENU_NAVIGATION_ONLY", "target": command.split(":", 1)[1]})
         if command.startswith("status:"):
             return _ok(command, label, _status_row(command), "AUTOMATED_STATUS_COMPLETE")
+        if command.startswith("eucalyptus ") or command == "eucalyptus_mode":
+            return _ok(command, label, _eucalyptus("eucalyptus status" if command == "eucalyptus_mode" else command))
+        if command.startswith("kruisin "):
+            return _ok(command, label, _kruisin(command))
         if command in {"scan", "summary", "show"}:
             return _ok(command, label, _ble_scan_summary(command))
+        if command.startswith("koala_bluez_") or command in {"bluez_outback_radio_ledger", "bluez_classic_track_finder", "bluez_treehouse_rfcomm_wiremap", "bluez_pouch_link_echo", "bluez_gumnut_gatt_ghostmap", "bluez_platypus_bt_proxy"}:
+            if command in {"koala_bluez_manifest", "koala_bluez_inventory", "koala_bluez_status", "koala_bluez_scan", "koala_bluez_monitor", "koala_bluez_all_safe"}:
+                return _ok(command, label, _bluez_wrapper(command))
+            return _ok(command, label, _protected_bluez(command))
+        if command.startswith("t114_") or command == "gnss_current_fix":
+            return _ok(command, label, _t114_action(command))
+        if command.startswith("meshtastic_"):
+            return _ok(command, label, _meshtastic(command))
+        if command == "location_gate_status":
+            return _ok(command, label, _location_gate())
         if command == "koala_kapture":
             return _ok(command, label, _koala_kapture())
         if command == "koala_kry":
@@ -176,7 +292,7 @@ def run_automated_menu_action(command: str, label: str = "", group: str = "") ->
             return _ok(command, label, _koala_kry(True))
         if command == "boomerang":
             return _ok(command, label, _boomerang_export())
-        if command in {"authorized_ble_inventory", "gatt_readiness_checklist", "pairing_security_review", "lab_beacon_plan", "packet_capture_notes", "defensive_report", "report"}:
+        if command in {"authorized_ble_inventory", "gatt_readiness_checklist", "pairing_security_review", "lab_beacon_plan", "packet_capture_notes", "defensive_report", "report", "restricted_placeholder"}:
             return _ok(command, label, _lab_action("defensive_report" if command == "report" else command))
         if command == "koala_kan_kommander":
             return _ok(command, label, _koala_kan())
@@ -184,10 +300,15 @@ def run_automated_menu_action(command: str, label: str = "", group: str = "") ->
             return _ok(command, label, _urban_poaching())
         if command == "thats_not_a_knife":
             return _ok(command, label, _defense_guard())
+        if command == "anteater":
+            from .anteater import run_once
+            return _ok(command, label, asdict(run_once(scan_seconds=12.0)))
         if command in {"ear_tag", "ear_tag_tx_lab"}:
             return _ok(command, label, _ear_tag_plan())
         if command in {"killerkoala_voice", "buttons", "level/status", "wake killerkoala", "settings", "koala_mode_switcher", "shutdown_confirm"}:
             return _ok(command, label, _system_status(command))
+        if command == "quit":
+            return _ok(command, label, {"status": "QUIT_REQUEST_RECORDED"})
         return _ok(command, label, {"status": "AUTOMATED_PLACEHOLDER_COMPLETE", "command": command, "group": group})
     except Exception as exc:
         return _error(command, label, exc)
