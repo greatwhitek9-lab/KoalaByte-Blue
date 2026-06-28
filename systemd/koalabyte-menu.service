@@ -1,5 +1,5 @@
 [Unit]
-Description=KoalaByte Blue Boot Launcher and Jungle Menu
+Description=KoalaByte Blue Wrapped Jungle Interface
 After=network-online.target bluetooth.service systemd-user-sessions.service
 Wants=network-online.target bluetooth.service
 StartLimitIntervalSec=60
@@ -13,7 +13,10 @@ Environment=PYTHON_BIN=/opt/KoalaByte-Blue/pi-companion/.venv/bin/python
 Environment=KOALABYTE_MENU_SYNC=auto
 Environment=KOALABYTE_TTS=1
 Environment=MENU_GRAPHICAL=1
+Environment=MENU_NO_TERMINAL_FALLBACK=1
 Environment=PYTHONUNBUFFERED=1
+Environment=SDL_VIDEODRIVER=kmsdrm
+Environment=XDG_RUNTIME_DIR=/tmp/koalabyte-runtime
 ExecStartPre=/usr/bin/test -f /opt/KoalaByte-Blue/scripts/koalabyte_blue_boot.sh
 ExecStart=/usr/bin/bash /opt/KoalaByte-Blue/scripts/koalabyte_blue_boot.sh
 Restart=always
