@@ -43,6 +43,7 @@ BOARD_COMMANDS = {
 REQUIRED_PROJECT_MODULES = [
     "koalablue.menu_catalog",
     "koalablue.menu_ui",
+    "koalablue.menu_action_runner",
     "koalablue.bluez_tools",
     "koalablue.bluez_protected_lab",
     "koalablue.eucalyptus_wigle",
