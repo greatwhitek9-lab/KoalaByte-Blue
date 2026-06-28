@@ -22,7 +22,7 @@ Usage:
   bash scripts/install_koalabyte_boot_services.sh --check-only
 
 Services:
-  koalabyte-menu.service      Starts scripts/koalabyte_blue_boot.sh automatically on boot.
+  koalabyte-menu.service      Starts scripts/koalabyte_blue_boot.sh automatically in the wrapped graphical interface.
   koalabyte-menu-sync.service Keeps menu/display state synced.
   koalabyte-doctor.service    Runs field diagnostics.
 EOF
@@ -56,15 +56,17 @@ for marker in \
   "ExecStart=/usr/bin/bash /opt/KoalaByte-Blue/scripts/koalabyte_blue_boot.sh" \
   "WantedBy=multi-user.target" \
   "Restart=always" \
-  "Environment=PYTHON_BIN=/opt/KoalaByte-Blue/pi-companion/.venv/bin/python"; do
+  "Environment=PYTHON_BIN=/opt/KoalaByte-Blue/pi-companion/.venv/bin/python" \
+  "Environment=MENU_GRAPHICAL=1" \
+  "Environment=MENU_NO_TERMINAL_FALLBACK=1"; do
   if [[ "${menu_service_text}" != *"${marker}"* ]]; then
-    echo "koalabyte-menu.service missing boot autostart marker: ${marker}" >&2
+    echo "koalabyte-menu.service missing wrapped boot marker: ${marker}" >&2
     exit 1
   fi
 done
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
-  echo "KoalaByte boot service templates are present and koalabyte_blue_boot.sh is configured for autostart."
+  echo "KoalaByte boot service templates are present; koalabyte_blue_boot.sh is configured for wrapped UI autostart."
   exit 0
 fi
 
@@ -105,10 +107,10 @@ done
 "${sudo_cmd[@]}" systemctl enable koalabyte-menu.service koalabyte-menu-sync.service koalabyte-doctor.service
 
 if "${sudo_cmd[@]}" systemctl is-enabled --quiet koalabyte-menu.service; then
-  echo "KoalaByte boot launcher enabled: scripts/koalabyte_blue_boot.sh will run automatically on the next boot."
+  echo "KoalaByte wrapped interface enabled: scripts/koalabyte_blue_boot.sh will run automatically on the next boot."
 else
   echo "koalabyte-menu.service was installed but is not enabled." >&2
   [[ "${STRICT_BOOT_SERVICES}" == "1" ]] && exit 1
 fi
 
-echo "Installed KoalaByte boot services. Reboot to auto-start the KoalaByte Blue menu, or start now with: sudo systemctl start koalabyte-menu.service"
+echo "Installed KoalaByte boot services. Reboot to auto-start the wrapped KoalaByte Blue interface, or start now with: sudo systemctl start koalabyte-menu.service"
