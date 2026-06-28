@@ -1,6 +1,6 @@
 # KoalaByte Blue V2 Heltec Edition
 
-**KoalaByte Blue is a pocket-sized koala cyberdeck with attitude.** It uses a Raspberry Pi 3B+ as the main Linux brain, an ESP32-S3 DualEye for animated eyes/face feedback and voice-front-end work, a Heltec Mesh Node T114 with onboard nRF52840 for primary BLE/GNSS/LoRa duties, six front buttons, a shared jungle/eucalyptus menu UI, KillerKoala voice responses, Meshtastic App helpers, defensive Bluetooth visibility, Wi-Fi/BLE survey mapping, local reports, and optional InnoMaker CAN bench support.
+**KoalaByte Blue is a pocket-sized koala cyberdeck with attitude.** It uses a Raspberry Pi 3B+ as the main Linux brain, an ESP32-S3 DualEye for animated eyes/face feedback and voice-front-end work, a Heltec Mesh Node T114 with onboard nRF52840 for primary BLE/GNSS/LoRa duties, six front buttons, a shared jungle/eucalyptus menu UI, KillerKoala voice responses, Meshtastic App helpers, defensive Bluetooth visibility, Wi-Fi/BLE survey mapping, GreatWhite Reef packet-analysis review, local reports, and optional InnoMaker CAN bench support.
 
 KoalaByte Blue is for lawful owned-device labs, defensive review, education, and your own hardware. Do not use it on systems, vehicles, radios, networks, or devices you do not own or do not have permission to test.
 
@@ -10,7 +10,7 @@ KoalaByte Blue is for lawful owned-device labs, defensive review, education, and
 
 | Part | Role |
 |---|---|
-| Raspberry Pi 3B+ | Main Linux brain, installer, menus, logs, reports, local services, voice routing, main Wi-Fi controller, and readiness checks. |
+| Raspberry Pi 3B+ | Main Linux brain, installer, menus, logs, reports, local services, voice routing, main Wi-Fi controller, GreatWhite Reef PCAP review, and readiness checks. |
 | ESP32-S3 DualEye | Animated eyes and mouth/face feedback, mic/voice bridge path, secondary Wi-Fi survey node, BLE support node, and visual personality. |
 | Heltec Mesh Node T114 / nRF52840 | Primary BLE node plus GNSS and LoRa/Meshtastic path. It is not a Wi-Fi node. |
 | Six 4-pin buttons | Front-panel controls for menu navigation and select. |
@@ -25,7 +25,7 @@ No custom PCB is required for this profile.
 
 ```text
 Heltec T114 / nRF52840 -> primary BLE node, GNSS node, and LoRa/Meshtastic node; no Wi-Fi
-Raspberry Pi 3B+       -> main Wi-Fi controller and BLE support/fallback node
+Raspberry Pi 3B+       -> main Wi-Fi controller, BLE support/fallback node, and PCAP review host
 ESP32-S3 DualEye       -> secondary Wi-Fi survey node and BLE support node
 ```
 
@@ -45,7 +45,9 @@ Koala Kombat Kruisin uses the Pi as the main Wi-Fi controller, the ESP32-S3 Dual
 | Boot services | Provides systemd templates for the menu, menu sync, and doctor check. |
 | Version handshake | Checks Pi/ESP32/Heltec protocol readiness. |
 | Local status dashboard | Emits local JSON/HTML status for field checks. |
-| Cleaned jungle menu | Removes redundant front-end rows while keeping branded tools and wrapped BlueZ tools. |
+| Cleaned jungle menu | Removes redundant front-end rows while keeping branded tools, wrapped BlueZ tools, and GreatWhite Reef. |
+| GreatWhite Reef | Adds a full wrapped submenu for TigerShark (`tshark`) and Great Wire Shark (`wireshark`) PCAP/PCAPNG review. |
+| GreatWhite selectable PCAPs | Syncs `.pcap`/`.pcapng` files into `logs/greatwhite_reef/pcaps/`, then exposes selectable `PCAP N: filename` menu rows. |
 | Menu theme fit checks | Validates jungle/eucalyptus menu identity and keeps terminal menu text inside its border frame with `check_menu_theme_fit.py`. |
 | Menu prompt UI checks | Validates menu-managed prompt controls and pop-up text input with `scripts/check_menu_prompt_ui.py`. |
 | Pop-up text input | Opens only from actual text-input rows for WiGLE name/key, protected local lock/unlock, and Meshtastic message/destination text. |
@@ -93,6 +95,13 @@ External case-mounted antenna pigtails
 Small fan for the Raspberry Pi case
 Powered USB hub if USB devices disconnect or the Pi shows undervoltage
 USB or Bluetooth keyboard for faster text entry
+```
+
+### Software tools installed by the Pi helper
+
+```text
+TigerShark -> tshark
+Great Wire Shark -> wireshark
 ```
 
 Power rule: use a regulated USB power bank or USB supply. Do not feed raw battery voltage into the Pi, ESP32-S3, Heltec T114, button wiring, CAN wiring, or antenna hardware.
@@ -230,6 +239,9 @@ STRICT_T114_PLUG_FLASH=0 bash scripts/install_koalabyte_one_shot.sh
 # Make system command dependency checks strict on a real Pi image
 STRICT_FULL_RUNTIME_DEPENDENCIES=1 bash scripts/install_koalabyte_one_shot.sh
 
+# Extra folders to sync into GreatWhite Reef PCAP review
+KOALABYTE_REEF_PCAP_IMPORT_DIRS="/home/pi/captures:/mnt/usb/pcaps" bash scripts/install_koalabyte_one_shot.sh --check-only
+
 # Stable serial aliases: auto/default, force, or skip
 INSTALL_UDEV_RULES=auto bash scripts/install_koalabyte_one_shot.sh
 INSTALL_UDEV_RULES=1 bash scripts/install_koalabyte_one_shot.sh
@@ -250,7 +262,7 @@ STRICT_INNOMAKER_CAN=1 bash scripts/install_koalabyte_one_shot.sh
 
 ## What the one-shot installer does
 
-The normal one-shot path prepares the Pi companion, checks the repo, handles udev names, flashes the ESP32-S3 DualEye firmware, prepares/flashes the Heltec T114 combined-safe profile, validates KillerKoala AI/voice readiness, checks eyes and mouth sync, checks menu display sync, checks jungle/eucalyptus theme fit, validates menu-managed prompt UI controls, runs field readiness, checks version handshake, checks the local dashboard JSON, validates release/log helpers, runs KoalaByte Doctor, installs boot services, checks antenna readiness, prepares AntEater passive readiness, and records optional CAN status.
+The normal one-shot path prepares the Pi companion, checks the repo, handles udev names, flashes the ESP32-S3 DualEye firmware, prepares/flashes the Heltec T114 combined-safe profile, validates KillerKoala AI/voice readiness, checks eyes and mouth sync, checks menu display sync, checks jungle/eucalyptus theme fit, validates menu-managed prompt UI controls, validates GreatWhite Reef module/docs/runtime dependencies, runs field readiness, checks version handshake, checks the local dashboard JSON, validates release/log helpers, runs KoalaByte Doctor, installs boot services, checks antenna readiness, prepares AntEater passive readiness, and records optional CAN status.
 
 The dry run does the readiness checks without flashing firmware or installing services:
 
@@ -267,6 +279,8 @@ logs/one_shot/full_runtime_dependencies.json
 logs/one_shot/menu_prompt_ui_readiness.json
 logs/one_shot/koala_kry_menu_readiness.json
 logs/one_shot/field_readiness_status.json
+logs/greatwhite_reef/greatwhite_reef_status.json
+logs/greatwhite_reef/pcaps/
 logs/menu_actions/menu_action_manifest.json
 logs/menu_actions/menu_theme_fit_status.json
 logs/menu_sync/current_menu_state.json
@@ -313,6 +327,10 @@ Common voice patterns:
 killerkoala open Eucalyptus
 killerkoala open Koala Kombat Kruisin
 killerkoala open Meshtastic App
+killerkoala open GreatWhite Reef
+killerkoala run PCAP 1
+killerkoala run PCAP 2
+killerkoala run TigerShark Read Latest PCAP
 killerkoala run Wi-Fi + BLE Survey
 killerkoala run T114 BLE Check
 killerkoala open Koala Kan Kommander
@@ -351,6 +369,7 @@ The visible UI uses one shared jungle-adventure/eucalyptus theme for terminal an
 | Bluetooth Tools | Custom BLE tools plus wrapped BlueZ tools with custom KoalaByte names. |
 | Didgeridoo | Heltec T114/nRF52840 BLE, GNSS, LoRa/Meshtastic, Meshtastic App, protected lock input, and location helpers. |
 | CAN Bench Tools | Optional InnoMaker USB-to-CAN bench workflow. |
+| GreatWhite Reef | TigerShark and Great Wire Shark PCAP/PCAPNG review, selectable PCAP rows, and packet-analysis reporting. |
 | Reports & Reviews | Documentation, review, inventory, and lab report builders. |
 | System / Companion | KillerKoala voice, XP/status, buttons, settings, and helper controls. |
 | Lab | Protected lab-focused BlueZ shortcuts and location gate status. |
@@ -469,6 +488,38 @@ Koala Kan Kommander
 
 The duplicate `CAN Bench Safety Check` row was removed because it pointed to the same backend command.
 
+### GreatWhite Reef
+
+GreatWhite Reef is the wrapped packet-analysis submenu. It uses these KoalaByte names:
+
+```text
+TigerShark -> tshark
+Great Wire Shark -> wireshark
+```
+
+GreatWhite Reef keeps PCAPs in:
+
+```text
+logs/greatwhite_reef/pcaps/
+```
+
+It automatically syncs `.pcap` and `.pcapng` files found under `logs/` into that folder. Extra folders can be added with `KOALABYTE_REEF_PCAP_IMPORT_DIRS`.
+
+```text
+Reef Status
+TigerShark Install Check
+TigerShark Interfaces
+TigerShark PCAP Folder
+TigerShark Read Latest PCAP
+PCAP 1: <newest synced file>
+PCAP 2: <next synced file>
+Great Wire Shark Launch Notes
+Great Wire Shark Folder Notes
+GreatWhite Reef Report
+```
+
+The `PCAP N: filename` rows are dynamic. Highlight a PCAP with the front buttons, touchscreen, keyboard, or voice command. Selecting it runs that exact file through TigerShark Read and writes JSON output to `logs/greatwhite_reef/`.
+
 ### Reports & Reviews
 
 ```text
@@ -559,9 +610,11 @@ bash scripts/install_koalabyte_boot_services.sh
 PYTHONPATH=pi-companion python3 scripts/check_koalabyte_version_handshake.py
 PYTHONPATH=pi-companion python3 scripts/run_koalabyte_status_server.py --json
 
-# Menu action, theme, prompt UI, and Koala Kry readiness
+# Menu action, theme, prompt UI, Koala Kry, and GreatWhite Reef readiness
 PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
 PYTHONPATH=pi-companion python3 scripts/check_menu_theme_fit.py
 PYTHONPATH=pi-companion python3 scripts/check_menu_prompt_ui.py
 PYTHONPATH=pi-companion python3 scripts/check_koala_kry_menu.py
+PYTHONPATH=pi-companion python3 scripts/check_full_runtime_dependencies.py
+STRICT_FULL_RUNTIME_DEPENDENCIES=1 PYTHONPATH=pi-companion python3 scripts/check_full_runtime_dependencies.py
 ```
