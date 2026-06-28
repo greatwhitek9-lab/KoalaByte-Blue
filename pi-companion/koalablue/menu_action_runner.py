@@ -77,7 +77,6 @@ def _koala_kapture() -> dict[str, Any]:
 
 def _koala_kry(command: str = "koala_kry") -> dict[str, Any]:
     from . import koala_kry
-
     handlers: dict[str, Callable[[], Any]] = {
         "koala_kry": lambda: koala_kry.run_from_prompt(review_only=False),
         "koala_kry_run_replay": lambda: koala_kry.run_from_prompt(review_only=False),
@@ -139,20 +138,59 @@ def _boomerang_export() -> dict[str, Any]:
     return {"status": "BOOMERANG_EXPORT_READY", "records": len(observations), "summary": build_summary(observations), "json_path": str(export_json(observations, root)), "csv_path": str(export_csv(observations, root))}
 
 
+def _prompt(command: str) -> dict[str, Any]:
+    from . import menu_prompt_state
+    handlers: dict[str, Callable[[], Any]] = {
+        "prompt_state_status": menu_prompt_state.prompt_status,
+        "eucalyptus_prompt_status": menu_prompt_state.prompt_status,
+        "eucalyptus_gps_on": lambda: menu_prompt_state.set_bool("eucalyptus", "gps_logging", True),
+        "eucalyptus_gps_off": lambda: menu_prompt_state.set_bool("eucalyptus", "gps_logging", False),
+        "eucalyptus_wigle_dry_run_on": lambda: menu_prompt_state.set_bool("eucalyptus", "wigle_dry_run", True),
+        "eucalyptus_wigle_dry_run_off": lambda: menu_prompt_state.set_bool("eucalyptus", "wigle_dry_run", False),
+        "eucalyptus_wigle_upload_on": lambda: menu_prompt_state.set_bool("eucalyptus", "wigle_upload", True),
+        "eucalyptus_wigle_upload_off": lambda: menu_prompt_state.set_bool("eucalyptus", "wigle_upload", False),
+        "kruisin_prompt_status": menu_prompt_state.prompt_status,
+        "kruisin_gps_on": lambda: menu_prompt_state.set_bool("kruisin", "gps_logging", True),
+        "kruisin_gps_off": lambda: menu_prompt_state.set_bool("kruisin", "gps_logging", False),
+        "kruisin_nodes_on": lambda: menu_prompt_state.set_bool("kruisin", "node_mesh", True),
+        "kruisin_nodes_off": lambda: menu_prompt_state.set_bool("kruisin", "node_mesh", False),
+        "kruisin_default_ports": menu_prompt_state.set_kruisin_default_ports,
+        "kruisin_wigle_dry_run_on": lambda: menu_prompt_state.set_bool("kruisin", "wigle_dry_run", True),
+        "kruisin_wigle_dry_run_off": lambda: menu_prompt_state.set_bool("kruisin", "wigle_dry_run", False),
+        "kruisin_wigle_upload_on": lambda: menu_prompt_state.set_bool("kruisin", "wigle_upload", True),
+        "kruisin_wigle_upload_off": lambda: menu_prompt_state.set_bool("kruisin", "wigle_upload", False),
+        "location_gate_unlock_on": lambda: menu_prompt_state.set_bool("location_gate", "menu_lab_unlock", True),
+        "location_gate_unlock_off": lambda: menu_prompt_state.set_bool("location_gate", "menu_lab_unlock", False),
+    }
+    handler = handlers.get(command)
+    if handler is None:
+        return {"status": "PROMPT_ACTION_RECORDED", "command": command}
+    return handler()
+
+
 def _eucalyptus(command: str) -> dict[str, Any]:
-    from .eucalyptus_wigle import control_status
+    from . import menu_prompt_state
+    from .eucalyptus_wigle import control_status, upload_to_wigle
+    applied = menu_prompt_state.apply_eucalyptus_env()
     action = command.split(" ", 1)[1] if " " in command else "status"
-    return control_status(action)
+    if action in {"wigle-upload", "upload"}:
+        result = upload_to_wigle(dry_run=menu_prompt_state.eucalyptus_dry_run_enabled())
+    else:
+        result = control_status(action)
+    if isinstance(result, dict):
+        result["menu_prompt_state"] = applied
+    return result
 
 
 def _kruisin(command: str) -> dict[str, Any]:
+    from . import menu_prompt_state
     from .koala_kombat_kruisin import control
-    os.environ.setdefault("KOALA_KOMBAT_NODE_MESH", "1")
-    os.environ.setdefault("KOALA_KOMBAT_ESP32_PORT", "/dev/ttyACM1")
-    os.environ.setdefault("KOALA_KOMBAT_HELTEC_PORT", "/dev/ttyACM0")
-    os.environ.setdefault("KOALA_KOMBAT_GPS_LOGGING", "1")
+    applied = menu_prompt_state.apply_kruisin_env()
     action = command.split(" ", 1)[1] if " " in command else "status"
-    return control(action)
+    result = control(action, dry_run=menu_prompt_state.kruisin_dry_run_enabled() if action in {"wigle-upload", "upload"} else False)
+    if isinstance(result, dict):
+        result["menu_prompt_state"] = applied
+    return result
 
 
 def _t114_action(command: str) -> dict[str, Any]:
@@ -168,6 +206,8 @@ def _t114_action(command: str) -> dict[str, Any]:
         from .t114_bluez import check_controller
         return asdict(check_controller())
     if command in {"t114_primary_gnss_fix", "gnss_current_fix"}:
+        from . import menu_prompt_state
+        menu_prompt_state.apply_location_gate_env()
         from .gnss_location import current_fix, fix_to_dict
         return {"status": "GNSS_FIX_READ", "fix": fix_to_dict(current_fix(authorized=None, prompt=False)), "source_priority": "heltec-t114-gnss"}
     return {"status": "T114_ACTION_RECORDED", "command": command}
@@ -210,13 +250,17 @@ def _meshtastic(command: str) -> dict[str, Any]:
     if command == "meshtastic_listen":
         return meshtastic_app.listen(seconds=int(os.getenv("KOALABYTE_MESHTASTIC_LISTEN_SECONDS", "30")), prompt_password=False)
     if command == "meshtastic_send_gate":
+        from . import menu_prompt_state
+        menu_prompt_state.apply_location_gate_env()
         return meshtastic_app.send_from_prompt(prompt_password=False)
     return {"status": "MESHTASTIC_ACTION_RECORDED", "command": command}
 
 
 def _location_gate() -> dict[str, Any]:
+    from . import menu_prompt_state
+    applied = menu_prompt_state.apply_location_gate_env()
     from .location_password_gate import PASSWORD_FILE, UNLOCK_ENV, password_exists
-    return {"status": "LOCATION_GATE_STATUS_READY", "configured": password_exists(), "unlocked": os.environ.get(UNLOCK_ENV) in {"1", "true", "TRUE", "yes", "YES"}, "path": str(PASSWORD_FILE)}
+    return {"status": "LOCATION_GATE_STATUS_READY", "configured": password_exists(), "unlocked": os.environ.get(UNLOCK_ENV) in {"1", "true", "TRUE", "yes", "YES"}, "path": str(PASSWORD_FILE), "menu_prompt_state": applied}
 
 
 def _protected_bluez(command: str) -> dict[str, Any]:
@@ -292,6 +336,8 @@ def run_automated_menu_action(command: str, label: str = "", group: str = "") ->
             return _ok(command, label, {"status": "SUBMENU_NAVIGATION_ONLY", "target": command.split(":", 1)[1]})
         if command.startswith("status:"):
             return _ok(command, label, _status_row(command), "AUTOMATED_STATUS_COMPLETE")
+        if command in {"prompt_state_status", "eucalyptus_prompt_status", "eucalyptus_gps_on", "eucalyptus_gps_off", "eucalyptus_wigle_dry_run_on", "eucalyptus_wigle_dry_run_off", "eucalyptus_wigle_upload_on", "eucalyptus_wigle_upload_off", "kruisin_prompt_status", "kruisin_gps_on", "kruisin_gps_off", "kruisin_nodes_on", "kruisin_nodes_off", "kruisin_default_ports", "kruisin_wigle_dry_run_on", "kruisin_wigle_dry_run_off", "kruisin_wigle_upload_on", "kruisin_wigle_upload_off", "location_gate_unlock_on", "location_gate_unlock_off"}:
+            return _ok(command, label, _prompt(command))
         if command.startswith("eucalyptus ") or command == "eucalyptus_mode":
             return _ok(command, label, _eucalyptus("eucalyptus status" if command == "eucalyptus_mode" else command))
         if command.startswith("kruisin "):
