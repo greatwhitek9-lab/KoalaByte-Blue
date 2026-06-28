@@ -31,7 +31,6 @@ MAIN_MENU_ITEMS: List[dict[str, object]] = [
     _item("Didgeridoo", "Didgeridoo", "submenu:didgeridoo", "Open T114 BLE, GNSS, Meshtastic, and location helpers"),
     _item("CAN Bench Tools", "CAN Bench Tools", "submenu:can_bench", "Open Koala Kan bench checks"),
     _item("Reports & Reviews", "Reports & Reviews", "submenu:reports", "Open reports, reviews, and notes"),
-    _item("System / Companion", "Keyboard / Text Entry", "submenu:keyboard", "Open pop-up keyboard for names, keys, locks, and messages"),
     _item("System / Companion", "System / Companion", "submenu:system", "Open companion, voice, buttons, settings, and modes"),
     _item("System / Companion", "Lab", "submenu:lab", "Open the Authorized Lab Use submenu"),
     _item("System / Companion", "Power & Exit", "submenu:power", "Open shutdown and quit controls"),
@@ -161,15 +160,6 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("System / Companion", "Back to Didgeridoo", "submenu:didgeridoo", "Return to the Didgeridoo menu"),
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
-    "keyboard": [
-        _item("System / Companion", "WiGLE Name", _KB_WIGLE_NAME, "Type WiGLE API username/name with pop-up keyboard"),
-        _item("System / Companion", "WiGLE Key", _KB_WIGLE_KEY, "Type WiGLE API key with protected pop-up keyboard"),
-        _item("Didgeridoo", "Set Local Lock", _KB_LOCAL_LOCK_SET, "Create/update local protected-actions lock"),
-        _item("Didgeridoo", "Unlock Local Lock", _KB_LOCAL_LOCK_OPEN, "Unlock protected local actions with protected keyboard entry"),
-        _item("Didgeridoo", "Mesh Message", _KB_MESH_MESSAGE, "Type custom Meshtastic send message"),
-        _item("Didgeridoo", "Mesh Destination", _KB_MESH_DEST, "Type optional Meshtastic destination/node id"),
-        _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
-    ],
     "can_bench": [
         _item("CAN Bench Tools", "Koala Kan Kommander", "koala_kan_kommander", "Optional InnoMaker USB-to-CAN bench workflow"),
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
@@ -187,7 +177,6 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
     ],
     "system": [
         _item("System / Companion", "Prompt State Status", "prompt_state_status", "Show all menu-managed prompt toggles"),
-        _item("System / Companion", "Keyboard / Text Entry", "submenu:keyboard", "Open pop-up keyboard targets"),
         _item("System / Companion", "Koala Mode Switcher", "koala_mode_switcher", "Build/package/select legacy mode helpers"),
         _item("System / Companion", "KillerKoala Voice", "killerkoala_voice", "Preview voice and vocabulary"),
         _item("System / Companion", "Buttons", "buttons", "Show/check GPIO button status"),
@@ -229,7 +218,7 @@ def submenu_name_from_command(command: str) -> str:
 
 
 def submenu_title(menu_name: str) -> str:
-    titles = {"main": "Main Canopy", "eucalyptus": "Eucalyptus", "kruisin": "Koala Kombat Kruisin’", "bluetooth": "Bluetooth Tools", "koala_kry": "Koala Kry", "didgeridoo": "Didgeridoo", "meshtastic": "Meshtastic App", "keyboard": "Keyboard / Text Entry", "can_bench": "CAN Bench Tools", "reports": "Reports & Reviews", "system": "System / Companion", "lab": "Authorized Lab", "power": "Power & Exit"}
+    titles = {"main": "Main Canopy", "eucalyptus": "Eucalyptus", "kruisin": "Koala Kombat Kruisin’", "bluetooth": "Bluetooth Tools", "koala_kry": "Koala Kry", "didgeridoo": "Didgeridoo", "meshtastic": "Meshtastic App", "can_bench": "CAN Bench Tools", "reports": "Reports & Reviews", "system": "System / Companion", "lab": "Authorized Lab", "power": "Power & Exit"}
     return titles.get(menu_name, menu_name.replace("_", " ").title())
 
 
