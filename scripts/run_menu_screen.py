@@ -117,12 +117,34 @@ def run_eucalyptus_control_action(item: MenuItem) -> None:
     _write_result(item, str(result.get("status", "complete")), result, "Eucalyptus passive BLE/GPS/WiGLE helper. Upload requires explicit WiGLE env enablement and credentials.")
 
 
+def prepare_kruisin_menu_env() -> dict[str, object]:
+    os.environ.setdefault("KOALA_KOMBAT_NODE_MESH", "1")
+    os.environ.setdefault("KOALA_KOMBAT_ESP32_PORT", "/dev/ttyACM1")
+    os.environ.setdefault("KOALA_KOMBAT_HELTEC_PORT", "/dev/ttyACM0")
+    os.environ.setdefault("KOALA_KOMBAT_GPS_LOGGING", "1")
+    return {
+        "KOALA_KOMBAT_NODE_MESH": os.environ.get("KOALA_KOMBAT_NODE_MESH", ""),
+        "KOALA_KOMBAT_ESP32_PORT": os.environ.get("KOALA_KOMBAT_ESP32_PORT", ""),
+        "KOALA_KOMBAT_HELTEC_PORT": os.environ.get("KOALA_KOMBAT_HELTEC_PORT", ""),
+        "KOALA_KOMBAT_GPS_LOGGING": os.environ.get("KOALA_KOMBAT_GPS_LOGGING", ""),
+        "gps_default_on": os.environ.get("KOALA_KOMBAT_GPS_LOGGING", "1") != "0",
+        "gps_can_be_disabled_with": "KOALA_KOMBAT_GPS_LOGGING=0",
+        "missing_gnss_is_non_fatal": True,
+    }
+
+
 def run_kruisin_action(item: MenuItem) -> None:
     from koalablue.koala_kombat_kruisin import control
 
     action = item.command.split(" ", 1)[1] if " " in item.command else "status"
-    result = control(action)
-    _write_result(item, str(result.get("status", "complete")), result, "Koala Kombat Kruisin’ passive Wi-Fi/BLE/GPS survey helper. WiGLE upload requires explicit env enablement and credentials.")
+    defaults = prepare_kruisin_menu_env()
+    preflight = control("status")
+    if action == "status":
+        result = {"status": "KOALA_KOMBAT_MENU_STATUS", "menu_defaults": defaults, "preflight_status": preflight}
+    else:
+        operation = control(action)
+        result = {"status": "KOALA_KOMBAT_MENU_ACTION_COMPLETE", "action": action, "menu_defaults": defaults, "preflight_status": preflight, "operation": operation}
+    _write_result(item, str(result.get("status", "complete")), result, "Automated Koala Kombat Kruisin’ action: defaults node ports, checks status, then runs the selected survey/upload action.")
 
 
 def run_anteater_action(_item: MenuItem) -> None:
