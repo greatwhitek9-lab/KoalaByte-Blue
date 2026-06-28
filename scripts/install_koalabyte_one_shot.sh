@@ -41,10 +41,11 @@ Heltec T114, and optional InnoMaker CAN kit:
 This installer validates the repo, prepares the Pi companion environment, checks
 KillerKoala AI/voice, flashes ESP32/T114 firmware paths, checks menu/button/touch
 controls, validates menu display sync to Heltec and ESP32-S3 DualEye, checks the
-30-second AI face idle return, verifies action-complete AI face return, checks
-field readiness helpers, runs KoalaByte Doctor, installs udev/boot-service hooks
-when available, checks version/status dashboard helpers, and keeps optional CAN
-non-fatal unless STRICT_INNOMAKER_CAN=1 is set.
+jungle/eucalyptus menu theme and text-fit guard, checks the 30-second AI face idle
+return, verifies action-complete AI face return, checks field readiness helpers,
+runs KoalaByte Doctor, installs udev/boot-service hooks when available, checks
+version/status dashboard helpers, and keeps optional CAN non-fatal unless
+STRICT_INNOMAKER_CAN=1 is set.
 
 Useful env:
   ESP32_PORT=/dev/ttyUSB0
@@ -298,6 +299,12 @@ run_menu_display_sync_gate() {
   KOALABYTE_MENU_SYNC=0 PYTHONPATH=pi-companion "${py}" scripts/check_menu_display_sync.py
 }
 
+run_menu_theme_fit_gate() {
+  local py
+  py="$(python_for_checks)"
+  PYTHONPATH=pi-companion "${py}" scripts/check_menu_theme_fit.py
+}
+
 run_field_readiness() {
   local py
   py="$(python_for_checks)"
@@ -360,6 +367,7 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
   run_required "boot service templates readiness" run_boot_services_install_or_check
   run_required "KillerKoala AI and voice readiness" run_killerkoala_ai_readiness
   run_required "Menu display sync and AI-face controls" run_menu_display_sync_gate
+  run_required "Jungle menu theme and text fit" run_menu_theme_fit_gate
   run_required "Menus buttons antennas controls and commands" env PYTHONPATH=pi-companion "$(python_for_checks)" scripts/check_one_shot_controls.py
   run_required "Full runtime dependencies and board helpers" run_full_runtime_dependency_gate
   run_required "Field readiness helpers" run_field_readiness
@@ -385,6 +393,7 @@ run_required "ESP32-S3 DualEye mic voice bridge service" run_dualeye_voice_bridg
 run_required "ESP32-S3 DualEye firmware flash" env ESP32_PORT="${ESP32_PORT}" NO_MONITOR="${NO_MONITOR}" STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-1}" bash -c 'STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS}" bash scripts/setup_esp32_tools.sh; if [[ -n "${ESP32_PORT}" ]]; then ESP32_PORT="${ESP32_PORT}" NO_MONITOR="${NO_MONITOR}" bash scripts/flash_esp32.sh; else NO_MONITOR="${NO_MONITOR}" bash scripts/flash_esp32.sh; fi'
 run_required "KillerKoala eyes and mouth sync" run_face_mouth_sync
 run_required "Menu display sync and AI-face controls" run_menu_display_sync_gate
+run_required "Jungle menu theme and text fit" run_menu_theme_fit_gate
 run_required "Menus buttons antennas controls and commands" env PYTHONPATH=pi-companion "$(python_for_checks)" scripts/check_one_shot_controls.py
 run_required "Full runtime dependencies and board helpers" run_full_runtime_dependency_gate
 run_required "Field readiness helpers" run_field_readiness
@@ -400,7 +409,7 @@ run_required "External antenna readiness" bash scripts/configure_koalabyte_exter
 run_required "AntEater passive readiness" prepare_anteater_status
 run_optional_can
 
-write_status "complete" "one_shot_install" "Pi, Heltec combined-safe primary BLE/mouth profile, ESP32-S3, DualEye mic voice bridge, KillerKoala AI/voice, eyes/mouth sync, menu display sync, AI-face idle/action-complete return, udev rules, boot services, version handshake, status dashboard check, release/log helper checks, field readiness helpers, doctor quick check, full runtime dependency gate, live T114 dashboard phrases, controls/commands, services, menu, antenna, passive-readiness, and optional CAN handling complete"
+write_status "complete" "one_shot_install" "Pi, Heltec combined-safe primary BLE/mouth profile, ESP32-S3, DualEye mic voice bridge, KillerKoala AI/voice, eyes/mouth sync, menu display sync, jungle/eucalyptus menu theme fit, AI-face idle/action-complete return, udev rules, boot services, version handshake, status dashboard check, release/log helper checks, field readiness helpers, doctor quick check, full runtime dependency gate, live T114 dashboard phrases, controls/commands, services, menu, antenna, passive-readiness, and optional CAN handling complete"
 trap - ERR
 
 echo
