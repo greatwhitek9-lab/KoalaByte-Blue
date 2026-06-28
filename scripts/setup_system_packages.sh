@@ -25,8 +25,8 @@ Packages covered:
   Heltec T114 USB serial/udev/BlueZ runtime dependencies, nRF/Zephyr helper build
   tools for optional T114 firmware work, WiFi/NetworkManager/wpa_supplicant,
   SD card formatter tools, CAN tools, python-can, kmod/modprobe, SDL2/KMSDRM
-  graphics runtime for Pi OS Lite, SQLite, Raspberry Pi GPIO support, and AI
-  voice/TTS audio support.
+  graphics runtime for Pi OS Lite, SQLite, Raspberry Pi GPIO support, AI voice/TTS
+  audio support, and GreatWhite Reef TigerShark/Great Wire Shark PCAP review tools.
 EOF
 }
 
@@ -88,6 +88,7 @@ packages=(
   picocom minicom screen
   can-utils python3-can gpiod libgpiod2 espeak-ng espeak alsa-utils
   libasound2-plugins pulseaudio-utils portaudio19-dev python3-pyaudio
+  tshark wireshark
 )
 
 if apt-cache show libasound2t64 >/dev/null 2>&1; then
@@ -119,6 +120,12 @@ if command -v udevadm >/dev/null 2>&1; then
 fi
 if command -v bluetoothctl >/dev/null 2>&1; then
   echo "  BlueZ bluetoothctl: $(command -v bluetoothctl)"
+fi
+if command -v tshark >/dev/null 2>&1; then
+  echo "  GreatWhite Reef TigerShark/tshark: $(command -v tshark)"
+fi
+if command -v wireshark >/dev/null 2>&1; then
+  echo "  GreatWhite Reef Great Wire Shark/wireshark: $(command -v wireshark)"
 fi
 if command -v aplay >/dev/null 2>&1; then
   echo "  ALSA aplay: $(command -v aplay)"
