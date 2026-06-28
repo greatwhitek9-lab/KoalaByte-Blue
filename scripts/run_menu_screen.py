@@ -66,16 +66,10 @@ def write_action_payload(item: MenuItem, payload: dict[str, object]) -> Path:
 
 
 def route_leaf(item: MenuItem) -> None:
-    payload = {
-        "timestamp": time.time(),
-        "label": item.label,
-        "command": item.command,
-        "group": item.group,
-        "status": "routed",
-        "message": "Menu leaf item selected and routed. Touch long-press, keyboard Enter, and the physical Select button all use this same execution path.",
-    }
-    path = write_action_payload(item, payload)
-    print(f"\n🌿 {item.label} routed → {path}\n")
+    from koalablue.menu_action_runner import run_automated_menu_action
+
+    result = run_automated_menu_action(item.command, item.label, item.group)
+    _write_result(item, str(result.get("status", "complete")), result, "Automated menu action: select runs the highlighted item without opening a manual prompt.")
 
 
 def _write_result(item: MenuItem, status: str, result: object, note: str = "") -> None:
@@ -93,10 +87,8 @@ def _asdict_result(result: object) -> object:
     return asdict(result)
 
 
-def run_boomerang_action(_item: MenuItem) -> None:
-    from koalablue import boomerang
-
-    boomerang.run_interactive()
+def run_boomerang_action(item: MenuItem) -> None:
+    route_leaf(item)
 
 
 def run_eucalyptus_mode_action(_item: MenuItem) -> None:
@@ -283,7 +275,7 @@ def run_gnss_current_fix(item: MenuItem) -> None:
 def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
     for entry in leaf_menu_entries():
         command = str(entry.get("command", ""))
-        if command and not command.startswith("status:"):
+        if command:
             menu.register_handler(command, route_leaf)
     menu.register_handler("boomerang", run_boomerang_action)
     menu.register_handler("eucalyptus_mode", run_eucalyptus_mode_action)
