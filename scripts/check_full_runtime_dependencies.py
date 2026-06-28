@@ -60,6 +60,7 @@ REQUIRED_PROJECT_MODULES = [
     "koalablue.anteater",
     "koalablue.meshtastic_app",
     "scripts.check_menu_actions",
+    "scripts.check_menu_theme_fit",
     "scripts.check_one_shot_controls",
     "scripts.check_t114_status_dashboard",
 ]
@@ -86,6 +87,7 @@ BOARD_FILES = [
     "scripts/check_eucalyptus_wigle.py",
     "scripts/run_koala_kombat_kruisin.py",
     "scripts/check_koala_kombat_kruisin.py",
+    "scripts/check_menu_theme_fit.py",
     "docs/KOALA_KOMBAT_NODE_ROLES.md",
     "scripts/run_koala_bluez.py",
     "scripts/run_koala_bluez_manifest.sh",
@@ -161,7 +163,7 @@ def _check_project_imports(modules: list[str]) -> tuple[dict[str, bool], list[st
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check KoalaByte Blue full runtime dependencies and board helper coverage")
-    parser.add_argument("--strict-system", action="store_true", help="Fail on missing host system commands too")
+    parser.add_argument("--strict-system", "--strict-commands", dest="strict_system", action="store_true", help="Fail on missing host system commands too")
     args = parser.parse_args()
 
     failures: list[str] = []
@@ -188,6 +190,7 @@ def main() -> int:
         "system_commands": command_results,
         "host_command_warnings": command_warnings,
         "strict_system": strict_system,
+        "accepted_strict_flags": ["--strict-system", "--strict-commands", "STRICT_FULL_RUNTIME_DEPENDENCIES=1"],
         "failures": failures,
         "updated_at": time.time(),
     }
