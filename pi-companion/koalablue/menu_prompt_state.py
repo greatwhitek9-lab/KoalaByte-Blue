@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 PROMPT_PATH = Path("logs/menu_prompts/action_prompt_state.json")
+WIGLE_CREDENTIAL_PATH = Path("logs/security/wigle_credentials.json")
+BOOT_WIGLE_CREDENTIAL_PATHS = [Path("/boot/firmware/koalabyte_wigle.json"), Path("/boot/koalabyte_wigle.json")]
 
 DEFAULT_STATE: dict[str, Any] = {
     "eucalyptus": {"gps_logging": True, "wigle_upload": False, "wigle_dry_run": True},
@@ -61,7 +63,7 @@ def save_state(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def prompt_status() -> dict[str, Any]:
-    return _write_result("prompt_status", {"status": "MENU_PROMPT_STATE_READY", "path": str(PROMPT_PATH), "state": load_state()})
+    return _write_result("prompt_status", {"status": "MENU_PROMPT_STATE_READY", "path": str(PROMPT_PATH), "state": load_state(), "wigle_profile": wigle_profile_summary()})
 
 
 def set_bool(section: str, key: str, enabled: bool) -> dict[str, Any]:
@@ -78,6 +80,65 @@ def set_kruisin_default_ports() -> dict[str, Any]:
     kruisin["heltec_port"] = "/dev/ttyACM0"
     saved = save_state(state)
     return _write_result("kruisin_default_ports", {"status": "KRUISIN_DEFAULT_PORTS_SET", **saved})
+
+
+def _normalise_wigle_record(data: dict[str, Any]) -> dict[str, str]:
+    api_name = str(data.get("api_name") or data.get("name") or data.get("WIGLE_API_NAME") or "").strip()
+    api_token = str(data.get("api_token") or data.get("token") or data.get("WIGLE_API_TOKEN") or "").strip()
+    return {"api_name": api_name, "api_token": api_token}
+
+
+def load_wigle_credentials(path: Path = WIGLE_CREDENTIAL_PATH) -> dict[str, str]:
+    if not path.exists():
+        return {"api_name": "", "api_token": ""}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return _normalise_wigle_record(data if isinstance(data, dict) else {})
+    except Exception:
+        return {"api_name": "", "api_token": ""}
+
+
+def wigle_profile_summary() -> dict[str, Any]:
+    creds = load_wigle_credentials()
+    return {
+        "path": str(WIGLE_CREDENTIAL_PATH),
+        "configured": bool(creds.get("api_name") and creds.get("api_token")),
+        "boot_import_paths": [str(path) for path in BOOT_WIGLE_CREDENTIAL_PATHS],
+        "credential_file_format": {"api_name": "<WiGLE API name>", "api_token": "<WiGLE API token>"},
+    }
+
+
+def wigle_profile_status() -> dict[str, Any]:
+    return _write_result("wigle_profile_status", {"status": "WIGLE_PROFILE_READY" if wigle_profile_summary()["configured"] else "WIGLE_PROFILE_NOT_CONFIGURED", "wigle_profile": wigle_profile_summary()})
+
+
+def import_wigle_profile() -> dict[str, Any]:
+    for source in BOOT_WIGLE_CREDENTIAL_PATHS:
+        if not source.exists():
+            continue
+        try:
+            data = json.loads(source.read_text(encoding="utf-8"))
+            creds = _normalise_wigle_record(data if isinstance(data, dict) else {})
+            if not creds["api_name"] or not creds["api_token"]:
+                continue
+            WIGLE_CREDENTIAL_PATH.parent.mkdir(parents=True, exist_ok=True)
+            WIGLE_CREDENTIAL_PATH.write_text(json.dumps({"api_name": creds["api_name"], "api_token": creds["api_token"], "imported_at": time.time(), "source": str(source)}, indent=2, sort_keys=True), encoding="utf-8")
+            try:
+                WIGLE_CREDENTIAL_PATH.chmod(0o600)
+            except Exception:
+                pass
+            return _write_result("wigle_profile_imported", {"status": "WIGLE_PROFILE_IMPORTED", "source": str(source), "path": str(WIGLE_CREDENTIAL_PATH), "configured": True})
+        except Exception as exc:
+            return _write_result("wigle_profile_import_failed", {"status": "WIGLE_PROFILE_IMPORT_FAILED", "source": str(source), "error": str(exc)})
+    return _write_result("wigle_profile_import_missing", {"status": "WIGLE_PROFILE_IMPORT_NOT_FOUND", "expected_paths": [str(path) for path in BOOT_WIGLE_CREDENTIAL_PATHS], "format": {"api_name": "<WiGLE API name>", "api_token": "<WiGLE API token>"}})
+
+
+def apply_wigle_env() -> dict[str, Any]:
+    creds = load_wigle_credentials()
+    if creds.get("api_name") and creds.get("api_token"):
+        os.environ.setdefault("WIGLE_API_NAME", creds["api_name"])
+        os.environ.setdefault("WIGLE_API_TOKEN", creds["api_token"])
+    return {"configured": bool(creds.get("api_name") and creds.get("api_token")), "path": str(WIGLE_CREDENTIAL_PATH)}
 
 
 def apply_location_gate_env() -> dict[str, Any]:
@@ -102,8 +163,9 @@ def apply_eucalyptus_env() -> dict[str, Any]:
         os.environ["KOALABYTE_EUCALYPTUS_WIGLE_UPLOAD"] = "1"
     else:
         os.environ.pop("KOALABYTE_EUCALYPTUS_WIGLE_UPLOAD", None)
-    apply_location_gate_env()
-    return {"eucalyptus": state, "location_gate": load_state().get("location_gate", {})}
+    location = apply_location_gate_env()
+    wigle = apply_wigle_env()
+    return {"eucalyptus": state, "location_gate": location, "wigle_profile": wigle}
 
 
 def apply_kruisin_env() -> dict[str, Any]:
@@ -116,8 +178,9 @@ def apply_kruisin_env() -> dict[str, Any]:
         os.environ["KOALA_KOMBAT_WIGLE_UPLOAD"] = "1"
     else:
         os.environ.pop("KOALA_KOMBAT_WIGLE_UPLOAD", None)
-    apply_location_gate_env()
-    return {"kruisin": state, "location_gate": load_state().get("location_gate", {})}
+    location = apply_location_gate_env()
+    wigle = apply_wigle_env()
+    return {"kruisin": state, "location_gate": location, "wigle_profile": wigle}
 
 
 def eucalyptus_dry_run_enabled() -> bool:
