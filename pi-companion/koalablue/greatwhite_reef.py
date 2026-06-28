@@ -71,6 +71,26 @@ def install_menu_catalog() -> None:
         menu_catalog.submenu_title = patched_submenu_title
         menu_catalog._greatwhite_reef_title_patch = True
 
+    _install_action_runner_patch()
+
+
+def _install_action_runner_patch() -> None:
+    try:
+        from . import menu_action_runner
+    except Exception:
+        return
+    if getattr(menu_action_runner, "_greatwhite_reef_action_patch", False):
+        return
+    original_runner = menu_action_runner.run_automated_menu_action
+
+    def patched_runner(command: str, label: str = "", group: str = "") -> dict[str, Any]:
+        if command in GREATWHITE_REEF_COMMANDS:
+            return run_greatwhite_menu_action(command, label, group)
+        return original_runner(command, label, group)
+
+    menu_action_runner.run_automated_menu_action = patched_runner
+    menu_action_runner._greatwhite_reef_action_patch = True
+
 
 def _now_slug() -> str:
     return time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
