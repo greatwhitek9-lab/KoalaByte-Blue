@@ -76,13 +76,16 @@ def main() -> int:
     for command in REQUIRED_PROMPT_COMMANDS + REQUIRED_KEYBOARD_COMMANDS:
         if command not in leaf_commands:
             failures.append(f"missing prompt UI command in static catalog: {command}")
-    if "Keyboard / Text Entry" not in main_labels:
-        failures.append("Main menu missing Keyboard / Text Entry")
-    if submenu_title("keyboard") != "Keyboard / Text Entry":
-        failures.append("Keyboard submenu title is not registered")
-    for label in ["WiGLE Name", "WiGLE Key", "Set Local Lock", "Unlock Local Lock", "Mesh Message", "Mesh Destination"]:
-        if label not in keyboard_labels:
-            failures.append(f"Keyboard submenu missing {label}")
+
+    if "Keyboard / Text Entry" in main_labels:
+        failures.append("Main menu should not expose a standalone keyboard page")
+    if "Keyboard / Text Entry" in system_labels:
+        failures.append("System menu should not expose a standalone keyboard page")
+    if keyboard_labels:
+        failures.append("Keyboard submenu should be hidden; keyboard should only open from text input actions")
+    if submenu_title("keyboard") == "Keyboard / Text Entry":
+        failures.append("Keyboard submenu title should not be registered as a visible menu page")
+
     for label in ["Eucalyptus Prompt Status", "Eucalyptus GPS ON", "Eucalyptus WiGLE Upload ON", "Type WiGLE Name", "Type WiGLE Key"]:
         if label not in eucalyptus_labels:
             failures.append(f"Eucalyptus submenu missing {label}")
@@ -95,8 +98,8 @@ def main() -> int:
     for label in ["Type Mesh Message", "Type Mesh Destination"]:
         if label not in meshtastic_labels:
             failures.append(f"Meshtastic submenu missing {label}")
-    if "Prompt State Status" not in system_labels or "Keyboard / Text Entry" not in system_labels:
-        failures.append("System submenu missing prompt/keyboard access")
+    if "Prompt State Status" not in system_labels:
+        failures.append("System submenu missing Prompt State Status")
 
     routed: dict[str, str] = {}
     for command in [
@@ -115,29 +118,31 @@ def main() -> int:
         if routed[command] != "AUTOMATED_ACTION_COMPLETE":
             failures.append(f"prompt UI action did not route: {command}")
 
-    menu = MenuSelectionScreen()
-    keyboard_event = None
-    for index, item in enumerate(menu.items):
-        if item.command == "submenu:keyboard":
-            menu.selected_index = index
-            keyboard_event = menu.select()
-            break
-    if menu.menu_name != "keyboard":
-        failures.append("Keyboard submenu did not open from MenuSelectionScreen")
-    for index, item in enumerate(menu.items):
-        if item.command == REQUIRED_KEYBOARD_COMMANDS[0]:
-            menu.selected_index = index
-            menu.select()
-            break
-    if menu.display_mode != "keyboard":
-        failures.append("Popup keyboard did not open from static keyboard submenu")
+    text_input_events: dict[str, str] = {}
+    for submenu_name, command in [
+        ("eucalyptus", REQUIRED_KEYBOARD_COMMANDS[0]),
+        ("kruisin", REQUIRED_KEYBOARD_COMMANDS[1]),
+        ("didgeridoo", REQUIRED_KEYBOARD_COMMANDS[2]),
+        ("meshtastic", REQUIRED_KEYBOARD_COMMANDS[4]),
+    ]:
+        menu = MenuSelectionScreen()
+        menu._open_menu(submenu_name, "test_open", f"submenu:{submenu_name}")
+        for index, item in enumerate(menu.items):
+            if item.command == command:
+                menu.selected_index = index
+                menu.select()
+                break
+        text_input_events[submenu_name] = str(menu.display_mode)
+        if menu.display_mode != "keyboard":
+            failures.append(f"Popup keyboard did not open from {submenu_name} text input action")
 
     state = menu_prompt_state.load_state()
     payload = {
         "status": "MENU_PROMPT_UI_READY" if not failures else "MENU_PROMPT_UI_INCOMPLETE",
+        "policy": "popup keyboard appears only after selecting text input actions, not as a standalone menu page",
         "required_prompt_commands": REQUIRED_PROMPT_COMMANDS,
         "required_keyboard_commands": REQUIRED_KEYBOARD_COMMANDS,
-        "keyboard_event": getattr(keyboard_event, "event_type", None),
+        "text_input_events": text_input_events,
         "routed": routed,
         "prompt_path": str(menu_prompt_state.PROMPT_PATH),
         "state_sections": sorted(str(key) for key in state.keys()),
