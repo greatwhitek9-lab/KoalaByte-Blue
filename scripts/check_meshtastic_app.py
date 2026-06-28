@@ -28,6 +28,12 @@ REQUIRED_MESHTASTIC_LABELS = [
     "Meshtastic Nodes",
     "Meshtastic GPS Info",
     "Meshtastic Listen Gate",
+    "Send Prompt Status",
+    "Set Test Message",
+    "Set Check-In Message",
+    "Confirm Send ON",
+    "Confirm Send OFF",
+    "Clear Send Draft",
     "Meshtastic Send Gate",
 ]
 
@@ -43,6 +49,12 @@ REQUIRED_MESHTASTIC_COMMANDS = [
     "meshtastic_nodes",
     "meshtastic_gps",
     "meshtastic_listen",
+    "meshtastic_send_prompt",
+    "meshtastic_set_test_message",
+    "meshtastic_set_checkin_message",
+    "meshtastic_confirm_send_on",
+    "meshtastic_confirm_send_off",
+    "meshtastic_clear_send_prompt",
     "meshtastic_send_gate",
 ]
 
@@ -56,9 +68,9 @@ def main() -> int:
 
     try:
         from koalablue import meshtastic_app
-        from koalablue.menu_catalog import menu_labels, leaf_menu_entries
-        from koalablue.meshtastic_menu_items import make_didgeridoo_items, make_meshtastic_items
+        from koalablue.menu_catalog import leaf_menu_entries, menu_labels
         from koalablue.menu_action_runner import run_automated_menu_action
+        from koalablue.meshtastic_menu_items import make_didgeridoo_items, make_meshtastic_items
         from koalablue.menu_ui import MenuItem, MenuSelectionScreen
     except Exception as exc:
         failures.append(f"KoalaByte Meshtastic imports failed: {exc}")
@@ -95,9 +107,23 @@ def main() -> int:
 
     profile = meshtastic_app.profile_status()
     compatibility = meshtastic_app.compatibility_status()
+    send_status = run_automated_menu_action("meshtastic_send_prompt", "Send Prompt Status", "Didgeridoo")
+    set_message = run_automated_menu_action("meshtastic_set_test_message", "Set Test Message", "Didgeridoo")
+    confirm_on = run_automated_menu_action("meshtastic_confirm_send_on", "Confirm Send ON", "Didgeridoo")
     send_gate = run_automated_menu_action("meshtastic_send_gate", "Meshtastic Send Gate", "Didgeridoo")
-    if str(send_gate.get("status")) not in {"AUTOMATED_ACTION_COMPLETE"}:
-        failures.append("Meshtastic Send Gate did not route through automated menu runner")
+    confirm_off = run_automated_menu_action("meshtastic_confirm_send_off", "Confirm Send OFF", "Didgeridoo")
+    clear_prompt = run_automated_menu_action("meshtastic_clear_send_prompt", "Clear Send Draft", "Didgeridoo")
+
+    for action_name, result in {
+        "send prompt status": send_status,
+        "set test message": set_message,
+        "confirm send on": confirm_on,
+        "send gate": send_gate,
+        "confirm send off": confirm_off,
+        "clear send prompt": clear_prompt,
+    }.items():
+        if str(result.get("status")) != "AUTOMATED_ACTION_COMPLETE":
+            failures.append(f"Meshtastic {action_name} did not route through automated menu runner")
 
     payload = {
         "status": "MESHTASTIC_APP_READY" if not failures else "MESHTASTIC_APP_INCOMPLETE",
@@ -108,8 +134,12 @@ def main() -> int:
         "required_meshtastic_commands": REQUIRED_MESHTASTIC_COMMANDS,
         "profile_status": profile.get("status"),
         "compatibility_status": compatibility.get("status"),
+        "send_prompt_status": send_status.get("status"),
+        "set_message_status": set_message.get("status"),
+        "confirm_on_status": confirm_on.get("status"),
         "send_gate_status": send_gate.get("status"),
         "send_gate_result_status": (send_gate.get("result") or {}).get("status") if isinstance(send_gate.get("result"), dict) else None,
+        "clear_prompt_status": clear_prompt.get("status"),
         "failures": failures,
         "updated_at": time.time(),
     }
