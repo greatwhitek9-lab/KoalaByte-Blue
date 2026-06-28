@@ -21,7 +21,29 @@ try:
 except Exception:  # pragma: no cover
     GPIOButtonManager = None  # type: ignore
 
-KEY_MAP = {"w": "up", "s": "down", "a": "move_left", "d": "move_right", "": "select", "m": "main_menu", "q": "quit"}
+KEY_MAP = {
+    "w": "up",
+    "s": "down",
+    "a": "move_left",
+    "d": "move_right",
+    "up": "up",
+    "down": "down",
+    "left": "move_left",
+    "right": "move_right",
+    "": "select",
+    "enter": "select",
+    "select": "select",
+    "backspace": "backspace",
+    "delete": "backspace",
+    "save": "save",
+    "done": "save",
+    "esc": "cancel",
+    "escape": "cancel",
+    "m": "main_menu",
+    "menu": "main_menu",
+    "q": "quit",
+    "quit": "quit",
+}
 
 # Readiness sentinels kept here because scripts/check_repo_readiness.py validates
 # that the automated menu runner still preserves coverage for these protected
@@ -87,50 +109,11 @@ def write_result(item: MenuItem, status: str, result: object, note: str = "") ->
 
 def run_eucalyptus_mode_action(_item: MenuItem) -> None:
     from koalablue.eucalyptus_cyberpet import JungleMenuUnavailable, run_graphical, run_terminal
-
     try:
         run_graphical(fullscreen=True)
     except JungleMenuUnavailable as exc:
         print(f"Full-color Eucalyptus Mode unavailable; terminal renderer started: {exc}")
         run_terminal()
-
-
-def run_eucalyptus_action(item: MenuItem) -> None:
-    from koalablue.eucalyptus_wigle import control_status
-
-    action = item.command.split(" ", 1)[1] if " " in item.command else "status"
-    result = control_status(action)
-    write_result(item, str(result.get("status", "complete")), result, "Automated Eucalyptus action selected from the menu.")
-
-
-def prepare_kruisin_menu_env() -> dict[str, object]:
-    os.environ.setdefault("KOALA_KOMBAT_NODE_MESH", "1")
-    os.environ.setdefault("KOALA_KOMBAT_ESP32_PORT", "/dev/ttyACM1")
-    os.environ.setdefault("KOALA_KOMBAT_HELTEC_PORT", "/dev/ttyACM0")
-    os.environ.setdefault("KOALA_KOMBAT_GPS_LOGGING", "1")
-    return {
-        "KOALA_KOMBAT_NODE_MESH": os.environ.get("KOALA_KOMBAT_NODE_MESH", ""),
-        "KOALA_KOMBAT_ESP32_PORT": os.environ.get("KOALA_KOMBAT_ESP32_PORT", ""),
-        "KOALA_KOMBAT_HELTEC_PORT": os.environ.get("KOALA_KOMBAT_HELTEC_PORT", ""),
-        "KOALA_KOMBAT_GPS_LOGGING": os.environ.get("KOALA_KOMBAT_GPS_LOGGING", ""),
-        "gps_default_on": os.environ.get("KOALA_KOMBAT_GPS_LOGGING", "1") != "0",
-        "gps_can_be_disabled_with": "KOALA_KOMBAT_GPS_LOGGING=0",
-        "missing_gnss_is_non_fatal": True,
-    }
-
-
-def run_kruisin_action(item: MenuItem) -> None:
-    from koalablue.koala_kombat_kruisin import control
-
-    action = item.command.split(" ", 1)[1] if " " in item.command else "status"
-    defaults = prepare_kruisin_menu_env()
-    preflight = control("status")
-    if action == "status":
-        result = {"status": "KOALA_KOMBAT_MENU_STATUS", "menu_defaults": defaults, "preflight_status": preflight}
-    else:
-        operation = control(action)
-        result = {"status": "KOALA_KOMBAT_MENU_ACTION_COMPLETE", "action": action, "menu_defaults": defaults, "preflight_status": preflight, "operation": operation}
-    write_result(item, str(result.get("status", "complete")), result, "Automated Koala Kombat Kruisin action selected from the menu.")
 
 
 def run_generic_action(item: MenuItem) -> None:
@@ -143,12 +126,7 @@ def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
         command = str(entry.get("command", ""))
         if command:
             menu.register_handler(command, run_generic_action)
-
     menu.register_handler("eucalyptus_mode", run_eucalyptus_mode_action)
-    for command in ["eucalyptus status", "eucalyptus start", "eucalyptus stop", "eucalyptus restart", "eucalyptus upload-status", "eucalyptus gps-trail", "eucalyptus wigle-upload"]:
-        menu.register_handler(command, run_eucalyptus_action)
-    for command in ["kruisin status", "kruisin wifi-survey", "kruisin ble-survey", "kruisin survey", "kruisin gps-status", "kruisin export", "kruisin wigle-upload"]:
-        menu.register_handler(command, run_kruisin_action)
 
 
 def make_menu() -> MenuSelectionScreen:
@@ -166,6 +144,18 @@ def apply_menu_event(menu: MenuSelectionScreen, command: str) -> Optional[MenuEv
     return event
 
 
+def translate_terminal_input(menu: MenuSelectionScreen, raw_input: str) -> str:
+    raw = raw_input.rstrip("\n")
+    lowered = raw.strip().lower()
+    if getattr(menu, "display_mode", "menu") == "keyboard":
+        if lowered in KEY_MAP:
+            return KEY_MAP[lowered]
+        if lowered.startswith(("keyboard text ", "voice text ", "dictate ", "type ", "keyboard key ", "key ", "char ")):
+            return raw.strip()
+        return f"keyboard text {raw}"
+    return KEY_MAP.get(lowered, lowered)
+
+
 def run_terminal() -> int:
     menu = make_menu()
     buttons = GPIOButtonManager() if GPIOButtonManager is not None else None
@@ -179,7 +169,8 @@ def run_terminal() -> int:
                 print("GPIO buttons: active")
             elif buttons is not None and buttons.error:
                 print(f"GPIO buttons: {buttons.error}")
-            print("Keyboard: w/s/a/d, Enter=select, m=menu, q=quit | Touchscreen: long press=select | Button B3/select=select")
+            print("Keyboard: USB/Bluetooth keyboard works. w/s/a/d or arrows words, Enter=select/save, backspace=delete, q=quit")
+            print("Popup keyboard: type full text then Enter/save, or use on-screen keys with buttons/touch.")
             print("Every enabled menu action runs from highlight/select; no shell command entry is needed.")
             if buttons is not None:
                 button_event = buttons.get_event(timeout=0.05)
@@ -188,8 +179,8 @@ def run_terminal() -> int:
                     if selected_quit(menu_event):
                         return 0
                     continue
-            raw = input("> ").strip().lower()
-            command = KEY_MAP.get(raw, raw)
+            raw = input("> ")
+            command = translate_terminal_input(menu, raw)
             if command == "quit":
                 return 0
             menu_event = apply_menu_event(menu, command)
@@ -209,7 +200,7 @@ def main() -> int:
     parser.add_argument("--height", type=int, default=480, help="Window height when --windowed is used")
     args = parser.parse_args()
     if args.graphical:
-        from koalablue.menu_theme import JungleMenuRenderer, JungleMenuUnavailable
+        from koalblue.menu_theme import JungleMenuRenderer, JungleMenuUnavailable
         try:
             return JungleMenuRenderer(menu=make_menu(), fullscreen=not args.windowed, width=args.width, height=args.height).run()
         except JungleMenuUnavailable as exc:
