@@ -173,29 +173,28 @@ def _t114_action(command: str) -> dict[str, Any]:
 def _meshtastic(command: str) -> dict[str, Any]:
     from . import meshtastic_app
 
-    if command == "meshtastic_app":
-        profile = meshtastic_app.load_profile()
-        return {
-            "status": "MESHTASTIC_APP_READY",
-            "display_name": meshtastic_app.DISPLAY_NAME,
-            "profile": asdict(profile),
-            "actions": [
-                {"label": "Didgeridoo Status", "command": "meshtastic_status", "description": "Show local Meshtastic node info."},
-                {"label": "Didgeridoo Nodes", "command": "meshtastic_nodes", "description": "Show the local Meshtastic node table."},
-                {"label": "Didgeridoo GPS Info", "command": "meshtastic_gps", "description": "Show GNSS/status output from the connected Heltec node."},
-                {"label": "Protected Listen", "command": "scripts/run_meshtastic_app.py listen", "description": "Protected CLI helper; requires the protected-actions gate."},
-                {"label": "Protected Send", "command": "scripts/run_meshtastic_app.py send", "description": "Protected CLI helper; requires confirm-send and the protected-actions gate."},
-            ],
-            "artifact_dir": str(meshtastic_app.DEFAULT_LOG_DIR),
-            "manual_prompt_required": False,
-            "note": "This menu action opens the Didgeridoo Meshtastic app hub without sending messages or starting a live listener.",
-        }
+    if command in {"meshtastic_app", "meshtastic_profile"}:
+        return meshtastic_app.profile_status()
+    if command == "meshtastic_compatibility":
+        return meshtastic_app.compatibility_status()
+    if command == "meshtastic_phone_pairing":
+        return meshtastic_app.phone_pairing_guide()
+    if command == "meshtastic_esp32_device":
+        return meshtastic_app.esp32_device_guide()
+    if command == "meshtastic_setup_serial":
+        return meshtastic_app.setup_serial()
+    if command == "meshtastic_setup_tcp":
+        return meshtastic_app.setup_tcp()
+    if command == "meshtastic_setup_ble":
+        return meshtastic_app.setup_ble()
     if command == "meshtastic_status":
         return meshtastic_app.status()
     if command == "meshtastic_nodes":
         return meshtastic_app.nodes()
     if command == "meshtastic_gps":
         return meshtastic_app.gps_info()
+    if command == "meshtastic_listen":
+        return meshtastic_app.listen(seconds=int(os.getenv("KOALABYTE_MESHTASTIC_LISTEN_SECONDS", "30")), prompt_password=False)
     return {"status": "MESHTASTIC_ACTION_RECORDED", "command": command}
 
 
