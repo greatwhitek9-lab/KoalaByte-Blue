@@ -168,6 +168,19 @@ def _prompt(command: str) -> dict[str, Any]:
     return handler()
 
 
+def _bluez_lab_scope(command: str) -> dict[str, Any]:
+    from . import bluez_lab_scope
+    if command == "bluez_lab_scope_status":
+        return bluez_lab_scope.scope_status()
+    if command == "bluez_lab_owned_on":
+        return bluez_lab_scope.set_owned(True)
+    if command == "bluez_lab_owned_off":
+        return bluez_lab_scope.set_owned(False)
+    if command == "bluez_lab_scope_clear":
+        return bluez_lab_scope.clear_scope()
+    return {"status": "BLUEZ_LAB_SCOPE_ACTION_RECORDED", "command": command}
+
+
 def _eucalyptus(command: str) -> dict[str, Any]:
     from . import menu_prompt_state
     from .eucalyptus_wigle import control_status, upload_to_wigle
@@ -264,7 +277,8 @@ def _location_gate() -> dict[str, Any]:
 
 
 def _protected_bluez(command: str) -> dict[str, Any]:
-    from . import bluez_protected_lab
+    from . import bluez_lab_scope, bluez_protected_lab
+    scope = bluez_lab_scope.apply_env()
     handlers: dict[str, Callable[[], Any]] = {
         "koala_bluez_info": bluez_protected_lab.protected_target_info,
         "koala_bluez_services": bluez_protected_lab.protected_target_services,
@@ -278,8 +292,10 @@ def _protected_bluez(command: str) -> dict[str, Any]:
     }
     handler = handlers.get(command)
     if handler is None:
-        return {"status": "PROTECTED_BLUEZ_ACTION_RECORDED", "command": command}
-    return asdict(handler())
+        return {"status": "PROTECTED_BLUEZ_ACTION_RECORDED", "command": command, "bluez_lab_scope": scope}
+    result = asdict(handler())
+    result["bluez_lab_scope"] = scope
+    return result
 
 
 def _bluez_wrapper(command: str) -> dict[str, Any]:
@@ -338,6 +354,8 @@ def run_automated_menu_action(command: str, label: str = "", group: str = "") ->
             return _ok(command, label, _status_row(command), "AUTOMATED_STATUS_COMPLETE")
         if command in {"prompt_state_status", "eucalyptus_prompt_status", "eucalyptus_gps_on", "eucalyptus_gps_off", "eucalyptus_wigle_dry_run_on", "eucalyptus_wigle_dry_run_off", "eucalyptus_wigle_upload_on", "eucalyptus_wigle_upload_off", "kruisin_prompt_status", "kruisin_gps_on", "kruisin_gps_off", "kruisin_nodes_on", "kruisin_nodes_off", "kruisin_default_ports", "kruisin_wigle_dry_run_on", "kruisin_wigle_dry_run_off", "kruisin_wigle_upload_on", "kruisin_wigle_upload_off", "location_gate_unlock_on", "location_gate_unlock_off"}:
             return _ok(command, label, _prompt(command))
+        if command.startswith("bluez_lab_"):
+            return _ok(command, label, _bluez_lab_scope(command))
         if command.startswith("eucalyptus ") or command == "eucalyptus_mode":
             return _ok(command, label, _eucalyptus("eucalyptus status" if command == "eucalyptus_mode" else command))
         if command.startswith("kruisin "):
