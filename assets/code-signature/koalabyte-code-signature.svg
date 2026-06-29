@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+  <title id="title">KoalaByte Blue code signature</title>
+  <desc id="desc">Neon cyan terminal-style ASCII koala head on a dark background.</desc>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="72%">
+      <stop offset="0%" stop-color="#142326"/>
+      <stop offset="65%" stop-color="#0b1114"/>
+      <stop offset="100%" stop-color="#05080a"/>
+    </radialGradient>
+    <filter id="cyanGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="2.4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softNoise">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer>
+        <feFuncA type="table" tableValues="0 0.055"/>
+      </feComponentTransfer>
+    </filter>
+    <linearGradient id="scan" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#57f7ff" stop-opacity="0.06"/>
+      <stop offset="0.5" stop-color="#57f7ff" stop-opacity="0.0"/>
+      <stop offset="1" stop-color="#57f7ff" stop-opacity="0.06"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="760" fill="url(#bg)"/>
+  <rect width="1200" height="760" filter="url(#softNoise)" opacity="0.7"/>
+  <g opacity="0.23">
+    <path d="M0 96H1200M0 192H1200M0 288H1200M0 384H1200M0 480H1200M0 576H1200M0 672H1200" stroke="url(#scan)" stroke-width="1"/>
+  </g>
+  <g filter="url(#cyanGlow)" fill="#5ff7ff" font-family="SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace" font-size="28" letter-spacing="2.3" text-anchor="middle">
+    <text x="600" y="120">        .-----.                         .-----.        </text>
+    <text x="600" y="154">    .-'  .---. '-.                 .-' .---.  '-.    </text>
+    <text x="600" y="188">  .'   .'  _  '.  '.             .'  .'  _  '.   '.  </text>
+    <text x="600" y="222"> /   .'  .' '.  '.  \           /  .'  .' '.  '.   \ </text>
+    <text x="600" y="256">|   /   /  .  \   \  | .--.--. |  /   /  .  \   \   |</text>
+    <text x="600" y="290">|  |   |  ( )  |   | |/  .-.  \| |   |  ( )  |   |  |</text>
+    <text x="600" y="324"> \  \   \  '  /   / /    \_/    \ \   \  '  /   /  / </text>
+    <text x="600" y="358">  '. '.  '-.-'  .' .'   .---.   '. '.  '-.-'  .' .'  </text>
+    <text x="600" y="392">    '-. '-----' .-'    /  _  \    '-. '-----' .-'    </text>
+    <text x="600" y="426">        '---.--'      |  / \  |      '--.---'        </text>
+    <text x="600" y="460">           /   .--.   | |   | |   .--.   \           </text>
+    <text x="600" y="494">          |   ( () )  | |   | |  ( () )   |          </text>
+    <text x="600" y="528">           \   '--'   |  \_/  |   '--'   /           </text>
+    <text x="600" y="562">            '.        '.____.'        .'            </text>
+    <text x="600" y="596">              '-.   .-.__  __.-.   .-'              </text>
+    <text x="600" y="630">                 '._\   '--'   /_.'                 </text>
+    <text x="600" y="664">                    '--.____.--'                    </text>
+    <text x="600" y="716" opacity="0.9">====================================================</text>
+  </g>
+</svg>
