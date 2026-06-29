@@ -82,8 +82,11 @@ class MenuController:
             self.state.selected_index = 0
             self.state.scroll_offset = 0
             self.state.last_action = "main_menu"
-        elif command == "shutdown":
+        elif command in {"shutdown", "power", "power_toggle", "power_on_off"}:
             self._select_by_command("shutdown_confirm")
+            selected = self.select()
+        elif command in {"reset", "reboot", "reset_reboot"}:
+            self._select_by_command("reset_confirm")
             selected = self.select()
         else:
             self.state.last_action = f"ignored:{command}"
@@ -133,7 +136,7 @@ class MenuController:
                 lines.append(f"     {item.description}")
         lines.extend([
             "",
-            "Buttons: B1 menu | B2 previous/back | B3 select/hold shutdown | B4 next | B5 up | B6 down",
+            "Buttons: K1 menu | K2 previous/back | K3 select | K4 next | K5 up | K6 down | K7 power off | K8 reset/reboot",
             "Touch: scroll list | long press item to select",
             f"Last: {self.state.last_action}",
         ])
