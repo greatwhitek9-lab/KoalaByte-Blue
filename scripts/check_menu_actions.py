@@ -24,6 +24,7 @@ STATUS_PATH = OUTPUT_DIR / "menu_action_status.json"
 TERMINAL_FRAME_WIDTH = 74
 
 ALLOWED_DUPLICATE_COMMANDS = {
+    "koala_kry_run_review",
     "koala_bluez_info",
     "koala_bluez_services",
     "koala_bluez_gatt_readiness",
@@ -40,6 +41,7 @@ ALLOWED_DUPLICATE_COMMANDS = {
     "bluez_lab_owned_off",
     "bluez_lab_scope_clear",
 }
+BUILT_IN_UI_COMMANDS = {"quit"}
 
 
 def _command(entry: dict[str, Any]) -> str:
@@ -74,7 +76,7 @@ def _visible_duplicate_commands() -> dict[str, list[str]]:
         if not _enabled(entry):
             continue
         command = _command(entry)
-        if not command or command.startswith("submenu:") or command == "quit":
+        if not command or command.startswith("submenu:") or command in BUILT_IN_UI_COMMANDS:
             continue
         seen.setdefault(command, []).append(_label(entry))
     return {command: labels for command, labels in seen.items() if len(set(labels)) > 1}
@@ -107,7 +109,8 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
         submenu = submenu_name_from_command(command)
         is_submenu = bool(submenu)
         is_status_row = command.startswith("status:")
-        handler_name = ""
+        is_builtin_ui_command = command in BUILT_IN_UI_COMMANDS
+        handler_name = "built_in_ui" if is_builtin_ui_command else ""
         routed = False
         automated = False
 
@@ -116,6 +119,9 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
             automated = routed
             if enabled and not routed:
                 failures.append(f"submenu item '{label}' points to missing submenu: {command}")
+        elif enabled and is_builtin_ui_command:
+            routed = True
+            automated = True
         elif enabled:
             handler = handlers.get(command)
             routed = handler is not None
@@ -137,6 +143,7 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
                 "submenu": submenu,
                 "is_submenu": is_submenu,
                 "is_status_row": is_status_row,
+                "is_builtin_ui_command": is_builtin_ui_command,
                 "routed": routed,
                 "automated_select": automated,
                 "handler": handler_name,
@@ -175,6 +182,7 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
         "handler_count": len(handler_commands),
         "leaf_commands": leaf_commands,
         "handler_commands": handler_commands,
+        "built_in_ui_commands": sorted(BUILT_IN_UI_COMMANDS),
         "rows": rows,
         "theme": {
             "title": theme.title,
