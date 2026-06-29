@@ -26,17 +26,23 @@ def _failures_from_menu_payload(payload: dict[str, object]) -> list[str]:
         failures.append("menu payload controls must be a dict")
     else:
         select_controls = set(controls.get("select", [])) if isinstance(controls.get("select"), list) else set()
-        if "B3" not in select_controls:
-            failures.append("B3/select must be advertised as a select control")
+        if "K3" not in select_controls:
+            failures.append("K3/select must be advertised as a select control")
         if "touch_long_press" not in select_controls:
             failures.append("touch_long_press must be advertised as a select control")
         reopen_controls = set(controls.get("reopen_menu", [])) if isinstance(controls.get("reopen_menu"), list) else set()
-        if "B1" not in reopen_controls:
-            failures.append("B1/menu must be advertised as a menu reopen control")
+        if "K1" not in reopen_controls:
+            failures.append("K1/menu must be advertised as a menu reopen control")
         if "touch_double_tap" not in reopen_controls:
             failures.append("touch_double_tap must be advertised as a menu reopen control")
-    if "B3/select or touchscreen long-press" not in str(payload.get("execute_hint", "")):
-        failures.append("execute hint must mention B3/select or touchscreen long-press")
+        power_controls = set(controls.get("power_on_off", [])) if isinstance(controls.get("power_on_off"), list) else set()
+        if "K7" not in power_controls:
+            failures.append("K7/power must be advertised as the power on/off control")
+        reset_controls = set(controls.get("reset_reboot", [])) if isinstance(controls.get("reset_reboot"), list) else set()
+        if "K8" not in reset_controls:
+            failures.append("K8/reset must be advertised as the reset/reboot control")
+    if "K3/select or touchscreen long-press" not in str(payload.get("execute_hint", "")):
+        failures.append("execute hint must mention K3/select or touchscreen long-press")
     if "30 seconds idle" not in str(payload.get("idle_face_rule", "")):
         failures.append("idle face rule must mention 30 seconds idle")
     displays = set(payload.get("synced_displays", [])) if isinstance(payload.get("synced_displays"), list) else set()
@@ -53,8 +59,8 @@ def _failures_from_ai_payload(payload: dict[str, object]) -> list[str]:
         failures.append("AI face payload display_mode must be ai_face")
     if int(payload.get("idle_timeout_seconds", 0)) != 30:
         failures.append("AI face payload idle timeout must be 30 seconds")
-    if "B1/menu or double-tap" not in str(payload.get("menu_reopen_hint", "")):
-        failures.append("AI face payload must include B1/menu or double-tap reopen hint")
+    if "K1/menu or double-tap" not in str(payload.get("menu_reopen_hint", "")):
+        failures.append("AI face payload must include K1/menu or double-tap reopen hint")
     displays = set(payload.get("synced_displays", [])) if isinstance(payload.get("synced_displays"), list) else set()
     if "heltec-t114" not in displays or "esp32-s3-dualeye" not in displays:
         failures.append("AI face payload must target both Heltec T114 and ESP32-S3 DualEye")
@@ -107,9 +113,9 @@ def main() -> int:
 
     reopen_event = leaf.handle_command("main_menu")
     if reopen_event is None or reopen_event.event_type != "menu_reopen":
-        failures.append("B1/main_menu must reopen the menu from AI face mode")
+        failures.append("K1/main_menu must reopen the menu from AI face mode")
     if leaf.display_mode != "menu":
-        failures.append("menu must be visible after B1/main_menu reopen")
+        failures.append("menu must be visible after K1/main_menu reopen")
 
     leaf.last_input_at = time.time() - 31
     idle_event = leaf.check_idle_timeout()
@@ -132,11 +138,13 @@ def main() -> int:
         "updated_at": time.time(),
         "checked": {
             "highlight_scroll": True,
-            "b3_select_path": True,
+            "k3_select_path": True,
             "touch_long_press_path_declared": True,
             "idle_face_timeout_seconds": 30,
             "action_complete_returns_to_ai_face": True,
-            "b1_menu_reopens": True,
+            "k1_menu_reopens": True,
+            "k7_power_on_off_advertised": True,
+            "k8_reset_reboot_advertised": True,
             "touch_double_tap_reopens": True,
             "heltec_sync_payload": True,
             "esp32_dualeye_sync_payload": True,
