@@ -2,31 +2,29 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ESP32S3_DUALEYE_2G4_ANTENNA="${ESP32S3_DUALEYE_2G4_ANTENNA:-external_connector}"
-ESP32S3_DUALEYE_ANTENNA_CONNECTOR="${ESP32S3_DUALEYE_ANTENNA_CONNECTOR:-IPEX1/U.FL/MHF1 2.4 GHz connector}"
-ESP32S3_DUALEYE_SELECTOR_MODE="${ESP32S3_DUALEYE_SELECTOR_MODE:-vendor_board_config}"
+ESP32S3_DUALEYE_2G4_ANTENNA="${ESP32S3_DUALEYE_2G4_ANTENNA:-onboard}"
+ESP32S3_DUALEYE_ANTENNA_CONNECTOR="${ESP32S3_DUALEYE_ANTENNA_CONNECTOR:-onboard ceramic 2.4 GHz antenna}"
+ESP32S3_DUALEYE_SELECTOR_MODE="${ESP32S3_DUALEYE_SELECTOR_MODE:-factory_default}"
 STATUS_PATH="${ESP32S3_DUALEYE_ANTENNA_STATUS_PATH:-${REPO_ROOT}/logs/esp32s3_dualeye_2g4_antenna_status.json}"
 CHECK_ONLY=0
 
 usage() {
   cat <<'EOF'
-KoalaByte Blue ESP32-S3 DualEye external 2.4 GHz antenna helper
+KoalaByte Blue ESP32-S3 DualEye 2.4 GHz antenna helper
 
 Usage:
   bash scripts/configure_esp32s3_dualeye_2g4_antenna.sh
+  ESP32S3_DUALEYE_2G4_ANTENNA=onboard bash scripts/configure_esp32s3_dualeye_2g4_antenna.sh
   ESP32S3_DUALEYE_2G4_ANTENNA=external_connector bash scripts/configure_esp32s3_dualeye_2g4_antenna.sh
   bash scripts/configure_esp32s3_dualeye_2g4_antenna.sh --check-only
 
 Environment:
-  ESP32S3_DUALEYE_2G4_ANTENNA       external_connector, onboard, or disabled. Default: external_connector.
-  ESP32S3_DUALEYE_ANTENNA_CONNECTOR Connector name used in logs. Default: IPEX1/U.FL/MHF1 2.4 GHz connector.
-  ESP32S3_DUALEYE_SELECTOR_MODE     vendor_board_config, external_antenna_variant, or selector_resistor_verified.
+  ESP32S3_DUALEYE_2G4_ANTENNA       onboard, external_connector, or disabled. Default: onboard.
+  ESP32S3_DUALEYE_ANTENNA_CONNECTOR Connector/path name used in logs. Default: onboard ceramic 2.4 GHz antenna.
+  ESP32S3_DUALEYE_SELECTOR_MODE     factory_default, vendor_board_config, external_antenna_variant, or selector_verified.
 
-Important:
-  This is the ESP32-S3 DualEye antenna path only.
-  The ESP32-S3 external antenna is a physical board configuration. Firmware records and reports the expected mode,
-  but the board must have the external antenna connector populated and, where required by that board revision,
-  its antenna selector resistor/jumper must be set according to the vendor documentation.
+Default:
+  Leave the Waveshare onboard ceramic antenna path active. The optional IPEX1 path is for advanced hardware configurations only.
 EOF
 }
 
@@ -59,23 +57,26 @@ PY
 }
 
 case "${ESP32S3_DUALEYE_2G4_ANTENNA}" in
-  external_connector|external|EXTERNAL|External)
-    status="external_connector"
-    reason="ESP32-S3 DualEye is configured for the board's external 2.4 GHz antenna connector. Attach a 2.4 GHz antenna through the IPEX/U.FL pigtail/bulkhead path."
-    physical="ESP32-S3 DualEye 2.4 GHz / IPEX1/U.FL/MHF1 antenna connector -> IPEX/U.FL pigtail -> SMA/RP-SMA bulkhead -> 2.4 GHz antenna"
-    ;;
-  onboard|ONBOARD|Onboard)
+  onboard|ONBOARD|Onboard|factory|FACTORY|Factory)
     status="onboard"
-    reason="ESP32-S3 DualEye external antenna path disabled; using onboard antenna path if the board variant supports it."
-    physical="onboard antenna path"
+    reason="ESP32-S3 DualEye uses the factory onboard ceramic 2.4 GHz antenna path. No case-mounted ESP32 antenna is required."
+    physical="factory onboard ceramic antenna path"
+    required=false
+    ;;
+  external_connector|external|EXTERNAL|External)
+    status="external_connector_optional"
+    reason="ESP32-S3 DualEye external antenna path requested. Confirm the exact board hardware is configured for the IPEX1 path before using it."
+    physical="ESP32-S3 DualEye 2.4 GHz IPEX1/U.FL/MHF1 connector path, if the board is configured for it"
+    required=false
     ;;
   disabled|DISABLED|Disabled)
     status="disabled"
     reason="ESP32-S3 DualEye radio antenna validation disabled."
     physical="not requested"
+    required=false
     ;;
   *)
-    echo "Unsupported ESP32S3_DUALEYE_2G4_ANTENNA=${ESP32S3_DUALEYE_2G4_ANTENNA}. Use external_connector, onboard, or disabled." >&2
+    echo "Unsupported ESP32S3_DUALEYE_2G4_ANTENNA=${ESP32S3_DUALEYE_2G4_ANTENNA}. Use onboard, external_connector, or disabled." >&2
     exit 2
     ;;
 esac
@@ -89,6 +90,7 @@ cat > "${STATUS_PATH}" <<JSON
   "selector_mode": $(json_escape "${ESP32S3_DUALEYE_SELECTOR_MODE}"),
   "physical_connection": $(json_escape "${physical}"),
   "reason": $(json_escape "${reason}"),
+  "external_case_antenna_required": ${required},
   "firmware_config": "firmware/esp32-dualeye/include/config.h",
   "production_wiring_doc": "production/WIRING_DIAGRAM_ANTENNAS.md",
   "requires_hardware_validation": true,
