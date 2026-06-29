@@ -53,6 +53,7 @@ REQUIRED_FILES = [
     "firmware/esp32-dualeye/src/esp32_touch_menu.h",
     "firmware/esp32-dualeye/src/esp32_touch_menu.cpp",
     "firmware/t114-combined-safe/CMakeLists.txt",
+    "firmware/t114-combined-safe/prj.conf",
     "docs/ESP32_TOUCH_MENU_CALIBRATION.md",
     "docs/GREATWHITE_REEF.md",
 ]
@@ -65,7 +66,6 @@ SHELL_HELPERS = [
     "scripts/setup_heltec_t114_tools.sh",
     "scripts/setup_nrf_tools.sh",
     "scripts/setup_nrf_connect_sdk_toolchain.sh",
-    "scripts/setup_killerkoala_ollama.sh",
     "scripts/configure_koalabyte_external_antennas.sh",
     "scripts/flash_t114_when_plugged.sh",
     "scripts/build_t114_combined_safe.sh",
@@ -109,6 +109,8 @@ def check_readme(failures: list[str]) -> None:
         "TigerShark",
         "Great Wire Shark",
         "logs/greatwhite_reef/pcaps/",
+        "HT-n5262",
+        "Press the RST key twice",
     ]:
         if needle not in text:
             failures.append(f"README.md missing expected deployment text: {needle}")
@@ -201,6 +203,9 @@ def check_project_markers(failures: list[str]) -> None:
         "pi-companion/koalablue/esp32_touch_menu_bridge.py": ["menu_touch", "calibration_command", "logs/esp32_touch_menu_events.jsonl"],
         "pi-companion/koalablue/menu_action_runner.py": ["_bluez_lab_scope", "bluez_lab_scope.apply_env", "manual_prompt_required"],
         "scripts/setup_system_packages.sh": ["tshark", "wireshark", "GreatWhite Reef"],
+        "scripts/flash_t114_when_plugged.sh": ["HT-n5262", "T114_UF2_MOUNT", "T114_FLASH_METHOD", "bootloader_volume_detected"],
+        "scripts/flash_t114_combined_safe.sh": ["HT-n5262", "T114_UF2_VOLUME_NAME", "find_uf2_mount", "T114_FLASH_METHOD"],
+        "firmware/t114-combined-safe/prj.conf": ["CONFIG_BUILD_OUTPUT_UF2=y", "CONFIG_USB_CDC_ACM=y", "KoalaByte Blue Heltec T114 combined-safe firmware"],
         "scripts/check_menu_prompt_ui.py": ["bluez_lab_target", "Create Location Password", "Unlock Current Process"],
         "scripts/check_esp32_touch_menu.py": ["Esp32TouchMenuBridge", "menu_touch"],
         "firmware/esp32-dualeye/include/config.h": ["waveshare_cst816x_i2c", "TOUCH_MENU_CONTROLLER", "TOUCH_MENU_I2C_ADDR"],
