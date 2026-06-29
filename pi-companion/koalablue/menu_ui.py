@@ -144,11 +144,9 @@ class MenuSelectionScreen:
         if normalized in {"select", "enter"}:
             return self.select("select")
         if normalized in {"shutdown", "power", "power_toggle", "power_on_off"}:
-            self._select_by_command("shutdown_confirm")
-            return self.select("select")
+            return self._run_selected_handler(MenuItem(label="Power On/Off", command="shutdown_confirm", description="Front-panel K7 software shutdown request", group="System / Companion"), "select")
         if normalized in {"reset", "reboot", "reset_reboot"}:
-            self._select_by_command("reset_confirm")
-            return self.select("select")
+            return self._run_selected_handler(MenuItem(label="Reset / Reboot", command="reset_confirm", description="Front-panel K8 software reboot request", group="System / Companion"), "select")
         return self._event("ignored", normalized)
 
     def _finish_keyboard(self, result: dict[str, object]) -> MenuEvent:
