@@ -35,6 +35,7 @@ jobs:
           echo "HEAD=$(git rev-parse HEAD)"
           echo "branch=${GITHUB_REF_NAME}"
           echo "readiness_sha=$(git rev-parse HEAD:scripts/check_repo_readiness.py)"
+          echo "deployability_sha=$(git rev-parse HEAD:scripts/check_deployability.sh)"
           echo "bootstrap_sha=$(git rev-parse HEAD:install.sh)"
           echo "install_pi_sha=$(git rev-parse HEAD:scripts/install_pi.sh)"
           echo "one_shot_sha=$(git rev-parse HEAD:scripts/install_koalabyte_one_shot.sh)"
@@ -58,8 +59,10 @@ jobs:
       - name: Check shell helper syntax
         run: |
           bash -n install.sh
+          bash -n scripts/check_deployability.sh
           bash -n scripts/install_koalabyte_one_shot.sh
           bash -n scripts/install_pi.sh
+          bash -n scripts/flash_all_components.sh
           bash -n scripts/flash_esp32.sh
           bash -n scripts/flash_t114_when_plugged.sh
           bash -n scripts/flash_t114_combined_safe.sh
@@ -123,6 +126,9 @@ jobs:
           PYTHONPATH=pi-companion python scripts/run_koalabyte_status_server.py --json
           bash scripts/koalabyte_doctor.sh --quick
           python scripts/preflight_all_hardware.py --profile heltec
+
+      - name: Validate deployability and flashing dry-run gate
+        run: bash scripts/check_deployability.sh
 
       - name: Validate one-shot dry run
         run: bash scripts/install_koalabyte_one_shot.sh --check-only
