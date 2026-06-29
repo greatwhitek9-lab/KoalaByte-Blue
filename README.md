@@ -39,6 +39,7 @@ Koala Kombat Kruisin uses the Pi as the main Wi-Fi controller, the ESP32-S3 Dual
 |---|---|
 | One-shot installer | Runs the Pi, ESP32-S3, Heltec T114, menu, service, and readiness setup from one command. |
 | `--check-only` dry run | Validates the repo without flashing firmware or installing services. |
+| `--heltec-uf2-first` install mode | Requires the Heltec `HT-n5262` UF2 bootloader volume before flashing the T114, then runs the full one-shot. |
 | Wrapped jungle UI boot | Starts in the full jungle/eucalyptus graphical interface by default, not terminal mode. |
 | 8-key front panel | Supports K1-K8 GPIO input, including K7 Power On/Off and K8 Reset / Reboot. |
 | KoalaByte Doctor | Runs quick/full diagnostics and writes `logs/doctor/koalabyte_doctor_status.json`. |
@@ -55,6 +56,12 @@ Fast repo check:
 
 ```bash
 bash scripts/install_koalabyte_one_shot.sh --check-only
+```
+
+Fast deployability check:
+
+```bash
+bash scripts/check_deployability.sh
 ```
 
 Fast health check:
@@ -214,42 +221,43 @@ Optional InnoMaker CAN kit -> Raspberry Pi USB port only if using CAN bench tool
 
 The InnoMaker CAN kit can stay unplugged for a normal install. The installer skips CAN setup when the adapter is absent.
 
-### 5. Heltec T114 flash mode: HT-n5262
+### 5. Put the Heltec T114 into UF2 mode first
 
-The Heltec manual flash path is supported by the installer:
+This is the recommended full one-shot flashing path.
 
 ```text
-Connect the T114 to the Pi by USB.
-Press the RST key twice in quick succession.
-The mounted bootloader volume should appear as HT-n5262.
+1. Connect the Heltec T114 to the Pi with a USB-C data cable.
+2. Press the T114 RST key twice quickly.
+3. Wait for the mounted UF2 bootloader volume named HT-n5262.
 ```
 
-For the default `combined-safe` T114 profile, the installer will try to detect the `HT-n5262` UF2 volume and copy the generated `zephyr.uf2` firmware to it. If the volume is not present, the flash helper falls back to `west flash` when the nRF/Zephyr tooling is available.
-
-Manual T114 flash command:
+Confirm the Pi sees the volume:
 
 ```bash
-cd ~/KoalaByte-Blue
-T114_FLASH_METHOD=uf2 bash scripts/flash_t114_combined_safe.sh
+lsblk
 ```
 
-To skip Heltec flashing during a first install or while testing USB cables:
+Look for:
 
-```bash
-FLASH_T114_ON_PLUG=0 bash scripts/install_koalabyte_one_shot.sh
+```text
+HT-n5262
 ```
+
+The `--heltec-uf2-first` installer mode requires this `HT-n5262` volume. It forces the T114 `combined-safe` firmware through the UF2 copy path and disables accidental serial/west fallback for the Heltec flash step.
 
 ### 6. Download and run the installer from `Main`
+
+First run the dry-run check:
 
 ```bash
 curl -fsSL -o koalabyte-install.sh https://raw.githubusercontent.com/greatwhitek9-lab/KoalaByte-Blue/Main/install.sh
 bash koalabyte-install.sh check-only
 ```
 
-If the dry run passes, run the full installer:
+If the dry run passes and `HT-n5262` is visible, run the UF2-first full installer:
 
 ```bash
-bash koalabyte-install.sh
+bash koalabyte-install.sh --heltec-uf2-first
 ```
 
 The installer clones/updates the repo at:
@@ -258,7 +266,13 @@ The installer clones/updates the repo at:
 ~/KoalaByte-Blue
 ```
 
-Then it runs the one-shot installer.
+Then it runs the one-shot installer. The Heltec flash step waits for the `HT-n5262` UF2 volume and copies the generated `zephyr.uf2` firmware to it.
+
+If you want to install everything except Heltec flashing while testing USB cables, use:
+
+```bash
+FLASH_T114_ON_PLUG=0 bash koalabyte-install.sh
+```
 
 ### 7. Reboot and start KoalaByte Blue
 
@@ -281,14 +295,14 @@ From inside an existing checkout:
 
 ```bash
 bash install.sh check-only
-bash install.sh
+bash install.sh --heltec-uf2-first
 ```
 
 Or run the one-shot directly:
 
 ```bash
 bash scripts/install_koalabyte_one_shot.sh --check-only
-bash scripts/install_koalabyte_one_shot.sh
+bash scripts/install_koalabyte_one_shot.sh --heltec-uf2-first
 ```
 
 Useful install options:
@@ -297,7 +311,13 @@ Useful install options:
 # Explicit normal Heltec profile
 T114_PLUG_FLASH_PROFILE=combined-safe bash scripts/install_koalabyte_one_shot.sh
 
-# Force the T114 UF2 bootloader copy path; double-tap RST so HT-n5262 appears first
+# Recommended full one-shot T114 flash path; double-tap RST so HT-n5262 appears first
+bash scripts/install_koalabyte_one_shot.sh --heltec-uf2-first
+
+# Same UF2-first path through the top-level bootstrapper
+bash install.sh --heltec-uf2-first
+
+# Manual T114 UF2 copy path only, after HT-n5262 appears
 T114_FLASH_METHOD=uf2 bash scripts/flash_t114_combined_safe.sh
 
 # Skip Heltec flashing while debugging USB/ports
@@ -333,6 +353,8 @@ STRICT_INNOMAKER_CAN=1 bash scripts/install_koalabyte_one_shot.sh
 ## What the one-shot installer does
 
 The normal one-shot path prepares the Pi companion, checks the repo, handles udev names, flashes the ESP32-S3 DualEye firmware, prepares/flashes the Heltec T114 combined-safe profile, validates KillerKoala AI/voice readiness, checks eyes and mouth sync, checks menu display sync, checks jungle/eucalyptus theme fit, validates menu-managed prompt UI controls, validates GreatWhite Reef module/docs/runtime dependencies, runs field readiness, checks version handshake, checks the local dashboard JSON, validates release/log helpers, runs KoalaByte Doctor, installs boot services, checks antenna readiness, prepares AntEater passive readiness, validates the K1-K8 front-panel button map, and records optional CAN status.
+
+The `--heltec-uf2-first` path is the same full one-shot install, except the Heltec flash step requires the `HT-n5262` UF2 bootloader volume and uses the UF2 copy method instead of falling back to serial/west flashing.
 
 The dry run does the readiness checks without flashing firmware or installing services:
 
