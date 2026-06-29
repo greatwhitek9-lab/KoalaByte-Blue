@@ -30,11 +30,13 @@ InnoMaker adapter mounted with strain relief,,,,,Optional
 InnoMaker adapter appears as can0 when installed,,,,,Optional
 Koala Kan Kommander manifest command completed,,,,,
 Koala Kan Kommander status/report commands remain passive,,,,,
-Six-button GPIO test,,,,,
-Button 3 hold shutdown event test,,,,,
+8-key GPIO board test,,,,,Run PYTHONPATH=pi-companion python3 scripts/setup_gpio_buttons.py --live-test --seconds 20
+K1-K6 menu navigation test,,,,,Confirm K1 menu K2 left/back K3 select K4 right/forward K5 up K6 down
+K7 Power On/Off shutdown request test,,,,,Use dry-run first with KOALABYTE_MENU_SHUTDOWN_DRY_RUN=1
+K8 Reset / Reboot request test,,,,,Use dry-run first with KOALABYTE_MENU_RESET_DRY_RUN=1
 Speaker output test,,,,,
 Release package build completed,,,,,Confirm dist package includes production folder
 Log export completed,,,,,Confirm exports folder contains bundle
 Logrotate installer check-only passed,,,,,Run bash scripts/install_koalabyte_logrotate.sh --check-only
 30-minute idle thermal check,,,,,Run while powered from the USB power pack
-Cable strain relief / case close inspection,,,,,Confirm USB cable bend radius antenna clearance and no raw battery wiring
+Cable strain relief / case close inspection,,,,,Confirm USB cable bend radius antenna clearance K1-K8 button clearance and no raw battery wiring
