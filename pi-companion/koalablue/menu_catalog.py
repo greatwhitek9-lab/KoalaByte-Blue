@@ -262,6 +262,34 @@ def sorted_menu_entries(menu_name: str = "main") -> List[dict[str, object]]:
     return list(_entries_for_menu(menu_name))
 
 
+def all_menu_entries() -> List[dict[str, object]]:
+    """Return every visible catalog row in top-to-bottom menu order.
+
+    This compatibility helper is used by readiness scripts. It intentionally
+    preserves authored list order and does not group-sort rows.
+    """
+
+    rows: List[dict[str, object]] = []
+    rows.extend(_entries_for_menu("main"))
+    for menu_name in list(SUBMENU_ITEMS.keys()):
+        rows.extend(_entries_for_menu(menu_name))
+    return rows
+
+
+def leaf_menu_entries() -> List[dict[str, object]]:
+    """Return enabled, selectable action rows that are not submenu links."""
+
+    leaves: List[dict[str, object]] = []
+    for entry in all_menu_entries():
+        command = str(entry.get("command", ""))
+        if not bool(entry.get("enabled", True)):
+            continue
+        if command.startswith("submenu:") or command == "quit":
+            continue
+        leaves.append(entry)
+    return leaves
+
+
 def make_menu_items(menu_item_cls: Type[T], menu_name: str = "main") -> List[T]:
     items: List[T] = []
     for entry in sorted_menu_entries(menu_name):
