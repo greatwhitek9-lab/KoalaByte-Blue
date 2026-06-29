@@ -21,13 +21,13 @@ run_step() {
 write_status() {
   local status="$1"
   local reason="$2"
-  "${PYTHON_BIN}" - <<'PY' "${STATUS_PATH}" "${status}" "${reason}"
+  "${PYTHON_BIN}" - <<'PY' "${STATUS_PATH}" "${status}" "${reason}" "${STRICT_DEPLOYABILITY}"
 import json
 import sys
 import time
 from pathlib import Path
 
-path, status, reason = sys.argv[1:]
+path, status, reason, strict = sys.argv[1:]
 payload = {
     "status": status,
     "reason": reason,
@@ -48,7 +48,7 @@ payload = {
         "Heltec hardware preflight profile",
         "flash_all_components check-only",
     ],
-    "strict_deployability": False,
+    "strict_deployability": strict == "1",
     "updated_at": time.time(),
 }
 Path(path).parent.mkdir(parents=True, exist_ok=True)
