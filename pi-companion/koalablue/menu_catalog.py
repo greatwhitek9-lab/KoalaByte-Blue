@@ -34,7 +34,7 @@ MAIN_MENU_ITEMS: List[dict[str, object]] = [
     _item("Reports & Reviews", "Reports & Reviews", "submenu:reports", "Open reports, reviews, and notes"),
     _item("System / Companion", "System / Companion", "submenu:system", "Open companion, voice, buttons, settings, and modes"),
     _item("System / Companion", "Lab", "submenu:lab", "Open the Authorized Lab Use submenu"),
-    _item("System / Companion", "Power & Exit", "submenu:power", "Open shutdown and quit controls"),
+    _item("System / Companion", "Power & Exit", "submenu:power", "Open shutdown, reset, and quit controls"),
 ]
 
 SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
@@ -187,7 +187,7 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("System / Companion", "KillerKoala Voice", "killerkoala_voice", "Start or check voice companion mode"),
         _item("System / Companion", "KillerKoala Hybrid", "killerkoala_hybrid", "Start or check hybrid AI companion mode"),
         _item("System / Companion", "XP Status", "xp_status", "Show companion XP and level"),
-        _item("System / Companion", "Button Map", "button_map", "Show six-button control map"),
+        _item("System / Companion", "Button Map", "button_map", "Show 8-key K1-K8 front-panel control map"),
         _item("System / Companion", "Firmware Version", "firmware_version", "Show KoalaByte version and module status"),
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
@@ -214,7 +214,8 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
     "power": [
-        _item("System / Companion", "Shutdown", "shutdown_confirm", "Safely shut down the Raspberry Pi"),
+        _item("System / Companion", "Power On/Off", "shutdown_confirm", "K7 PWR requests a safe software shutdown while the Pi is running"),
+        _item("System / Companion", "Reset / Reboot", "reset_confirm", "K8 Reset requests a safe Raspberry Pi reboot"),
         _item("System / Companion", "Quit Menu", "quit", "Exit the menu process"),
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
