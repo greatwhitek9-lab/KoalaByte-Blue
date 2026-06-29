@@ -8,10 +8,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = {
-    "logs/koalabyte_external_antenna_status.json": "KOALABYTE_EXTERNAL_ANTENNAS_READY_FOR_HARDWARE_VALIDATION",
+    "logs/koalabyte_external_antenna_status.json": "KOALABYTE_ANTENNAS_READY_FOR_DEFAULT_BUILD",
     "logs/t114_lora_external_antenna_status.json": "LoRa / SX1262",
-    "logs/t114_2g4_antenna_status.json": "connector_physical",
-    "logs/esp32s3_dualeye_2g4_antenna_status.json": "ESP32-S3 DualEye",
+    "logs/t114_2g4_antenna_status.json": "onboard_or_board_default",
+    "logs/esp32s3_dualeye_2g4_antenna_status.json": "onboard",
     "logs/pi_2g4_external_antenna_status.json": "optional_not_required",
 }
 
@@ -45,14 +45,16 @@ def main() -> int:
             continue
         if relative_path.endswith("pi_2g4_external_antenna_status.json") and payload.get("adapter_required") is not False:
             failures.append("Pi adapter_required must be false")
+        if relative_path.endswith("koalabyte_external_antenna_status.json") and payload.get("extra_2g4_case_antennas_required") is not False:
+            failures.append("extra_2g4_case_antennas_required must be false for the default build")
 
     if failures:
-        print("External antenna readiness check failed:", file=sys.stderr)
+        print("Antenna readiness check failed:", file=sys.stderr)
         for failure in failures:
             print(f"- {failure}", file=sys.stderr)
         return 1
 
-    print("External antenna readiness check passed.")
+    print("Antenna readiness check passed.")
     return 0
 
 
