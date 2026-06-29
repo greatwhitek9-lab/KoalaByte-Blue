@@ -41,6 +41,7 @@ jobs:
           echo "field_readiness_sha=$(git rev-parse HEAD:scripts/check_field_readiness.py)"
           echo "prompt_ui_sha=$(git rev-parse HEAD:scripts/check_menu_prompt_ui.py)"
           echo "koala_kry_menu_sha=$(git rev-parse HEAD:scripts/check_koala_kry_menu.py)"
+          echo "menu_catalog_sha=$(git rev-parse HEAD:pi-companion/koalablue/menu_catalog.py)"
           echo "doctor_sha=$(git rev-parse HEAD:scripts/koalabyte_doctor.py)"
           echo "udev_rules_sha=$(git rev-parse HEAD:udev/99-koalabyte-blue.rules)"
           echo "boot_services_sha=$(git rev-parse HEAD:scripts/install_koalabyte_boot_services.sh)"
