@@ -21,96 +21,59 @@ class ButtonEvent:
 
 @dataclass(frozen=True)
 class ButtonElectricalMode:
-    """Electrical behavior for the KoalaByte Blue front-panel buttons.
+    """Electrical behavior for the KoalaByte Blue 8-key front-panel board.
 
-    The six 6x6mm tactile switches are wired as normally-open switches between
-    a Raspberry Pi BCM GPIO input and GND. The Pi enables its internal pull-up
-    resistor in software, so each input idles HIGH and is pulled LOW only while
-    the matching button is pressed.
+    The recommended module has header pins VCC, GND, and independent K1-K8
+    outputs. For Raspberry Pi safety, power the board from 3.3V only. The K pins
+    are treated as active-low normally-open key outputs: idle HIGH, pressed LOW.
+    The Pi enables internal pull-ups in software through gpiozero.
     """
 
     pull_up: bool = True
     idle_state: str = "HIGH"
     pressed_state: str = "LOW"
-    wiring: str = "normally-open tactile switch shorts BCM GPIO to GND"
+    wiring: str = "8-key module VCC to Pi 3.3V, GND to Pi GND, K1-K8 to assigned BCM GPIO inputs; active-low with internal pull-ups"
 
 
 DEFAULT_ELECTRICAL_MODE = ButtonElectricalMode()
 
 
-# Six-button front-panel mapping, numbered left-to-right.
+# 8-key front-panel mapping, numbered left-to-right across the button board.
 # Physical pins refer to the Raspberry Pi 40-pin header / 40-pin GPIO extender.
 DEFAULT_BUTTONS: Dict[str, Dict[str, object]] = {
-    "button_1": {
-        "number": 1,
-        "label": "Main Menu",
-        "pin": 5,
-        "physical_pin": 29,
-        "press_command": "main_menu",
-    },
-    "button_2": {
-        "number": 2,
-        "label": "Move Left / Back",
-        "pin": 6,
-        "physical_pin": 31,
-        "press_command": "move_left",
-        "alias_command": "back",
-    },
-    "button_3": {
-        "number": 3,
-        "label": "Enter / Select",
-        "pin": 13,
-        "physical_pin": 33,
-        "press_command": "select",
-        "hold_command": "shutdown",
-        "hold_seconds": 3.0,
-    },
-    "button_4": {
-        "number": 4,
-        "label": "Move Right / Forward",
-        "pin": 19,
-        "physical_pin": 35,
-        "press_command": "move_right",
-        "alias_command": "forward",
-    },
-    "button_5": {
-        "number": 5,
-        "label": "Up",
-        "pin": 26,
-        "physical_pin": 37,
-        "press_command": "up",
-    },
-    "button_6": {
-        "number": 6,
-        "label": "Down",
-        "pin": 21,
-        "physical_pin": 40,
-        "press_command": "down",
-    },
+    "button_1": {"number": 1, "module_key": "K1", "label": "Main Menu", "pin": 5, "physical_pin": 29, "press_command": "main_menu"},
+    "button_2": {"number": 2, "module_key": "K2", "label": "Move Left / Back", "pin": 6, "physical_pin": 31, "press_command": "move_left", "alias_command": "back"},
+    "button_3": {"number": 3, "module_key": "K3", "label": "Enter / Select", "pin": 13, "physical_pin": 33, "press_command": "select"},
+    "button_4": {"number": 4, "module_key": "K4", "label": "Move Right / Forward", "pin": 19, "physical_pin": 35, "press_command": "move_right", "alias_command": "forward"},
+    "button_5": {"number": 5, "module_key": "K5", "label": "Up", "pin": 26, "physical_pin": 37, "press_command": "up"},
+    "button_6": {"number": 6, "module_key": "K6", "label": "Down", "pin": 21, "physical_pin": 40, "press_command": "down"},
+    "button_7": {"number": 7, "module_key": "K7", "label": "Shutdown", "pin": 20, "physical_pin": 38, "press_command": "shutdown"},
+    "button_8": {"number": 8, "module_key": "K8", "label": "Reset / Reboot", "pin": 16, "physical_pin": 36, "press_command": "reset"},
 }
 
 
 class GPIOButtonManager:
     """Front-panel Raspberry Pi GPIO button manager.
 
-    Buttons are normally-open 6x6mm tactile switches. One side of each button
-    goes to the assigned BCM GPIO pin from the 40-pin extender, and the opposite
-    side goes to Pi GND. The Pi internal pull-up resistor is enabled through
-    gpiozero with ``pull_up=True``.
+    The default hardware is an 8-key module with VCC, GND, and K1-K8 pins. Use
+    Pi 3.3V for VCC, never 5V. The Pi internal pull-up resistor is enabled
+    through gpiozero with ``pull_up=True``.
 
     Electrical behavior:
 
     - Not pressed / idle: GPIO reads HIGH.
-    - Pressed: button shorts GPIO to GND, GPIO reads LOW.
+    - Pressed: the module key output is treated as active-low and reads LOW.
 
     Button numbering is physical left-to-right on the front panel:
 
     1. Main Menu
     2. Move Left / Back
-    3. Enter / Select; hold for Shutdown
+    3. Enter / Select
     4. Move Right / Forward
     5. Up
     6. Down
+    7. Shutdown
+    8. Reset / Reboot
     """
 
     def __init__(
@@ -145,8 +108,6 @@ class GPIOButtonManager:
                 bounce_time = float(cfg.get("bounce_time", 0.05))
                 pull_up = bool(cfg.get("pull_up", self.electrical_mode.pull_up))
 
-                # pull_up=True enables the Pi's internal pull-up resistor:
-                # idle/not pressed = HIGH, pressed/shorted-to-ground = LOW.
                 button = Button(pin, pull_up=pull_up, bounce_time=bounce_time, hold_time=hold_seconds)
                 button.when_pressed = self._make_callback(
                     number=number,
@@ -173,15 +134,7 @@ class GPIOButtonManager:
 
     def _make_callback(self, *, number: int, name: str, label: str, command: str, event_type: str, pin: int):
         def _callback() -> None:
-            event = ButtonEvent(
-                number=number,
-                name=name,
-                label=label,
-                command=command,
-                event_type=event_type,
-                timestamp=time.time(),
-                pin_bcm=pin,
-            )
+            event = ButtonEvent(number=number, name=name, label=label, command=command, event_type=event_type, timestamp=time.time(), pin_bcm=pin)
             self.events.put(event)
             self._log(event)
         return _callback
