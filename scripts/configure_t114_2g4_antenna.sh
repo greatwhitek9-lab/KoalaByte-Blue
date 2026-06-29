@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-T114_2G4_ANTENNA="${T114_2G4_ANTENNA:-connector}"
+T114_2G4_ANTENNA="${T114_2G4_ANTENNA:-onboard}"
 T114_ANTENNA_SWITCH_OVERLAY="${T114_ANTENNA_SWITCH_OVERLAY:-}"
 T114_ANTENNA_SWITCH_GPIO_CONTROLLER="${T114_ANTENNA_SWITCH_GPIO_CONTROLLER:-}"
 T114_ANTENNA_SWITCH_GPIO_PIN="${T114_ANTENNA_SWITCH_GPIO_PIN:-}"
@@ -15,19 +15,20 @@ CHECK_ONLY=0
 
 usage() {
   cat <<'EOF'
-KoalaByte Blue Heltec T114 nRF52840 external 2.4 GHz antenna setup
+KoalaByte Blue Heltec T114 nRF52840 2.4 GHz antenna setup
 
 Usage:
   bash scripts/configure_t114_2g4_antenna.sh
   bash scripts/configure_t114_2g4_antenna.sh --check-only
-  T114_2G4_ANTENNA=connector bash scripts/configure_t114_2g4_antenna.sh
-  T114_2G4_ANTENNA=external bash scripts/configure_t114_2g4_antenna.sh --print-export
-  T114_ANTENNA_SWITCH_OVERLAY=/path/to/board_external_2g4.overlay bash scripts/configure_t114_2g4_antenna.sh --print-export
+  T114_2G4_ANTENNA=onboard bash scripts/configure_t114_2g4_antenna.sh
+  T114_2G4_ANTENNA=connector bash scripts/configure_t114_2g4_antenna.sh --print-export
+
+Default:
+  The T114 2.4 GHz path is treated as factory/onboard or board-default unless you deliberately request connector/external mode.
 
 Important:
-  The requested default is a physical connection: use the Heltec board's 2.4 GHz antenna connector.
-  Do not attach the LoRa antenna to the 2.4 GHz connector.
-  Do not guess an RF-switch pin. Use the exact Heltec T114/Tracker V2 schematic or board DTS before setting a GPIO overlay.
+  Do not attach the LoRa antenna to any 2.4 GHz connector.
+  Do not guess an RF-switch pin. Use the exact Heltec T114 schematic or board DTS before setting a GPIO overlay.
 EOF
 }
 
@@ -57,12 +58,14 @@ write_status() {
   local overlay="$3"
   local applied="$4"
   local connector="$5"
+  local required="$6"
   cat > "${T114_ANTENNA_STATUS_PATH}" <<JSON
 {
   "antenna_request": $(json_escape "${T114_2G4_ANTENNA}"),
   "status": $(json_escape "${status}"),
   "reason": $(json_escape "${reason}"),
   "physical_connection": $(json_escape "${connector}"),
+  "external_case_antenna_required": ${required},
   "overlay": $(json_escape "${overlay}"),
   "overlay_should_be_applied": ${applied},
   "gpio_controller": $(json_escape "${T114_ANTENNA_SWITCH_GPIO_CONTROLLER}"),
@@ -77,29 +80,29 @@ JSON
 }
 
 case "${T114_2G4_ANTENNA}" in
-  connector|CONNECTOR|Connector|external|EXTERNAL|External|hardware|HARDWARE|Hardware) ;;
-  onboard|ONBOARD|Onboard|disabled|DISABLED|Disabled)
-    write_status "disabled" "External 2.4 GHz antenna connector path disabled by T114_2G4_ANTENNA=${T114_2G4_ANTENNA}." "" false "not requested"
+  onboard|ONBOARD|Onboard|factory|FACTORY|Factory|disabled|DISABLED|Disabled)
+    write_status "onboard_or_board_default" "T114 2.4 GHz external case antenna path is not required for the default KoalaByte build." "" false "factory/onboard or board-default 2.4 GHz antenna path" false
     if [[ "${PRINT_EXPORT}" == "1" ]]; then
       echo ""
     fi
     echo "T114 2.4 GHz antenna status written to ${T114_ANTENNA_STATUS_PATH}"
     exit 0
     ;;
-  *) echo "Unsupported T114_2G4_ANTENNA=${T114_2G4_ANTENNA}. Use connector, external, hardware, onboard, or disabled." >&2; exit 2 ;;
+  connector|CONNECTOR|Connector|external|EXTERNAL|External|hardware|HARDWARE|Hardware) ;;
+  *) echo "Unsupported T114_2G4_ANTENNA=${T114_2G4_ANTENNA}. Use onboard, connector, external, hardware, or disabled." >&2; exit 2 ;;
 esac
 
 if [[ -n "${T114_ANTENNA_SWITCH_OVERLAY}" ]]; then
   if [[ ! -f "${T114_ANTENNA_SWITCH_OVERLAY}" ]]; then
     echo "T114_ANTENNA_SWITCH_OVERLAY does not exist: ${T114_ANTENNA_SWITCH_OVERLAY}" >&2
-    write_status "overlay_missing" "Custom overlay path was provided but does not exist." "${T114_ANTENNA_SWITCH_OVERLAY}" false "attach 2.4 GHz antenna to board 2.4 GHz antenna connector"
+    write_status "overlay_missing" "Custom overlay path was provided but does not exist." "${T114_ANTENNA_SWITCH_OVERLAY}" false "attach 2.4 GHz antenna to board 2.4 GHz connector only if that board revision requires it" false
     if [[ "${CHECK_ONLY}" == "1" ]]; then
       echo "Check-only mode: recorded missing overlay but not failing."
       exit 0
     fi
     exit 1
   fi
-  write_status "custom_overlay" "Using user-supplied Zephyr overlay for a confirmed RF switch; physical antenna still connects to the board's 2.4 GHz antenna connector." "${T114_ANTENNA_SWITCH_OVERLAY}" true "attach 2.4 GHz antenna to board 2.4 GHz antenna connector"
+  write_status "custom_overlay" "Using user-supplied Zephyr overlay for a confirmed RF switch; physical antenna connects only to the documented board 2.4 GHz connector." "${T114_ANTENNA_SWITCH_OVERLAY}" true "attach 2.4 GHz antenna to board 2.4 GHz connector" false
   if [[ "${PRINT_EXPORT}" == "1" ]]; then
     echo "${T114_ANTENNA_SWITCH_OVERLAY}"
   else
@@ -128,7 +131,7 @@ if [[ -n "${T114_ANTENNA_SWITCH_GPIO_CONTROLLER}" && -n "${T114_ANTENNA_SWITCH_G
     };
 };
 EOF
-  write_status "generated_overlay" "Generated Zephyr overlay to drive a confirmed RF-switch GPIO toward the external 2.4 GHz antenna connector path." "${GENERATED_OVERLAY}" true "attach 2.4 GHz antenna to board 2.4 GHz antenna connector"
+  write_status "generated_overlay" "Generated Zephyr overlay to drive a confirmed RF-switch GPIO toward the external 2.4 GHz antenna connector path." "${GENERATED_OVERLAY}" true "attach 2.4 GHz antenna to board 2.4 GHz connector" false
   if [[ "${PRINT_EXPORT}" == "1" ]]; then
     echo "${GENERATED_OVERLAY}"
   else
@@ -137,7 +140,7 @@ EOF
   exit 0
 fi
 
-write_status "connector_physical" "Configured for physical external 2.4 GHz antenna use: attach the 2.4 GHz antenna to the Heltec board's 2.4 GHz antenna connector. No firmware overlay is applied because no confirmed RF-switch GPIO was provided." "" false "attach 2.4 GHz antenna to board 2.4 GHz antenna connector"
+write_status "connector_physical_optional" "External 2.4 GHz connector path requested, but no firmware overlay is applied because no confirmed RF-switch GPIO was provided." "" false "attach 2.4 GHz antenna to board 2.4 GHz connector only if the exact board revision exposes/requires it" false
 if [[ "${PRINT_EXPORT}" == "1" ]]; then
   echo ""
 else
