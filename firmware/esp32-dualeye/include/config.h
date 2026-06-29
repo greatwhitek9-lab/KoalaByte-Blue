@@ -1,12 +1,12 @@
 #pragma once
 
-// killerkoala ESP32-S3 DualEye config RevA27
+// killerkoala ESP32-S3 DualEye config RevA28
 // Board target: Waveshare ESP32-S3-DualEye-Touch-LCD-1.28.
 // Waveshare notes: ESP32-S3R8, 16MB flash, 8MB PSRAM, two 240x240 1.28in LCDs,
 // GC9A01 display controller path, CST816D/CST816x I2C touch, ES8311 audio codec,
 // ES7210 microphone front-end, onboard ceramic antenna, optional IPEX1 antenna path.
 
-#define KOALABLUE_FW_VERSION "0.6.4-waveshare-dualeye-touch"
+#define KOALABLUE_FW_VERSION "0.6.5-waveshare-dualeye-onboard-ant"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define SERIAL_BAUD 115200
@@ -16,14 +16,12 @@
 #define KOALABLUE_THEMES_DIR "firmware/esp32-dualeye/themes"
 
 // ESP32-S3 DualEye 2.4 GHz antenna configuration.
-// The Waveshare board has an onboard ceramic antenna and an IPEX1 connector.
-// Waveshare documents that switching to the external antenna requires moving/resoldering
-// the onboard antenna-select resistor.
-#define ESP32S3_DUALEYE_EXTERNAL_2G4_ANTENNA 1
-#define ESP32S3_DUALEYE_2G4_ANTENNA_MODE "external_connector_optional_resistor_select"
-#define ESP32S3_DUALEYE_2G4_ANTENNA_CONNECTOR "IPEX1/U.FL/MHF1 2.4 GHz connector"
-#define ESP32S3_DUALEYE_2G4_WIRING_PATH "ESP32-S3 DualEye IPEX1/U.FL/MHF1 -> IPEX/U.FL pigtail -> SMA/RP-SMA bulkhead -> 2.4 GHz antenna"
-#define ESP32S3_DUALEYE_VENDOR_SELECTOR_REQUIRED 1
+// Default KoalaByte Blue path: leave the Waveshare onboard ceramic antenna path active.
+#define ESP32S3_DUALEYE_EXTERNAL_2G4_ANTENNA 0
+#define ESP32S3_DUALEYE_2G4_ANTENNA_MODE "onboard_ceramic_default"
+#define ESP32S3_DUALEYE_2G4_ANTENNA_CONNECTOR "onboard ceramic 2.4 GHz antenna"
+#define ESP32S3_DUALEYE_2G4_WIRING_PATH "factory onboard ceramic antenna path; no case pigtail or bulkhead required"
+#define ESP32S3_DUALEYE_VENDOR_SELECTOR_REQUIRED 0
 
 // Voice front-end model plan.
 // ESP32-S3 handles built-in microphone wake/short-command front-end events.
