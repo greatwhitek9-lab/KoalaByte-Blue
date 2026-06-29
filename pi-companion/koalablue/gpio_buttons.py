@@ -37,7 +37,7 @@ DEFAULT_BUTTONS: Dict[str, Dict[str, object]] = {
     "button_4": {"number": 4, "module_key": "K4", "label": "Move Right / Forward", "pin": 19, "physical_pin": 35, "press_command": "move_right", "alias_command": "forward"},
     "button_5": {"number": 5, "module_key": "K5", "label": "Up", "pin": 26, "physical_pin": 37, "press_command": "up"},
     "button_6": {"number": 6, "module_key": "K6", "label": "Down", "pin": 21, "physical_pin": 40, "press_command": "down"},
-    "button_7": {"number": 7, "module_key": "K7", "label": "PWR On/Off", "pin": 20, "physical_pin": 38, "press_command": "pwr_toggle"},
+    "button_7": {"number": 7, "module_key": "K7", "label": "PWR On/Off", "pin": 20, "physical_pin": 38, "press_command": "power_toggle"},
     "button_8": {"number": 8, "module_key": "K8", "label": "Reset", "pin": 16, "physical_pin": 36, "press_command": "reset"},
 }
 
