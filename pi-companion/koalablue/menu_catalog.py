@@ -137,115 +137,106 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("Didgeridoo", "Unlock Current Process", _KB_LOCAL_LOCK_OPEN, "Open protected pop-up keyboard to unlock this running process"),
         _item("Didgeridoo", "Location Unlock ON", "location_gate_unlock_on", "Unlock protected local location actions from the menu"),
         _item("Didgeridoo", "Location Unlock OFF", "location_gate_unlock_off", "Lock protected local location actions"),
-        _item("Didgeridoo", "Meshtastic App", "submenu:meshtastic", "Open Meshtastic phone app, ESP32 node, Heltec serial, BLE, TCP, status, nodes, and GPS helpers"),
-        _item("Didgeridoo", "Protected Location Gate Status", "location_gate_status", "Show protected-actions password gate state"),
-        _item("Didgeridoo", "Protected GNSS Current Fix", "gnss_current_fix", "Show current GNSS fix when unlocked"),
+        _item("Didgeridoo", "Meshtastic App", "submenu:meshtastic", "Open Meshtastic phone app, ESP32 node, Heltec serial, BLE, and send helpers"),
+        _item("Didgeridoo", "Protected Location Gate Status", "location_gate_status", "Show protected local password gate status"),
+        _item("Didgeridoo", "Protected GNSS Current Fix", "location_gate_gnss_current", "Run protected current GNSS helper"),
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
     "meshtastic": [
-        _item("Didgeridoo", "Meshtastic Profile", "meshtastic_profile", "Show the saved or environment-derived connection profile"),
-        _item("Didgeridoo", "Meshtastic Compatibility", "meshtastic_compatibility", "Show iPhone, Android, Heltec, and ESP32 compatibility notes"),
-        _item("Didgeridoo", "Phone App Pairing", "meshtastic_phone_pairing", "Show phone app pairing notes"),
-        _item("Didgeridoo", "ESP32 Device Link", "meshtastic_esp32_device", "Show serial, TCP, and BLE options for an ESP32 Meshtastic node"),
-        _item("Didgeridoo", "Use Heltec USB Serial", "meshtastic_setup_serial", "Save a local Heltec USB serial profile"),
-        _item("Didgeridoo", "Use Network TCP", "meshtastic_setup_tcp", "Save a TCP profile when host env is set"),
-        _item("Didgeridoo", "Use BLE Link", "meshtastic_setup_ble", "Save a BLE profile or allow CLI selection"),
-        _item("Didgeridoo", "Meshtastic Status", "meshtastic_status", "Show local Meshtastic node status"),
-        _item("Didgeridoo", "Meshtastic Nodes", "meshtastic_nodes", "Show the Meshtastic node table"),
-        _item("Didgeridoo", "Meshtastic GPS Info", "meshtastic_gps", "Show GPS/GNSS status from the connected node"),
-        _item("Didgeridoo", "Meshtastic Listen Gate", "meshtastic_listen", "Run protected receive/listen mode only when unlocked"),
-        _item("Didgeridoo", "Send Prompt Status", "meshtastic_send_prompt", "Show the menu-managed message and confirmation state"),
-        _item("Didgeridoo", "Type Mesh Message", _KB_MESH_MESSAGE, "Open pop-up keyboard for custom Meshtastic message text"),
-        _item("Didgeridoo", "Type Mesh Destination", _KB_MESH_DEST, "Open pop-up keyboard for optional Meshtastic destination/node id"),
-        _item("Didgeridoo", "Set Test Message", "meshtastic_set_test_message", "Set message to Test from KoalaByte Blue and turn confirmation off"),
-        _item("Didgeridoo", "Set Check-In Message", "meshtastic_set_checkin_message", "Set message to KoalaByte Blue check-in and turn confirmation off"),
-        _item("Didgeridoo", "Confirm Send ON", "meshtastic_confirm_send_on", "Arm the saved message for the intentional send path"),
-        _item("Didgeridoo", "Confirm Send OFF", "meshtastic_confirm_send_off", "Disarm send confirmation"),
-        _item("Didgeridoo", "Clear Send Draft", "meshtastic_clear_send_prompt", "Clear message, destination, channel, and confirmation"),
-        _item("Didgeridoo", "Meshtastic Send Gate", "meshtastic_send_gate", "Send the saved message only when confirmation and protected gate are armed"),
-        _item("System / Companion", "Back to Didgeridoo", "submenu:didgeridoo", "Return to the Didgeridoo menu"),
+        _item("Didgeridoo", "Meshtastic Profile", "meshtastic_profile", "Show saved Meshtastic local profile"),
+        _item("Didgeridoo", "Meshtastic Compatibility", "meshtastic_compat", "Check Meshtastic Python package and companion readiness"),
+        _item("Didgeridoo", "Phone App Pairing", "meshtastic_phone_pairing", "Show safe phone-app pairing guidance"),
+        _item("Didgeridoo", "ESP32 Device Link", "meshtastic_esp32_link", "Show ESP32 companion link notes"),
+        _item("Didgeridoo", "Use Heltec USB Serial", "meshtastic_use_serial", "Use the Heltec USB serial path for Meshtastic helpers"),
+        _item("Didgeridoo", "Use Network TCP", "meshtastic_use_tcp", "Use a Meshtastic TCP host from prompt state"),
+        _item("Didgeridoo", "Use BLE Link", "meshtastic_use_ble", "Use Meshtastic BLE path when configured"),
+        _item("Didgeridoo", "Meshtastic Status", "meshtastic_status", "Read local Meshtastic interface status"),
+        _item("Didgeridoo", "Meshtastic Nodes", "meshtastic_nodes", "List known local Meshtastic nodes"),
+        _item("Didgeridoo", "Meshtastic GPS Info", "meshtastic_gps", "Read local Meshtastic GPS info"),
+        _item("Didgeridoo", "Meshtastic Listen Gate", "meshtastic_listen", "Protected receive/listen readiness check"),
+        _item("Didgeridoo", "Send Prompt Status", "meshtastic_send_prompt_status", "Show saved Meshtastic send prompt state"),
+        _item("Didgeridoo", "Type Mesh Message", _KB_MESH_MESSAGE, "Open pop-up keyboard for Meshtastic message text"),
+        _item("Didgeridoo", "Type Mesh Destination", _KB_MESH_DEST, "Open pop-up keyboard for Meshtastic destination node"),
+        _item("Didgeridoo", "Set Test Message", "meshtastic_set_test_message", "Set a safe local test message draft"),
+        _item("Didgeridoo", "Set Check-In Message", "meshtastic_set_checkin_message", "Set a safe check-in draft"),
+        _item("Didgeridoo", "Confirm Send ON", "meshtastic_confirm_on", "Require confirmation before sending messages"),
+        _item("Didgeridoo", "Confirm Send OFF", "meshtastic_confirm_off", "Disable confirmation requirement"),
+        _item("Didgeridoo", "Clear Send Draft", "meshtastic_clear_send", "Clear saved message and destination"),
+        _item("Didgeridoo", "Meshtastic Send Gate", "meshtastic_send", "Protected send gate with prompt-state confirmation"),
+        _item("System / Companion", "Back to Didgeridoo", "submenu:didgeridoo", "Return to Didgeridoo"),
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
     "can_bench": [
-        _item("CAN Bench Tools", "Koala Kan Kommander", "koala_kan_kommander", "Optional InnoMaker USB-to-CAN bench workflow"),
+        _item("CAN Bench Tools", "Koala Kan Kommander", "koala_kan_kommander", "Open optional InnoMaker CAN bench workflow"),
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
     "reports": [
-        _item("Reports & Reviews", "Koala Kry RF Review", "koala_kry_transmit_review", "Write RF bench review; no RF is sent"),
-        _item("Reports & Reviews", "Boomerang", "boomerang", "Camera-awareness logbook"),
-        _item("Reports & Reviews", "Authorized BLE Inventory", "authorized_ble_inventory", "Create a lab inventory from local observations"),
-        _item("Reports & Reviews", "GATT Readiness Checklist", "gatt_readiness_checklist", "Generate a pre-test checklist"),
-        _item("Reports & Reviews", "Pairing Security Review", "pairing_security_review", "Review pairing posture"),
-        _item("Reports & Reviews", "Lab Beacon Plan", "lab_beacon_plan", "Create a safe demo beacon plan"),
-        _item("Reports & Reviews", "Packet Capture Notes", "packet_capture_notes", "Create protocol-analysis notes"),
-        _item("Reports & Reviews", "Defensive Lab Report", "defensive_report", "Generate a defensive lab report template"),
+        _item("Reports & Reviews", "Koala Kry RF Review", "koala_kry_run_review", "Write Koala Kry RF bench review"),
+        _item("Reports & Reviews", "Boomerang", "boomerang", "Open camera-awareness logbook mode"),
+        _item("Reports & Reviews", "Authorized BLE Inventory", "authorized_ble_inventory", "Build an owned-device BLE inventory template"),
+        _item("Reports & Reviews", "GATT Readiness Checklist", "gatt_readiness_checklist", "Write a defensive GATT readiness checklist"),
+        _item("Reports & Reviews", "Pairing Security Review", "pairing_security_review", "Create a safe pairing-security review"),
+        _item("Reports & Reviews", "Lab Beacon Plan", "lab_beacon_plan", "Draft an authorized BLE beacon lab plan"),
+        _item("Reports & Reviews", "Packet Capture Notes", "packet_capture_notes", "Write packet-capture documentation notes"),
+        _item("Reports & Reviews", "Defensive Lab Report", "defensive_lab_report", "Build a defensive lab report"),
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
     "system": [
-        _item("System / Companion", "Prompt State Status", "prompt_state_status", "Show all menu-managed prompt toggles"),
-        _item("System / Companion", "Koala Mode Switcher", "koala_mode_switcher", "Build/package/select legacy mode helpers"),
-        _item("System / Companion", "KillerKoala Voice", "killerkoala_voice", "Preview voice and vocabulary"),
-        _item("System / Companion", "Buttons", "buttons", "Show/check GPIO button status"),
-        _item("System / Companion", "Level / Status", "level/status", "Show XP and rank"),
-        _item("System / Companion", "Wake killerkoala", "wake killerkoala", "Test wake-word flow"),
-        _item("System / Companion", "Restricted Placeholder", "restricted_placeholder", "Reserved locked slot", enabled=False),
-        _item("System / Companion", "Settings", "settings", "Device and companion settings"),
+        _item("System / Companion", "Companion Status", "companion_status", "Show KillerKoala companion status"),
+        _item("System / Companion", "KillerKoala Voice", "killerkoala_voice", "Start or check voice companion mode"),
+        _item("System / Companion", "KillerKoala Hybrid", "killerkoala_hybrid", "Start or check hybrid AI companion mode"),
+        _item("System / Companion", "XP Status", "xp_status", "Show companion XP and level"),
+        _item("System / Companion", "Button Map", "button_map", "Show six-button control map"),
+        _item("System / Companion", "Firmware Version", "firmware_version", "Show KoalaByte version and module status"),
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
     "lab": [
-        _item("Bluetooth Tools", "BlueZ Lab Scope Status", "bluez_lab_scope_status", "Show owned-device target and scope readiness"),
-        _item("Bluetooth Tools", "Type BlueZ Lab Target", _KB_BLUEZ_TARGET, "Open pop-up keyboard for owned-device Bluetooth target address"),
-        _item("Bluetooth Tools", "Owned Device Scope ON", "bluez_lab_owned_on", "Mark the saved BlueZ target as owned or explicitly authorized"),
-        _item("Bluetooth Tools", "Owned Device Scope OFF", "bluez_lab_owned_off", "Clear the owned-device scope flag"),
-        _item("Bluetooth Tools", "Clear BlueZ Lab Scope", "bluez_lab_scope_clear", "Clear saved BlueZ target and owned-device flag"),
-        _item("Bluetooth Tools", "Joey Target Dossier", "koala_bluez_info", "Protected owned-device info card"),
-        _item("Bluetooth Tools", "Treehouse Service Trace", "koala_bluez_services", "Protected owned-device service notes"),
-        _item("Bluetooth Tools", "Gumnut GATT Gatecheck", "koala_bluez_gatt_readiness", "Protected owned-device checklist"),
-        _item("Bluetooth Tools", "Outback Radio Ledger", "bluez_outback_radio_ledger", "Protected local adapter ledger"),
-        _item("Bluetooth Tools", "Classic Track Finder", "bluez_classic_track_finder", "Protected controller listing"),
-        _item("Bluetooth Tools", "Treehouse RFCOMM Wiremap", "bluez_treehouse_rfcomm_wiremap", "Protected RFCOMM status map"),
-        _item("Bluetooth Tools", "Pouch Link Echo", "bluez_pouch_link_echo", "Protected owned-device echo check"),
-        _item("Bluetooth Tools", "Gumnut GATT Ghostmap", "bluez_gumnut_gatt_ghostmap", "Protected owned-device service map"),
-        _item("Bluetooth Tools", "Platypus BT-Proxy", "bluez_platypus_bt_proxy", "Protected readiness check"),
-        _item("Didgeridoo", "Create Location Password", _KB_LOCAL_LOCK_SET, "Open protected pop-up keyboard to create or update the local password"),
-        _item("Didgeridoo", "Unlock Current Process", _KB_LOCAL_LOCK_OPEN, "Open protected pop-up keyboard to unlock this running process"),
-        _item("Didgeridoo", "Location Unlock ON", "location_gate_unlock_on", "Unlock protected local location actions from the menu"),
-        _item("Didgeridoo", "Location Unlock OFF", "location_gate_unlock_off", "Lock protected local location actions"),
-        _item("Didgeridoo", "Protected Location Gate Status", "location_gate_status", "Show protected-actions gate state"),
+        _item("System / Companion", "BlueZ Lab Scope Status", "bluez_lab_scope_status", "Show owned-device target and scope readiness"),
+        _item("System / Companion", "Type BlueZ Lab Target", _KB_BLUEZ_TARGET, "Open pop-up keyboard for owned-device Bluetooth target address"),
+        _item("System / Companion", "Owned Device Scope ON", "bluez_lab_owned_on", "Mark the saved BlueZ target as owned or explicitly authorized"),
+        _item("System / Companion", "Owned Device Scope OFF", "bluez_lab_owned_off", "Clear the owned-device scope flag"),
+        _item("System / Companion", "Clear BlueZ Lab Scope", "bluez_lab_scope_clear", "Clear saved BlueZ target and owned-device flag"),
+        _item("System / Companion", "Joey Target Dossier", "koala_bluez_info", "Protected owned-device info card"),
+        _item("System / Companion", "Treehouse Service Trace", "koala_bluez_services", "Protected owned-device service notes"),
+        _item("System / Companion", "Gumnut GATT Gatecheck", "koala_bluez_gatt_readiness", "Protected owned-device checklist"),
+        _item("System / Companion", "Outback Radio Ledger", "bluez_outback_radio_ledger", "Protected local adapter ledger"),
+        _item("System / Companion", "Classic Track Finder", "bluez_classic_track_finder", "Protected classic controller listing"),
+        _item("System / Companion", "Treehouse RFCOMM Wiremap", "bluez_treehouse_rfcomm_wiremap", "Protected RFCOMM status map"),
+        _item("System / Companion", "Pouch Link Echo", "bluez_pouch_link_echo", "Protected owned-device echo check"),
+        _item("System / Companion", "Gumnut GATT Ghostmap", "bluez_gumnut_gatt_ghostmap", "Protected owned-device service map"),
+        _item("System / Companion", "Platypus BT-Proxy", "bluez_platypus_bt_proxy", "Protected readiness check only"),
+        _item("System / Companion", "Create Location Password", _KB_LOCAL_LOCK_SET, "Open protected pop-up keyboard to create or update the local password"),
+        _item("System / Companion", "Unlock Current Process", _KB_LOCAL_LOCK_OPEN, "Open protected pop-up keyboard to unlock this running process"),
+        _item("System / Companion", "Location Unlock ON", "location_gate_unlock_on", "Unlock protected local location actions from the menu"),
+        _item("System / Companion", "Location Unlock OFF", "location_gate_unlock_off", "Lock protected local location actions"),
+        _item("System / Companion", "Protected Location Gate Status", "location_gate_status", "Show protected local password gate status"),
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
     "power": [
-        _item("System / Companion", "Shutdown", "shutdown_confirm", "Confirm safe shutdown"),
-        _item("System / Companion", "Quit", "quit", "Exit the Pi companion UI"),
+        _item("System / Companion", "Shutdown", "shutdown_confirm", "Safely shut down the Raspberry Pi"),
+        _item("System / Companion", "Quit Menu", "quit", "Exit the menu process"),
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
 }
 
-FUNCTION_MENU_ITEMS = MAIN_MENU_ITEMS
+
+def _entries_for_menu(menu_name: str = "main") -> List[dict[str, object]]:
+    return MAIN_MENU_ITEMS if menu_name == "main" else SUBMENU_ITEMS.get(menu_name, MAIN_MENU_ITEMS)
 
 
 def submenu_name_from_command(command: str) -> str:
-    return command.split(":", 1)[1].strip().lower() if command.startswith("submenu:") else ""
+    prefix = "submenu:"
+    return command[len(prefix):] if command.startswith(prefix) else ""
 
 
 def submenu_title(menu_name: str) -> str:
-    titles = {"main": "Main Canopy", "eucalyptus": "Eucalyptus", "kruisin": "Koala Kombat Kruisin’", "bluetooth": "Bluetooth Tools", "koala_kry": "Koala Kry", "didgeridoo": "Didgeridoo", "meshtastic": "Meshtastic App", "can_bench": "CAN Bench Tools", "reports": "Reports & Reviews", "system": "System / Companion", "lab": "Authorized Lab", "power": "Power & Exit"}
-    return titles.get(menu_name, menu_name.replace("_", " ").title())
-
-
-def _entries_for_menu(menu_name: str = "main") -> List[dict[str, object]]:
-    return MAIN_MENU_ITEMS if menu_name == "main" else SUBMENU_ITEMS.get(menu_name, [])
-
-
-def all_menu_entries() -> List[dict[str, object]]:
-    entries: List[dict[str, object]] = list(MAIN_MENU_ITEMS)
-    for submenu_entries in SUBMENU_ITEMS.values():
-        entries.extend(submenu_entries)
-    return entries
-
-
-def leaf_menu_entries() -> List[dict[str, object]]:
-    return [entry for entry in all_menu_entries() if not str(entry.get("command", "")).startswith("submenu:") and bool(entry.get("enabled", True))]
+    if menu_name == "main":
+        return "Main Canopy"
+    if menu_name == "can_bench":
+        return "CAN Bench Tools"
+    if menu_name == "koala_kry":
+        return "Koala Kry"
+    return menu_name.replace("_", " ").title()
 
 
 def _entry_group(entry: dict[str, object]) -> str:
@@ -261,9 +252,14 @@ def grouped_entries(menu_name: str = "main") -> Dict[str, List[dict[str, object]
 
 
 def sorted_menu_entries(menu_name: str = "main") -> List[dict[str, object]]:
-    indexed = list(enumerate(_entries_for_menu(menu_name)))
-    indexed.sort(key=lambda pair: (_GROUP_ORDER[_entry_group(pair[1])], pair[0]))
-    return [entry for _idx, entry in indexed]
+    """Return menu entries in explicit written list order.
+
+    KoalaByte menus render as a single top-to-bottom list, not a grid. Group
+    names are display metadata only; they must never reshuffle the authored row
+    order because that makes button, touch, and voice selection feel like a grid.
+    """
+
+    return list(_entries_for_menu(menu_name))
 
 
 def make_menu_items(menu_item_cls: Type[T], menu_name: str = "main") -> List[T]:
