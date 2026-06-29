@@ -34,6 +34,7 @@ REQUIRED_FILES = [
     "pi-companion/koalablue/gpio_buttons.py",
     "pi-companion/koalablue/killerkoala_vocabulary.py",
     "pi-companion/koalablue/killerkoala_voice_control.py",
+    "scripts/check_deployability.sh",
     "scripts/check_menu_actions.py",
     "scripts/check_menu_theme_fit.py",
     "scripts/check_menu_prompt_ui.py",
@@ -62,19 +63,35 @@ REQUIRED_FILES = [
 
 SHELL_HELPERS = [
     "install.sh",
+    "scripts/check_deployability.sh",
     "scripts/install_pi.sh",
     "scripts/install_koalabyte_one_shot.sh",
+    "scripts/setup_wifi_first_boot.sh",
     "scripts/setup_system_packages.sh",
+    "scripts/setup_esp32_tools.sh",
     "scripts/setup_heltec_t114_tools.sh",
     "scripts/setup_nrf_tools.sh",
     "scripts/setup_nrf_connect_sdk_toolchain.sh",
+    "scripts/setup_bluez_gatttool.sh",
+    "scripts/setup_killerkoala_ollama.sh",
     "scripts/configure_koalabyte_external_antennas.sh",
+    "scripts/configure_esp32s3_dualeye_2g4_antenna.sh",
+    "scripts/configure_t114_2g4_antenna.sh",
+    "scripts/configure_t114_lora_external_antenna.sh",
+    "scripts/flash_all_components.sh",
     "scripts/flash_t114_when_plugged.sh",
     "scripts/build_t114_combined_safe.sh",
     "scripts/flash_t114_combined_safe.sh",
     "scripts/flash_heltec_mouth.sh",
     "scripts/flash_esp32.sh",
     "scripts/preflight_all_hardware.sh",
+    "scripts/install_koalabyte_udev_rules.sh",
+    "scripts/install_koalabyte_boot_services.sh",
+    "scripts/install_koalabyte_logrotate.sh",
+    "scripts/koalabyte_doctor.sh",
+    "scripts/koalabyte_safe_mode.sh",
+    "scripts/export_koalabyte_logs.sh",
+    "scripts/build_koalabyte_release_package.sh",
 ]
 
 REQUIRED_RUNTIME_REQUIREMENTS = ["bleak", "pyserial", "rich", "pydantic", "fastapi", "uvicorn", "requests", "httpx", "gpiozero", "pygame", "python-can", "pyttsx3", "SpeechRecognition", "meshtastic"]
@@ -210,6 +227,7 @@ def check_menu_catalog(failures: list[str]) -> None:
 
 def check_project_markers(failures: list[str]) -> None:
     checks = {
+        "scripts/check_deployability.sh": ["DEPLOYABILITY_READY", "flash_all_components", "install_koalabyte_one_shot.sh", "flash_t114_when_plugged.sh"],
         "pi-companion/koalablue/popup_keyboard.py": ["bluez_lab_target", "Create Location Password", "Unlock Current Process"],
         "pi-companion/koalablue/greatwhite_reef.py": ["GreatWhite Reef", "TigerShark", "Great Wire Shark", "greatwhite_pcap_read:", "logs/greatwhite_reef"],
         "pi-companion/koalablue/bluez_lab_scope.py": ["BLUEZ_LAB_SCOPE_READY", "apply_env", "set_owned", "set_target"],
