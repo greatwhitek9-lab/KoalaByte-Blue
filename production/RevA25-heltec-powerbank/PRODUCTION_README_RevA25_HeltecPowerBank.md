@@ -17,11 +17,11 @@ The build is **Heltec T114 based**, **no-custom-PCB**, and powered from a regula
 ```text
 Top antenna / RF area:  Heltec LoRa antenna, Heltec 2.4 GHz antenna if exposed, ESP32-S3 2.4 GHz antenna
 Front/UI layer:         ESP32-S3 DualEye module, 2x round 1.28 in LCDs, mic path
+Front controls:         8-key K1-K8 button module; K7 Power On/Off, K8 Reset / Reboot
 Radio/GNSS layer:       Heltec Mesh Node T114 / nRF52840 + SX1262 LoRa board
 CAN service layer:      Optional InnoMaker USB-to-CAN kit
 Main computer layer:    Raspberry Pi 3 Model B+
 Power source:           Regulated USB portable power pack / power bank
-Controls:               Six-button front panel wired to Raspberry Pi GPIO
 Audio:                  8 ohm 2 W mini speaker
 Enclosure:              Optional 3D printed eucalyptus-green koala-ear case / stacked frame
 ```
@@ -34,9 +34,34 @@ Use only the current Heltec/power-pack BOM:
 production/RevA25-heltec-powerbank/BOM_RevA25_HeltecPowerBank.csv
 ```
 
-The BOM includes the Raspberry Pi 3B+, ESP32-S3 DualEye, Heltec Mesh Node T114, six-button front panel, speaker, ESP32 antenna path, Heltec LoRa antenna path, optional Heltec 2.4 GHz antenna path, regulated USB portable power pack, short USB power/data cables, optional powered USB hub, cabling, fasteners, frame plates, optional printed enclosure parts, and the optional InnoMaker USB to CAN Converter kit.
+The BOM includes the Raspberry Pi 3B+, ESP32-S3 DualEye, Heltec Mesh Node T114, one 8 independent key button module, speaker, ESP32 antenna path, Heltec LoRa antenna path, optional Heltec 2.4 GHz antenna path, regulated USB portable power pack, short USB power/data cables, optional powered USB hub, cabling, fasteners, frame plates, optional printed enclosure parts, and the optional InnoMaker USB to CAN Converter kit.
 
-The BOM does **not** require the Nordic nRF52840 USB Dongle, loose 18650 cells, a 2S holder, a 2S BMS, a battery fuse holder, a battery switch, a PD trigger board, a buck converter, or raw lithium battery wiring.
+The BOM does **not** require the Nordic nRF52840 USB Dongle, six loose 4-pin tactile buttons, loose 18650 cells, a 2S holder, a 2S BMS, a battery fuse holder, a battery switch, a PD trigger board, a buck converter, or raw lithium battery wiring.
+
+## Front-panel K1-K8 controls
+
+KoalaByte Blue RevA25 now uses one 8 independent key button module instead of six separate 4-pin tactile buttons.
+
+```text
+K1 -> Main Menu          -> GPIO5  / physical pin 29
+K2 -> Move Left / Back   -> GPIO6  / physical pin 31
+K3 -> Enter / Select     -> GPIO13 / physical pin 33
+K4 -> Move Right/Forward -> GPIO19 / physical pin 35
+K5 -> Up                 -> GPIO26 / physical pin 37
+K6 -> Down               -> GPIO21 / physical pin 40
+K7 -> Power On/Off       -> GPIO20 / physical pin 38
+K8 -> Reset / Reboot     -> GPIO16 / physical pin 36
+```
+
+Wire the board as active-low GPIO:
+
+```text
+Module VCC -> Pi 3.3V only, physical pin 1 or 17
+Module GND -> Pi GND, physical pin 39 or any Pi GND
+Module K1-K8 -> assigned GPIO pins above
+```
+
+K7 requests a safe software shutdown while the Pi is running. K8 requests a safe software reboot. K7 does not power on a fully unpowered Pi unless you add a supported external power-control/wake circuit or use the power bank's own button.
 
 ## Antenna paths
 
@@ -87,6 +112,9 @@ Raspberry Pi USB ports or optional powered USB hub
   -> Heltec Mesh Node T114
   -> ESP32-S3 DualEye
   -> optional InnoMaker USB-to-CAN adapter
+
+Raspberry Pi GPIO header/extender
+  -> K1-K8 button module VCC/GND/signals only
 ```
 
 Validation requirements:
@@ -95,6 +123,7 @@ Validation requirements:
 - Do not open the power pack or route raw lithium voltage inside the device.
 - Do not use the old 2x18650/BMS/fuse/switch/buck wiring stack.
 - Use a short low-resistance Pi power cable.
+- Use Pi 3.3V, not 5V, for the K1-K8 button module VCC when connected to Pi GPIO.
 - If the Pi shows undervoltage warnings or USB devices disconnect, use a better cable, a higher-current power-pack output, or a powered USB hub for accessories.
 
 ## Optional InnoMaker Koala Kan Kommander path
@@ -149,6 +178,7 @@ Main companion features:
 - Koala Kry offline metadata replay/report pipeline.
 - Didgeridoo/Meshtastic status paths.
 - Koala Kan Kommander passive InnoMaker USB-to-CAN status/listen/report workflow.
+- K1-K8 GPIO front-panel controls with K7 Power On/Off and K8 Reset / Reboot.
 - Menu display sync, AI-face idle return, KoalaByte Doctor, field readiness checks, and release/log helpers.
 
 ## One-shot validation and install flow
@@ -171,6 +201,7 @@ Useful checks:
 python3 scripts/check_repo_readiness.py
 PYTHONPATH=pi-companion python3 scripts/check_field_readiness.py
 PYTHONPATH=pi-companion python3 scripts/check_koalabyte_version_handshake.py
+PYTHONPATH=pi-companion python3 scripts/setup_gpio_buttons.py --check-only
 bash scripts/koalabyte_doctor.sh --quick
 ```
 
@@ -213,4 +244,4 @@ The installer creates/updates the Pi companion virtual environment, installs Pyt
 
 ## Safety boundary
 
-This production package is for lawful owned-device labs and defensive review. Do not connect the CAN adapter, BLE/radio tools, LoRa path, or GPS/GNSS workflows to systems, vehicles, radios, networks, or devices you do not own or do not have permission to test.
+This production package is for lawful owned-device labs and defensive review. Do not connect the CAN adapter, BLE/radio tools, LoRa path, GPS/GNSS workflows, or reset/power wiring to systems, vehicles, radios, networks, or devices you do not own or do not have permission to test.
