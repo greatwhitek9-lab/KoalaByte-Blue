@@ -19,7 +19,7 @@ Fresh Pi download flow:
 
 Modes:
   install       Clone/update repo, then run scripts/install_koalabyte_one_shot.sh. Default.
-  check-only   Clone/update repo, then run the one-shot dry-run readiness gate.
+  check-only   Clone/update repo, prepare the local Python check venv, then run the one-shot dry-run readiness gate.
   repo-only    Clone/update repo only.
 
 Useful environment:
@@ -93,6 +93,23 @@ clone_repo() {
   git clone --depth 1 --branch "${BRANCH}" "${REPO_URL}" "${INSTALL_DIR}"
 }
 
+prepare_check_environment() {
+  cd "${INSTALL_DIR}"
+  local venv_dir="${INSTALL_DIR}/pi-companion/.venv"
+  local python_bin="${PYTHON_BIN:-python3}"
+  if [[ ! -x "${python_bin}" ]] && ! command -v "${python_bin}" >/dev/null 2>&1; then
+    echo "Python 3 is required for check-only mode." >&2
+    exit 1
+  fi
+  if [[ ! -f "${venv_dir}/bin/python" ]]; then
+    echo "Preparing local Python check environment: ${venv_dir}"
+    "${python_bin}" -m venv --system-site-packages "${venv_dir}"
+  fi
+  "${venv_dir}/bin/python" -m pip install --upgrade pip wheel setuptools
+  "${venv_dir}/bin/python" -m pip install -r "${INSTALL_DIR}/pi-companion/requirements.txt"
+  export PYTHON_BIN="${venv_dir}/bin/python"
+}
+
 ensure_git
 
 if [[ -d "${INSTALL_DIR}/.git" ]]; then
@@ -113,6 +130,8 @@ case "${RUN_MODE}" in
     echo "Repository ready at ${INSTALL_DIR}"
     ;;
   check-only)
+    echo "Preparing KoalaByte one-shot dry-run readiness gate..."
+    prepare_check_environment
     echo "Running KoalaByte one-shot dry-run readiness gate..."
     bash scripts/install_koalabyte_one_shot.sh --check-only "$@"
     ;;
