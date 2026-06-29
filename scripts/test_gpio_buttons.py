@@ -9,8 +9,8 @@ Button numbering is physical left-to-right across the 8-key module:
 4 K4 Move Right / Forward  -> BCM GPIO19 / physical pin 35
 5 K5 Up                    -> BCM GPIO26 / physical pin 37
 6 K6 Down                  -> BCM GPIO21 / physical pin 40
-7 K7 PWR On/Off position   -> BCM GPIO20 / physical pin 38
-8 K8 Reset                 -> BCM GPIO16 / physical pin 36
+7 K7 Power On/Off          -> BCM GPIO20 / physical pin 38
+8 K8 Reset / Reboot        -> BCM GPIO16 / physical pin 36
 VCC                        -> Pi 3.3V only, physical pin 1 or 17
 GND                        -> physical pin 39 or any Pi GND
 
@@ -33,8 +33,8 @@ BUTTONS = {
     "k4_right_forward": {"number": 4, "pin": 19, "press": "move_right/forward"},
     "k5_up": {"number": 5, "pin": 26, "press": "up"},
     "k6_down": {"number": 6, "pin": 21, "press": "down"},
-    "k7_pwr": {"number": 7, "pin": 20, "press": "power_toggle"},
-    "k8_reset": {"number": 8, "pin": 16, "press": "reset"},
+    "k7_power_on_off": {"number": 7, "pin": 20, "press": "power_toggle"},
+    "k8_reset_reboot": {"number": 8, "pin": 16, "press": "reset"},
 }
 
 running = True
@@ -51,7 +51,8 @@ def main() -> None:
     print("KoalaByte Blue 8-key button-board test running. Press Ctrl+C to exit.")
     print("Electrical mode: VCC=3.3V only, internal pull-up enabled; not pressed=HIGH, pressed=LOW.")
     print("Press K1 through K8 left-to-right and confirm the printed command matches the wiring table.")
-    print("Note: K7 is the PWR position. True power-on from a fully unpowered Pi requires power-control hardware.")
+    print("Note: K7 is Power On/Off and requests safe software shutdown while the Pi is running.")
+    print("Note: K8 is Reset / Reboot and requests safe software reboot.")
     for name, cfg in BUTTONS.items():
         number = int(cfg["number"])
         pin = int(cfg["pin"])
