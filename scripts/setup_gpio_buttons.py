@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Prepare/check KoalaByte Blue front-panel GPIO button board.
 
-Default hardware is now an 8-key module with header pins VCC, GND, and K1-K8.
-The helper writes a manifest and validates the software mapping without touching
-GPIO hardware unless ``--live-test`` is used on a Raspberry Pi.
+Default hardware is now a GODIYMODULES MOD-ST034-1 / ASIN B0FH9C88DJ
+8-key module with header pins VCC, GND, and K1-K8. The helper writes a
+manifest and validates the software mapping without touching GPIO hardware
+unless ``--live-test`` is used on a Raspberry Pi.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ def build_manifest() -> Dict[str, Any]:
     return {
         "status": "GPIO_8KEY_BUTTON_BOARD_CONFIGURED",
         "board_type": "8 independent key button module with VCC, GND, K1-K8 header",
+        "orderable_reference": "GODIYMODULES MOD-ST034-1 / ASIN B0FH9C88DJ; listing includes 2 modules, KoalaByte uses 1",
         "mode": "active_low_internal_pull_up",
         "power": "VCC must connect to Pi 3.3V only; do not use 5V with Pi GPIO.",
         "internal_pull_up_enabled": DEFAULT_ELECTRICAL_MODE.pull_up,
@@ -33,18 +35,19 @@ def build_manifest() -> Dict[str, Any]:
         "wiring": DEFAULT_ELECTRICAL_MODE.wiring,
         "common_ground": "Module GND to Pi GND, recommended physical pin 39 on the 40-pin header/extender",
         "vcc": "Module VCC to Pi physical pin 1 or 17, 3.3V only",
-        "do_not_wire_to": ["5V", "raw battery", "ESP32 GPIO", "Heltec GPIO"],
+        "do_not_wire_to": ["5V", "raw battery", "ESP32 GPIO", "Heltec GPIO", "Pi RUN/reset pads without a separate documented reset circuit"],
         "debounce_seconds_default": 0.05,
         "buttons": DEFAULT_BUTTONS,
         "wiring_summary": [
             "Use K1-K8 left-to-right across the button board.",
             "K1-K6 replace the previous six separate tactile buttons.",
-            "K7 is the PWR On/Off position.",
-            "K8 is the Reset position.",
+            "K7 is the Power On/Off position and requests safe software shutdown.",
+            "K8 is the Reset / Reboot position and requests safe software reboot.",
             "gpiozero Button(..., pull_up=True) enables the Raspberry Pi internal pull-up resistor.",
             "Idle/not pressed reads HIGH; pressed reads LOW.",
         ],
-        "pwr_note": "A GPIO key can request a runtime power action while the Pi is running. True power-on from a fully unpowered Pi needs a supported power-control board or the battery bank control.",
+        "power_on_note": "A GPIO key can request a runtime power action while the Pi is running. True power-on from a fully unpowered Pi needs a supported power-control board or the battery bank control.",
+        "reset_note": "K8 is a software reboot request. Do not wire it to raw power, 5V, ESP32 GPIO, Heltec GPIO, or Pi RUN/reset pads without a separate documented reset circuit.",
     }
 
 
