@@ -52,7 +52,7 @@ PCAP 2: older_capture.pcap
 PCAP 3: another_capture.pcapng
 ```
 
-Highlight a PCAP row with the six buttons, touchscreen, keyboard, or voice command, then select it. The selected file runs through TigerShark Read automatically and writes JSON output under:
+Highlight a PCAP row with the K1-K8 front-panel buttons, touchscreen, keyboard, or voice command, then select it. The selected file runs through TigerShark Read automatically and writes JSON output under:
 
 ```text
 logs/greatwhite_reef/
