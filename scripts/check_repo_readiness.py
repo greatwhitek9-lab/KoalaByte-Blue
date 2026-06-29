@@ -114,6 +114,8 @@ def check_readme(failures: list[str]) -> None:
     text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     for needle in [
         "bash scripts/install_koalabyte_one_shot.sh",
+        "bash install.sh --heltec-uf2-first",
+        "--heltec-uf2-first",
         "InnoMaker CAN kit is optional",
         "ESP32-S3 DualEye",
         "Heltec Mesh Node T114",
@@ -129,7 +131,7 @@ def check_readme(failures: list[str]) -> None:
         "Great Wire Shark",
         "logs/greatwhite_reef/pcaps/",
         "HT-n5262",
-        "Press the RST key twice",
+        "Press the T114 RST key twice",
         "8 independent key button module",
         "K7 Power On/Off",
         "K8 Reset / Reboot",
@@ -227,7 +229,9 @@ def check_menu_catalog(failures: list[str]) -> None:
 
 def check_project_markers(failures: list[str]) -> None:
     checks = {
-        "scripts/check_deployability.sh": ["DEPLOYABILITY_READY", "flash_all_components", "install_koalabyte_one_shot.sh", "flash_t114_when_plugged.sh"],
+        "install.sh": ["--heltec-uf2-first", "HT-n5262", "scripts/install_koalabyte_one_shot.sh"],
+        "scripts/install_koalabyte_one_shot.sh": ["--heltec-uf2-first", "HELTEC_UF2_FIRST", "T114_REQUIRE_UF2", "T114_FLASH_METHOD=uf2"],
+        "scripts/check_deployability.sh": ["DEPLOYABILITY_READY", "--heltec-uf2-first", "T114_REQUIRE_UF2=1", "flash_t114_when_plugged.sh"],
         "pi-companion/koalablue/popup_keyboard.py": ["bluez_lab_target", "Create Location Password", "Unlock Current Process"],
         "pi-companion/koalablue/greatwhite_reef.py": ["GreatWhite Reef", "TigerShark", "Great Wire Shark", "greatwhite_pcap_read:", "logs/greatwhite_reef"],
         "pi-companion/koalablue/bluez_lab_scope.py": ["BLUEZ_LAB_SCOPE_READY", "apply_env", "set_owned", "set_target"],
@@ -235,7 +239,7 @@ def check_project_markers(failures: list[str]) -> None:
         "pi-companion/koalablue/menu_action_runner.py": ["_bluez_lab_scope", "bluez_lab_scope.apply_env", "manual_prompt_required", "reset_confirm", "power_toggle"],
         "pi-companion/koalablue/menu_screen.py": ["power_toggle", "reset_confirm", "K8 reset/reboot"],
         "scripts/setup_system_packages.sh": ["tshark", "wireshark", "GreatWhite Reef"],
-        "scripts/flash_t114_when_plugged.sh": ["HT-n5262", "T114_UF2_MOUNT", "T114_FLASH_METHOD", "bootloader_volume_detected", "mount_uf2_block_if_needed", "lsblk", "UF2_MOUNTPOINT"],
+        "scripts/flash_t114_when_plugged.sh": ["HT-n5262", "T114_UF2_MOUNT", "T114_FLASH_METHOD", "T114_REQUIRE_UF2", "require_uf2", "bootloader_volume_detected", "mount_uf2_block_if_needed", "lsblk", "UF2_MOUNTPOINT"],
         "scripts/flash_t114_combined_safe.sh": ["HT-n5262", "T114_UF2_VOLUME_NAME", "find_uf2_mount", "T114_FLASH_METHOD", "mount_uf2_block_if_needed", "lsblk", "UF2_MOUNTPOINT"],
         "firmware/t114-combined-safe/prj.conf": ["CONFIG_BUILD_OUTPUT_UF2=y", "CONFIG_USB_CDC_ACM=y", "KoalaByte Blue Heltec T114 combined-safe firmware"],
         "scripts/check_menu_prompt_ui.py": ["bluez_lab_target", "Create Location Password", "Unlock Current Process"],
