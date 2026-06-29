@@ -35,12 +35,12 @@ def _failures_from_menu_payload(payload: dict[str, object]) -> list[str]:
             failures.append("K1/menu must be advertised as a menu reopen control")
         if "touch_double_tap" not in reopen_controls:
             failures.append("touch_double_tap must be advertised as a menu reopen control")
-        power_controls = set(controls.get("power_on_off", [])) if isinstance(controls.get("power_on_off"), list) else set()
-        if "K7" not in power_controls:
-            failures.append("K7/power must be advertised as the power on/off control")
-        reset_controls = set(controls.get("reset_reboot", [])) if isinstance(controls.get("reset_reboot"), list) else set()
-        if "K8" not in reset_controls:
-            failures.append("K8/reset must be advertised as the reset/reboot control")
+        k7_controls = set(controls.get("power_on_off", [])) if isinstance(controls.get("power_on_off"), list) else set()
+        if "K7" not in k7_controls:
+            failures.append("K7 must be advertised as the power control")
+        k8_controls = set(controls.get("reset_reboot", [])) if isinstance(controls.get("reset_reboot"), list) else set()
+        if "K8" not in k8_controls:
+            failures.append("K8 must be advertised as the reset/reboot control")
     if "K3/select or touchscreen long-press" not in str(payload.get("execute_hint", "")):
         failures.append("execute hint must mention K3/select or touchscreen long-press")
     if "30 seconds idle" not in str(payload.get("idle_face_rule", "")):
@@ -64,6 +64,76 @@ def _failures_from_ai_payload(payload: dict[str, object]) -> list[str]:
     displays = set(payload.get("synced_displays", [])) if isinstance(payload.get("synced_displays"), list) else set()
     if "heltec-t114" not in displays or "esp32-s3-dualeye" not in displays:
         failures.append("AI face payload must target both Heltec T114 and ESP32-S3 DualEye")
+    return failures
+
+
+def _check_gpio_button_to_heltec_path() -> list[str]:
+    from koalablue.gpio_buttons import DEFAULT_BUTTONS
+    from koalablue.menu_display_sync import _heltec_face_payload, build_ai_face_payload, build_menu_sync_payload
+    from koalablue.menu_ui import MenuItem, MenuSelectionScreen
+
+    failures: list[str] = []
+    by_key = {str(cfg.get("module_key")): str(cfg.get("press_command")) for cfg in DEFAULT_BUTTONS.values()}
+    expected = {
+        "K1": "main_menu",
+        "K2": "move_left",
+        "K3": "select",
+        "K4": "move_right",
+        "K5": "up",
+        "K6": "down",
+        "K7": "power_toggle",
+        "K8": "reset",
+    }
+    for key, command in expected.items():
+        if by_key.get(key) != command:
+            failures.append(f"GPIO {key} must emit {command}, got {by_key.get(key)}")
+
+    menu = MenuSelectionScreen(items=[
+        MenuItem(label="Alpha", command="alpha", description="First test action"),
+        MenuItem(label="Bravo", command="bravo", description="Second test action"),
+        MenuItem(label="Charlie", command="charlie", description="Third test action"),
+    ], visible_rows=3)
+    menu.register_handler("bravo", lambda _item: None)
+
+    down_event = menu.handle_command(by_key["K6"])
+    down_payload = build_menu_sync_payload(menu, down_event)
+    heltec_down = _heltec_face_payload(down_payload)
+    if menu.selected_item.label != "Bravo":
+        failures.append("K6/down did not move the highlighted menu row to Bravo")
+    if heltec_down.get("target_display") == "esp32-s3-dualeye":
+        failures.append("K6/down generated the wrong display target")
+    if heltec_down.get("menu_sync") is not True or heltec_down.get("state") != "menu_highlight":
+        failures.append("K6/down did not generate a Heltec menu_highlight payload")
+    if "Bravo" not in str(heltec_down.get("message", "")):
+        failures.append("K6/down Heltec payload does not include the highlighted row label")
+
+    up_event = menu.handle_command(by_key["K5"])
+    up_payload = build_menu_sync_payload(menu, up_event)
+    heltec_up = _heltec_face_payload(up_payload)
+    if menu.selected_item.label != "Alpha":
+        failures.append("K5/up did not move the highlighted menu row back to Alpha")
+    if heltec_up.get("menu_sync") is not True or heltec_up.get("state") != "menu_highlight":
+        failures.append("K5/up did not generate a Heltec menu_highlight payload")
+
+    menu.handle_command(by_key["K6"])
+    select_event = menu.handle_command(by_key["K3"])
+    face_payload = build_ai_face_payload(menu, select_event, state=menu.face_state, message=menu.face_message)
+    heltec_select = _heltec_face_payload(face_payload)
+    if select_event is None or select_event.event_type != "select" or select_event.command != "bravo":
+        failures.append("K3/select did not execute the highlighted menu item")
+    if heltec_select.get("menu_sync") is not False or heltec_select.get("state") != "action_complete":
+        failures.append("K3/select did not generate the Heltec action-complete face payload")
+
+    os.environ.setdefault("KOALABYTE_MENU_SHUTDOWN_DRY_RUN", "1")
+    os.environ.setdefault("KOALABYTE_MENU_RESET_DRY_RUN", "1")
+    real_menu = MenuSelectionScreen(visible_rows=6)
+    k7_event = real_menu.handle_command(by_key["K7"])
+    if k7_event is None or k7_event.command != "shutdown_confirm":
+        failures.append("K7 did not route through the live menu UI to shutdown_confirm")
+    real_menu.reopen_menu("main_menu")
+    k8_event = real_menu.handle_command(by_key["K8"])
+    if k8_event is None or k8_event.command != "reset_confirm":
+        failures.append("K8 did not route through the live menu UI to reset_confirm")
     return failures
 
 
@@ -133,6 +203,8 @@ def main() -> int:
     if leaf.display_mode != "menu":
         failures.append("menu must be visible after touchscreen double-tap reopen")
 
+    failures.extend(_check_gpio_button_to_heltec_path())
+
     status = {
         "status": "MENU_DISPLAY_SYNC_READY" if not failures else "MENU_DISPLAY_SYNC_INCOMPLETE",
         "updated_at": time.time(),
@@ -143,8 +215,8 @@ def main() -> int:
             "idle_face_timeout_seconds": 30,
             "action_complete_returns_to_ai_face": True,
             "k1_menu_reopens": True,
-            "k7_power_on_off_advertised": True,
-            "k8_reset_reboot_advertised": True,
+            "k5_k6_gpio_scroll_to_heltec": True,
+            "k7_k8_gpio_routes": True,
             "touch_double_tap_reopens": True,
             "heltec_sync_payload": True,
             "esp32_dualeye_sync_payload": True,
