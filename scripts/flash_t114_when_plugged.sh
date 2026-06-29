@@ -10,7 +10,9 @@ POLL_SECONDS="${T114_PLUG_FLASH_POLL_SECONDS:-2}"
 PORT="${KOALABYTE_HELTEC_USB_PORT:-${KOALABYTE_PRIMARY_BLE_PORT:-${HELTEC_PORT:-}}}"
 STATUS_PATH="${T114_PLUG_FLASH_STATUS_PATH:-logs/t114_plug_flash_status.json}"
 UF2_VOLUME_NAME="${T114_UF2_VOLUME_NAME:-HT-n5262}"
+UF2_MOUNTPOINT="${T114_UF2_MOUNTPOINT:-/mnt/koalabyte-t114-uf2}"
 CHECK_ONLY=0
+LAST_UF2_DEVICE=""
 
 usage() {
   cat <<'EOF'
@@ -26,8 +28,8 @@ Usage:
 
 Manual T114 bootloader path:
   Connect the T114 by USB, then press RST twice quickly. The bootloader volume
-  should appear as HT-n5262. The combined-safe profile auto-detects that volume
-  and copies the generated UF2 firmware to it.
+  should appear as HT-n5262. The combined-safe profile auto-detects that volume,
+  mounts it on Pi OS Lite when needed, and copies the generated UF2 firmware to it.
 
 Profiles:
   combined-safe  Default combined T114 firmware for primary BLE JSON plus KillerKoala mouth/status JSON.
@@ -55,6 +57,16 @@ print(json.dumps(sys.argv[1]))
 PY
 }
 
+sudo_or_root() {
+  if [[ "${EUID}" -eq 0 ]]; then
+    "$@"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+  else
+    return 1
+  fi
+}
+
 write_status() {
   local status="$1"
   local reason="$2"
@@ -69,6 +81,8 @@ write_status() {
   "selected_port": $(json_escape "${selected_port}"),
   "uf2_volume_name": $(json_escape "${UF2_VOLUME_NAME}"),
   "uf2_mount": $(json_escape "${uf2_mount}"),
+  "uf2_mountpoint": $(json_escape "${UF2_MOUNTPOINT}"),
+  "uf2_block_device": $(json_escape "${LAST_UF2_DEVICE}"),
   "helper": $(json_escape "${helper}"),
   "timeout_seconds": $(json_escape "${TIMEOUT_SECONDS}"),
   "source": "scripts/flash_t114_when_plugged.sh",
@@ -91,6 +105,54 @@ resolve_port() {
   return 1
 }
 
+find_uf2_block_record() {
+  command -v lsblk >/dev/null 2>&1 || return 1
+  python3 - <<'PY' "${UF2_VOLUME_NAME}"
+import json
+import subprocess
+import sys
+
+target = sys.argv[1].lower()
+try:
+    data = json.loads(subprocess.check_output(["lsblk", "-J", "-o", "LABEL,PATH,MOUNTPOINT,TYPE"], text=True))
+except Exception:
+    sys.exit(1)
+
+def walk(nodes):
+    for node in nodes:
+        label = str(node.get("label") or "").lower()
+        if label == target:
+            print(f"{node.get('mountpoint') or ''}\t{node.get('path') or ''}")
+            return True
+        if walk(node.get("children") or []):
+            return True
+    return False
+
+sys.exit(0 if walk(data.get("blockdevices") or []) else 1)
+PY
+}
+
+mount_uf2_block_if_needed() {
+  local record mount_path device
+  record="$(find_uf2_block_record || true)"
+  [[ -n "${record}" ]] || return 1
+  mount_path="${record%%$'\t'*}"
+  device="${record#*$'\t'}"
+  LAST_UF2_DEVICE="${device}"
+  if [[ -n "${mount_path}" && -d "${mount_path}" ]]; then
+    echo "${mount_path}"
+    return 0
+  fi
+  [[ -n "${device}" && -e "${device}" ]] || return 1
+  sudo_or_root mkdir -p "${UF2_MOUNTPOINT}" || return 1
+  if command -v mountpoint >/dev/null 2>&1 && mountpoint -q "${UF2_MOUNTPOINT}"; then
+    echo "${UF2_MOUNTPOINT}"
+    return 0
+  fi
+  sudo_or_root mount -o "uid=$(id -u),gid=$(id -g)" "${device}" "${UF2_MOUNTPOINT}" || sudo_or_root mount "${device}" "${UF2_MOUNTPOINT}" || return 1
+  echo "${UF2_MOUNTPOINT}"
+}
+
 resolve_uf2_mount() {
   if [[ -n "${T114_UF2_MOUNT:-}" && -d "${T114_UF2_MOUNT}" ]]; then
     echo "${T114_UF2_MOUNT}"
@@ -101,7 +163,7 @@ resolve_uf2_mount() {
   if [[ -n "${user_name}" ]]; then
     candidates+=("/media/${user_name}/${UF2_VOLUME_NAME}" "/run/media/${user_name}/${UF2_VOLUME_NAME}")
   fi
-  candidates+=("/media/${UF2_VOLUME_NAME}" "/mnt/${UF2_VOLUME_NAME}" "/Volumes/${UF2_VOLUME_NAME}")
+  candidates+=("/media/${UF2_VOLUME_NAME}" "/mnt/${UF2_VOLUME_NAME}" "/Volumes/${UF2_VOLUME_NAME}" "${UF2_MOUNTPOINT}")
   candidates+=("/media"/*/"${UF2_VOLUME_NAME}" "/run/media"/*/"${UF2_VOLUME_NAME}")
   local candidate
   for candidate in "${candidates[@]}"; do
@@ -110,7 +172,7 @@ resolve_uf2_mount() {
       return 0
     fi
   done
-  return 1
+  mount_uf2_block_if_needed
 }
 
 helper_for_profile() {
@@ -138,7 +200,7 @@ fi
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   if [[ -f "${HELPER}" ]]; then
-    write_status "check_ready" "Flash helper exists; check-only mode did not wait for or flash hardware. Combined-safe supports the HT-n5262 UF2 bootloader volume." "" "${HELPER}" ""
+    write_status "check_ready" "Flash helper exists; check-only mode did not wait for or flash hardware. Combined-safe supports the HT-n5262 UF2 bootloader volume and Pi OS Lite mount path." "" "${HELPER}" ""
   else
     write_status "check_missing_helper" "Flash helper is not present yet; check-only mode did not fail hardware deployment." "" "${HELPER}" ""
   fi
@@ -147,7 +209,7 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
 fi
 
 echo "Waiting for Heltec T114 USB device for profile ${PROFILE}..."
-echo "For manual bootloader flash: connect USB, press RST twice quickly, wait for the HT-n5262 volume."
+echo "For manual bootloader flash: connect USB, press RST twice quickly, wait for the HT-n5262 volume. On Pi OS Lite this script can mount the detected label at ${UF2_MOUNTPOINT}."
 START=$(date +%s)
 SELECTED_PORT=""
 SELECTED_UF2_MOUNT=""
