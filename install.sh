@@ -17,16 +17,31 @@ Fresh Pi download flow:
   curl -fsSL -o koalabyte-install.sh https://raw.githubusercontent.com/greatwhitek9-lab/KoalaByte-Blue/Main/install.sh
   bash koalabyte-install.sh
 
+Heltec UF2-first full install:
+  1. Plug in the Heltec T114 by USB-C data cable.
+  2. Press RST twice quickly until the HT-n5262 UF2 volume appears.
+  3. Run:
+       bash install.sh --heltec-uf2-first
+
 Modes:
   install       Clone/update repo, then run scripts/install_koalabyte_one_shot.sh. Default.
   check-only   Clone/update repo, prepare the local Python check venv, then run the one-shot dry-run readiness gate.
   repo-only    Clone/update repo only.
+
+Any extra flags after the mode are passed to scripts/install_koalabyte_one_shot.sh.
+Examples:
+  bash install.sh install --heltec-uf2-first
+  bash install.sh --heltec-uf2-first
+  bash install.sh check-only
 
 Useful environment:
   KOALABYTE_INSTALL_DIR=$HOME/KoalaByte-Blue
   KOALABYTE_BRANCH=Main
   ESP32_PORT=/dev/ttyUSB0
   KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0
+  HELTEC_UF2_FIRST=1
+  T114_REQUIRE_UF2=1
+  T114_FLASH_METHOD=uf2
   T114_PLUG_FLASH_PROFILE=combined-safe|color-mouth|hci-usb|skip
   INSTALL_INNOMAKER_CAN=optional|0|1
   STRICT_INNOMAKER_CAN=1
@@ -43,6 +58,9 @@ case "${1:-install}" in
   install|check-only|repo-only)
     RUN_MODE="${1:-install}"
     shift || true
+    ;;
+  --*)
+    RUN_MODE="install"
     ;;
   *)
     echo "Unknown mode: ${1:-}" >&2
