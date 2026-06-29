@@ -332,8 +332,8 @@ def _system_status(command: str) -> dict[str, Any]:
         return module_manifest()
     if command == "koala_mode_switcher":
         return {"status": "MODE_SWITCHER_STATUS_READY", "note": "Legacy dongle mode package helper is selectable without extra prompt."}
-    if command == "shutdown_confirm":
-        payload = {"status": "SHUTDOWN_REQUESTED", "command": "sudo shutdown -h now"}
+    if command in {"shutdown_confirm", "power_toggle", "power_on_off"}:
+        payload = {"status": "SHUTDOWN_REQUESTED", "command": "sudo shutdown -h now", "source": "front_panel_power_or_menu"}
         if os.getenv("KOALABYTE_MENU_SHUTDOWN_DRY_RUN", "0") == "1":
             payload["status"] = "SHUTDOWN_DRY_RUN"
             return payload
@@ -341,6 +341,17 @@ def _system_status(command: str) -> dict[str, Any]:
             subprocess.Popen(["sudo", "shutdown", "-h", "now"])
         except Exception as exc:
             payload["status"] = "SHUTDOWN_FAILED"
+            payload["error"] = str(exc)
+        return payload
+    if command in {"reset_confirm", "reset", "reboot", "reset_reboot"}:
+        payload = {"status": "RESET_REBOOT_REQUESTED", "command": "sudo reboot", "source": "front_panel_reset_or_menu"}
+        if os.getenv("KOALABYTE_MENU_RESET_DRY_RUN", "0") == "1":
+            payload["status"] = "RESET_REBOOT_DRY_RUN"
+            return payload
+        try:
+            subprocess.Popen(["sudo", "reboot"])
+        except Exception as exc:
+            payload["status"] = "RESET_REBOOT_FAILED"
             payload["error"] = str(exc)
         return payload
     return {"status": "SYSTEM_ACTION_RECORDED"}
@@ -391,7 +402,7 @@ def run_automated_menu_action(command: str, label: str = "", group: str = "") ->
             return _ok(command, label, asdict(run_once(scan_seconds=12.0)))
         if command in {"ear_tag", "ear_tag_tx_lab"}:
             return _ok(command, label, _ear_tag_plan())
-        if command in {"killerkoala_voice", "buttons", "level/status", "wake killerkoala", "settings", "koala_mode_switcher", "shutdown_confirm"}:
+        if command in {"killerkoala_voice", "buttons", "level/status", "wake killerkoala", "settings", "koala_mode_switcher", "shutdown_confirm", "power_toggle", "power_on_off", "reset_confirm", "reset", "reboot", "reset_reboot"}:
             return _ok(command, label, _system_status(command))
         if command == "quit":
             return _ok(command, label, {"status": "QUIT_REQUEST_RECORDED"})
