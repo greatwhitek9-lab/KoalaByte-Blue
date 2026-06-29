@@ -84,15 +84,17 @@ def build_menu_sync_payload(menu: Any, event: Any | None = None) -> dict[str, ob
         "selected_enabled": bool(getattr(displayed_selected, "enabled", True)),
         "visible_items": visible_items,
         "controls": {
-            "scroll_up": ["B5", "touch_drag_up", "keyboard_up"],
-            "scroll_down": ["B6", "touch_drag_down", "keyboard_down"],
-            "select": ["B3", "touch_long_press", "keyboard_enter"],
-            "back": ["B2", "keyboard_left"],
-            "main_menu": ["B1", "keyboard_m"],
-            "reopen_menu": ["B1", "touch_double_tap"],
+            "scroll_up": ["K5", "touch_drag_up", "keyboard_up"],
+            "scroll_down": ["K6", "touch_drag_down", "keyboard_down"],
+            "select": ["K3", "touch_long_press", "keyboard_enter"],
+            "back": ["K2", "keyboard_left"],
+            "main_menu": ["K1", "keyboard_m"],
+            "power_on_off": ["K7"],
+            "reset_reboot": ["K8"],
+            "reopen_menu": ["K1", "touch_double_tap"],
         },
-        "execute_hint": "Highlight a menu item, then press B3/select or touchscreen long-press to execute it.",
-        "idle_face_rule": "AI face returns after 30 seconds idle and after actions until B1/menu or double-tap reopens menu.",
+        "execute_hint": "Highlight a menu item, then press K3/select or touchscreen long-press to execute it.",
+        "idle_face_rule": "AI face returns after 30 seconds idle and after actions until K1/menu or double-tap reopens menu.",
         "synced_displays": ["heltec-t114", "esp32-s3-dualeye"],
         "updated_at": time.time(),
     }
@@ -123,7 +125,7 @@ def build_ai_face_payload(menu: Any, event: Any | None = None, *, state: str = "
         "message": message,
         "selected_label": label,
         "selected_command": command,
-        "menu_reopen_hint": "Press B1/menu or double-tap touchscreen to reopen the menu.",
+        "menu_reopen_hint": "Press K1/menu or double-tap touchscreen to reopen the menu.",
         "idle_timeout_seconds": int(getattr(menu, "idle_face_seconds", 30)),
         "synced_displays": ["heltec-t114", "esp32-s3-dualeye"],
         "updated_at": time.time(),
@@ -204,7 +206,7 @@ def _esp32_menu_payload(payload: dict[str, object]) -> dict[str, object]:
         "selected_command": str(payload.get("selected_command", ""))[:72],
         "selected_group": str(payload.get("selected_group", ""))[:48],
         "selected_enabled": bool(payload.get("selected_enabled", True)),
-        "execute_hint": "B3/select or touchscreen long-press",
+        "execute_hint": "K3/select or touchscreen long-press",
     }
 
 
@@ -219,7 +221,7 @@ def _esp32_face_payload(payload: dict[str, object]) -> dict[str, object]:
         "right_eye": "#32FF71",
         "brightness": 92,
         "enabled": True,
-        "menu_reopen_hint": "B1/menu or touchscreen double-tap",
+        "menu_reopen_hint": "K1/menu or touchscreen double-tap",
     }
 
 
