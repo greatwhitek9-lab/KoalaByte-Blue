@@ -88,6 +88,9 @@ jobs:
       - name: Run repo readiness check
         run: python scripts/check_repo_readiness.py
 
+      - name: Run full runtime dependency check
+        run: PYTHONPATH=pi-companion python scripts/check_full_runtime_dependencies.py
+
       - name: Generate T114 protocol artifacts
         run: bash scripts/build_default_t114_protocol_artifacts.sh
 
