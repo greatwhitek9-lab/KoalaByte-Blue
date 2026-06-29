@@ -39,11 +39,12 @@ def build_manifest() -> Dict[str, Any]:
         "wiring_summary": [
             "Use K1-K8 left-to-right across the button board.",
             "K1-K6 replace the previous six separate tactile buttons.",
-            "K7 is the dedicated Shutdown button.",
-            "K8 is the dedicated Reset/Reboot button.",
+            "K7 is the PWR On/Off position.",
+            "K8 is the Reset position.",
             "gpiozero Button(..., pull_up=True) enables the Raspberry Pi internal pull-up resistor.",
             "Idle/not pressed reads HIGH; pressed reads LOW.",
         ],
+        "pwr_note": "A GPIO key can request a runtime power action while the Pi is running. True power-on from a fully unpowered Pi needs a supported power-control board or the battery bank control.",
     }
 
 
