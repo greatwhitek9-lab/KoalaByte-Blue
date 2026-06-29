@@ -62,6 +62,13 @@ GRAPHICAL_LABEL_MAX_LINES = 1
 GRAPHICAL_DESCRIPTION_MAX_LINES = 2
 TERMINAL_LABEL_WIDTH = 68
 TERMINAL_DESCRIPTION_WIDTH = 64
+GRAPHICAL_TEXT_SAFE_PAD = 26
+
+
+def _safe_text_width(width: int, pad: int = GRAPHICAL_TEXT_SAFE_PAD) -> int:
+    """Leave room for chunky outlines, shadows, and row-border glow."""
+
+    return max(1, int(width) - int(pad))
 
 
 def _mode_badge(command: str) -> str:
@@ -477,7 +484,7 @@ class JungleMenuRenderer:
         panel = self._keyboard_panel_rect()
         pygame.draw.rect(screen, (9, 45, 24), panel, border_radius=24)
         pygame.draw.rect(screen, self.theme.boomerang_accent, panel, 4, border_radius=24)
-        title = _fit_text_for_width(self.item_font, str(getattr(keyboard, "title", "Popup Keyboard")).upper(), panel.width - 50)
+        title = _fit_text_for_width(self.item_font, str(getattr(keyboard, "title", "Popup Keyboard")).upper(), _safe_text_width(panel.width - 50))
         self._chunky_text(title, panel.centerx, panel.top + 36, self.item_font, self.theme.title_fill, self.theme.item_outline, self.theme.title_shadow, outline_size=2)
 
         value = str(getattr(keyboard, "visible_text", "")) or f"[{getattr(keyboard, 'placeholder', 'text')}]"
@@ -485,7 +492,7 @@ class JungleMenuRenderer:
         pygame.draw.rect(screen, self.theme.keyboard_input_box, value_rect, border_radius=16)
         pygame.draw.rect(screen, self.theme.boomerang_accent, value_rect.inflate(4, 4), 2, border_radius=18)
         pygame.draw.rect(screen, self.theme.leaf_glow, value_rect, 2, border_radius=16)
-        value = _fit_text_for_width(self.keyboard_input_font, value, value_rect.width - 24)
+        value = _fit_text_for_width(self.keyboard_input_font, value, _safe_text_width(value_rect.width - 24))
         # Keyboard typed text intentionally uses the same chunky jungle/Jumanji font stack
         # and carved yellow-green palette as the rest of the KoalaByte menu.
         self._chunky_text(value, value_rect.centerx, value_rect.centery, self.keyboard_input_font, self.theme.keyboard_input_fill, self.theme.keyboard_input_outline, self.theme.keyboard_input_shadow, outline_size=2)
@@ -500,7 +507,7 @@ class JungleMenuRenderer:
                 rect = pygame.Rect(int(panel.left + 24 + col_index * key_w), row_top + row_index * row_h, int(key_w - 4), int(row_h * 0.82))
                 pygame.draw.rect(screen, self.theme.selected_fill if selected else self.theme.item_fill, rect, border_radius=10)
                 pygame.draw.rect(screen, self.theme.selected_outline if selected else self.theme.item_outline, rect, 2, border_radius=10)
-                key_text = _fit_text_for_width(self.item_font, char, rect.width - 8)
+                key_text = _fit_text_for_width(self.item_font, char, _safe_text_width(rect.width - 8, pad=10))
                 surf = self.item_font.render(key_text, True, self.theme.item_shadow)
                 screen.blit(surf, surf.get_rect(center=rect.center))
         special = getattr(keyboard, "special_keys", None) or ["space", "back", "clear", "shift", "symbols", "voice", "save", "cancel"]
@@ -511,10 +518,10 @@ class JungleMenuRenderer:
             rect = pygame.Rect(int(panel.left + 24 + index * key_w), special_y, int(key_w - 4), int(row_h * 0.82))
             pygame.draw.rect(screen, self.theme.selected_fill if selected else self.theme.blue_accent, rect, border_radius=10)
             pygame.draw.rect(screen, self.theme.selected_outline if selected else self.theme.item_outline, rect, 2, border_radius=10)
-            surf = self.desc_font.render(_fit_text_for_width(self.desc_font, key, rect.width - 6), True, self.theme.item_shadow)
+            surf = self.desc_font.render(_fit_text_for_width(self.desc_font, key, _safe_text_width(rect.width - 6, pad=8)), True, self.theme.item_shadow)
             screen.blit(surf, surf.get_rect(center=rect.center))
         hint = "USB/Bluetooth keyboard: type | Enter save | Backspace delete | Esc cancel | Touch long-press key | Voice: keyboard text ..."
-        hint = _fit_text_for_width(self.desc_font, hint, panel.width - 40)
+        hint = _fit_text_for_width(self.desc_font, hint, _safe_text_width(panel.width - 40, pad=12))
         screen.blit(self.desc_font.render(hint, True, self.theme.leaf_glow), self.desc_font.render(hint, True, self.theme.leaf_glow).get_rect(center=(panel.centerx, panel.bottom - 26)))
 
     def _draw_ai_face(self) -> None:
@@ -525,7 +532,7 @@ class JungleMenuRenderer:
         assert self.item_font is not None
         assert self.desc_font is not None
         w, h = screen.get_size()
-        title = _fit_text_for_width(self.title_font, "KILLERKOALA", int(w * 0.78))
+        title = _fit_text_for_width(self.title_font, "KILLERKOALA", _safe_text_width(int(w * 0.78)))
         self._chunky_text(title, w // 2, int(h * 0.18), self.title_font, self.theme.title_fill, self.theme.title_outline, self.theme.title_shadow, outline_size=5)
         state = str(getattr(self.menu, "face_state", "idle")).upper()
         message = str(getattr(self.menu, "face_message", "KillerKoala is watching the canopy"))
@@ -534,12 +541,12 @@ class JungleMenuRenderer:
         pygame.draw.rect(screen, self.theme.boomerang_accent, panel, 4, border_radius=max(24, panel.height // 4))
         self._leaf((panel.left + 28, panel.top + 28), 24, 45)
         self._leaf((panel.right - 28, panel.bottom - 28), 24, 225)
-        state_line = _fit_text_for_width(self.item_font, state, panel.width - 52)
+        state_line = _fit_text_for_width(self.item_font, state, _safe_text_width(panel.width - 52))
         self._chunky_text(state_line, panel.centerx, panel.top + int(panel.height * 0.35), self.item_font, self.theme.leaf_glow, self.theme.item_outline, self.theme.title_shadow, outline_size=2)
-        for idx, line in enumerate(_wrap_for_width(self.desc_font, message, panel.width - 60, max_lines=2)):
+        for idx, line in enumerate(_wrap_for_width(self.desc_font, message, _safe_text_width(panel.width - 60, pad=12), max_lines=2)):
             surf = self.desc_font.render(line, True, self.theme.title_fill)
             screen.blit(surf, surf.get_rect(center=(panel.centerx, panel.top + int(panel.height * 0.62) + idx * (self.desc_font.get_height() + 3))))
-        hint = _fit_text_for_width(self.desc_font, "B1/Menu or touchscreen double-tap reopens menu", int(w * 0.78))
+        hint = _fit_text_for_width(self.desc_font, "B1/Menu or touchscreen double-tap reopens menu", _safe_text_width(int(w * 0.78), pad=12))
         surf = self.desc_font.render(hint, True, self.theme.leaf_glow)
         screen.blit(surf, surf.get_rect(center=(w // 2, int(h * 0.78))))
 
@@ -549,9 +556,9 @@ class JungleMenuRenderer:
         assert self.title_font is not None
         assert self.desc_font is not None
         w, h = screen.get_size()
-        title = _fit_text_for_width(self.title_font, self.theme.title, int(w * 0.82))
+        title = _fit_text_for_width(self.title_font, self.theme.title, _safe_text_width(int(w * 0.82)))
         self._chunky_text(title, w // 2, int(h * 0.115), self.title_font, self.theme.title_fill, self.theme.title_outline, self.theme.title_shadow, outline_size=5)
-        subtitle = _fit_text_for_width(self.desc_font, "MAIN MENU // JUNGLE CANOPY", int(w * 0.72))
+        subtitle = _fit_text_for_width(self.desc_font, "MAIN MENU // JUNGLE CANOPY", _safe_text_width(int(w * 0.72), pad=12))
         surf = self.desc_font.render(subtitle, True, self.theme.boomerang_accent)
         screen.blit(surf, surf.get_rect(center=(w // 2, int(h * 0.185))))
 
@@ -565,7 +572,7 @@ class JungleMenuRenderer:
         panel = pygame.Rect(int(w * 0.22), int(h * 0.205), int(w * 0.56), max(28, int(h * 0.055)))
         pygame.draw.rect(screen, (12, 60, 28), panel, border_radius=panel.height // 2)
         pygame.draw.rect(screen, self.theme.boomerang_accent, panel, 3, border_radius=panel.height // 2)
-        group_text = _fit_text_for_width(self.group_font, str(selected_group).upper(), panel.width - 28)
+        group_text = _fit_text_for_width(self.group_font, str(selected_group).upper(), _safe_text_width(panel.width - 28, pad=16))
         surf = self.group_font.render(group_text, True, self.theme.leaf_glow)
         screen.blit(surf, surf.get_rect(center=panel.center))
 
@@ -590,6 +597,7 @@ class JungleMenuRenderer:
             is_eucalyptus = command == "eucalyptus_mode"
             rect = pygame.Rect(left, y, width, int(row_h * 0.84))
             inner = rect.inflate(-panel_pad, -max(10, int(rect.height * 0.15)))
+            safe_inner_width = _safe_text_width(inner.width)
             fill = self.theme.selected_fill if selected else self.theme.item_fill
             outline_color = self.theme.selected_outline if selected else self.theme.item_outline
             if is_boomerang:
@@ -610,7 +618,7 @@ class JungleMenuRenderer:
                 label = f"🌿 {label}"
             elif is_boomerang:
                 label = f"🪃 {label}"
-            label = _fit_text_for_width(self.item_font, label, inner.width)
+            label = _fit_text_for_width(self.item_font, label, safe_inner_width)
             text_fill = self.theme.item_outline if selected else self.theme.item_shadow
             label_y = inner.top + int(inner.height * 0.30) if selected else rect.centery
             self._chunky_text(label, rect.centerx, label_y, self.item_font, text_fill, fill, self.theme.title_shadow, outline_size=2)
@@ -619,9 +627,9 @@ class JungleMenuRenderer:
                 desc = str(getattr(item, "description", "") or "")
                 detail = f"{badge} — {desc}" if badge and desc else (badge or desc)
                 first_y = inner.top + int(inner.height * 0.56)
-                for idx, line in enumerate(_wrap_for_width(self.desc_font, detail, inner.width, max_lines=GRAPHICAL_DESCRIPTION_MAX_LINES)):
+                for idx, line in enumerate(_wrap_for_width(self.desc_font, detail, safe_inner_width, max_lines=GRAPHICAL_DESCRIPTION_MAX_LINES)):
                     center_y = min(first_y + idx * (self.desc_font.get_height() + 2), inner.bottom - self.desc_font.get_height() // 2)
-                    surf = self.desc_font.render(_fit_text_for_width(self.desc_font, line, inner.width), True, self.theme.item_shadow)
+                    surf = self.desc_font.render(_fit_text_for_width(self.desc_font, line, safe_inner_width), True, self.theme.item_shadow)
                     screen.blit(surf, surf.get_rect(center=(rect.centerx, center_y)))
 
     def _draw_footer(self) -> None:
@@ -634,7 +642,7 @@ class JungleMenuRenderer:
         rect = pygame.Rect(int(w * 0.13), int(h * 0.91), int(w * 0.74), max(30, int(h * 0.055)))
         pygame.draw.rect(screen, (7, 34, 22), rect, border_radius=rect.height // 2)
         pygame.draw.rect(screen, self.theme.leaf_glow, rect, 2, border_radius=rect.height // 2)
-        surf = self.desc_font.render(_fit_text_for_width(self.desc_font, footer, rect.width - 18), True, self.theme.leaf_glow)
+        surf = self.desc_font.render(_fit_text_for_width(self.desc_font, footer, _safe_text_width(rect.width - 18, pad=12)), True, self.theme.leaf_glow)
         screen.blit(surf, surf.get_rect(center=rect.center))
 
     def _chunky_text(self, text: str, x: int, y: int, font: Any, fill: Color, outline_color: Color, shadow_color: Color, outline_size: int = 3) -> None:
