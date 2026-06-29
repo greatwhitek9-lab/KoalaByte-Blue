@@ -1,6 +1,6 @@
 # KoalaByte Blue V2 Heltec Edition Orderable Parts List
 
-This production update uses a **PIFFA-style 50000 mAh USB portable power bank 22.5 W class** as the main power source and uses the **Heltec Mesh Node T114 onboard nRF52840** as the primary BLE board. The ESP32-S3 DualEye and Raspberry Pi onboard BlueZ are additional BLE nodes.
+This production update uses a **PIFFA-style 50000 mAh USB portable power bank 22.5 W class** as the main power source, uses the **Heltec Mesh Node T114 onboard nRF52840** as the primary BLE board, and uses one **8 independent key button module** for the front-panel K1-K8 controls.
 
 ## Best buying strategy
 
@@ -24,7 +24,8 @@ This production update uses a **PIFFA-style 50000 mAh USB portable power bank 22
 | InnoMaker USB-to-CAN kit | InnoMaker USB to CAN Converter for Raspberry Pi 5/4/Pi3B+/Pi3/Pi Zero(W)/Jetson Nano/Tinker Board/SBCs | InnoMaker USB to CAN Converter kit | 0-1 | InnoMaker/Amazon listing or authorized seller | Same exact listing only | varies | Optional Koala Kan Kommander adapter. Use as SocketCAN `can0` on Linux where supported. Mount internally or in a side/rear service bay. |
 | microSD card | SanDisk High Endurance microSDXC 64GB | SDSQQNR-064G-GN6IA | 1 | Amazon direct, B&H, Best Buy | Amazon direct, not marketplace clones | $8-$13 | Pi OS, logs, reports. |
 | Speaker | Adafruit Mini Metal Speaker w/ Wires, 8 ohm 0.5W | Adafruit Product ID 1890 | 1 | Adafruit or DigiKey | DigiKey if Adafruit out of stock | $1.95-$5 | Small output speaker for alerts/voice path. |
-| Tactile buttons | Adafruit tactile button switch 6mm pack | Adafruit PID 367 or equivalent | 1 pack | Adafruit, DigiKey, Amazon | Same size pack | $2-$8 | Six front buttons. Signal-only GPIO-to-GND wiring. |
+| Front-panel buttons | GODIYMODULES 2PCS 8 Independent Key Button Touch Button Module | MOD-ST034-1 / ASIN B0FH9C88DJ | 1 module used; listing includes 2 | Amazon listing or reputable equivalent | Same K1-K8 independent-key board | varies | Replaces six loose 4-pin tactile buttons. Use K1-K6 for menu controls, K7 Power On/Off, and K8 Reset / Reboot. Wire VCC to Pi 3.3V only, GND to Pi GND, K1-K8 to GPIO. |
+| 8-key front button bezel | KoalaByte Blue front button bezel for K1-K8 module | RevA7/RevA25 8-key bezel | 1 | 3D print from production/case files | Local print | varies | Aligns the single 8-key board across the enclosure front. |
 | Mechanical hardware | M2.5 nylon/brass standoff assortment kit | M2.5 assorted 6/10/15/20/25mm kit | 1 kit | Amazon, McMaster-Carr | Amazon assortment kit | $7-$12 | Layer spacing and open-frame stack. |
 | Frame plates | 3mm black cast acrylic sheet / custom cut plates | 85x55mm to 90x65mm plates, 3mm acrylic | 1 set | Ponoko, SendCutSend, local makerspace | Amazon acrylic sheet + drill template | $8-$25 | Mechanical mounting plates; no PCB. |
 | Cable management | 3M Dual Lock or adhesive cable tie mounts | 3M Dual Lock SJ3550 or generic mounts | 1 set | Amazon, McMaster-Carr | Amazon | $5-$10 | Strain relief and wire control. |
@@ -34,8 +35,9 @@ This production update uses a **PIFFA-style 50000 mAh USB portable power bank 22
 
 ## Removed from the main Heltec Edition build
 
-The following older power items are no longer part of the current production plan:
+The following older power and control items are no longer part of the current production plan:
 
+- six loose 4-pin tactile buttons
 - loose protected 18650 cells
 - 2x18650 series holder
 - 2S Li-ion BMS/protection wiring
@@ -52,7 +54,8 @@ The separate external Nordic nRF52840 USB Dongle is no longer the default main B
 - Power the Pi from the USB power bank regulated output through the Pi 3B+ micro-USB input.
 - Use short quality data cables for ESP32-S3 DualEye and Heltec T114.
 - If the Pi reports undervoltage or USB devices disconnect, move ESP32/CAN/Heltec accessories to a powered USB hub.
-- Do not feed the Pi, ESP32, Heltec T114, buttons, or USB devices from raw lithium battery wiring.
+- Do not feed the Pi, ESP32, Heltec T114, 8-key button module, or USB devices from raw lithium battery wiring.
+- K7 can request software shutdown while the Pi is running; true power-on from fully off still needs a proper power-control path or the power bank's own control.
 
 ## Koala Kan Kommander notes
 
@@ -64,6 +67,6 @@ The separate external Nordic nRF52840 USB Dongle is no longer the default main B
 
 ## Approximate total
 
-- Bare-minimum working build: depends on Raspberry Pi, Heltec T114, and power bank price.
-- Recommended build: Raspberry Pi + ESP32-S3 DualEye + Heltec T114 + power bank + short cables + microSD + buttons + frame hardware.
+- Bare-minimum working build: depends on Raspberry Pi, Heltec T114, button board, and power bank price.
+- Recommended build: Raspberry Pi + ESP32-S3 DualEye + Heltec T114 + power bank + short cables + microSD + 8-key button module + frame hardware.
 - Fully equipped build: add powered USB hub, speaker, case, ESP32 antenna, Heltec LoRa antenna, and optional InnoMaker USB-to-CAN kit.
