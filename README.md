@@ -13,7 +13,7 @@ KoalaByte Blue is for lawful owned-device labs, defensive review, education, and
 | Raspberry Pi 3B+ | Main Linux brain, installer, menus, logs, reports, local services, voice routing, main Wi-Fi controller, GreatWhite Reef PCAP review, and readiness checks. |
 | Waveshare ESP32-S3 DualEye 1.28in board | Animated eyes, touch bridge, mic/voice bridge path, secondary Wi-Fi survey node, BLE support node, and visual personality. |
 | Heltec Mesh Node T114 / nRF52840 | Primary BLE node plus GNSS and LoRa/Meshtastic path. It is not a Wi-Fi node. |
-| Six 4-pin buttons | Front-panel controls for menu navigation and select. |
+| 8 independent key button module | Replaces the old six loose 4-pin tactile buttons. K1-K6 are menu controls, K7 Power On/Off requests shutdown, and K8 Reset / Reboot requests reboot. |
 | USB power bank / regulated USB supply | Production power source. No loose 18650/raw battery wiring is required. |
 | InnoMaker USB-to-CAN kit | Optional isolated owned-bench CAN adapter. InnoMaker CAN kit is optional and skipped if absent. |
 
@@ -40,6 +40,7 @@ Koala Kombat Kruisin uses the Pi as the main Wi-Fi controller, the ESP32-S3 Dual
 | One-shot installer | Runs the Pi, ESP32-S3, Heltec T114, menu, service, and readiness setup from one command. |
 | `--check-only` dry run | Validates the repo without flashing firmware or installing services. |
 | Wrapped jungle UI boot | Starts in the full jungle/eucalyptus graphical interface by default, not terminal mode. |
+| 8-key front panel | Supports K1-K8 GPIO input, including K7 Power On/Off and K8 Reset / Reboot. |
 | KoalaByte Doctor | Runs quick/full diagnostics and writes `logs/doctor/koalabyte_doctor_status.json`. |
 | Stable udev names | Adds `/dev/koalabyte-*` aliases for easier board discovery. |
 | Heltec T114 HT-n5262 flash support | Supports the manual double-RST UF2 bootloader volume named `HT-n5262`. |
@@ -76,7 +77,7 @@ Waveshare ESP32-S3 DualEye 1.28in board
 Heltec Mesh Node T114
 USB data cable for ESP32-S3 DualEye
 USB-C data cable for Heltec T114
-Six 4-pin momentary buttons
+8 independent key button module with VCC, GND, and K1-K8 header
 40-pin GPIO extender/cable or direct GPIO wiring
 Correct antennas for the boards you use
 ```
@@ -103,6 +104,49 @@ nRF/Zephyr tools -> west, when Heltec T114 build/flash is enabled
 ```
 
 Power rule: use a regulated USB power bank or USB supply. Do not feed raw battery voltage into the Pi, ESP32-S3, Heltec T114, button wiring, CAN wiring, or antenna hardware.
+
+---
+
+## 8-key front-panel button board
+
+KoalaByte Blue now uses the GODIYMODULES MOD-ST034-1 / ASIN B0FH9C88DJ **8 independent key button module** instead of the old six separate 4-pin tactile buttons. The Amazon listing is a two-pack; only one board is required for this build.
+
+Treat the module header as:
+
+```text
+VCC  GND  K1  K2  K3  K4  K5  K6  K7  K8
+```
+
+Use Pi **3.3V only** for VCC when the K outputs connect to Raspberry Pi GPIO.
+
+```text
+Module VCC -> Pi 3.3V, physical pin 1 or 17
+Module GND -> Pi GND, physical pin 39 or any Pi GND
+Module K1-K8 -> assigned Raspberry Pi BCM GPIO inputs
+```
+
+The board outputs LOW when a key is pressed and HIGH when released. KoalaByte also enables software pull-up behavior in `gpiozero` so the repo remains stable with the active-low button logic.
+
+| Module key | Front-panel label | Action | BCM GPIO | Physical pin |
+|---|---|---|---:|---:|
+| K1 | Main Menu | `main_menu` | GPIO5 | Pin 29 |
+| K2 | Left / Back | `move_left` / `back` | GPIO6 | Pin 31 |
+| K3 | Enter / Select | `select` | GPIO13 | Pin 33 |
+| K4 | Right / Forward | `move_right` / `forward` | GPIO19 | Pin 35 |
+| K5 | Up | `up` | GPIO26 | Pin 37 |
+| K6 | Down | `down` | GPIO21 | Pin 40 |
+| K7 | K7 Power On/Off | `power_toggle` -> safe software shutdown | GPIO20 | Pin 38 |
+| K8 | K8 Reset / Reboot | `reset` -> safe software reboot | GPIO16 | Pin 36 |
+
+Important: K7 can request a clean software shutdown while the Pi is already running. A GPIO key cannot power on a fully unpowered Raspberry Pi by itself; true front-panel power-on still needs the USB power bank button or a supported external power-control/wake board.
+
+Button test commands:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/setup_gpio_buttons.py --check-only
+PYTHONPATH=pi-companion python3 scripts/setup_gpio_buttons.py --live-test --seconds 20
+python3 scripts/test_gpio_buttons.py
+```
 
 ---
 
@@ -288,7 +332,7 @@ STRICT_INNOMAKER_CAN=1 bash scripts/install_koalabyte_one_shot.sh
 
 ## What the one-shot installer does
 
-The normal one-shot path prepares the Pi companion, checks the repo, handles udev names, flashes the ESP32-S3 DualEye firmware, prepares/flashes the Heltec T114 combined-safe profile, validates KillerKoala AI/voice readiness, checks eyes and mouth sync, checks menu display sync, checks jungle/eucalyptus theme fit, validates menu-managed prompt UI controls, validates GreatWhite Reef module/docs/runtime dependencies, runs field readiness, checks version handshake, checks the local dashboard JSON, validates release/log helpers, runs KoalaByte Doctor, installs boot services, checks antenna readiness, prepares AntEater passive readiness, and records optional CAN status.
+The normal one-shot path prepares the Pi companion, checks the repo, handles udev names, flashes the ESP32-S3 DualEye firmware, prepares/flashes the Heltec T114 combined-safe profile, validates KillerKoala AI/voice readiness, checks eyes and mouth sync, checks menu display sync, checks jungle/eucalyptus theme fit, validates menu-managed prompt UI controls, validates GreatWhite Reef module/docs/runtime dependencies, runs field readiness, checks version handshake, checks the local dashboard JSON, validates release/log helpers, runs KoalaByte Doctor, installs boot services, checks antenna readiness, prepares AntEater passive readiness, validates the K1-K8 front-panel button map, and records optional CAN status.
 
 The dry run does the readiness checks without flashing firmware or installing services:
 
@@ -316,6 +360,7 @@ logs/doctor/koalabyte_doctor_status.json
 logs/version/koalabyte_version_handshake.json
 logs/killerkoala/killerkoala_ai_readiness.json
 logs/can/innomaker_optional_status.json
+logs/gpio_buttons/gpio_button_manifest.json
 ```
 
 ---
@@ -323,20 +368,20 @@ logs/can/innomaker_optional_status.json
 ## Button, touchscreen, keyboard, and voice control
 
 ```text
-Button 1 -> Main Menu -> GPIO5
-Button 2 -> Move Left / Back -> GPIO6
-Button 3 -> Enter / Select -> GPIO13, hold 3s for shutdown event
-Button 4 -> Move Right / Forward -> GPIO19
-Button 5 -> Up -> GPIO26
-Button 6 -> Down -> GPIO21
+K1 -> Main Menu -> GPIO5
+K2 -> Move Left / Back -> GPIO6
+K3 -> Enter / Select -> GPIO13
+K4 -> Move Right / Forward -> GPIO19
+K5 -> Up -> GPIO26
+K6 -> Down -> GPIO21
+K7 -> Power On/Off -> GPIO20 -> safe shutdown request
+K8 -> Reset / Reboot -> GPIO16 -> safe reboot request
 ```
-
-Wire one side of each button to its GPIO input and the opposite side to ground. Do not tie GPIO pins together.
 
 Every enabled leaf action can be started from the same menu path:
 
 ```text
-scroll / highlight -> select with B3, Enter, touchscreen long press, USB/Bluetooth keyboard, or KillerKoala voice command
+scroll / highlight -> select with K3, Enter, touchscreen long press, USB/Bluetooth keyboard, or KillerKoala voice command
 ```
 
 Submenu rows open another menu. Tool rows inside that submenu run the actual action. Pop-up keyboard mode only appears after selecting text input rows such as `Type WiGLE Name`, `Type WiGLE Key`, `Create Location Password`, `Unlock Current Process`, `Type BlueZ Lab Target`, `Type Mesh Message`, or `Type Mesh Destination`.
@@ -403,45 +448,7 @@ The visible UI uses one shared jungle-adventure/eucalyptus theme for terminal an
 | Reports & Reviews | Documentation, review, inventory, and lab report builders. |
 | System / Companion | KillerKoala voice, XP/status, buttons, settings, and helper controls. |
 | Lab | Protected lab-focused BlueZ shortcuts, saved target scope, and location gate status. |
-| Power & Exit | Shutdown and quit controls. |
-
-### Didgeridoo
-
-```text
-Heltec Link
-Radio/GPS
-T114 BLE Check
-Lab TX Status
-Sextant
-Create Location Password
-Unlock Current Process
-Location Unlock ON / OFF
-Meshtastic App
-Protected Location Gate Status
-Protected GNSS Current Fix
-```
-
-### Lab
-
-```text
-BlueZ Lab Scope Status
-Type BlueZ Lab Target
-Owned Device Scope ON / OFF
-Clear BlueZ Lab Scope
-Joey Target Dossier
-Treehouse Service Trace
-Gumnut GATT Gatecheck
-Outback Radio Ledger
-Classic Track Finder
-Treehouse RFCOMM Wiremap
-Pouch Link Echo
-Gumnut GATT Ghostmap
-Platypus BT-Proxy
-Create Location Password
-Unlock Current Process
-Location Unlock ON / OFF
-Protected Location Gate Status
-```
+| Power & Exit | K7 Power On/Off shutdown, K8 Reset / Reboot, and quit controls. |
 
 Protected Bluetooth actions use the menu-managed BlueZ lab scope state. You no longer need to manually export `KOALABYTE_BLUEZ_LAB_TARGET` or `KOALABYTE_BLUEZ_OWNED_DEVICE` for normal menu use. Use `Type BlueZ Lab Target` and `Owned Device Scope ON` from the Lab submenu instead.
 
@@ -462,21 +469,6 @@ logs/greatwhite_reef/pcaps/
 
 It automatically syncs `.pcap` and `.pcapng` files found under `logs/` into that folder. Extra folders can be added with `KOALABYTE_REEF_PCAP_IMPORT_DIRS`.
 
-```text
-Reef Status
-TigerShark Install Check
-TigerShark Interfaces
-TigerShark PCAP Folder
-TigerShark Read Latest PCAP
-PCAP 1: <newest synced file>
-PCAP 2: <next synced file>
-Great Wire Shark Launch Notes
-Great Wire Shark Folder Notes
-GreatWhite Reef Report
-```
-
-The `PCAP N: filename` rows are dynamic. Highlight a PCAP with the front buttons, touchscreen, keyboard, or voice command. Selecting it runs that exact file through TigerShark Read and writes JSON output to `logs/greatwhite_reef/`.
-
 ---
 
 ## KillerKoala AI companion
@@ -496,40 +488,4 @@ AI helper:
 
 ```bash
 bash scripts/setup_killerkoala_ollama.sh
-```
-
-The face system syncs ESP32-S3 DualEye visuals with the Heltec status path. Menu inactivity and completed actions return the display to the AI face until B1/menu or touchscreen double-tap reopens the menu.
-
----
-
-## Field readiness tools
-
-```bash
-# Doctor
-bash scripts/koalabyte_doctor.sh --quick
-bash scripts/koalabyte_doctor.sh
-
-# Stable device names
-bash scripts/install_koalabyte_udev_rules.sh --check-only
-bash scripts/install_koalabyte_udev_rules.sh
-
-# T114 HT-n5262 bootloader UF2 flash
-T114_FLASH_METHOD=uf2 bash scripts/flash_t114_combined_safe.sh
-
-# Boot services
-bash scripts/install_koalabyte_boot_services.sh --check-only
-bash scripts/install_koalabyte_boot_services.sh
-
-# Version handshake and dashboard JSON
-PYTHONPATH=pi-companion python3 scripts/check_koalabyte_version_handshake.py
-PYTHONPATH=pi-companion python3 scripts/run_koalabyte_status_server.py --json
-
-# Menu action, theme, prompt UI, Koala Kry, ESP32 touch, and full runtime readiness
-PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
-PYTHONPATH=pi-companion python3 scripts/check_menu_theme_fit.py
-PYTHONPATH=pi-companion python3 scripts/check_menu_prompt_ui.py
-PYTHONPATH=pi-companion python3 scripts/check_koala_kry_menu.py
-PYTHONPATH=pi-companion python3 scripts/check_esp32_touch_menu.py
-PYTHONPATH=pi-companion python3 scripts/check_full_runtime_dependencies.py
-STRICT_FULL_RUNTIME_DEPENDENCIES=1 PYTHONPATH=pi-companion python3 scripts/check_full_runtime_dependencies.py
 ```
