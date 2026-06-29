@@ -43,6 +43,7 @@ payload = {
         "ESP32 PlatformIO helper check-only",
         "Heltec T114 helper check-only",
         "T114 plug-flash helper check-only",
+        "UF2-first one-shot option check-only",
         "udev/boot/logrotate helper check-only",
         "antenna helper check-only",
         "Heltec hardware preflight profile",
@@ -115,6 +116,8 @@ run_step "KillerKoala Ollama helper check-only" bash scripts/setup_killerkoala_o
 run_step "External antenna helper check-only" bash scripts/configure_koalabyte_external_antennas.sh --check-only
 run_step "ESP32 antenna helper check-only" bash scripts/configure_esp32s3_dualeye_2g4_antenna.sh --check-only
 run_step "T114 plug flash helper check-only" bash scripts/flash_t114_when_plugged.sh --check-only
+run_step "T114 required-UF2 flash helper check-only" env T114_REQUIRE_UF2=1 T114_FLASH_METHOD=uf2 bash scripts/flash_t114_when_plugged.sh --check-only
+run_step "one-shot UF2-first option check-only" bash scripts/install_koalabyte_one_shot.sh --check-only --heltec-uf2-first
 run_step "udev rule helper check-only" bash scripts/install_koalabyte_udev_rules.sh --check-only
 run_step "boot service helper check-only" bash scripts/install_koalabyte_boot_services.sh --check-only
 run_step "logrotate helper check-only" bash scripts/install_koalabyte_logrotate.sh --check-only
