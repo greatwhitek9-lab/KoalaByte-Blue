@@ -1,46 +1,54 @@
-# RevA6 Front Panel Button Mapping
+# RevA7 Front Panel Button Mapping
 
-## Does the Nordic nRF52840 Dongle have buttons?
+## Button board
 
-Yes, but only one tiny onboard user-programmable button. Nordic documents the nRF52840 Dongle as having a user-programmable RGB LED, green LED, one user-programmable button, and 15 GPIOs available on castellated edge pads.
+KoalaByte Blue now uses an **8 independent key button module** instead of six individual 4-pin tactile buttons.
 
-For KoalaByte Blue, that onboard button is not enough for a case-mounted user interface. RevA6 uses six external front-panel buttons wired to the Raspberry Pi 3B+ GPIO header.
+The module header is treated as:
 
-## Exact button part in BOM
+```text
+VCC  GND  K1  K2  K3  K4  K5  K6  K7  K8
+```
 
-- **Adafruit Tactile Button switch (6mm) x 20 pack**
-- **Product ID: 367**
-- Six buttons are used, numbered **1 through 6 from left to right**.
-- The pack provides extras for spares and mistakes.
+Use Pi **3.3V** for VCC and Pi GND for ground.
 
-## Six-button map, left to right
+## 8-key map, left to right
 
-| Button # | Front-panel label | Action | Raspberry Pi BCM GPIO | Physical pin | Other side of button |
-|---:|---|---|---:|---:|---|
-| 1 | Main Menu | `main_menu` | GPIO5 | Pin 29 | GND |
-| 2 | Left / Back | `move_left` / `back` | GPIO6 | Pin 31 | GND |
-| 3 | Enter / Select | `select`; hold 3 seconds for `shutdown` | GPIO13 | Pin 33 | GND |
-| 4 | Right / Forward | `move_right` / `forward` | GPIO19 | Pin 35 | GND |
-| 5 | Up | `up` | GPIO26 | Pin 37 | GND |
-| 6 | Down | `down` | GPIO21 | Pin 40 | GND |
-
-Use physical pin 39 as the preferred shared ground bus.
+| Module key | Front-panel label | Action | Raspberry Pi BCM GPIO | Physical pin |
+|---|---|---|---:|---:|
+| K1 | Main Menu | `main_menu` | GPIO5 | Pin 29 |
+| K2 | Left / Back | `move_left` / `back` | GPIO6 | Pin 31 |
+| K3 | Enter / Select | `select` | GPIO13 | Pin 33 |
+| K4 | Right / Forward | `move_right` / `forward` | GPIO19 | Pin 35 |
+| K5 | Up | `up` | GPIO26 | Pin 37 |
+| K6 | Down | `down` | GPIO21 | Pin 40 |
+| K7 | PWR | PWR control position | GPIO20 | Pin 38 |
+| K8 | Reset | reset position | GPIO16 | Pin 36 |
 
 ## Wiring rule
 
-Each normally-open button has two sides:
-
 ```text
-GPIO pin -> button -> GND
+Module VCC -> Pi 3.3V, pin 1 or 17
+Module GND -> Pi GND, pin 39 or any Pi GND
+Module K1-K8 -> the GPIO pins in the table above
 ```
 
 No external pull-up resistor is required. The Raspberry Pi internal pull-up is enabled by `gpiozero` in software.
 
-## Shutdown hold behavior
+```text
+Idle / not pressed = HIGH
+Pressed            = LOW
+```
 
-Button 3 has two behaviors:
+## PWR hardware note
 
-- Normal press: `select`
-- Hold for 3 seconds: `shutdown`
+A GPIO key cannot start a Pi that has no running power path. Use the battery bank button or add a supported power-control board for true front-panel start behavior.
 
-The GPIO test script only prints the shutdown event. The production companion should confirm shutdown in the UI before invoking a real system shutdown.
+## Test
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/setup_gpio_buttons.py --check-only
+PYTHONPATH=pi-companion python3 scripts/setup_gpio_buttons.py --live-test --seconds 20
+```
+
+Press K1 through K8 left-to-right and confirm the output matches the table.
