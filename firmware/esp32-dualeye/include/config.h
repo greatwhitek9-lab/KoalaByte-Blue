@@ -1,12 +1,12 @@
 #pragma once
 
-// killerkoala ESP32-S3 DualEye config RevA26
-// Waveshare ESP32-S3 DualEye/Touch 1.28 style boards use an I2C capacitive
-// touch controller on the shared board I2C bus. The firmware defaults to the
-// Waveshare CST816x-compatible backend and still accepts serial-calibrated
-// raw/simulated touch events for bench testing.
+// killerkoala ESP32-S3 DualEye config RevA27
+// Board target: Waveshare ESP32-S3-DualEye-Touch-LCD-1.28.
+// Waveshare notes: ESP32-S3R8, 16MB flash, 8MB PSRAM, two 240x240 1.28in LCDs,
+// GC9A01 display controller path, CST816D/CST816x I2C touch, ES8311 audio codec,
+// ES7210 microphone front-end, onboard ceramic antenna, optional IPEX1 antenna path.
 
-#define KOALABLUE_FW_VERSION "0.6.3-dualeye-touch"
+#define KOALABLUE_FW_VERSION "0.6.4-waveshare-dualeye-touch"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define SERIAL_BAUD 115200
@@ -16,10 +16,11 @@
 #define KOALABLUE_THEMES_DIR "firmware/esp32-dualeye/themes"
 
 // ESP32-S3 DualEye 2.4 GHz antenna configuration.
-// This applies to the ESP32-S3 DualEye board only.
-// Use the external-antenna board variant, or set the vendor-documented antenna selector resistor/jumper for IPEX/U.FL use.
+// The Waveshare board has an onboard ceramic antenna and an IPEX1 connector.
+// Waveshare documents that switching to the external antenna requires moving/resoldering
+// the onboard antenna-select resistor.
 #define ESP32S3_DUALEYE_EXTERNAL_2G4_ANTENNA 1
-#define ESP32S3_DUALEYE_2G4_ANTENNA_MODE "external_connector"
+#define ESP32S3_DUALEYE_2G4_ANTENNA_MODE "external_connector_optional_resistor_select"
 #define ESP32S3_DUALEYE_2G4_ANTENNA_CONNECTOR "IPEX1/U.FL/MHF1 2.4 GHz connector"
 #define ESP32S3_DUALEYE_2G4_WIRING_PATH "ESP32-S3 DualEye IPEX1/U.FL/MHF1 -> IPEX/U.FL pigtail -> SMA/RP-SMA bulkhead -> 2.4 GHz antenna"
 #define ESP32S3_DUALEYE_VENDOR_SELECTOR_REQUIRED 1
@@ -28,8 +29,8 @@
 // ESP32-S3 handles built-in microphone wake/short-command front-end events.
 // Raspberry Pi handles larger vocabulary routing, XP/rank state, optional TinyLlama/Ollama banter, and logs.
 #define ESP32S3_DUALEYE_BUILTIN_MIC 1
-#define ESP32S3_DUALEYE_MIC_ROLE "primary built-in microphone for KillerKoala wake and short voice-command events"
-#define ESP32S3_VOICE_FRONTEND_STACK "ESP32-S3 DualEye built-in mic bridge + ESP-SR AFE/VAD/WakeNet plan + Pi voice-command router"
+#define ESP32S3_DUALEYE_MIC_ROLE "Waveshare ES7210 microphone path for KillerKoala wake and short voice-command events"
+#define ESP32S3_VOICE_FRONTEND_STACK "ESP32-S3 DualEye built-in mic bridge + Pi voice-command router"
 #define ESP32S3_WAKE_MODEL "killerkoala wake phrase over ESP32-S3 DualEye built-in mic event bridge"
 #define ESP32S3_COMMAND_MODEL "short command phrases bridged over USB CDC serial to Raspberry Pi"
 #define ESP32S3_COMMAND_ALIAS_PACK "firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv"
@@ -37,8 +38,6 @@
 #define KILLERKOALA_RESPONSE_POLICY "anti-repeat rotating vocabulary with XP/rank-aware Aussie terminology"
 
 // Feature toggles.
-// Mic wake is enabled by default for the killerkoala build. If audio pins are not configured,
-// the firmware boots safely and reports that the built-in mic is present but needs board-specific I2S pin mapping.
 #define ENABLE_LOCAL_BLE_SCAN 1
 #define ENABLE_KOALA_KOMBAT_WIFI_NODE 1
 #define ENABLE_KOALA_KOMBAT_SERIAL_COMMANDS 1
@@ -55,23 +54,41 @@
 #define KOALA_KOMBAT_WIFI_MAX_APS 16
 #define KOALA_KOMBAT_WIFI_PASSIVE_SCAN 1
 
+// Waveshare round LCD display path.
+#define DISPLAY_DRIVER "GC9A01"
+#define DISPLAY_WIDTH 240
+#define DISPLAY_HEIGHT 240
+#define DISPLAY_MIRROR_X 1
+#define DISPLAY_MIRROR_Y 0
+#define DISPLAY_SWAP_XY 0
+#define DISPLAY_OFFSET_X 0
+#define DISPLAY_OFFSET_Y 0
+#define DISPLAY_ROTATION 0
+#define DISPLAY_INVERT_COLOR 1
+#define DISPLAY_SPI_SCLK_PIN 4
+#define DISPLAY_SPI_MOSI_PIN 2
+#define DISPLAY_SPI_CS_PIN 5
+#define DISPLAY_SPI_DC_PIN 47
+#define DISPLAY_SPI_RESET_PIN 38
+#define DISPLAY_BACKLIGHT_PIN 42
+#define DISPLAY_BACKLIGHT_OUTPUT_INVERT 1
+#define DISPLAY_SPI_SCLK_HZ 40000000
+
 // Boot animation behavior.
 #define BOOT_ANIMATION_TOTAL_MS 2500
 #define BOOT_ANIMATION_FRAME_MS 50
-#define DISPLAY_ROTATION 0
 
-// ESP32-side touch menu bridge for Waveshare ESP32-S3 DualEye/Touch boards.
-// CST816x covers the common Waveshare CST816S/CST816T/CST816D I2C touch family.
-// Override these pins from PlatformIO build_flags if your exact revision differs.
-#define TOUCH_MENU_BACKEND "waveshare_cst816x_i2c"
-#define TOUCH_MENU_CONTROLLER "CST816x"
+// ESP32-side touch menu bridge for Waveshare ESP32-S3-DualEye-Touch-LCD-1.28.
+// Waveshare reference pinout: TP_SDA=GPIO11, TP_SCL=GPIO7, TP_RST=GPIO6, TP_INT=GPIO12.
+#define TOUCH_MENU_BACKEND "waveshare_cst816d_i2c"
+#define TOUCH_MENU_CONTROLLER "CST816D"
 #define TOUCH_MENU_I2C_ADDR 0x15
-#define TOUCH_MENU_I2C_SDA_PIN 6
+#define TOUCH_MENU_I2C_SDA_PIN 11
 #define TOUCH_MENU_I2C_SCL_PIN 7
-#define TOUCH_MENU_INT_PIN 5
-#define TOUCH_MENU_RST_PIN 13
+#define TOUCH_MENU_INT_PIN 12
+#define TOUCH_MENU_RST_PIN 6
 #define TOUCH_MENU_I2C_CLOCK_HZ 400000
-#define TOUCH_MENU_POLL_MS 35
+#define TOUCH_MENU_POLL_MS 10
 #define TOUCH_MENU_SCREEN_W 240
 #define TOUCH_MENU_SCREEN_H 240
 #define TOUCH_MENU_RAW_MIN_X 0
@@ -83,37 +100,57 @@
 #define TOUCH_MENU_SWAP_XY 0
 #define TOUCH_MENU_ROW_HEIGHT 40
 #define TOUCH_MENU_VISIBLE_ROWS 6
-#define TOUCH_MENU_LONG_PRESS_MS 750
+#define TOUCH_MENU_LONG_PRESS_MS 500
 
-// Buttons. Use -1 to disable a button.
-#define BTN_BACK_PIN    0
-#define BTN_SELECT_PIN  1
-#define BTN_NEXT_PIN    2
-#define BTN_MENU_PIN    3
+// Local fallback buttons. Use -1 to disable a button.
+// BOOT is GPIO0 on the Waveshare board; external front-panel buttons are handled by the Pi GPIO extender.
+#define BTN_BACK_PIN    -1
+#define BTN_SELECT_PIN  0
+#define BTN_NEXT_PIN    -1
+#define BTN_MENU_PIN    -1
 #define BUTTON_ACTIVE_LOW 1
 
-// Built-in I2S/PDM microphone bridge.
-// These are intentionally overridable from PlatformIO build_flags or a board-specific header.
-// When the exact DualEye mic pins are confirmed, set these three pins and the firmware will initialize I2S RX.
+// Waveshare audio pins from vendor board definition.
+#define AUDIO_INPUT_SAMPLE_RATE 24000
+#define AUDIO_OUTPUT_SAMPLE_RATE 24000
+#define AUDIO_I2S_MCLK_PIN 16
+#define AUDIO_I2S_WS_PIN 45
+#define AUDIO_I2S_BCLK_PIN 9
+#define AUDIO_I2S_DIN_PIN 10
+#define AUDIO_I2S_DOUT_PIN 8
+#define AUDIO_CODEC_PA_PIN 46
+#define AUDIO_CODEC_I2C_SDA_PIN 15
+#define AUDIO_CODEC_I2C_SCL_PIN 14
+#define AUDIO_CODEC_ES8311_ADDR 0x18
+
 #ifndef MIC_I2S_BCLK_PIN
-#define MIC_I2S_BCLK_PIN  -1
+#define MIC_I2S_BCLK_PIN  AUDIO_I2S_BCLK_PIN
 #endif
 #ifndef MIC_I2S_WS_PIN
-#define MIC_I2S_WS_PIN    -1
+#define MIC_I2S_WS_PIN    AUDIO_I2S_WS_PIN
 #endif
 #ifndef MIC_I2S_DIN_PIN
-#define MIC_I2S_DIN_PIN   -1
+#define MIC_I2S_DIN_PIN   AUDIO_I2S_DIN_PIN
 #endif
-#define MIC_SAMPLE_RATE_HZ       16000
+#define MIC_SAMPLE_RATE_HZ       24000
 #define MIC_SAMPLE_BLOCK_SAMPLES 256
 #define MIC_WAKE_RMS_THRESHOLD   0.35f
 #define MIC_WAKE_COOLDOWN_MS     2500
 #define MIC_STATUS_INTERVAL_MS   10000
 
-// Optional speaker path is hardware-revision-specific; use the vendor audio examples before enabling output.
-#define SPEAKER_I2S_BCLK_PIN -1
-#define SPEAKER_I2S_WS_PIN   -1
-#define SPEAKER_I2S_DOUT_PIN -1
+#ifndef SPEAKER_I2S_BCLK_PIN
+#define SPEAKER_I2S_BCLK_PIN AUDIO_I2S_BCLK_PIN
+#endif
+#ifndef SPEAKER_I2S_WS_PIN
+#define SPEAKER_I2S_WS_PIN   AUDIO_I2S_WS_PIN
+#endif
+#ifndef SPEAKER_I2S_DOUT_PIN
+#define SPEAKER_I2S_DOUT_PIN AUDIO_I2S_DOUT_PIN
+#endif
+
+// Battery/power pins from vendor board definition. KoalaByte still uses the Pi power bank as primary power.
+#define BATTERY_ADC_PIN 1
+#define BATTERY_CHARGING_PIN 41
 
 // BLE scan behavior.
 #define BLE_SCAN_SECONDS 3
