@@ -56,6 +56,8 @@ REQUIRED_FILES = [
     "firmware/t114-combined-safe/prj.conf",
     "docs/ESP32_TOUCH_MENU_CALIBRATION.md",
     "docs/GREATWHITE_REEF.md",
+    "docs/FRONT_PANEL_BUTTONS_REVA5.md",
+    "docs/BUTTON_WIRING_REVA5.md",
 ]
 
 SHELL_HELPERS = [
@@ -111,6 +113,9 @@ def check_readme(failures: list[str]) -> None:
         "logs/greatwhite_reef/pcaps/",
         "HT-n5262",
         "Press the RST key twice",
+        "8 independent key button module",
+        "K7 Power On/Off",
+        "K8 Reset / Reboot",
     ]:
         if needle not in text:
             failures.append(f"README.md missing expected deployment text: {needle}")
@@ -127,8 +132,12 @@ def check_config(failures: list[str]) -> None:
         if section not in config:
             failures.append(f"config missing required section: {section}")
     buttons = config.get("front_panel_buttons", {}).get("buttons", {}) if isinstance(config.get("front_panel_buttons"), dict) else {}
-    if len(buttons) != 6:
-        failures.append("front_panel_buttons must define exactly six buttons")
+    if len(buttons) != 8:
+        failures.append("front_panel_buttons must define exactly eight K1-K8 buttons")
+    expected_commands = {"power_toggle", "reset"}
+    found_commands = {str(item.get("press_command")) for item in buttons.values() if isinstance(item, dict)}
+    for command in sorted(expected_commands - found_commands):
+        failures.append(f"front_panel_buttons missing command: {command}")
 
 
 def check_requirements(failures: list[str]) -> None:
@@ -186,6 +195,10 @@ def check_menu_catalog(failures: list[str]) -> None:
     for label in ["BlueZ Lab Scope Status", "Type BlueZ Lab Target", "Owned Device Scope ON", "Owned Device Scope OFF", "Clear BlueZ Lab Scope"]:
         if label not in lab_labels:
             failures.append(f"Lab submenu missing {label}")
+    power_labels = set(menu_labels("power"))
+    for label in ["Power On/Off", "Reset / Reboot"]:
+        if label not in power_labels:
+            failures.append(f"Power submenu missing {label}")
     if not leaf_menu_entries():
         failures.append("menu catalog has no enabled leaf menu entries")
     manifest, menu_failures = build_manifest()
@@ -201,7 +214,8 @@ def check_project_markers(failures: list[str]) -> None:
         "pi-companion/koalablue/greatwhite_reef.py": ["GreatWhite Reef", "TigerShark", "Great Wire Shark", "greatwhite_pcap_read:", "logs/greatwhite_reef"],
         "pi-companion/koalablue/bluez_lab_scope.py": ["BLUEZ_LAB_SCOPE_READY", "apply_env", "set_owned", "set_target"],
         "pi-companion/koalablue/esp32_touch_menu_bridge.py": ["menu_touch", "calibration_command", "logs/esp32_touch_menu_events.jsonl"],
-        "pi-companion/koalablue/menu_action_runner.py": ["_bluez_lab_scope", "bluez_lab_scope.apply_env", "manual_prompt_required"],
+        "pi-companion/koalablue/menu_action_runner.py": ["_bluez_lab_scope", "bluez_lab_scope.apply_env", "manual_prompt_required", "reset_confirm", "power_toggle"],
+        "pi-companion/koalablue/menu_screen.py": ["power_toggle", "reset_confirm", "K8 reset/reboot"],
         "scripts/setup_system_packages.sh": ["tshark", "wireshark", "GreatWhite Reef"],
         "scripts/flash_t114_when_plugged.sh": ["HT-n5262", "T114_UF2_MOUNT", "T114_FLASH_METHOD", "bootloader_volume_detected", "mount_uf2_block_if_needed", "lsblk", "UF2_MOUNTPOINT"],
         "scripts/flash_t114_combined_safe.sh": ["HT-n5262", "T114_UF2_VOLUME_NAME", "find_uf2_mount", "T114_FLASH_METHOD", "mount_uf2_block_if_needed", "lsblk", "UF2_MOUNTPOINT"],
@@ -215,6 +229,8 @@ def check_project_markers(failures: list[str]) -> None:
         "scripts/koalabyte_blue_boot.sh": ["MENU_NO_TERMINAL_FALLBACK", "--no-terminal-fallback", "wrapped graphical jungle UI"],
         "systemd/koalabyte-menu.service": ["koalabyte_blue_boot.sh", "WantedBy=multi-user.target", "MENU_GRAPHICAL=1", "MENU_NO_TERMINAL_FALLBACK=1"],
         "docs/GREATWHITE_REEF.md": ["TigerShark", "Great Wire Shark", "logs/greatwhite_reef/pcaps/", "PCAP 1"],
+        "docs/FRONT_PANEL_BUTTONS_REVA5.md": ["8 independent key button module", "K7", "K8", "Power On/Off", "Reset"],
+        "docs/BUTTON_WIRING_REVA5.md": ["8 independent key button module", "K1", "K8", "3.3V only"],
     }
     for relative, needles in checks.items():
         failures.extend(_file_contains(REPO_ROOT / relative, needles))
