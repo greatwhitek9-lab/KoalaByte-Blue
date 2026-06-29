@@ -119,6 +119,8 @@ REQUIRED_PROJECT_FILES = [
     "docs/GREATWHITE_REEF.md",
     "docs/KOALA_BLUEZ_TOOLS_REVA16.md",
     "docs/FIELD_READINESS_UPGRADES.md",
+    "docs/FRONT_PANEL_BUTTONS_REVA5.md",
+    "docs/BUTTON_WIRING_REVA5.md",
     "version/koalabyte_protocol.json",
     "udev/99-koalabyte-blue.rules",
     "systemd/koalabyte-menu.service",
@@ -197,6 +199,10 @@ REQUIRED_ANTENNA_STATUS = [
     "logs/pi_2g4_external_antenna_status.json",
 ]
 
+EXPECTED_BUTTON_NUMBERS = set(range(1, 9))
+EXPECTED_BUTTON_COMMANDS = {"main_menu", "move_left", "select", "move_right", "up", "down", "power_toggle", "reset"}
+EXPECTED_POWER_BUTTONS = {7: "power_toggle", 8: "reset"}
+
 
 def run_command(cmd: list[str]) -> tuple[int, str, str]:
     proc = subprocess.run(cmd, cwd=ROOT, text=True, capture_output=True, check=False)
@@ -207,18 +213,24 @@ def button_manifest() -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     seen_numbers: set[int] = set()
     seen_pins: set[int] = set()
+    seen_commands: set[str] = set()
+    number_to_command: dict[int, str] = {}
     for key, cfg in sorted(DEFAULT_BUTTONS.items(), key=lambda item: int(item[1]["number"])):
         number = int(cfg["number"])
         pin = int(cfg["pin"])
+        press_command = str(cfg.get("press_command", ""))
         seen_numbers.add(number)
         seen_pins.add(pin)
+        seen_commands.add(press_command)
+        number_to_command[number] = press_command
         rows.append({
             "id": key,
             "number": number,
+            "module_key": cfg.get("module_key", f"K{number}"),
             "label": cfg.get("label"),
             "pin_bcm": pin,
             "physical_pin": cfg.get("physical_pin"),
-            "press_command": cfg.get("press_command"),
+            "press_command": press_command,
             "alias_command": cfg.get("alias_command", ""),
             "hold_command": cfg.get("hold_command", ""),
             "hold_seconds": cfg.get("hold_seconds", ""),
@@ -229,10 +241,17 @@ def button_manifest() -> list[dict[str, object]]:
                 "wiring": DEFAULT_ELECTRICAL_MODE.wiring,
             },
         })
-    if seen_numbers != {1, 2, 3, 4, 5, 6}:
-        raise ValueError(f"front-panel button numbers must be 1..6, got {sorted(seen_numbers)}")
-    if len(seen_pins) != 6:
-        raise ValueError("front-panel button GPIO pins must be unique")
+    if seen_numbers != EXPECTED_BUTTON_NUMBERS:
+        raise ValueError(f"front-panel button numbers must be K1..K8 / 1..8, got {sorted(seen_numbers)}")
+    if len(seen_pins) != len(EXPECTED_BUTTON_NUMBERS):
+        raise ValueError("front-panel button GPIO pins must be unique across K1-K8")
+    missing_commands = EXPECTED_BUTTON_COMMANDS - seen_commands
+    if missing_commands:
+        raise ValueError(f"front-panel button map missing commands: {sorted(missing_commands)}")
+    for number, expected_command in EXPECTED_POWER_BUTTONS.items():
+        actual = number_to_command.get(number)
+        if actual != expected_command:
+            raise ValueError(f"K{number} must map to {expected_command}, got {actual}")
     return rows
 
 
@@ -290,7 +309,7 @@ def validate_field_readiness_files() -> list[str]:
         path = ROOT / relative
         if path.exists():
             production_text += "\n" + path.read_text(encoding="utf-8", errors="ignore")
-    for required in ["Heltec Mesh Node T114", "USB portable power pack", "power bank"]:
+    for required in ["Heltec Mesh Node T114", "USB portable power pack", "power bank", "K1-K8", "Reset / Reboot"]:
         if required not in production_text:
             failures.append(f"production package missing marker: {required}")
     for forbidden in FORBIDDEN_ACTIVE_PRODUCTION_MARKERS:
@@ -350,6 +369,8 @@ def validate_protected_bluez_code() -> list[str]:
             "bluez_gumnut_gatt_ghostmap",
             "bluez_platypus_bt_proxy",
             "_protected_bluez",
+            "reset_confirm",
+            "power_toggle",
         ],
         ROOT / "pi-companion" / "koalablue" / "greatwhite_reef.py": [
             "GREATWHITE_REEF_COMMANDS",
@@ -452,6 +473,7 @@ def main() -> int:
 
     status = {
         "status": "ONE_SHOT_CONTROLS_READY" if not failures else "ONE_SHOT_CONTROLS_INCOMPLETE",
+        "button_board": "K1-K8 8-key front-panel module",
         "buttons": buttons,
         "menu_status": menu_manifest.get("status"),
         "menus": menu_manifest.get("menu_names", []),
