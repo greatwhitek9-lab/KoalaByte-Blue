@@ -1,6 +1,6 @@
 # KoalaByte Blue V2 Heltec Edition
 
-**KoalaByte Blue is a pocket-sized koala cyberdeck with attitude.** It uses a Raspberry Pi 3B+ as the main Linux brain, an ESP32-S3 DualEye for animated eyes/face feedback and voice-front-end work, a Heltec Mesh Node T114 with onboard nRF52840 for primary BLE/GNSS/LoRa duties, six front buttons, a shared jungle/eucalyptus menu UI, KillerKoala voice responses, Meshtastic App helpers, defensive Bluetooth visibility, Wi-Fi/BLE survey mapping, GreatWhite Reef packet-analysis review, local reports, and optional InnoMaker CAN bench support.
+**KoalaByte Blue is a pocket-sized koala cyberdeck with attitude.** It uses a Raspberry Pi 3B+ as the main Linux brain, a Waveshare ESP32-S3 DualEye board for animated eyes, face feedback, touch, voice-front-end work, and a secondary Wi-Fi/BLE node, plus a Heltec Mesh Node T114 with onboard nRF52840 for primary BLE, GNSS, LoRa, and Meshtastic App duties.
 
 KoalaByte Blue is for lawful owned-device labs, defensive review, education, and your own hardware. Do not use it on systems, vehicles, radios, networks, or devices you do not own or do not have permission to test.
 
@@ -11,7 +11,7 @@ KoalaByte Blue is for lawful owned-device labs, defensive review, education, and
 | Part | Role |
 |---|---|
 | Raspberry Pi 3B+ | Main Linux brain, installer, menus, logs, reports, local services, voice routing, main Wi-Fi controller, GreatWhite Reef PCAP review, and readiness checks. |
-| ESP32-S3 DualEye | Animated eyes and mouth/face feedback, mic/voice bridge path, secondary Wi-Fi survey node, BLE support node, and visual personality. |
+| Waveshare ESP32-S3 DualEye 1.28in board | Animated eyes, touch bridge, mic/voice bridge path, secondary Wi-Fi survey node, BLE support node, and visual personality. |
 | Heltec Mesh Node T114 / nRF52840 | Primary BLE node plus GNSS and LoRa/Meshtastic path. It is not a Wi-Fi node. |
 | Six 4-pin buttons | Front-panel controls for menu navigation and select. |
 | USB power bank / regulated USB supply | Production power source. No loose 18650/raw battery wiring is required. |
@@ -26,7 +26,7 @@ No custom PCB is required for this profile.
 ```text
 Heltec T114 / nRF52840 -> primary BLE node, GNSS node, and LoRa/Meshtastic node; no Wi-Fi
 Raspberry Pi 3B+       -> main Wi-Fi controller, BLE support/fallback node, and PCAP review host
-ESP32-S3 DualEye       -> secondary Wi-Fi survey node and BLE support node
+ESP32-S3 DualEye       -> secondary Wi-Fi survey node, BLE support node, touch bridge, and face/eye UI
 ```
 
 Koala Kombat Kruisin uses the Pi as the main Wi-Fi controller, the ESP32-S3 DualEye as the extra Wi-Fi survey node, and the Heltec T114/nRF52840 as the primary BLE/GNSS/LoRa path.
@@ -39,20 +39,16 @@ Koala Kombat Kruisin uses the Pi as the main Wi-Fi controller, the ESP32-S3 Dual
 |---|---|
 | One-shot installer | Runs the Pi, ESP32-S3, Heltec T114, menu, service, and readiness setup from one command. |
 | `--check-only` dry run | Validates the repo without flashing firmware or installing services. |
+| Wrapped jungle UI boot | Starts in the full jungle/eucalyptus graphical interface by default, not terminal mode. |
 | KoalaByte Doctor | Runs quick/full diagnostics and writes `logs/doctor/koalabyte_doctor_status.json`. |
-| Field readiness checker | Confirms doctor, udev, services, logrotate, release package, production files, and version helpers are present. |
 | Stable udev names | Adds `/dev/koalabyte-*` aliases for easier board discovery. |
-| Boot services | Provides systemd templates for the menu, menu sync, and doctor check. |
-| Version handshake | Checks Pi/ESP32/Heltec protocol readiness. |
-| Local status dashboard | Emits local JSON/HTML status for field checks. |
-| Cleaned jungle menu | Removes redundant front-end rows while keeping branded tools, wrapped BlueZ tools, and GreatWhite Reef. |
-| GreatWhite Reef | Adds a full wrapped submenu for TigerShark (`tshark`) and Great Wire Shark (`wireshark`) PCAP/PCAPNG review. |
+| Heltec T114 HT-n5262 flash support | Supports the manual double-RST UF2 bootloader volume named `HT-n5262`. |
+| ESP32-S3 DualEye touch | Includes a Waveshare CST816x I2C touch backend and Pi touch menu bridge. |
+| Cleaned jungle menu | Keeps branded tools, wrapped BlueZ tools, GreatWhite Reef, pop-up keyboard input, and the Lab submenu. |
+| GreatWhite Reef | Adds TigerShark (`tshark`) and Great Wire Shark (`wireshark`) PCAP/PCAPNG review. |
 | GreatWhite selectable PCAPs | Syncs `.pcap`/`.pcapng` files into `logs/greatwhite_reef/pcaps/`, then exposes selectable `PCAP N: filename` menu rows. |
-| Menu theme fit checks | Validates jungle/eucalyptus menu identity and keeps terminal menu text inside its border frame with `check_menu_theme_fit.py`. |
-| Menu prompt UI checks | Validates menu-managed prompt controls and pop-up text input with `scripts/check_menu_prompt_ui.py`. |
-| Pop-up text input | Opens only from actual text-input rows for WiGLE name/key, protected local lock/unlock, and Meshtastic message/destination text. |
-| Release ZIP package | Builds `dist/KoalaByte-Blue-install-package.zip`. |
-| Log export/logrotate | Bundles debug logs and installs optional log rotation. |
+| Pop-up text input | Opens only from actual text-input rows for WiGLE name/key, protected local lock/unlock, BlueZ lab target, and Meshtastic message/destination text. |
+| KillerKoala companion | Uses fast local phrase responses by default with optional TinyLlama/Ollama banter. |
 
 Fast repo check:
 
@@ -76,7 +72,7 @@ bash scripts/koalabyte_doctor.sh --quick
 Raspberry Pi 3B+
 128 GB microSD card recommended, 32 GB minimum for basic testing
 Regulated USB power bank or USB power supply
-ESP32-S3 DualEye board
+Waveshare ESP32-S3 DualEye 1.28in board
 Heltec Mesh Node T114
 USB data cable for ESP32-S3 DualEye
 USB-C data cable for Heltec T114
@@ -102,6 +98,8 @@ USB or Bluetooth keyboard for faster text entry
 ```text
 TigerShark -> tshark
 Great Wire Shark -> wireshark
+PlatformIO -> pio, for ESP32-S3 firmware flashing
+nRF/Zephyr tools -> west, when Heltec T114 build/flash is enabled
 ```
 
 Power rule: use a regulated USB power bank or USB supply. Do not feed raw battery voltage into the Pi, ESP32-S3, Heltec T114, button wiring, CAN wiring, or antenna hardware.
@@ -172,7 +170,32 @@ Optional InnoMaker CAN kit -> Raspberry Pi USB port only if using CAN bench tool
 
 The InnoMaker CAN kit can stay unplugged for a normal install. The installer skips CAN setup when the adapter is absent.
 
-### 5. Download and run the installer from `Main`
+### 5. Heltec T114 flash mode: HT-n5262
+
+The Heltec manual flash path is supported by the installer:
+
+```text
+Connect the T114 to the Pi by USB.
+Press the RST key twice in quick succession.
+The mounted bootloader volume should appear as HT-n5262.
+```
+
+For the default `combined-safe` T114 profile, the installer will try to detect the `HT-n5262` UF2 volume and copy the generated `zephyr.uf2` firmware to it. If the volume is not present, the flash helper falls back to `west flash` when the nRF/Zephyr tooling is available.
+
+Manual T114 flash command:
+
+```bash
+cd ~/KoalaByte-Blue
+T114_FLASH_METHOD=uf2 bash scripts/flash_t114_combined_safe.sh
+```
+
+To skip Heltec flashing during a first install or while testing USB cables:
+
+```bash
+FLASH_T114_ON_PLUG=0 bash scripts/install_koalabyte_one_shot.sh
+```
+
+### 6. Download and run the installer from `Main`
 
 ```bash
 curl -fsSL -o koalabyte-install.sh https://raw.githubusercontent.com/greatwhitek9-lab/KoalaByte-Blue/Main/install.sh
@@ -193,13 +216,13 @@ The installer clones/updates the repo at:
 
 Then it runs the one-shot installer.
 
-### 6. Reboot and start KoalaByte Blue
+### 7. Reboot and start KoalaByte Blue
 
 ```bash
 sudo reboot
 ```
 
-Reconnect, then start the device UI:
+After reboot, the systemd service should start the wrapped KoalaByte Blue jungle UI automatically. Manual debug launch is still available:
 
 ```bash
 cd ~/KoalaByte-Blue
@@ -229,6 +252,9 @@ Useful install options:
 ```bash
 # Explicit normal Heltec profile
 T114_PLUG_FLASH_PROFILE=combined-safe bash scripts/install_koalabyte_one_shot.sh
+
+# Force the T114 UF2 bootloader copy path; double-tap RST so HT-n5262 appears first
+T114_FLASH_METHOD=uf2 bash scripts/flash_t114_combined_safe.sh
 
 # Skip Heltec flashing while debugging USB/ports
 FLASH_T114_ON_PLUG=0 bash scripts/install_koalabyte_one_shot.sh
@@ -281,6 +307,8 @@ logs/one_shot/koala_kry_menu_readiness.json
 logs/one_shot/field_readiness_status.json
 logs/greatwhite_reef/greatwhite_reef_status.json
 logs/greatwhite_reef/pcaps/
+logs/t114_plug_flash_status.json
+logs/t114_combined_safe_flash_status.json
 logs/menu_actions/menu_action_manifest.json
 logs/menu_actions/menu_theme_fit_status.json
 logs/menu_sync/current_menu_state.json
@@ -311,7 +339,7 @@ Every enabled leaf action can be started from the same menu path:
 scroll / highlight -> select with B3, Enter, touchscreen long press, USB/Bluetooth keyboard, or KillerKoala voice command
 ```
 
-Submenu rows open another menu. Tool rows inside that submenu run the actual action. Pop-up keyboard mode only appears after selecting text input rows such as `Type WiGLE Name`, `Type WiGLE Key`, `Set Local Lock`, `Unlock Local Lock`, `Type Mesh Message`, or `Type Mesh Destination`.
+Submenu rows open another menu. Tool rows inside that submenu run the actual action. Pop-up keyboard mode only appears after selecting text input rows such as `Type WiGLE Name`, `Type WiGLE Key`, `Create Location Password`, `Unlock Current Process`, `Type BlueZ Lab Target`, `Type Mesh Message`, or `Type Mesh Destination`.
 
 Text entry controls:
 
@@ -320,6 +348,8 @@ Buttons/touchscreen -> select on-screen keys
 USB/Bluetooth keyboard -> type directly, Enter saves, Backspace deletes, Esc cancels
 Voice-to-text -> say or route "keyboard text <words>" after the input page is open
 ```
+
+The ESP32-S3 DualEye touch firmware uses the Waveshare CST816x I2C backend by default and emits `menu_touch` JSON events to the Pi bridge.
 
 Common voice patterns:
 
@@ -372,71 +402,8 @@ The visible UI uses one shared jungle-adventure/eucalyptus theme for terminal an
 | GreatWhite Reef | TigerShark and Great Wire Shark PCAP/PCAPNG review, selectable PCAP rows, and packet-analysis reporting. |
 | Reports & Reviews | Documentation, review, inventory, and lab report builders. |
 | System / Companion | KillerKoala voice, XP/status, buttons, settings, and helper controls. |
-| Lab | Protected lab-focused BlueZ shortcuts and location gate status. |
+| Lab | Protected lab-focused BlueZ shortcuts, saved target scope, and location gate status. |
 | Power & Exit | Shutdown and quit controls. |
-
-### Eucalyptus
-
-```text
-Eucalyptus Prompt Status
-Type WiGLE Name
-Type WiGLE Key
-Eucalyptus GPS ON / OFF
-Eucalyptus WiGLE Dry-Run ON / OFF
-Eucalyptus WiGLE Upload ON / OFF
-Eucalyptus Canopy Status / Start / Stop / Restart
-Eucalyptus GPS Trail
-Eucalyptus Upload Trail
-Eucalyptus WiGLE Upload
-Eucalyptus Koalagotchi Mode
-```
-
-### Koala Kombat Kruisin
-
-```text
-Kruisin Prompt Status
-Type WiGLE Name
-Type WiGLE Key
-Kruisin GPS ON / OFF
-Kruisin Nodes ON / OFF
-Kruisin Default Ports
-Kruisin WiGLE Dry-Run ON / OFF
-Kruisin WiGLE Upload ON / OFF
-Kruisin Status
-Wi-Fi AP Survey
-BLE Survey
-Wi-Fi + BLE Survey
-Kruisin GPS Status
-Kruisin WiGLE Upload
-```
-
-### Bluetooth Tools
-
-```text
-Koala Kapture
-Koala Kry
-KoalaByte Lab
-Outback Module Deck
-Gumleaf Gear Check
-Eucalyptus Bus Scout
-Dropbear Discovery Sweep
-Billabong HCI Watch
-Kookaburra Safe Nest Run
-Joey Target Dossier
-Treehouse Service Trace
-Gumnut GATT Gatecheck
-Outback Radio Ledger
-Classic Track Finder
-Treehouse RFCOMM Wiremap
-Pouch Link Echo
-Gumnut GATT Ghostmap
-Platypus BT-Proxy
-that’s not a knife
-AntEater
-Urban Poaching
-```
-
-The generic `Scan`, `Summary`, `Show Devices`, and `Ear Tag` rows were removed from the visible menu to reduce clutter. Their useful behavior is covered by the branded/wrapped tools above.
 
 ### Didgeridoo
 
@@ -446,47 +413,37 @@ Radio/GPS
 T114 BLE Check
 Lab TX Status
 Sextant
-Set Local Lock
-Unlock Local Lock
+Create Location Password
+Unlock Current Process
 Location Unlock ON / OFF
 Meshtastic App
 Protected Location Gate Status
 Protected GNSS Current Fix
 ```
 
-### Meshtastic App
+### Lab
 
 ```text
-Meshtastic Profile
-Meshtastic Compatibility
-Phone App Pairing
-ESP32 Device Link
-Use Heltec USB Serial
-Use Network TCP
-Use BLE Link
-Meshtastic Status
-Meshtastic Nodes
-Meshtastic GPS Info
-Meshtastic Listen Gate
-Send Prompt Status
-Type Mesh Message
-Type Mesh Destination
-Set Test Message
-Set Check-In Message
-Confirm Send ON / OFF
-Clear Send Draft
-Meshtastic Send Gate
+BlueZ Lab Scope Status
+Type BlueZ Lab Target
+Owned Device Scope ON / OFF
+Clear BlueZ Lab Scope
+Joey Target Dossier
+Treehouse Service Trace
+Gumnut GATT Gatecheck
+Outback Radio Ledger
+Classic Track Finder
+Treehouse RFCOMM Wiremap
+Pouch Link Echo
+Gumnut GATT Ghostmap
+Platypus BT-Proxy
+Create Location Password
+Unlock Current Process
+Location Unlock ON / OFF
+Protected Location Gate Status
 ```
 
-The Meshtastic App row opens the Didgeridoo Meshtastic hub. It shows the saved local node profile and links safe status, nodes, GPS, protected listen, and protected send helpers without sending messages or starting a live listener by default.
-
-### CAN Bench Tools
-
-```text
-Koala Kan Kommander
-```
-
-The duplicate `CAN Bench Safety Check` row was removed because it pointed to the same backend command.
+Protected Bluetooth actions use the menu-managed BlueZ lab scope state. You no longer need to manually export `KOALABYTE_BLUEZ_LAB_TARGET` or `KOALABYTE_BLUEZ_OWNED_DEVICE` for normal menu use. Use `Type BlueZ Lab Target` and `Owned Device Scope ON` from the Lab submenu instead.
 
 ### GreatWhite Reef
 
@@ -520,48 +477,6 @@ GreatWhite Reef Report
 
 The `PCAP N: filename` rows are dynamic. Highlight a PCAP with the front buttons, touchscreen, keyboard, or voice command. Selecting it runs that exact file through TigerShark Read and writes JSON output to `logs/greatwhite_reef/`.
 
-### Reports & Reviews
-
-```text
-Koala Kry RF Review
-Boomerang
-Authorized BLE Inventory
-GATT Readiness Checklist
-Pairing Security Review
-Lab Beacon Plan
-Packet Capture Notes
-Defensive Lab Report
-```
-
-The generic `Report` alias was removed because `Defensive Lab Report` is the canonical report builder.
-
-### Lab
-
-```text
-Joey Target Dossier
-Treehouse Service Trace
-Gumnut GATT Gatecheck
-Outback Radio Ledger
-Classic Track Finder
-Treehouse RFCOMM Wiremap
-Pouch Link Echo
-Gumnut GATT Ghostmap
-Platypus BT-Proxy
-Set Local Lock
-Unlock Local Lock
-Location Unlock ON / OFF
-Protected Location Gate Status
-```
-
-The Lab submenu intentionally keeps protected BlueZ shortcuts for fast access. Repeated generic report rows were removed because they already live under Reports & Reviews.
-
-Protected Bluetooth actions use the protected-actions password gate. Target-specific protected actions also require:
-
-```bash
-export KOALABYTE_BLUEZ_LAB_TARGET=AA:BB:CC:DD:EE:FF
-export KOALABYTE_BLUEZ_OWNED_DEVICE=1
-```
-
 ---
 
 ## KillerKoala AI companion
@@ -594,13 +509,12 @@ The face system syncs ESP32-S3 DualEye visuals with the Heltec status path. Menu
 bash scripts/koalabyte_doctor.sh --quick
 bash scripts/koalabyte_doctor.sh
 
-# Safe mode
-bash scripts/koalabyte_safe_mode.sh --terminal
-bash scripts/koalabyte_safe_mode.sh --doctor
-
 # Stable device names
 bash scripts/install_koalabyte_udev_rules.sh --check-only
 bash scripts/install_koalabyte_udev_rules.sh
+
+# T114 HT-n5262 bootloader UF2 flash
+T114_FLASH_METHOD=uf2 bash scripts/flash_t114_combined_safe.sh
 
 # Boot services
 bash scripts/install_koalabyte_boot_services.sh --check-only
@@ -610,11 +524,12 @@ bash scripts/install_koalabyte_boot_services.sh
 PYTHONPATH=pi-companion python3 scripts/check_koalabyte_version_handshake.py
 PYTHONPATH=pi-companion python3 scripts/run_koalabyte_status_server.py --json
 
-# Menu action, theme, prompt UI, Koala Kry, and GreatWhite Reef readiness
+# Menu action, theme, prompt UI, Koala Kry, ESP32 touch, and full runtime readiness
 PYTHONPATH=pi-companion python3 scripts/check_menu_actions.py
 PYTHONPATH=pi-companion python3 scripts/check_menu_theme_fit.py
 PYTHONPATH=pi-companion python3 scripts/check_menu_prompt_ui.py
 PYTHONPATH=pi-companion python3 scripts/check_koala_kry_menu.py
+PYTHONPATH=pi-companion python3 scripts/check_esp32_touch_menu.py
 PYTHONPATH=pi-companion python3 scripts/check_full_runtime_dependencies.py
 STRICT_FULL_RUNTIME_DEPENDENCIES=1 PYTHONPATH=pi-companion python3 scripts/check_full_runtime_dependencies.py
 ```
