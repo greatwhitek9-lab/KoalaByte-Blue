@@ -16,7 +16,7 @@ if str(PI_ROOT) not in sys.path:
 
 import koalablue  # noqa: F401 - triggers GreatWhite Reef menu extension
 from koalablue.greatwhite_reef import PCAP_DIR, install_menu_catalog  # noqa: E402
-from koalablue.menu_catalog import SUBMENU_ITEMS, all_menu_entries, grouped_menu_labels, submenu_title  # noqa: E402
+from koalablue.menu_catalog import SUBMENU_ITEMS, all_menu_entries, grouped_menu_labels, menu_labels, sorted_menu_entries, submenu_title  # noqa: E402
 from koalablue.menu_theme import (  # noqa: E402
     DEFAULT_JUNGLE_MENU_THEME,
     GRAPHICAL_DESCRIPTION_MAX_LINES,
@@ -39,12 +39,7 @@ TEST_PCAP_NAME = "greatwhite_reef_extremely_long_selected_packet_capture_name_fo
 
 
 def _display_width(text: str) -> int:
-    """Conservative printable-width guard for terminal output.
-
-    The terminal menu uses emoji leaves at the edges; Python len() is not a
-    perfect terminal cell counter for emoji, so keep the hard text frame simple
-    and rely on fixed-width formatting inside the rendered strings.
-    """
+    """Conservative printable-width guard for terminal output."""
 
     return len(str(text))
 
@@ -58,12 +53,39 @@ def _seed_long_pcap_row() -> Path:
     return path
 
 
-def _terminal_fit_checks(menu_name: str) -> list[str]:
-    failures: list[str] = []
+def _open_menu_for_name(menu_name: str):
     menu = make_menu()
     if menu_name != "main":
         if not open_submenu(menu, f"submenu:{menu_name}"):
-            return [f"menu {menu_name} could not be opened for terminal fit check"]
+            return None
+    return menu
+
+
+def _list_order_checks(menu_name: str) -> list[str]:
+    failures: list[str] = []
+    source_labels = menu_labels(menu_name)
+    sorted_labels = [str(entry.get("label", "")) for entry in sorted_menu_entries(menu_name)]
+    if sorted_labels != source_labels:
+        failures.append(f"{menu_name} sorted_menu_entries changed written top-to-bottom order")
+    menu = _open_menu_for_name(menu_name)
+    if menu is None:
+        return [f"menu {menu_name} could not be opened for list-order check"]
+    rendered_labels = [item.label for item in menu.items]
+    if rendered_labels != source_labels:
+        failures.append(f"{menu_name} rendered list order does not match written top-to-bottom order")
+    for index, expected in enumerate(source_labels):
+        menu.selected_index = index
+        menu._clamp_scroll_to_selection()
+        if menu.selected_item.label != expected:
+            failures.append(f"{menu_name} row {index + 1} selected {menu.selected_item.label!r}, expected {expected!r}")
+    return failures
+
+
+def _terminal_fit_checks(menu_name: str) -> list[str]:
+    failures: list[str] = []
+    menu = _open_menu_for_name(menu_name)
+    if menu is None:
+        return [f"menu {menu_name} could not be opened for terminal fit check"]
     if not menu.items:
         return [f"menu {menu_name} has no renderable items"]
     for selected_index in range(len(menu.items)):
@@ -141,6 +163,7 @@ def main() -> int:
             failures.append(f"menu {menu_name} has no title")
         if not any(grouped_menu_labels(menu_name).values()):
             failures.append(f"menu {menu_name} has no visible labels")
+        failures.extend(_list_order_checks(menu_name))
         failures.extend(_terminal_fit_checks(menu_name))
 
     graphical_failures, graphical_details = _graphical_text_checks()
@@ -165,6 +188,7 @@ def main() -> int:
         "graphical_text_safe_pad": GRAPHICAL_TEXT_SAFE_PAD,
         "long_pcap_fit_fixture": str(seeded_pcap),
         "graphical_fit": graphical_details,
+        "list_order": "explicit top-to-bottom source order; group metadata does not reorder rows",
         "failures": failures,
         "updated_at": time.time(),
     }
