@@ -11,7 +11,7 @@ mkdir -p logs/safe_mode logs/menu_sync
 cat > logs/safe_mode/current_safe_mode.json <<JSON
 {
   "status": "KOALABYTE_SAFE_MODE_ACTIVE",
-  "note": "Optional services disabled for recovery. Use B1/menu or terminal menu after fixing hardware.",
+  "note": "Optional services disabled for recovery. Use K1/menu or the terminal menu after fixing hardware.",
   "disabled_optional_paths": [
     "KOALABYTE_MENU_SYNC hardware serial sends",
     "optional CAN strict failure",
