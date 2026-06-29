@@ -53,7 +53,7 @@ class MenuSelectionScreen:
     """Menu state machine for KoalaByte Blue.
 
     Inputs supported:
-    - GPIO button commands from gpio_buttons.py: left/right/up/down/select/main_menu/back.
+    - GPIO button commands from gpio_buttons.py: left/right/up/down/select/main_menu/back/power_toggle/reset.
     - USB or Bluetooth keyboard arrows/WASD/Enter/backspace/text input.
     - Touch scrolling through on_touch_down/on_touch_move/on_touch_up.
     - Touch long-press select.
@@ -143,8 +143,11 @@ class MenuSelectionScreen:
             return self._event("move", "right")
         if normalized in {"select", "enter"}:
             return self.select("select")
-        if normalized == "shutdown":
+        if normalized in {"shutdown", "power", "power_toggle", "power_on_off"}:
             self._select_by_command("shutdown_confirm")
+            return self.select("select")
+        if normalized in {"reset", "reboot", "reset_reboot"}:
+            self._select_by_command("reset_confirm")
             return self.select("select")
         return self._event("ignored", normalized)
 
@@ -276,7 +279,7 @@ class MenuSelectionScreen:
             return None
         t = now if now is not None else time.time()
         if t - self.last_input_at >= self.idle_face_seconds:
-            return self.show_ai_face("idle", "KillerKoala idle — press B1/menu or double-tap to reopen", log_event_type="idle_timeout")
+            return self.show_ai_face("idle", "KillerKoala idle — press K1/menu or double-tap to reopen", log_event_type="idle_timeout")
         return None
 
     def on_touch_down(self, y: int, now: Optional[float] = None) -> None:
@@ -373,7 +376,7 @@ class MenuSelectionScreen:
         special = [f"[{key}]" if kb.row == len(kb.rows) and kb.col == index else f" {key} " for index, key in enumerate(SPECIAL_KEYS)]
         lines.append("  " + " | ".join(special))
         lines.append("")
-        lines.append("  Buttons: arrows move | B3/select presses key | B2/back cancels")
+        lines.append("  Buttons: arrows move | K3/select presses key | K2/back cancels")
         lines.append("  USB/Bluetooth keyboard: type text, Enter=select, Backspace=delete, Ctrl+S/save")
         lines.append("  Touch: tap row, long-press to press | Voice: 'keyboard text <words>'")
         lines.append("🌿════════════════════════════════════════════════════════════════════════🌿")
@@ -387,7 +390,7 @@ class MenuSelectionScreen:
             f"  State: {self.face_state}",
             f"  Message: {self.face_message}",
             "",
-            "  Menu is hidden. Press B1/Menu or double-tap touchscreen to reopen.",
+            "  Menu is hidden. Press K1/Menu or double-tap touchscreen to reopen.",
             "🌿════════════════════════════════════════════════════════════════════════🌿",
         ]
         return "\n".join(lines)
@@ -407,7 +410,7 @@ class MenuSelectionScreen:
             if absolute_index == self.selected_index and item.description:
                 lines.append(f"    {item.description}")
         lines.append("")
-        lines.append("Buttons: 1 menu | 2 left/back | 3 select/hold shutdown | 4 right | 5 up | 6 down")
+        lines.append("Buttons: K1 menu | K2 left/back | K3 select | K4 right | K5 up | K6 down | K7 power off | K8 reset/reboot")
         lines.append("Touch: drag to scroll | long press to select")
         return "\n".join(lines)
 
