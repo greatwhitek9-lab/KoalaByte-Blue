@@ -257,6 +257,10 @@ def grouped_entries(menu_name: str = "main") -> Dict[str, List[dict[str, object]
     return groups  # type: ignore[return-value]
 
 
+def grouped_menu_labels(menu_name: str = "main") -> Dict[str, List[str]]:
+    return {group: [str(entry.get("label", "")) for entry in entries] for group, entries in grouped_entries(menu_name).items()}
+
+
 def sorted_menu_entries(menu_name: str = "main") -> List[dict[str, object]]:
     """Return menu entries in explicit written list order.
 
