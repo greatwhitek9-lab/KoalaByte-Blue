@@ -182,6 +182,7 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
     "system": [
+        _item("System / Companion", "Prompt State Status", "prompt_state_status", "Show saved menu prompt state and protected input readiness"),
         _item("System / Companion", "Companion Status", "companion_status", "Show KillerKoala companion status"),
         _item("System / Companion", "KillerKoala Voice", "killerkoala_voice", "Start or check voice companion mode"),
         _item("System / Companion", "KillerKoala Hybrid", "killerkoala_hybrid", "Start or check hybrid AI companion mode"),
@@ -221,7 +222,9 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
 
 
 def _entries_for_menu(menu_name: str = "main") -> List[dict[str, object]]:
-    return MAIN_MENU_ITEMS if menu_name == "main" else SUBMENU_ITEMS.get(menu_name, MAIN_MENU_ITEMS)
+    if menu_name == "main":
+        return MAIN_MENU_ITEMS
+    return SUBMENU_ITEMS.get(menu_name, [])
 
 
 def submenu_name_from_command(command: str) -> str:
