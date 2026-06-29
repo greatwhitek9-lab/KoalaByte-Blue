@@ -11,6 +11,7 @@ PORT="${KOALABYTE_HELTEC_USB_PORT:-${KOALABYTE_PRIMARY_BLE_PORT:-${HELTEC_PORT:-
 STATUS_PATH="${T114_PLUG_FLASH_STATUS_PATH:-logs/t114_plug_flash_status.json}"
 UF2_VOLUME_NAME="${T114_UF2_VOLUME_NAME:-HT-n5262}"
 UF2_MOUNTPOINT="${T114_UF2_MOUNTPOINT:-/mnt/koalabyte-t114-uf2}"
+REQUIRE_UF2="${T114_REQUIRE_UF2:-0}"
 CHECK_ONLY=0
 LAST_UF2_DEVICE=""
 
@@ -21,6 +22,7 @@ KoalaByte Blue T114 plug-in firmware flash helper
 Usage:
   bash scripts/flash_t114_when_plugged.sh
   T114_PLUG_FLASH_PROFILE=combined-safe bash scripts/flash_t114_when_plugged.sh
+  T114_REQUIRE_UF2=1 T114_FLASH_METHOD=uf2 bash scripts/flash_t114_when_plugged.sh
   T114_PLUG_FLASH_PROFILE=color-mouth bash scripts/flash_t114_when_plugged.sh
   T114_PLUG_FLASH_PROFILE=hci-usb bash scripts/flash_t114_when_plugged.sh
   T114_PLUG_FLASH_PROFILE=skip bash scripts/flash_t114_when_plugged.sh
@@ -30,6 +32,11 @@ Manual T114 bootloader path:
   Connect the T114 by USB, then press RST twice quickly. The bootloader volume
   should appear as HT-n5262. The combined-safe profile auto-detects that volume,
   mounts it on Pi OS Lite when needed, and copies the generated UF2 firmware to it.
+
+UF2-first mode:
+  Set T114_REQUIRE_UF2=1 and T114_FLASH_METHOD=uf2 to require the HT-n5262 UF2
+  bootloader volume before flashing. This prevents accidental fallback to serial
+  west flashing during a one-shot install.
 
 Profiles:
   combined-safe  Default combined T114 firmware for primary BLE JSON plus KillerKoala mouth/status JSON.
@@ -57,6 +64,13 @@ print(json.dumps(sys.argv[1]))
 PY
 }
 
+json_bool() {
+  case "$1" in
+    1|true|True|yes|YES|on|ON) printf 'true' ;;
+    *) printf 'false' ;;
+  esac
+}
+
 sudo_or_root() {
   if [[ "${EUID}" -eq 0 ]]; then
     "$@"
@@ -79,6 +93,7 @@ write_status() {
   "reason": $(json_escape "${reason}"),
   "profile": $(json_escape "${PROFILE}"),
   "selected_port": $(json_escape "${selected_port}"),
+  "require_uf2": $(json_bool "${REQUIRE_UF2}"),
   "uf2_volume_name": $(json_escape "${UF2_VOLUME_NAME}"),
   "uf2_mount": $(json_escape "${uf2_mount}"),
   "uf2_mountpoint": $(json_escape "${UF2_MOUNTPOINT}"),
@@ -208,8 +223,18 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
   exit 0
 fi
 
+if [[ "${REQUIRE_UF2}" == "1" && !( "${PROFILE}" == "combined-safe" || "${PROFILE}" == "combined_safe" || "${PROFILE}" == "combined" ) ]]; then
+  write_status "unsupported_uf2_first_profile" "T114_REQUIRE_UF2=1 is only supported with the combined-safe profile." "" "${HELPER}" ""
+  echo "T114_REQUIRE_UF2=1 requires T114_PLUG_FLASH_PROFILE=combined-safe." >&2
+  exit 2
+fi
+
 echo "Waiting for Heltec T114 USB device for profile ${PROFILE}..."
-echo "For manual bootloader flash: connect USB, press RST twice quickly, wait for the HT-n5262 volume. On Pi OS Lite this script can mount the detected label at ${UF2_MOUNTPOINT}."
+if [[ "${REQUIRE_UF2}" == "1" ]]; then
+  echo "UF2-first mode is required: double-tap RST until the ${UF2_VOLUME_NAME} bootloader volume appears. Serial fallback is disabled for this run."
+else
+  echo "For manual bootloader flash: connect USB, press RST twice quickly, wait for the ${UF2_VOLUME_NAME} volume. On Pi OS Lite this script can mount the detected label at ${UF2_MOUNTPOINT}."
+fi
 START=$(date +%s)
 SELECTED_PORT=""
 SELECTED_UF2_MOUNT=""
@@ -219,13 +244,20 @@ while true; do
       break
     fi
   fi
-  if SELECTED_PORT="$(resolve_port)"; then
-    break
+  if [[ "${REQUIRE_UF2}" != "1" ]]; then
+    if SELECTED_PORT="$(resolve_port)"; then
+      break
+    fi
   fi
   NOW=$(date +%s)
   if (( NOW - START >= TIMEOUT_SECONDS )); then
-    write_status "not_plugged_in" "Timed out waiting for Heltec T114 USB serial device or HT-n5262 UF2 bootloader volume." "" "${HELPER}" ""
-    echo "Timed out waiting for Heltec T114 USB serial device or HT-n5262 UF2 volume." >&2
+    if [[ "${REQUIRE_UF2}" == "1" ]]; then
+      write_status "uf2_not_found" "Timed out waiting for required ${UF2_VOLUME_NAME} UF2 bootloader volume." "" "${HELPER}" ""
+      echo "Timed out waiting for required ${UF2_VOLUME_NAME} UF2 bootloader volume. Press RST twice quickly on the T114 and rerun." >&2
+    else
+      write_status "not_plugged_in" "Timed out waiting for Heltec T114 USB serial device or ${UF2_VOLUME_NAME} UF2 bootloader volume." "" "${HELPER}" ""
+      echo "Timed out waiting for Heltec T114 USB serial device or ${UF2_VOLUME_NAME} UF2 volume." >&2
+    fi
     exit 1
   fi
   sleep "${POLL_SECONDS}"
@@ -234,7 +266,7 @@ done
 if [[ -n "${SELECTED_UF2_MOUNT}" ]]; then
   export T114_UF2_MOUNT="${SELECTED_UF2_MOUNT}"
   export T114_FLASH_METHOD="uf2"
-  write_status "bootloader_volume_detected" "HT-n5262 UF2 bootloader volume detected; selected UF2 drag-and-drop flash path." "" "${HELPER}" "${SELECTED_UF2_MOUNT}"
+  write_status "bootloader_volume_detected" "${UF2_VOLUME_NAME} UF2 bootloader volume detected; selected UF2 drag-and-drop flash path." "" "${HELPER}" "${SELECTED_UF2_MOUNT}"
   echo "Heltec T114 bootloader volume detected at ${SELECTED_UF2_MOUNT}; running ${HELPER} with T114_FLASH_METHOD=uf2"
 else
   export KOALABYTE_HELTEC_USB_PORT="${SELECTED_PORT}"
@@ -245,7 +277,7 @@ else
 fi
 
 if [[ ! -f "${HELPER}" ]]; then
-  write_status "missing_helper" "Selected firmware flash helper is not present in this branch." "${SELECTED_PORT}" "${HELPER}" "${SELECTED_UF2_MOUNT}"
+  write_status "missing_helper" "Selected firmware flash helper is missing in this branch." "${SELECTED_PORT}" "${HELPER}" "${SELECTED_UF2_MOUNT}"
   echo "Selected flash helper is missing: ${HELPER}" >&2
   exit 1
 fi
