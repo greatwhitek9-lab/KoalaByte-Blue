@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Prepare/check KoalaByte Blue front-panel GPIO buttons.
+"""Prepare/check KoalaByte Blue front-panel GPIO button board.
 
-This helper is safe for the one-shot installer. By default it writes a manifest
-and validates the software mapping without touching GPIO hardware. Use
-``--live-test`` on a Raspberry Pi to initialize gpiozero Button objects with
-internal pull-ups and read button events.
+Default hardware is now an 8-key module with header pins VCC, GND, and K1-K8.
+The helper writes a manifest and validates the software mapping without touching
+GPIO hardware unless ``--live-test`` is used on a Raspberry Pi.
 """
 
 from __future__ import annotations
@@ -24,21 +23,26 @@ DEFAULT_STATUS_PATH = Path("logs/gpio_buttons/gpio_button_status.json")
 
 def build_manifest() -> Dict[str, Any]:
     return {
-        "status": "GPIO_BUTTONS_CONFIGURED",
+        "status": "GPIO_8KEY_BUTTON_BOARD_CONFIGURED",
+        "board_type": "8 independent key button module with VCC, GND, K1-K8 header",
         "mode": "active_low_internal_pull_up",
+        "power": "VCC must connect to Pi 3.3V only; do not use 5V with Pi GPIO.",
         "internal_pull_up_enabled": DEFAULT_ELECTRICAL_MODE.pull_up,
         "not_pressed_raw_level": DEFAULT_ELECTRICAL_MODE.idle_state,
         "pressed_raw_level": DEFAULT_ELECTRICAL_MODE.pressed_state,
         "wiring": DEFAULT_ELECTRICAL_MODE.wiring,
-        "common_ground": "Pi GND, recommended physical pin 39 on the 40-pin header/extender",
-        "do_not_wire_to": ["3.3V", "5V"],
+        "common_ground": "Module GND to Pi GND, recommended physical pin 39 on the 40-pin header/extender",
+        "vcc": "Module VCC to Pi physical pin 1 or 17, 3.3V only",
+        "do_not_wire_to": ["5V", "raw battery", "ESP32 GPIO", "Heltec GPIO"],
         "debounce_seconds_default": 0.05,
         "buttons": DEFAULT_BUTTONS,
         "wiring_summary": [
-            "Each normally-open 6x6 tactile switch goes between its assigned BCM GPIO and GND.",
+            "Use K1-K8 left-to-right across the button board.",
+            "K1-K6 replace the previous six separate tactile buttons.",
+            "K7 is the dedicated Shutdown button.",
+            "K8 is the dedicated Reset/Reboot button.",
             "gpiozero Button(..., pull_up=True) enables the Raspberry Pi internal pull-up resistor.",
-            "Not pressed reads HIGH; pressed shorts to GND and reads LOW.",
-            "The gpiozero logical state still reports is_pressed=True while the raw electrical level is LOW.",
+            "Idle/not pressed reads HIGH; pressed reads LOW.",
         ],
     }
 
@@ -53,7 +57,7 @@ def run_live_test(seconds: float, status_path: Path) -> int:
     manager.start()
     started_at = time.time()
     status: Dict[str, Any] = {
-        "status": "GPIO_BUTTONS_LIVE_TEST_STARTED",
+        "status": "GPIO_8KEY_BUTTON_BOARD_LIVE_TEST_STARTED",
         "started_at": started_at,
         "seconds": seconds,
         "internal_pull_up_enabled": DEFAULT_ELECTRICAL_MODE.pull_up,
@@ -85,7 +89,7 @@ def run_live_test(seconds: float, status_path: Path) -> int:
                     "timestamp": event.timestamp,
                 }
             )
-        status["status"] = "GPIO_BUTTONS_LIVE_TEST_COMPLETE"
+        status["status"] = "GPIO_8KEY_BUTTON_BOARD_LIVE_TEST_COMPLETE"
         status["finished_at"] = time.time()
         write_json(status_path, status)
         return 0
@@ -94,7 +98,7 @@ def run_live_test(seconds: float, status_path: Path) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Prepare/check KoalaByte Blue GPIO front-panel buttons.")
+    parser = argparse.ArgumentParser(description="Prepare/check KoalaByte Blue 8-key GPIO front-panel button board.")
     parser.add_argument("--manifest-path", default=str(DEFAULT_MANIFEST_PATH))
     parser.add_argument("--status-path", default=str(DEFAULT_STATUS_PATH))
     parser.add_argument("--check-only", action="store_true", help="Write/validate manifest only; do not touch GPIO hardware.")
@@ -108,7 +112,7 @@ def main() -> int:
     write_json(manifest_path, manifest)
 
     status: Dict[str, Any] = {
-        "status": "GPIO_BUTTONS_READY",
+        "status": "GPIO_8KEY_BUTTON_BOARD_READY",
         "manifest_path": str(manifest_path),
         "internal_pull_up_enabled": DEFAULT_ELECTRICAL_MODE.pull_up,
         "not_pressed_raw_level": DEFAULT_ELECTRICAL_MODE.idle_state,
