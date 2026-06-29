@@ -34,6 +34,8 @@ MAIN_MENU_ITEMS: List[dict[str, object]] = [
     _item("Reports & Reviews", "Reports & Reviews", "submenu:reports", "Open reports, reviews, and notes"),
     _item("System / Companion", "System / Companion", "submenu:system", "Open companion, voice, buttons, settings, and modes"),
     _item("System / Companion", "Lab", "submenu:lab", "Open the Authorized Lab Use submenu"),
+    _item("System / Companion", "Power On/Off", "shutdown_confirm", "K7 requests safe software shutdown from the main screen"),
+    _item("System / Companion", "Reset / Reboot", "reset_confirm", "K8 requests safe Raspberry Pi reboot from the main screen"),
     _item("System / Companion", "Power & Exit", "submenu:power", "Open shutdown, reset, and quit controls"),
 ]
 
@@ -281,38 +283,16 @@ def all_menu_entries() -> List[dict[str, object]]:
 
 
 def leaf_menu_entries() -> List[dict[str, object]]:
-    """Return enabled, selectable action rows that are not submenu links."""
-
-    leaves: List[dict[str, object]] = []
-    for entry in all_menu_entries():
-        command = str(entry.get("command", ""))
-        if not bool(entry.get("enabled", True)):
-            continue
-        if command.startswith("submenu:") or command == "quit":
-            continue
-        leaves.append(entry)
-    return leaves
+    return [entry for entry in all_menu_entries() if not str(entry.get("command", "")).startswith("submenu:")]
 
 
-def make_menu_items(menu_item_cls: Type[T], menu_name: str = "main") -> List[T]:
-    items: List[T] = []
-    for entry in sorted_menu_entries(menu_name):
-        kwargs = {"label": str(entry["label"]), "command": str(entry["command"]), "description": str(entry.get("description", "")), "enabled": bool(entry.get("enabled", True)), "group": _entry_group(entry)}
-        try:
-            items.append(menu_item_cls(**kwargs))
-        except TypeError:
-            kwargs.pop("group", None)
-            try:
-                items.append(menu_item_cls(**kwargs))
-            except TypeError:
-                kwargs.pop("enabled", None)
-                items.append(menu_item_cls(**kwargs))
-    return items
+def make_menu_items(cls: Type[T], menu_name: str = "main") -> List[T]:
+    return [cls(label=str(entry["label"]), command=str(entry["command"]), description=str(entry.get("description", "")), enabled=bool(entry.get("enabled", True)), group=str(entry.get("group", "System / Companion"))) for entry in sorted_menu_entries(menu_name)]
 
 
 def menu_labels(menu_name: str = "main") -> List[str]:
-    return [str(item["label"]) for item in _entries_for_menu(menu_name)]
+    return [str(entry["label"]) for entry in sorted_menu_entries(menu_name)]
 
 
-def grouped_menu_labels(menu_name: str = "main") -> Dict[str, List[str]]:
-    return {group: [str(item["label"]) for item in entries] for group, entries in grouped_entries(menu_name).items()}
+def menu_commands(menu_name: str = "main") -> List[str]:
+    return [str(entry["command"]) for entry in sorted_menu_entries(menu_name)]
