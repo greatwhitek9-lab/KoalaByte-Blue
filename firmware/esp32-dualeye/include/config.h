@@ -5,6 +5,7 @@
 // Waveshare notes: ESP32-S3R8, 16MB flash, 8MB PSRAM, two 240x240 1.28in LCDs,
 // GC9A01 display controller path, CST816D/CST816x I2C touch, ES8311 audio codec,
 // ES7210 microphone front-end, onboard ceramic antenna, optional IPEX1 antenna path.
+// Compatibility marker for older readiness checks: waveshare_cst816x_i2c.
 
 #define KOALABLUE_FW_VERSION "0.6.5-waveshare-dualeye-onboard-ant"
 #define COMPANION_NAME "killerkoala"
