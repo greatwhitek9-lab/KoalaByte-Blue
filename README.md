@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/code-signature/koalabyte-code-signature.svg" alt="KoalaByte Blue code signature: neon cyan ASCII koala head" width="760">
+</p>
+
 # KoalaByte Blue V2 Heltec Edition
 
 **KoalaByte Blue is a pocket-sized koala cyberdeck with attitude.** It uses a Raspberry Pi 3B+ as the main Linux brain, a Waveshare ESP32-S3 DualEye board for animated eyes, face feedback, touch, voice-front-end work, and a secondary Wi-Fi/BLE node, plus a Heltec Mesh Node T114 with onboard nRF52840 for primary BLE, GNSS, LoRa, and Meshtastic App duties.
