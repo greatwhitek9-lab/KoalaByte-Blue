@@ -10,6 +10,7 @@ NO_MONITOR="${NO_MONITOR:-1}"
 FLASH_T114_ON_PLUG="${FLASH_T114_ON_PLUG:-auto}"
 STRICT_T114_PLUG_FLASH="${STRICT_T114_PLUG_FLASH:-1}"
 T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE:-combined-safe}"
+HELTEC_UF2_FIRST="${HELTEC_UF2_FIRST:-0}"
 INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN:-optional}"
 STRICT_INNOMAKER_CAN="${STRICT_INNOMAKER_CAN:-0}"
 INSTALL_BLE_NODE_MANAGER_SERVICE="${INSTALL_BLE_NODE_MANAGER_SERVICE:-auto}"
@@ -38,6 +39,17 @@ Heltec T114, and optional InnoMaker CAN kit:
   bash scripts/install_koalabyte_one_shot.sh
   bash scripts/install_koalabyte_one_shot.sh --check-only
 
+Heltec UF2-first full install:
+
+  1. Plug the Heltec T114 into the Pi with a USB-C data cable.
+  2. Press RST twice quickly until the HT-n5262 UF2 bootloader volume appears.
+  3. Run:
+
+     bash scripts/install_koalabyte_one_shot.sh --heltec-uf2-first
+
+The --heltec-uf2-first mode forces combined-safe T114 flashing through the HT-n5262
+UF2 volume and disables serial/west fallback for the Heltec flash step.
+
 This installer validates the repo, prepares the Pi companion environment, checks
 KillerKoala AI/voice, flashes ESP32/T114 firmware paths, checks menu/button/touch
 controls, validates menu display sync to Heltec and ESP32-S3 DualEye, checks the
@@ -53,6 +65,9 @@ Useful env:
   KOALABYTE_ESP32_MIC_PORT=/dev/koalabyte-esp32-dualeye
   KOALABYTE_HELTEC_USB_PORT=/dev/koalabyte-heltec
   KOALABYTE_MENU_SYNC=auto|0
+  HELTEC_UF2_FIRST=1
+  T114_REQUIRE_UF2=1
+  T114_FLASH_METHOD=uf2
   T114_PLUG_FLASH_PROFILE=combined-safe|color-mouth|hci-usb
   FLASH_T114_ON_PLUG=auto|1|0
   STRICT_T114_PLUG_FLASH=1|0
@@ -77,6 +92,9 @@ while [[ $# -gt 0 ]]; do
     --check-only|--dry-run)
       CHECK_ONLY=1
       ;;
+    --heltec-uf2-first|--t114-uf2-first)
+      HELTEC_UF2_FIRST=1
+      ;;
     -h|--help)
       usage
       exit 0
@@ -89,6 +107,14 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
+
+if [[ "${HELTEC_UF2_FIRST}" == "1" ]]; then
+  FLASH_T114_ON_PLUG=1
+  STRICT_T114_PLUG_FLASH=1
+  T114_PLUG_FLASH_PROFILE=combined-safe
+  export T114_REQUIRE_UF2=1
+  export T114_FLASH_METHOD=uf2
+fi
 
 mkdir -p "$(dirname "${STATUS_PATH}")" logs/anteater logs/menu_actions logs/menu_sync logs/can logs/killerkoala logs/killerkoala_face logs/one_shot logs/doctor logs/version exports logs/menu_prompts
 
@@ -104,14 +130,15 @@ write_status() {
   local status="$1"
   local step="$2"
   local reason="$3"
-  python3 - <<'PY' "${STATUS_PATH}" "${status}" "${step}" "${reason}" "${T114_PLUG_FLASH_PROFILE}" "${INSTALL_INNOMAKER_CAN}" "${CHECK_ONLY}"
+  python3 - <<'PY' "${STATUS_PATH}" "${status}" "${step}" "${reason}" "${T114_PLUG_FLASH_PROFILE}" "${INSTALL_INNOMAKER_CAN}" "${CHECK_ONLY}" "${HELTEC_UF2_FIRST}"
 import json, sys, time
-path, status, step, reason, profile, can_mode, check_only = sys.argv[1:]
+path, status, step, reason, profile, can_mode, check_only, heltec_uf2_first = sys.argv[1:]
 payload = {
     "status": status,
     "step": step,
     "reason": reason,
     "heltec_profile": profile,
+    "heltec_uf2_first": heltec_uf2_first == "1",
     "innomaker_can_mode": can_mode,
     "innomaker_can_required": False,
     "check_only": check_only == "1",
@@ -393,9 +420,16 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
   exit 0
 fi
 
+if [[ "${HELTEC_UF2_FIRST}" == "1" ]]; then
+  echo
+  echo "== Heltec UF2-first one-shot mode =="
+  echo "This run requires the Heltec T114 HT-n5262 bootloader volume before the T114 flash step."
+  echo "If it is not visible yet, press RST twice quickly on the T114 before continuing."
+fi
+
 run_required "Repo readiness" python3 scripts/check_repo_readiness.py
 run_required "udev rules install" run_udev_install_or_check
-run_required "Raspberry Pi companion + Heltec combined-safe flash" env FLASH_T114_ON_PLUG="${FLASH_T114_ON_PLUG}" STRICT_T114_PLUG_FLASH="${STRICT_T114_PLUG_FLASH}" T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE}" bash scripts/install_pi.sh
+run_required "Raspberry Pi companion + Heltec combined-safe flash" env FLASH_T114_ON_PLUG="${FLASH_T114_ON_PLUG}" STRICT_T114_PLUG_FLASH="${STRICT_T114_PLUG_FLASH}" T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE}" T114_REQUIRE_UF2="${T114_REQUIRE_UF2:-0}" T114_FLASH_METHOD="${T114_FLASH_METHOD:-auto}" bash scripts/install_pi.sh
 run_required "KillerKoala AI and voice readiness" run_killerkoala_ai_readiness
 run_required "ESP32-S3 DualEye mic voice bridge service" run_dualeye_voice_bridge_service
 run_required "ESP32-S3 DualEye firmware flash" env ESP32_PORT="${ESP32_PORT}" NO_MONITOR="${NO_MONITOR}" STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-1}" bash -c 'STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS}" bash scripts/setup_esp32_tools.sh; if [[ -n "${ESP32_PORT}" ]]; then ESP32_PORT="${ESP32_PORT}" NO_MONITOR="${NO_MONITOR}" bash scripts/flash_esp32.sh; else NO_MONITOR="${NO_MONITOR}" bash scripts/flash_esp32.sh; fi'
