@@ -33,7 +33,7 @@ BUTTONS = {
     "k4_right_forward": {"number": 4, "pin": 19, "press": "move_right/forward"},
     "k5_up": {"number": 5, "pin": 26, "press": "up"},
     "k6_down": {"number": 6, "pin": 21, "press": "down"},
-    "k7_pwr": {"number": 7, "pin": 20, "press": "pwr_toggle"},
+    "k7_pwr": {"number": 7, "pin": 20, "press": "power_toggle"},
     "k8_reset": {"number": 8, "pin": 16, "press": "reset"},
 }
 
