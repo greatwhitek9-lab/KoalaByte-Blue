@@ -4,7 +4,7 @@
 
 # KoalaByte Blue V2 Heltec Edition
 
-**KoalaByte Blue is a pocket-sized koala cyberdeck with attitude.** It uses a Raspberry Pi 3B+ as the main Linux brain, a Waveshare ESP32-S3 DualEye board for animated eyes, face feedback, touch, voice-front-end work, and a secondary Wi-Fi/BLE node, plus a Heltec Mesh Node T114 with onboard nRF52840 for primary BLE, GNSS, LoRa, and Meshtastic App duties.
+**KoalaByte Blue is a Handheld  BLE defensive pentesting mini cyberdeck with attitude.** It uses a Raspberry Pi 3B+ as the main Linux brain, a Waveshare ESP32-S3 DualEye board for animated eyes, face feedback, touch, voice-front-end work, and a secondary Wi-Fi/BLE node, plus a Heltec Mesh Node T114 with onboard nRF52840 for primary BLE, GNSS, LoRa, and Meshtastic App duties.
 
 KoalaByte Blue is for lawful owned-device labs, defensive review, education, and your own hardware. Do not use it on systems, vehicles, radios, networks, or devices you do not own or do not have permission to test.
 
