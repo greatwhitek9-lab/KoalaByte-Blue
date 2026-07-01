@@ -1,7 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=KoalaByte Blue Boot Splash
-Comment=Launch the KoalaByte Blue animated boot splash at desktop startup
-Exec=python3 __KOALABYTE_ROOT__/scripts/run_boot_splash.py --duration 3.0
-Terminal=false
-X-GNOME-Autostart-enabled=true
