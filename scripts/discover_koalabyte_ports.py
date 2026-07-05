@@ -14,6 +14,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "logs" / "preflight"
 KNOWN_HELTEC_T114_USB_ID = "usb_Heltec_HT_n5262_F0E6F99E30161F35-if00"
 KNOWN_HELTEC_T114_BY_ID = f"/dev/serial/by-id/{KNOWN_HELTEC_T114_USB_ID}"
+KNOWN_ESP32_DUALEYE_USB_IDS = (
+    "usb-ESPRESSIF_USB_JTAG_serial_debug_unit_A0:F2:62:E3:DE:54-if00",
+    "usb-Espressif_USB_JTAG_serial_debug_unit_A0:F2:62:E3:DE:54-if00",
+    "USB-eSSPRESSIF_usb_JTAG_serial_debug_unit_A0:F2:62:E3:DE:54-if00",
+)
+KNOWN_ESP32_DUALEYE_BY_ID_PATHS = tuple(f"/dev/serial/by-id/{usb_id}" for usb_id in KNOWN_ESP32_DUALEYE_USB_IDS)
+KNOWN_ESP32_DUALEYE_BY_ID = KNOWN_ESP32_DUALEYE_BY_ID_PATHS[0]
+KNOWN_ESP32_DUALEYE_ID_HINTS = ("a0:f2:62:e3:de:54", "usb_jtag_serial_debug_unit", "usb-jtag", "usb_jtag")
 
 STABLE_PATHS = {
     "primary_ble": "/dev/koalabyte-heltec",
@@ -22,13 +30,15 @@ STABLE_PATHS = {
     "heltec_t114_alias": "/dev/koalabyte-heltec-t114",
     "nrf_ble": "/dev/koalabyte-nrf-ble",  # legacy external dongle alias only
     "esp32_eyes": "/dev/koalabyte-esp32-eyes",
+    "esp32_dualeye_by_id": KNOWN_ESP32_DUALEYE_BY_ID,
+    "esp32_dualeye_alias": "/dev/koalabyte-esp32-dualeye",
 }
 
 PREFERRED_ROLE_PATHS = {
     "primary_ble": (KNOWN_HELTEC_T114_BY_ID, "/dev/koalabyte-heltec-t114", "/dev/koalabyte-heltec"),
     "heltec": (KNOWN_HELTEC_T114_BY_ID, "/dev/koalabyte-heltec-t114", "/dev/koalabyte-heltec"),
     "nrf_ble": ("/dev/koalabyte-nrf-ble",),
-    "esp32_eyes": ("/dev/koalabyte-esp32-dualeye", "/dev/koalabyte-esp32-eyes"),
+    "esp32_eyes": (*KNOWN_ESP32_DUALEYE_BY_ID_PATHS, "/dev/koalabyte-esp32-dualeye", "/dev/koalabyte-esp32-eyes"),
 }
 
 SERIAL_PATTERNS = [
@@ -43,7 +53,7 @@ HINTS = {
     "primary_ble": ("koalabyte-heltec", "heltec", "t114", "ht-n5262", "ht_n5262", "usb_heltec_ht_n5262", "n5262", "wireless_tracker", "wireless-tracker", "nrf52840"),
     "heltec": ("koalabyte-heltec", "heltec", "t114", "ht-n5262", "ht_n5262", "usb_heltec_ht_n5262", "n5262", "wireless_tracker", "wireless-tracker", "nrf52840"),
     "nrf_ble": ("koalabyte-nrf-ble", "nrf52840", "pca10059", "nordic", "adafruit", "jlink"),
-    "esp32_eyes": ("koalabyte-esp32-eyes", "koalabyte-esp32-dualeye", "esp32", "esp32-s3", "espressif", "cp210", "ch340", "wchusb", "usb-serial"),
+    "esp32_eyes": ("koalabyte-esp32-eyes", "koalabyte-esp32-dualeye", "esp32", "esp32-s3", "espressif", "usb_jtag", "usb-jtag", "serial_debug", "serial-debug", "a0:f2:62:e3:de:54", "cp210", "ch340", "wchusb", "usb-serial"),
 }
 
 
@@ -83,6 +93,20 @@ def serial_candidates() -> list[dict[str, str]]:
     return entries
 
 
+def add_avoid_path(entries: list[dict[str, str]], avoid: set[str], selected: str) -> None:
+    if not selected:
+        return
+    avoid.add(selected)
+    try:
+        avoid.add(str(Path(selected).resolve()))
+    except OSError:
+        pass
+    for entry in entries:
+        if entry["path"] == selected or entry["resolved"] == selected:
+            avoid.add(entry["path"])
+            avoid.add(entry["resolved"])
+
+
 def choose_port(entries: list[dict[str, str]], role: str, avoid: set[str]) -> str:
     for preferred in PREFERRED_ROLE_PATHS.get(role, (STABLE_PATHS.get(role, ""),)):
         if preferred and Path(preferred).exists() and preferred not in avoid:
@@ -99,6 +123,10 @@ def choose_port(entries: list[dict[str, str]], role: str, avoid: set[str]) -> st
         score = 0
         if path == KNOWN_HELTEC_T114_BY_ID and role in {"primary_ble", "heltec"}:
             score += 100
+        if role == "esp32_eyes" and path in KNOWN_ESP32_DUALEYE_BY_ID_PATHS:
+            score += 100
+        if role == "esp32_eyes" and any(hint in label for hint in KNOWN_ESP32_DUALEYE_ID_HINTS):
+            score += 40
         if path.startswith("/dev/serial/by-id"):
             score += 20
         for hint in hints:
@@ -106,6 +134,8 @@ def choose_port(entries: list[dict[str, str]], role: str, avoid: set[str]) -> st
                 score += 10
         if role == "esp32_eyes" and ("ttyusb" in label or "usbserial" in label):
             score += 3
+        if role == "esp32_eyes" and ("ttyacm" in label or "usbmodem" in label):
+            score += 2
         if role in {"primary_ble", "heltec", "nrf_ble"} and ("ttyacm" in label or "usbmodem" in label):
             score += 3
         if score:
@@ -142,21 +172,17 @@ def discover(profile: str) -> dict[str, object]:
 
     if profile == "heltec":
         heltec = choose_port(entries, "heltec", avoid)
-        if heltec:
-            avoid.add(heltec)
+        add_avoid_path(entries, avoid, heltec)
         primary_ble = heltec
         legacy_nrf = choose_port(entries, "nrf_ble", avoid)
     else:
         legacy_nrf = choose_port(entries, "nrf_ble", avoid)
-        if legacy_nrf:
-            avoid.add(legacy_nrf)
+        add_avoid_path(entries, avoid, legacy_nrf)
         heltec = choose_port(entries, "heltec", avoid)
         primary_ble = legacy_nrf or heltec
 
-    if legacy_nrf:
-        avoid.add(legacy_nrf)
-    if heltec:
-        avoid.add(heltec)
+    add_avoid_path(entries, avoid, legacy_nrf)
+    add_avoid_path(entries, avoid, heltec)
     esp32 = choose_port(entries, "esp32_eyes", avoid)
 
     can_interface = os.environ.get("CAN_INTERFACE", "can0")
@@ -174,7 +200,10 @@ def discover(profile: str) -> dict[str, object]:
         "KOALABYTE_NRF_BLE_PORT": primary_ble,
         "NRF_BLE_PORT": primary_ble,
         "KOALABYTE_ESP32_FACE_PORT": esp32,
+        "KOALABYTE_ESP32_MIC_PORT": esp32,
         "ESP32_PORT": esp32,
+        "ESP32_DUALEYE_USB_ID": KNOWN_ESP32_DUALEYE_USB_IDS[0] if esp32 else "",
+        "KOALABYTE_ESP32_DUALEYE_BY_ID": KNOWN_ESP32_DUALEYE_BY_ID if esp32 else "",
         "CAN_INTERFACE": can_interface,
         "CAN_BITRATE": os.environ.get("CAN_BITRATE", "500000"),
         "VCAN_INTERFACE": vcan_interface,
@@ -186,6 +215,7 @@ def discover(profile: str) -> dict[str, object]:
         "serial_candidates": entries,
         "stable_paths": STABLE_PATHS,
         "known_heltec_t114_usb_id": KNOWN_HELTEC_T114_USB_ID,
+        "known_esp32_dualeye_usb_ids": KNOWN_ESP32_DUALEYE_USB_IDS,
         "preferred_role_paths": PREFERRED_ROLE_PATHS,
         "ports": {
             "primary_ble": primary_ble,
@@ -194,6 +224,7 @@ def discover(profile: str) -> dict[str, object]:
             "heltec_usb_id": KNOWN_HELTEC_T114_USB_ID if heltec else "",
             "legacy_nrf_ble": legacy_nrf,
             "esp32_eyes": esp32,
+            "esp32_dualeye_usb_id": KNOWN_ESP32_DUALEYE_USB_IDS[0] if esp32 else "",
             "can_interface": can_interface,
             "can_present": ip_link_exists(can_interface),
             "vcan_interface": vcan_interface,
