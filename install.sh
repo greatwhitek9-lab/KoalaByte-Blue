@@ -69,24 +69,53 @@ case "${1:-install}" in
     ;;
 esac
 
+apt_install() {
+  if command -v apt-get >/dev/null 2>&1; then
+    if [[ "${EUID}" -eq 0 ]]; then
+      apt-get update
+      apt-get install -y "$@"
+    elif command -v sudo >/dev/null 2>&1; then
+      sudo apt-get update
+      sudo apt-get install -y "$@"
+    else
+      echo "apt-get exists, but this user is not root and sudo is unavailable." >&2
+      return 1
+    fi
+  else
+    return 1
+  fi
+}
+
 ensure_git() {
   if command -v git >/dev/null 2>&1; then
     return 0
   fi
   echo "git is not installed. Attempting to install it with apt..."
-  if command -v apt-get >/dev/null 2>&1; then
-    if [[ "${EUID}" -eq 0 ]]; then
-      apt-get update
-      apt-get install -y git ca-certificates curl
-    elif command -v sudo >/dev/null 2>&1; then
-      sudo apt-get update
-      sudo apt-get install -y git ca-certificates curl
-    else
-      echo "apt-get exists, but this user is not root and sudo is unavailable." >&2
+  if ! apt_install git ca-certificates curl; then
+    echo "git is required. Install git, ca-certificates, and curl, then re-run this bootstrapper." >&2
+    exit 1
+  fi
+}
+
+ensure_python_venv() {
+  local python_bin="${PYTHON_BIN:-python3}"
+  if ! command -v "${python_bin}" >/dev/null 2>&1; then
+    echo "Python 3 is required but was not found. Attempting to install python3, python3-venv, and python3-pip with apt..."
+    if ! apt_install python3 python3-venv python3-pip; then
+      echo "Python 3 is required. Install python3, python3-venv, and python3-pip, then re-run this bootstrapper." >&2
       exit 1
     fi
-  else
-    echo "git is required. Install git, then re-run this bootstrapper." >&2
+  fi
+  if "${python_bin}" -m venv --help >/dev/null 2>&1; then
+    return 0
+  fi
+  echo "Python venv support is missing. Attempting to install python3-venv and python3-pip with apt..."
+  if ! apt_install python3-venv python3-pip; then
+    echo "python3-venv is required for KoalaByte check/install environments. Install it, then re-run this bootstrapper." >&2
+    exit 1
+  fi
+  if ! "${python_bin}" -m venv --help >/dev/null 2>&1; then
+    echo "Python venv support is still unavailable after package installation." >&2
     exit 1
   fi
 }
@@ -129,6 +158,7 @@ prepare_check_environment() {
 }
 
 ensure_git
+ensure_python_venv
 
 if [[ -d "${INSTALL_DIR}/.git" ]]; then
   echo "Updating existing KoalaByte Blue checkout: ${INSTALL_DIR}"
