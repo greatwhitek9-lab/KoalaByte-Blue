@@ -25,8 +25,9 @@ Packages covered:
   Heltec T114 USB serial/udev/BlueZ runtime dependencies, nRF/Zephyr helper build
   tools for optional T114 firmware work, WiFi/NetworkManager/wpa_supplicant,
   SD card formatter tools, CAN tools, python-can, kmod/modprobe, SDL2/KMSDRM
-  graphics runtime for Pi OS Lite, SQLite, Raspberry Pi GPIO support, AI voice/TTS
-  audio support, and GreatWhite Reef TigerShark/Great Wire Shark PCAP review tools.
+  graphics runtime for Pi OS Lite, fontconfig/fc-list and UI fonts, SQLite,
+  Raspberry Pi GPIO support, AI voice/TTS audio support, and GreatWhite Reef
+  TigerShark/Great Wire Shark PCAP review tools.
 EOF
 }
 
@@ -82,7 +83,8 @@ packages=(
   build-essential pkg-config cmake ninja-build gperf ccache device-tree-compiler
   wget curl xz-utils file make gcc g++ libffi-dev libssl-dev usbutils udev kmod
   util-linux parted dosfstools exfatprogs libusb-1.0-0 libusb-1.0-0-dev
-  libsdl2-2.0-0 libdrm2 libgbm1 libegl1 libgl1 libgl1-mesa-dri mesa-utils fonts-dejavu-core
+  libsdl2-2.0-0 libdrm2 libgbm1 libegl1 libgl1 libgl1-mesa-dri mesa-utils
+  fontconfig fonts-dejavu-core fonts-liberation
   network-manager wpasupplicant wireless-tools iw dhcpcd-base
   dnsutils iputils-ping bluetooth bluez bluez-tools rfkill sqlite3 iproute2
   picocom minicom screen
@@ -110,6 +112,12 @@ elif command -v espeak >/dev/null 2>&1; then
   echo "  espeak: $(command -v espeak)"
 else
   echo "  warning: no espeak-ng/espeak command found after install attempt" >&2
+  [[ "${STRICT_SYSTEM_PACKAGES}" == "1" ]] && exit 1
+fi
+if command -v fc-list >/dev/null 2>&1; then
+  echo "  fontconfig fc-list: $(command -v fc-list)"
+else
+  echo "  warning: fc-list still missing; pygame system font discovery may warn" >&2
   [[ "${STRICT_SYSTEM_PACKAGES}" == "1" ]] && exit 1
 fi
 if command -v lsusb >/dev/null 2>&1; then
