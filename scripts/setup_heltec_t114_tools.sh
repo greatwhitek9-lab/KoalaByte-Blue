@@ -25,7 +25,10 @@ Environment:
   INSTALL_HELTEC_NRF_TOOLS    auto/1/0. Default: 1 for real one-shot firmware setup.
 
 Combined-safe dependency split:
-  Required for default T114 combined-safe: pyserial, bleak, west, NCS/Zephyr, stable /dev/koalabyte-heltec path.
+  Required for default T114 combined-safe: pyserial, bleak, west, NCS/Zephyr,
+  stable Heltec serial path. The live KoalaByte Blue T114 is preferred at:
+    /dev/serial/by-id/usb_Heltec_HT_n5262_F0E6F99E30161F35-if00
+  Fallback remains /dev/ttyACM0 when the by-id path is not available.
   Optional legacy workflows: nrfutil for older dongle/DFU helper paths.
 
 Check-only mode is non-installing. It does not prepare west, nrfutil, or NCS.
@@ -117,6 +120,14 @@ fi
 
 if [[ -f "${ROOT}/logs/preflight/koalabyte_ports.env" ]]; then
   echo "Heltec port env written: ${ROOT}/logs/preflight/koalabyte_ports.env"
+fi
+
+if [[ "${CHECK_ONLY}" != "1" && -f "${ROOT}/scripts/detect_heltec_t114.sh" ]]; then
+  if bash "${ROOT}/scripts/detect_heltec_t114.sh" --write-device-env; then
+    echo "Heltec T114 device env refreshed for one-shot/runtime services."
+  else
+    echo "Heltec T114 live board was not detected yet; keeping discovery report and normal fallbacks." >&2
+  fi
 fi
 
 case "${INSTALL_HELTEC_NRF_TOOLS}" in
