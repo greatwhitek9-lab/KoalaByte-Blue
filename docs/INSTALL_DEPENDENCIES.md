@@ -23,11 +23,13 @@ Python: python3, python3-venv, python3-pip, python3-dev
 Build: build-essential, pkg-config, cmake, ninja-build, gperf, ccache, device-tree-compiler, make, gcc, g++
 Archives/downloads: wget, curl, xz-utils, file
 USB: usbutils, udev, libusb-1.0-0, libusb-1.0-0-dev
-Display/UI: libsdl2-2.0-0
+Display/UI: libsdl2-2.0-0, fontconfig, fonts-dejavu-core, fonts-liberation
 Bluetooth/BlueZ: bluetooth, bluez, bluez-tools, rfkill
 CAN: iproute2, can-utils
 Storage/report support: sqlite3
 GPIO buttons: python3-gpiozero, python3-lgpio, gpiod, libgpiod2
+Voice/audio: espeak-ng, espeak, alsa-utils, pulseaudio-utils, portaudio19-dev, python3-pyaudio
+PCAP review: tshark, wireshark
 ```
 
 The helper attempts apt installation on apt-based systems when root or sudo is available. It can be skipped with:
@@ -35,6 +37,24 @@ The helper attempts apt installation on apt-based systems when root or sudo is a
 ```bash
 INSTALL_SYSTEM_PACKAGES=0 bash scripts/setup_system_packages.sh
 ```
+
+### Fontconfig / pygame font warning
+
+If the jungle/eucalyptus UI check prints this warning:
+
+```text
+pygame/sysfont.py: UserWarning: 'fc-list' is missing, system fonts cannot be loaded on your platform
+```
+
+install the font packages directly:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y fontconfig fonts-dejavu-core fonts-liberation
+fc-list | head
+```
+
+The one-shot install path now covers these packages through `scripts/setup_system_packages.sh`, so a normal full install should fix the warning automatically. Check-only mode does not install apt packages.
 
 ## Pi companion Python dependencies
 
@@ -54,11 +74,62 @@ pydantic
 fastapi
 uvicorn
 requests
+httpx
 gpiozero
 pygame
+python-can
+pyttsx3
+SpeechRecognition
+meshtastic
 ```
 
 The Pi venv is created with `--system-site-packages` by default so apt-provided Raspberry Pi GPIO backends such as `python3-lgpio` remain visible inside the venv.
+
+### Previously observed missing runtime modules
+
+If KillerKoala AI readiness reports errors such as:
+
+```text
+Python package unavailable at runtime: httpx: No module named httpx
+Python package unavailable at runtime: serial: No module named serial
+KillerKoala AI smoke check failed: No module named httpx
+Python package unavailable at runtime: pygame: No module named pygame
+Python package unavailable at runtime: pyttsx3: No module named pyttsx3
+Python package unavailable at runtime: speech_recognition: No module named speech_recognition
+```
+
+repair the repo venv from the repo root:
+
+```bash
+cd ~/KoalaByte-Blue
+python3 -m venv --system-site-packages pi-companion/.venv
+source pi-companion/.venv/bin/activate
+python -m pip install --upgrade pip wheel setuptools
+python -m pip install -r pi-companion/requirements.txt
+python -m pip install -r pi-companion/requirements-heltec-v2-extra.txt
+```
+
+Verify the modules:
+
+```bash
+PYTHONPATH=pi-companion pi-companion/.venv/bin/python - <<'PY'
+import httpx
+import serial
+import pygame
+import pyttsx3
+import speech_recognition
+print("KoalaByte Python runtime packages OK")
+PY
+```
+
+Then rerun readiness with the venv Python:
+
+```bash
+PYTHON_BIN="$PWD/pi-companion/.venv/bin/python" \
+bash scripts/install_koalabyte_one_shot.sh --check-only
+```
+
+The normal full one-shot path runs `scripts/install_pi.sh`, which creates/updates the venv and runs `pip install -r pi-companion/requirements.txt`. If the venv gets stale, delete `pi-companion/.venv` and rerun the one-shot or the repair commands above.
 
 ## ESP32 / PlatformIO dependencies
 
@@ -153,17 +224,18 @@ west build -b nrf52840dongle_nrf52840 firmware/nrf52840-dongle-ear-tag-tx-lab -d
 
 ## Install flow integration
 
-`install_pi.sh` now runs dependency setup in this order:
+`install_pi.sh` runs dependency setup in this order during a full one-shot install:
 
 ```text
 1. setup_system_packages.sh
 2. create/update Pi companion venv with system site packages enabled
 3. pip install pi-companion/requirements.txt
-4. setup_esp32_tools.sh
-5. repo readiness check
-6. setup_nrf_tools.sh
-7. setup_nrf_connect_sdk_toolchain.sh
-8. prepare cached nRF52840 DFU ZIPs when tools are available
+4. pip install pi-companion/requirements-heltec-v2-extra.txt when enabled
+5. setup_esp32_tools.sh
+6. repo readiness check
+7. setup_nrf_tools.sh
+8. setup_nrf_connect_sdk_toolchain.sh
+9. prepare cached nRF52840 DFU ZIPs when tools are available
 ```
 
 Strong install path:
@@ -174,7 +246,7 @@ STRICT_SYSTEM_PACKAGES=1 STRICT_ESP32_TOOLS=1 STRICT_DONGLE_CACHE=1 STRICT_NCS_T
 
 ## All-component flash flow integration
 
-`flash_all_components.sh` now checks dependencies before the relevant selected action:
+`flash_all_components.sh` checks dependencies before the relevant selected action:
 
 ```text
 System package helper -> Pi/ESP32/nRF/CAN selections
