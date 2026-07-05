@@ -12,12 +12,23 @@ from typing import Iterable
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "logs" / "preflight"
+KNOWN_HELTEC_T114_USB_ID = "usb_Heltec_HT_n5262_F0E6F99E30161F35-if00"
+KNOWN_HELTEC_T114_BY_ID = f"/dev/serial/by-id/{KNOWN_HELTEC_T114_USB_ID}"
 
 STABLE_PATHS = {
     "primary_ble": "/dev/koalabyte-heltec",
     "heltec": "/dev/koalabyte-heltec",
+    "heltec_t114_by_id": KNOWN_HELTEC_T114_BY_ID,
+    "heltec_t114_alias": "/dev/koalabyte-heltec-t114",
     "nrf_ble": "/dev/koalabyte-nrf-ble",  # legacy external dongle alias only
     "esp32_eyes": "/dev/koalabyte-esp32-eyes",
+}
+
+PREFERRED_ROLE_PATHS = {
+    "primary_ble": (KNOWN_HELTEC_T114_BY_ID, "/dev/koalabyte-heltec-t114", "/dev/koalabyte-heltec"),
+    "heltec": (KNOWN_HELTEC_T114_BY_ID, "/dev/koalabyte-heltec-t114", "/dev/koalabyte-heltec"),
+    "nrf_ble": ("/dev/koalabyte-nrf-ble",),
+    "esp32_eyes": ("/dev/koalabyte-esp32-dualeye", "/dev/koalabyte-esp32-eyes"),
 }
 
 SERIAL_PATTERNS = [
@@ -29,10 +40,10 @@ SERIAL_PATTERNS = [
 ]
 
 HINTS = {
-    "primary_ble": ("koalabyte-heltec", "heltec", "t114", "ht-n5262", "wireless_tracker", "wireless-tracker", "nrf52840"),
-    "heltec": ("koalabyte-heltec", "heltec", "t114", "ht-n5262", "wireless_tracker", "wireless-tracker", "nrf52840"),
+    "primary_ble": ("koalabyte-heltec", "heltec", "t114", "ht-n5262", "ht_n5262", "usb_heltec_ht_n5262", "n5262", "wireless_tracker", "wireless-tracker", "nrf52840"),
+    "heltec": ("koalabyte-heltec", "heltec", "t114", "ht-n5262", "ht_n5262", "usb_heltec_ht_n5262", "n5262", "wireless_tracker", "wireless-tracker", "nrf52840"),
     "nrf_ble": ("koalabyte-nrf-ble", "nrf52840", "pca10059", "nordic", "adafruit", "jlink"),
-    "esp32_eyes": ("koalabyte-esp32-eyes", "esp32", "esp32-s3", "espressif", "cp210", "ch340", "wchusb", "usb-serial"),
+    "esp32_eyes": ("koalabyte-esp32-eyes", "koalabyte-esp32-dualeye", "esp32", "esp32-s3", "espressif", "cp210", "ch340", "wchusb", "usb-serial"),
 }
 
 
@@ -73,9 +84,9 @@ def serial_candidates() -> list[dict[str, str]]:
 
 
 def choose_port(entries: list[dict[str, str]], role: str, avoid: set[str]) -> str:
-    stable = STABLE_PATHS.get(role, "")
-    if stable and Path(stable).exists():
-        return stable
+    for preferred in PREFERRED_ROLE_PATHS.get(role, (STABLE_PATHS.get(role, ""),)):
+        if preferred and Path(preferred).exists() and preferred not in avoid:
+            return preferred
 
     hints = HINTS[role]
     scored: list[tuple[int, str]] = []
@@ -86,6 +97,8 @@ def choose_port(entries: list[dict[str, str]], role: str, avoid: set[str]) -> st
         if path in avoid or resolved in avoid:
             continue
         score = 0
+        if path == KNOWN_HELTEC_T114_BY_ID and role in {"primary_ble", "heltec"}:
+            score += 100
         if path.startswith("/dev/serial/by-id"):
             score += 20
         for hint in hints:
@@ -154,6 +167,9 @@ def discover(profile: str) -> dict[str, object]:
         "KOALABYTE_PRIMARY_BLE_SOURCE": "heltec-t114-nrf52840" if profile == "heltec" else "legacy-nrf52840-dongle",
         "KOALABYTE_HELTEC_USB_PORT": heltec,
         "HELTEC_PORT": heltec,
+        "HELTEC_MODEL": "Heltec_T114" if heltec else "",
+        "HELTEC_USB_ID": KNOWN_HELTEC_T114_USB_ID if heltec else "",
+        "KOALABYTE_HELTEC_T114_BY_ID": KNOWN_HELTEC_T114_BY_ID if heltec else "",
         # Backward-compatible aliases. In the Heltec Edition these point at the Heltec T114 onboard nRF52840.
         "KOALABYTE_NRF_BLE_PORT": primary_ble,
         "NRF_BLE_PORT": primary_ble,
@@ -169,10 +185,13 @@ def discover(profile: str) -> dict[str, object]:
         "timestamp": time.time(),
         "serial_candidates": entries,
         "stable_paths": STABLE_PATHS,
+        "known_heltec_t114_usb_id": KNOWN_HELTEC_T114_USB_ID,
+        "preferred_role_paths": PREFERRED_ROLE_PATHS,
         "ports": {
             "primary_ble": primary_ble,
             "primary_ble_source": env["KOALABYTE_PRIMARY_BLE_SOURCE"],
             "heltec": heltec,
+            "heltec_usb_id": KNOWN_HELTEC_T114_USB_ID if heltec else "",
             "legacy_nrf_ble": legacy_nrf,
             "esp32_eyes": esp32,
             "can_interface": can_interface,
