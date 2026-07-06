@@ -41,6 +41,13 @@ ALLOWED_DUPLICATE_COMMANDS = {
     "bluez_lab_owned_off",
     "bluez_lab_scope_clear",
     "lab_transmit_policy_status",
+    "lab_transmit_rf_ble_gated_lab",
+    "lab_transmit_rf_ble_listen_only",
+    "lab_transmit_rf_ble_disabled",
+    "lab_transmit_rf_ble_arm_on",
+    "lab_transmit_rf_ble_arm_off",
+    "lab_transmit_rf_ble_passive_only",
+    "lab_transmit_rf_ble_disabled_install",
 }
 BUILT_IN_UI_COMMANDS = {"quit"}
 
@@ -88,32 +95,57 @@ REQUIRED_KOALA_KAN_COMMANDS = [
 
 REQUIRED_KOALA_KAPTURE_LABELS = [
     "Kapture Policy Status",
-    "RF/BLE Passive Only",
-    "RF/BLE Install Disabled",
-    "Run Koala Kapture",
+    "RF/BLE Mode: Gated Lab",
+    "RF/BLE Mode: Listen Only",
+    "RF/BLE Mode: Disabled",
+    "RF/BLE Lab Confirm ON",
+    "RF/BLE Lab Confirm OFF",
+    "Kapture Listen Gate",
+    "Kapture Transmit Safety Check",
+    "Kapture Transmit Gate",
+    "Kapture Listen + Transmit Gate",
 ]
 
 REQUIRED_KOALA_KAPTURE_COMMANDS = [
     "lab_transmit_policy_status",
-    "lab_transmit_rf_ble_passive_only",
-    "lab_transmit_rf_ble_disabled_install",
-    "koala_kapture",
+    "lab_transmit_rf_ble_gated_lab",
+    "lab_transmit_rf_ble_listen_only",
+    "lab_transmit_rf_ble_disabled",
+    "lab_transmit_rf_ble_arm_on",
+    "lab_transmit_rf_ble_arm_off",
+    "koala_kapture_listen_gate",
+    "koala_kapture_transmit_placeholder",
+    "koala_kapture_transmit_gate",
+    "koala_kapture_listen_transmit_gate",
 ]
 
 REQUIRED_KOALA_KRY_POLICY_LABELS = [
     "Kry Policy Status",
-    "RF/BLE Passive Only",
-    "RF/BLE Install Disabled",
+    "RF/BLE Mode: Gated Lab",
+    "RF/BLE Mode: Listen Only",
+    "RF/BLE Mode: Disabled",
+    "RF/BLE Lab Confirm ON",
+    "RF/BLE Lab Confirm OFF",
+    "Kry Listen Gate",
+    "Kry Transmit Safety Check",
+    "Kry Transmit Gate",
+    "Kry Listen + Transmit Gate",
 ]
 
 REQUIRED_LAB_TRANSMIT_LABELS = [
-    "RF/BLE Passive Only",
-    "RF/BLE Install Disabled",
+    "RF/BLE Mode: Gated Lab",
+    "RF/BLE Mode: Listen Only",
+    "RF/BLE Mode: Disabled",
+    "RF/BLE Lab Confirm ON",
+    "RF/BLE Lab Confirm OFF",
 ]
 
 REQUIRED_LAB_TRANSMIT_COMMANDS = [
-    "lab_transmit_rf_ble_passive_only",
-    "lab_transmit_rf_ble_disabled_install",
+    "lab_transmit_rf_ble_gated_lab",
+    "lab_transmit_rf_ble_listen_only",
+    "lab_transmit_rf_ble_disabled",
+    "lab_transmit_rf_ble_arm_on",
+    "lab_transmit_rf_ble_arm_off",
 ]
 
 LAB_TRANSMIT_COMMANDS = [
@@ -123,9 +155,24 @@ LAB_TRANSMIT_COMMANDS = [
     "lab_transmit_can_disabled",
     "lab_transmit_bench_arm_on",
     "lab_transmit_bench_arm_off",
+    "lab_transmit_rf_ble_gated_lab",
+    "lab_transmit_rf_ble_listen_only",
+    "lab_transmit_rf_ble_disabled",
+    "lab_transmit_rf_ble_arm_on",
+    "lab_transmit_rf_ble_arm_off",
     "lab_transmit_rf_ble_passive_only",
     "lab_transmit_rf_ble_disabled_install",
 ]
+
+REQUIRED_RF_BLE_PERMISSION_VALUES = {
+    "rf_ble_live_transmit": True,
+    "synthetic_lab_transmit": True,
+    "saved_signal_replay": True,
+    "saved_signal_replay_scope": "offline_saved_artifact_replay",
+    "captured_metadata_replay": True,
+    "captured_signal_replay": False,
+    "over_air_signal_replay": False,
+}
 
 
 def _command(entry: dict[str, Any]) -> str:
@@ -239,20 +286,33 @@ def _validate_kapture_kry_actions() -> list[str]:
         if label not in kry_labels:
             failures.append(f"Koala Kry submenu missing RF/BLE policy label: {label}")
 
-    runner_path = ROOT / "pi-companion" / "koalablue" / "menu_action_runner.py"
-    runner_text = runner_path.read_text(encoding="utf-8", errors="ignore") if runner_path.exists() else ""
+    permissions_json = ROOT / "config" / "rf_ble_lab_permissions.json"
+    if not permissions_json.exists():
+        failures.append("missing RF/BLE lab permissions manifest: config/rf_ble_lab_permissions.json")
+    else:
+        try:
+            payload = json.loads(permissions_json.read_text(encoding="utf-8"))
+            for key, expected in REQUIRED_RF_BLE_PERMISSION_VALUES.items():
+                if payload.get(key) != expected:
+                    failures.append(f"RF/BLE permission manifest has {key}={payload.get(key)!r}; expected {expected!r}")
+        except Exception as exc:
+            failures.append(f"RF/BLE permission manifest is not valid JSON: {exc}")
+
+    permissions_module = ROOT / "pi-companion" / "koalablue" / "rf_ble_lab_permissions.py"
+    permissions_text = permissions_module.read_text(encoding="utf-8", errors="ignore") if permissions_module.exists() else ""
     for needle in [
-        "def _rf_ble_policy_overlay",
-        "def _koala_kapture",
-        "def _koala_kry",
-        "lab_transmit_policy.policy_status",
+        "RF_BLE_LAB_PERMISSIONS",
+        "def permission_manifest",
         "rf_ble_live_transmit",
+        "synthetic_lab_transmit",
+        "saved_signal_replay",
+        "offline_saved_artifact_replay",
+        "captured_metadata_replay",
         "captured_signal_replay",
-        "Koala Kapture is passive BLE advertisement metadata capture only",
-        "Koala Kry is offline metadata replay/review only",
+        "over_air_signal_replay",
     ]:
-        if needle not in runner_text:
-            failures.append(f"menu_action_runner.py missing KoalaKry/Kapture policy marker: {needle}")
+        if needle not in permissions_text:
+            failures.append(f"rf_ble_lab_permissions.py missing marker: {needle}")
     return failures
 
 
@@ -275,8 +335,11 @@ def _validate_lab_transmit_actions() -> list[str]:
         "def set_can_mode",
         "def set_rf_ble_mode",
         "def set_bench_arm",
+        "def set_rf_ble_arm",
         "def can_transmit_gate_status",
+        "def rf_ble_transmit_gate_status",
         "def blocked_transmit_action",
+        "def blocked_rf_ble_action",
         "def run_menu_action",
         "no_dtc_clear_or_ecu_coding",
         "no_captured_traffic_replay",
@@ -383,6 +446,7 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
         "koala_kapture_required_labels": REQUIRED_KOALA_KAPTURE_LABELS,
         "koala_kapture_required_commands": REQUIRED_KOALA_KAPTURE_COMMANDS,
         "koala_kry_policy_required_labels": REQUIRED_KOALA_KRY_POLICY_LABELS,
+        "rf_ble_permission_manifest": REQUIRED_RF_BLE_PERMISSION_VALUES,
         "lab_transmit_required_labels": REQUIRED_LAB_TRANSMIT_LABELS,
         "lab_transmit_required_commands": REQUIRED_LAB_TRANSMIT_COMMANDS,
         "rows": rows,
