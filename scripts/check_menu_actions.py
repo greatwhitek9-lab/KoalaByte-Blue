@@ -40,6 +40,7 @@ ALLOWED_DUPLICATE_COMMANDS = {
     "bluez_lab_owned_on",
     "bluez_lab_owned_off",
     "bluez_lab_scope_clear",
+    "lab_transmit_policy_status",
 }
 BUILT_IN_UI_COMMANDS = {"quit"}
 
@@ -83,6 +84,26 @@ REQUIRED_KOALA_KAN_COMMANDS = [
     "koala_kan_transmit_placeholder",
     "koala_kan_transmit_gate",
     "koala_kan_listen_transmit_gate",
+]
+
+REQUIRED_KOALA_KAPTURE_LABELS = [
+    "Kapture Policy Status",
+    "RF/BLE Passive Only",
+    "RF/BLE Install Disabled",
+    "Run Koala Kapture",
+]
+
+REQUIRED_KOALA_KAPTURE_COMMANDS = [
+    "lab_transmit_policy_status",
+    "lab_transmit_rf_ble_passive_only",
+    "lab_transmit_rf_ble_disabled_install",
+    "koala_kapture",
+]
+
+REQUIRED_KOALA_KRY_POLICY_LABELS = [
+    "Kry Policy Status",
+    "RF/BLE Passive Only",
+    "RF/BLE Install Disabled",
 ]
 
 REQUIRED_LAB_TRANSMIT_LABELS = [
@@ -202,6 +223,39 @@ def _validate_koala_kan_actions() -> list[str]:
     return failures
 
 
+def _validate_kapture_kry_actions() -> list[str]:
+    failures: list[str] = []
+    kapture_labels = set(menu_labels("koala_kapture"))
+    kapture_commands = {str(entry.get("command", "")) for entry in SUBMENU_ITEMS.get("koala_kapture", [])}
+    for label in REQUIRED_KOALA_KAPTURE_LABELS:
+        if label not in kapture_labels:
+            failures.append(f"Koala Kapture submenu missing label: {label}")
+    for command in REQUIRED_KOALA_KAPTURE_COMMANDS:
+        if command not in kapture_commands:
+            failures.append(f"Koala Kapture submenu missing command: {command}")
+
+    kry_labels = set(menu_labels("koala_kry"))
+    for label in REQUIRED_KOALA_KRY_POLICY_LABELS:
+        if label not in kry_labels:
+            failures.append(f"Koala Kry submenu missing RF/BLE policy label: {label}")
+
+    runner_path = ROOT / "pi-companion" / "koalablue" / "menu_action_runner.py"
+    runner_text = runner_path.read_text(encoding="utf-8", errors="ignore") if runner_path.exists() else ""
+    for needle in [
+        "def _rf_ble_policy_overlay",
+        "def _koala_kapture",
+        "def _koala_kry",
+        "lab_transmit_policy.policy_status",
+        "rf_ble_live_transmit",
+        "captured_signal_replay",
+        "Koala Kapture is passive BLE advertisement metadata capture only",
+        "Koala Kry is offline metadata replay/review only",
+    ]:
+        if needle not in runner_text:
+            failures.append(f"menu_action_runner.py missing KoalaKry/Kapture policy marker: {needle}")
+    return failures
+
+
 def _validate_lab_transmit_actions() -> list[str]:
     failures: list[str] = []
     lab_labels = set(menu_labels("lab"))
@@ -305,6 +359,7 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
         failures.append(f"unexpected duplicate visible command '{command}': {duplicate_commands[command]}")
 
     failures.extend(_validate_koala_kan_actions())
+    failures.extend(_validate_kapture_kry_actions())
     failures.extend(_validate_lab_transmit_actions())
 
     leaf_commands = sorted({_command(entry) for entry in leaf_menu_entries()})
@@ -325,6 +380,9 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
         "built_in_ui_commands": sorted(BUILT_IN_UI_COMMANDS),
         "koala_kan_required_labels": REQUIRED_KOALA_KAN_LABELS,
         "koala_kan_required_commands": REQUIRED_KOALA_KAN_COMMANDS,
+        "koala_kapture_required_labels": REQUIRED_KOALA_KAPTURE_LABELS,
+        "koala_kapture_required_commands": REQUIRED_KOALA_KAPTURE_COMMANDS,
+        "koala_kry_policy_required_labels": REQUIRED_KOALA_KRY_POLICY_LABELS,
         "lab_transmit_required_labels": REQUIRED_LAB_TRANSMIT_LABELS,
         "lab_transmit_required_commands": REQUIRED_LAB_TRANSMIT_COMMANDS,
         "rows": rows,
