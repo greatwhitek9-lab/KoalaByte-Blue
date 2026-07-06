@@ -180,6 +180,8 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("CAN Bench Tools", "Listen 10 Seconds", "koala_kan_listen_10s", "Run bounded CAN listen and save JSON artifact"),
         _item("CAN Bench Tools", "Generate Bench Payloads", "koala_kan_generate_payloads", "Generate synthetic bench-only CAN payloads"),
         _item("CAN Bench Tools", "Write CAN Bench Report", "koala_kan_report", "Write inventory, status, and payload report"),
+        _item("CAN Bench Tools", "Vehicle Diagnostics Readiness", "vehicle_diagnostics_readiness", "Check safe read-only OBD-II diagnostic readiness without clearing codes"),
+        _item("CAN Bench Tools", "Clear Codes Safety Note", "vehicle_clear_codes_safety_note", "Write safe workflow note; KoalaByte does not automate code clearing"),
         _item("CAN Bench Tools", "Transmit Safety Check", "koala_kan_transmit_placeholder", "Write blocked transmit placeholder artifact; never sends frames"),
         _item("CAN Bench Tools", "Bench Transmit Gate", "koala_kan_transmit_gate", "Run gated synthetic transmit only when bench confirmation env gates are set"),
         _item("CAN Bench Tools", "Listen + Bench Transmit Gate", "koala_kan_listen_transmit_gate", "Run gated synthetic transmit then bounded listen"),
