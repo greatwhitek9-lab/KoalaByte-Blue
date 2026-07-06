@@ -174,6 +174,15 @@ def _koala_kan(command: str = "koala_kan_kommander") -> dict[str, Any]:
     return result
 
 
+def _twocan_vehicle_diagnostics(command: str) -> dict[str, Any]:
+    from . import vehicle_diagnostics_readiness as twocan
+    if command in {"vehicle_diagnostics_readiness", "twocan_vehicle_diagnostics"}:
+        return twocan.readiness()
+    if command in {"vehicle_clear_codes_safety_note", "twocan_clear_codes_safety_note"}:
+        return twocan.clear_codes_safety_note()
+    return {"status": "TWOCAN_ACTION_RECORDED", "command": command, "clear_codes_enabled": False}
+
+
 def _defense_guard() -> dict[str, Any]:
     try:
         from .ble_defense_guard import load_monitor_settings
@@ -452,6 +461,8 @@ def run_automated_menu_action(command: str, label: str = "", group: str = "") ->
             return _ok(command, label, _boomerang_export())
         if command in {"authorized_ble_inventory", "gatt_readiness_checklist", "pairing_security_review", "lab_beacon_plan", "packet_capture_notes", "defensive_report", "report", "restricted_placeholder"}:
             return _ok(command, label, _lab_action("defensive_report" if command == "report" else command))
+        if command in {"vehicle_diagnostics_readiness", "vehicle_clear_codes_safety_note", "twocan_vehicle_diagnostics", "twocan_clear_codes_safety_note"}:
+            return _ok(command, label, _twocan_vehicle_diagnostics(command))
         if command == "koala_kan_kommander" or command.startswith("koala_kan_"):
             return _ok(command, label, _koala_kan(command))
         if command == "urban_poaching":
