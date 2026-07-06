@@ -8,8 +8,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-DISPLAY_NAME = "Vehicle Diagnostics Readiness"
-DEFAULT_OUTPUT_DIR = Path("logs/vehicle_diagnostics")
+DISPLAY_NAME = "TwoCan Vehicle Diagnostics"
+DEFAULT_OUTPUT_DIR = Path("logs/twocan_vehicle_diagnostics")
 
 
 def ensure_output_dir(output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> Path:
@@ -38,7 +38,7 @@ def _serial_candidates() -> list[str]:
 
 def safety_scope() -> dict[str, object]:
     return {
-        "mode": "vehicle_diagnostics_readiness_only",
+        "mode": "twocan_vehicle_diagnostics_readiness_only",
         "allowed": [
             "Check whether an owner-authorized OBD-II diagnostic path appears to be available.",
             "Record adapter/software readiness to a local artifact.",
@@ -60,14 +60,14 @@ def safety_scope() -> dict[str, object]:
 def readiness(output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> dict[str, Any]:
     root = ensure_output_dir(output_dir)
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    path = root / f"vehicle_diagnostics_readiness_{stamp}.json"
+    path = root / f"twocan_vehicle_diagnostics_readiness_{stamp}.json"
     requested_port = os.getenv("KOALABYTE_OBD_PORT") or os.getenv("OBD_PORT") or "auto"
     python_obd_available = importlib.util.find_spec("obd") is not None
     serial_candidates = _serial_candidates()
     data: dict[str, Any] = {
         "display_name": DISPLAY_NAME,
-        "action": "vehicle-diagnostics-readiness",
-        "status": "VEHICLE_DIAGNOSTICS_READY" if python_obd_available and serial_candidates else "VEHICLE_DIAGNOSTICS_OPTIONAL_NOT_READY",
+        "action": "twocan-vehicle-diagnostics-readiness",
+        "status": "TWOCAN_VEHICLE_DIAGNOSTICS_READY" if python_obd_available and serial_candidates else "TWOCAN_VEHICLE_DIAGNOSTICS_OPTIONAL_NOT_READY",
         "adapter_type": "ELM327-compatible OBD-II adapter recommended for vehicle diagnostics",
         "innomaker_can_note": "The InnoMaker USB-CAN kit remains optional and is kept for isolated bench CAN work, not direct vehicle diagnostics.",
         "requested_port": requested_port,
@@ -77,7 +77,7 @@ def readiness(output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> dict[str, Any]:
         "ip_can_links": _run(["bash", "-lc", "ip -details link show type can 2>/dev/null || true"]),
         "safety_scope": safety_scope(),
         "clear_codes_enabled": False,
-        "clear_codes_note": "KoalaByte does not send code-clearing/reset commands from this action. Use a proper scan tool after repair and documentation.",
+        "clear_codes_note": "TwoCan does not send code-clearing/reset commands from this action. Use a proper scan tool after repair and documentation.",
         "timestamp": time.time(),
     }
     path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
@@ -88,11 +88,11 @@ def readiness(output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> dict[str, Any]:
 def clear_codes_safety_note(output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> dict[str, Any]:
     root = ensure_output_dir(output_dir)
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    path = root / f"clear_codes_safety_note_{stamp}.json"
+    path = root / f"twocan_clear_codes_safety_note_{stamp}.json"
     data: dict[str, Any] = {
-        "display_name": "Clear Codes Safety Note",
-        "action": "clear-codes-safety-note",
-        "status": "CLEAR_CODES_NOT_AUTOMATED",
+        "display_name": "TwoCan Clear Codes Safety Note",
+        "action": "twocan-clear-codes-safety-note",
+        "status": "TWOCAN_CLEAR_CODES_NOT_AUTOMATED",
         "clear_codes_enabled": False,
         "reason": "Clearing diagnostic trouble codes is a reset/write operation that can mask unresolved safety or emissions faults.",
         "safe_workflow": [
