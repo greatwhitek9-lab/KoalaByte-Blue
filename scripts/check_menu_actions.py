@@ -53,6 +53,12 @@ REQUIRED_KOALA_KAN_LABELS = [
     "Write CAN Bench Report",
     "TwoCan Vehicle Diagnostics",
     "TwoCan Clear Codes Safety Note",
+    "Lab Transmit Policy Status",
+    "CAN Mode: Gated Bench",
+    "CAN Mode: Listen Only",
+    "CAN Mode: Disabled",
+    "Bench Simulator Confirm ON",
+    "Bench Simulator Confirm OFF",
     "Transmit Safety Check",
     "Bench Transmit Gate",
     "Listen + Bench Transmit Gate",
@@ -68,9 +74,25 @@ REQUIRED_KOALA_KAN_COMMANDS = [
     "koala_kan_report",
     "twocan_vehicle_diagnostics",
     "twocan_clear_codes_safety_note",
+    "lab_transmit_policy_status",
+    "lab_transmit_can_gated_bench",
+    "lab_transmit_can_listen_only",
+    "lab_transmit_can_disabled",
+    "lab_transmit_bench_arm_on",
+    "lab_transmit_bench_arm_off",
     "koala_kan_transmit_placeholder",
     "koala_kan_transmit_gate",
     "koala_kan_listen_transmit_gate",
+]
+
+REQUIRED_LAB_TRANSMIT_LABELS = [
+    "RF/BLE Passive Only",
+    "RF/BLE Install Disabled",
+]
+
+REQUIRED_LAB_TRANSMIT_COMMANDS = [
+    "lab_transmit_rf_ble_passive_only",
+    "lab_transmit_rf_ble_disabled_install",
 ]
 
 
@@ -141,6 +163,10 @@ def _validate_koala_kan_actions() -> list[str]:
     required_runner_needles = [
         "def _koala_kan",
         "def _twocan_vehicle_diagnostics",
+        "def _lab_transmit_policy",
+        "lab_transmit_policy.run_menu_action",
+        "lab_transmit_policy.can_transmit_gate_status",
+        "lab_transmit_policy.blocked_transmit_action",
         "kan.manifest",
         "kan.inventory",
         "kan.status",
@@ -162,6 +188,39 @@ def _validate_koala_kan_actions() -> list[str]:
     for needle in ["TwoCan Vehicle Diagnostics", "clear_codes_enabled", "False", "No diagnostic trouble code clearing"]:
         if needle not in twocan_text:
             failures.append(f"TwoCan helper missing safety marker: {needle}")
+    return failures
+
+
+def _validate_lab_transmit_actions() -> list[str]:
+    failures: list[str] = []
+    lab_labels = set(menu_labels("lab"))
+    lab_commands = {str(entry.get("command", "")) for entry in SUBMENU_ITEMS.get("lab", [])}
+    for label in REQUIRED_LAB_TRANSMIT_LABELS:
+        if label not in lab_labels:
+            failures.append(f"Lab submenu missing lab-transmit label: {label}")
+    for command in REQUIRED_LAB_TRANSMIT_COMMANDS:
+        if command not in lab_commands:
+            failures.append(f"Lab submenu missing lab-transmit command: {command}")
+
+    policy_path = ROOT / "pi-companion" / "koalablue" / "lab_transmit_policy.py"
+    policy_text = policy_path.read_text(encoding="utf-8", errors="ignore") if policy_path.exists() else ""
+    for needle in [
+        "def write_policy",
+        "def policy_status",
+        "def set_can_mode",
+        "def set_rf_ble_mode",
+        "def set_bench_arm",
+        "def can_transmit_gate_status",
+        "def blocked_transmit_action",
+        "def run_menu_action",
+        "lab_transmit_bench_arm_on",
+        "lab_transmit_can_gated_bench",
+        "lab_transmit_rf_ble_passive_only",
+        "no_dtc_clear_or_ecu_coding",
+        "no_captured_traffic_replay",
+    ]:
+        if needle not in policy_text:
+            failures.append(f"lab_transmit_policy.py missing marker: {needle}")
     return failures
 
 
@@ -238,6 +297,7 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
         failures.append(f"unexpected duplicate visible command '{command}': {duplicate_commands[command]}")
 
     failures.extend(_validate_koala_kan_actions())
+    failures.extend(_validate_lab_transmit_actions())
 
     leaf_commands = sorted({_command(entry) for entry in leaf_menu_entries()})
     status_rows = sorted({_command(entry) for entry in leaf_menu_entries() if _command(entry).startswith("status:")})
@@ -257,6 +317,8 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
         "built_in_ui_commands": sorted(BUILT_IN_UI_COMMANDS),
         "koala_kan_required_labels": REQUIRED_KOALA_KAN_LABELS,
         "koala_kan_required_commands": REQUIRED_KOALA_KAN_COMMANDS,
+        "lab_transmit_required_labels": REQUIRED_LAB_TRANSMIT_LABELS,
+        "lab_transmit_required_commands": REQUIRED_LAB_TRANSMIT_COMMANDS,
         "rows": rows,
         "theme": {
             "title": theme.title,
