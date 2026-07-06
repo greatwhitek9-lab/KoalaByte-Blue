@@ -8,6 +8,10 @@
 
 KoalaByte Blue is for lawful owned-device labs, defensive review, education, and your own hardware. Do not use it on systems, vehicles, radios, networks, or devices you do not own or do not have permission to test.
 
+## Community
+
+Join the KoalaByte Blue Discord for build help, firmware updates, and project discussion: https://discord.gg/aYAmEnrDs
+
 ---
 
 ## Quick build profile
