@@ -95,6 +95,17 @@ REQUIRED_LAB_TRANSMIT_COMMANDS = [
     "lab_transmit_rf_ble_disabled_install",
 ]
 
+LAB_TRANSMIT_COMMANDS = [
+    "lab_transmit_policy_status",
+    "lab_transmit_can_gated_bench",
+    "lab_transmit_can_listen_only",
+    "lab_transmit_can_disabled",
+    "lab_transmit_bench_arm_on",
+    "lab_transmit_bench_arm_off",
+    "lab_transmit_rf_ble_passive_only",
+    "lab_transmit_rf_ble_disabled_install",
+]
+
 
 def _command(entry: dict[str, Any]) -> str:
     return str(entry.get("command", "")).strip()
@@ -178,7 +189,7 @@ def _validate_koala_kan_actions() -> list[str]:
         "kan.listen_transmit",
         "twocan.readiness",
         "twocan.clear_codes_safety_note",
-    ] + REQUIRED_KOALA_KAN_COMMANDS
+    ] + [command for command in REQUIRED_KOALA_KAN_COMMANDS if not command.startswith("lab_transmit_")]
     for needle in required_runner_needles:
         if needle not in runner_text:
             failures.append(f"menu_action_runner.py missing Koala Kan/TwoCan backend marker: {needle}")
@@ -213,12 +224,9 @@ def _validate_lab_transmit_actions() -> list[str]:
         "def can_transmit_gate_status",
         "def blocked_transmit_action",
         "def run_menu_action",
-        "lab_transmit_bench_arm_on",
-        "lab_transmit_can_gated_bench",
-        "lab_transmit_rf_ble_passive_only",
         "no_dtc_clear_or_ecu_coding",
         "no_captured_traffic_replay",
-    ]:
+    ] + LAB_TRANSMIT_COMMANDS:
         if needle not in policy_text:
             failures.append(f"lab_transmit_policy.py missing marker: {needle}")
     return failures
