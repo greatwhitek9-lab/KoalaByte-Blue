@@ -82,7 +82,7 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
     "bluetooth": [
-        _item("Bluetooth Tools", "Koala Kapture", "koala_kapture", "Record authorized lab observation metadata"),
+        _item("Bluetooth Tools", "Koala Kapture", "submenu:koala_kapture", "Open passive capture controls and RF/BLE policy status"),
         _item("Bluetooth Tools", "Koala Kry", "submenu:koala_kry", "Open Koala Kry offline replay and review prompt controls"),
         _item("Bluetooth Tools", "KoalaByte Lab", "ear_tag_tx_lab", "Create an owned-device lab plan"),
         _item("Bluetooth Tools", "BlueZ Lab Scope Status", "bluez_lab_scope_status", "Show owned-device target and scope readiness"),
@@ -110,8 +110,19 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("Bluetooth Tools", "Urban Poaching", "urban_poaching", "Authorized BLE RSSI lab game"),
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
+    "koala_kapture": [
+        _item("Bluetooth Tools", "Kapture Policy Status", "lab_transmit_policy_status", "Show RF/BLE passive policy before capture"),
+        _item("Bluetooth Tools", "RF/BLE Passive Only", "lab_transmit_rf_ble_passive_only", "Set RF/BLE policy to passive/readiness/review workflows"),
+        _item("Bluetooth Tools", "RF/BLE Install Disabled", "lab_transmit_rf_ble_disabled_install", "Set RF/BLE live transmit/replay disabled policy"),
+        _item("Bluetooth Tools", "Run Koala Kapture", "koala_kapture", "Run passive BLE advertisement metadata capture; no pairing, writes, or transmit"),
+        _item("System / Companion", "Back to Bluetooth Tools", "submenu:bluetooth", "Return to Bluetooth Tools"),
+        _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
+    ],
     "koala_kry": [
         _item("Bluetooth Tools", "Kry Prompt Status", "koala_kry_prompt_status", "Show saved Koala Kry replay/review prompt state"),
+        _item("Bluetooth Tools", "Kry Policy Status", "lab_transmit_policy_status", "Show RF/BLE passive policy before replay/review"),
+        _item("Bluetooth Tools", "RF/BLE Passive Only", "lab_transmit_rf_ble_passive_only", "Set RF/BLE policy to passive/readiness/review workflows"),
+        _item("Bluetooth Tools", "RF/BLE Install Disabled", "lab_transmit_rf_ble_disabled_install", "Set RF/BLE live transmit/replay disabled policy"),
         _item("Bluetooth Tools", "Use Latest Capture", "koala_kry_use_latest_capture", "Select the newest Koala Kapture file as the replay source"),
         _item("Bluetooth Tools", "Speed Live", "koala_kry_speed_live", "Replay using captured timing at 1x speed"),
         _item("Bluetooth Tools", "Speed Fast", "koala_kry_speed_fast", "Replay metadata at 5x speed"),
@@ -268,6 +279,8 @@ def submenu_title(menu_name: str) -> str:
         return "Koala Kan Kommander"
     if menu_name == "koala_kry":
         return "Koala Kry"
+    if menu_name == "koala_kapture":
+        return "Koala Kapture"
     return menu_name.replace("_", " ").title()
 
 
