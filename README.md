@@ -2,11 +2,13 @@
   <img src="assets/code-signature/koalabyte-code-signature.svg" alt="KoalaByte Blue code signature: neon cyan ASCII koala head" width="760">
 </p>
 
-# KoalaByte Blue V2 Heltec Edition
+# KoalaByte Blue V2 Heltec Edition — Lab Transmit Gate Enabled
 
-**KoalaByte Blue is a Handheld BLE defensive pentesting mini cyberdeck with attitude.** It uses a Raspberry Pi 3B+ as the Linux brain, a Waveshare ESP32-S3 DualEye board for animated eyes/touch/voice-front-end work, and a Heltec Mesh Node T114 with onboard nRF52840 for primary BLE, GNSS, LoRa, and Meshtastic App duties.
+**KoalaByte Blue is a handheld BLE/RF/CAN lab cyberdeck for owned-device testing, defensive review, education, packet review, and isolated bench diagnostics.** It uses a Raspberry Pi 3B+ as the Linux brain, a Waveshare ESP32-S3 DualEye board for animated eyes/touch/voice-front-end work, and a Heltec Mesh Node T114 with onboard nRF52840 for primary BLE, GNSS, LoRa, and Meshtastic duties.
 
-KoalaByte Blue is for lawful owned-device labs, defensive review, education, and your own hardware. Do not use it on systems, vehicles, radios, networks, or devices you do not own or do not have permission to test.
+This branch merges the `enable-lab-transmit-rf-ble-can` profile into `Main`, while keeping the install path bounded and documented. The installer now records an explicit lab-transmit policy and keeps setup itself non-transmitting.
+
+**Use only on hardware, radios, CAN benches, vehicles, and devices you own or have documented written permission to test. Do not use KoalaByte Blue against public networks, other people's devices, live road vehicles, production embedded systems, or any target outside your authorization.**
 
 ## Community
 
@@ -24,23 +26,24 @@ Follow Urban Poacher:
 
 | Part | Role |
 |---|---|
-| Raspberry Pi 3B+ | Main Linux brain, installer, menus, logs, reports, local services, voice routing, main Wi-Fi controller, GreatWhite Reef PCAP review, and readiness checks. |
+| Raspberry Pi 3B+ | Main Linux brain, installer, menus, logs, reports, local services, voice routing, main Wi-Fi controller, GreatWhite Reef PCAP review, readiness checks, and lab-policy orchestration. |
 | Waveshare ESP32-S3 DualEye 1.28in board | Animated eyes, touch bridge, mic/voice bridge path, secondary Wi-Fi survey node, BLE support node, and visual personality. |
 | Heltec Mesh Node T114 / nRF52840 | Primary BLE node plus GNSS and LoRa/Meshtastic path. It is not a Wi-Fi node. |
 | 8 independent key button module | Replaces the old six loose 4-pin tactile buttons. K1-K6 are menu controls, K7 Power On/Off requests shutdown, and K8 Reset / Reboot requests reboot. |
 | USB power bank / regulated USB supply | Production power source. No loose 18650/raw battery wiring is required. |
-| InnoMaker USB-to-CAN kit | Optional isolated owned-bench CAN adapter. InnoMaker CAN kit is optional and skipped if absent. |
+| InnoMaker USB-to-CAN kit | Optional isolated owned-bench CAN adapter. It is skipped if absent unless strict CAN is requested. |
 
 No custom PCB is required for this profile.
 
 ---
 
-## Current radio roles
+## Radio and interface roles
 
 ```text
 Heltec T114 / nRF52840 -> primary BLE node, GNSS node, and LoRa/Meshtastic node; no Wi-Fi
-Raspberry Pi 3B+       -> main Wi-Fi controller, BLE support/fallback node, and PCAP review host
+Raspberry Pi 3B+       -> main Wi-Fi controller, BLE support/fallback node, PCAP review host, and lab-policy controller
 ESP32-S3 DualEye       -> secondary Wi-Fi survey node, BLE support node, touch bridge, and face/eye UI
+InnoMaker USB-CAN      -> optional SocketCAN bench adapter for isolated CAN harnesses/simulators
 ```
 
 Koala Kombat Kruisin uses the Pi as the main Wi-Fi controller, the ESP32-S3 DualEye as the extra Wi-Fi survey node, and the Heltec T114/nRF52840 as the primary BLE/GNSS/LoRa path.
@@ -51,9 +54,10 @@ Koala Kombat Kruisin uses the Pi as the main Wi-Fi controller, the ESP32-S3 Dual
 
 | Feature | What it does |
 |---|---|
-| One-shot installer | Runs the Pi, ESP32-S3, Heltec T114, menu, service, and readiness setup from one command. |
-| `--check-only` dry run | Validates the repo without flashing firmware or installing services. |
+| One-shot installer | Runs the Pi, ESP32-S3, Heltec T114, menu, service, lab-policy, and readiness setup from one command. |
+| `--check-only` dry run | Validates the repo without flashing firmware, installing services, or transmitting RF/BLE/CAN traffic. |
 | `--heltec-uf2-first` install mode | Requires the Heltec `HT-n5262` UF2 bootloader volume before flashing the T114, then runs the full one-shot. |
+| Lab transmit policy gate | Writes `logs/one_shot/lab_transmit_policy.json` and enforces supported owned-lab modes. |
 | Wrapped jungle UI boot | Starts in the full jungle/eucalyptus graphical interface by default, not terminal mode. |
 | 8-key front panel | Supports K1-K8 GPIO input, including K7 Power On/Off and K8 Reset / Reboot. |
 | KoalaByte Doctor | Runs quick/full diagnostics and writes `logs/doctor/koalabyte_doctor_status.json`. |
@@ -84,6 +88,43 @@ Fast health check:
 ```bash
 bash scripts/koalabyte_doctor.sh --quick
 ```
+
+---
+
+## Lab transmit gate profile
+
+The `enable-lab-transmit-rf-ble-can` work is represented as an **owned-lab transmit gate**, not as an unrestricted replay or vehicle-writing mode.
+
+Default policy values:
+
+```text
+KOALABYTE_LAB_PROFILE=owned-lab
+KOALABYTE_CAN_TRANSMIT_MODE=gated-bench
+KOALABYTE_RF_BLE_TRANSMIT_MODE=disabled-during-install
+STRICT_LAB_TRANSMIT_POLICY=1
+```
+
+Supported policy values:
+
+```text
+KOALABYTE_LAB_PROFILE=owned-lab|authorized-owned-lab|bench-only
+KOALABYTE_CAN_TRANSMIT_MODE=gated-bench|listen-only|disabled
+KOALABYTE_RF_BLE_TRANSMIT_MODE=disabled-during-install|passive-only
+```
+
+The installer records this policy at:
+
+```text
+logs/one_shot/lab_transmit_policy.json
+```
+
+Important boundaries:
+
+- The one-shot installer does **not** transmit RF, BLE, or CAN traffic during setup.
+- CAN transmit is limited to the existing Koala Kan Kommander gated synthetic bench path.
+- CAN bench transmit requires an isolated simulator/harness plus explicit backend confirmation flags.
+- RF/BLE replay or live transmit is not performed by the installer.
+- KoalaByte does not automate DTC clearing, ECU coding, actuator tests, security access, seed/key workflows, OEM raw frame injection, or captured traffic replay.
 
 ---
 
@@ -123,52 +164,10 @@ TigerShark -> tshark
 Great Wire Shark -> wireshark
 PlatformIO -> pio, for ESP32-S3 firmware flashing
 nRF/Zephyr tools -> west, when Heltec T114 build/flash is enabled
+SocketCAN helpers -> can-utils/iproute2 when CAN setup is used
 ```
 
 Power rule: use a regulated USB power bank or USB supply. Do not feed raw battery voltage into the Pi, ESP32-S3, Heltec T114, button wiring, CAN wiring, or antenna hardware.
-
----
-
-## 8-key front-panel button board
-
-KoalaByte Blue now uses the GODIYMODULES MOD-ST034-1 / ASIN B0FH9C88DJ **8 independent key button module** instead of the old six separate 4-pin tactile buttons. The Amazon listing is a two-pack; only one board is required for this build.
-
-Treat the module header as:
-
-```text
-VCC  GND  K1  K2  K3  K4  K5  K6  K7  K8
-```
-
-Use Pi **3.3V only** for VCC when the K outputs connect to Raspberry Pi GPIO.
-
-```text
-Module VCC -> Pi 3.3V, physical pin 1 or 17
-Module GND -> Pi GND, physical pin 39 or any Pi GND
-Module K1-K8 -> assigned Raspberry Pi BCM GPIO inputs
-```
-
-The board outputs LOW when a key is pressed and HIGH when released. KoalaByte also enables software pull-up behavior in `gpiozero` so the repo remains stable with the active-low button logic.
-
-| Module key | Front-panel label | Action | BCM GPIO | Physical pin |
-|---|---|---|---:|---:|
-| K1 | Main Menu | `main_menu` | GPIO5 | Pin 29 |
-| K2 | Left / Back | `move_left` / `back` | GPIO6 | Pin 31 |
-| K3 | Enter / Select | `select` | GPIO13 | Pin 33 |
-| K4 | Right / Forward | `move_right` / `forward` | GPIO19 | Pin 35 |
-| K5 | Up | `up` | GPIO26 | Pin 37 |
-| K6 | Down | `down` | GPIO21 | Pin 40 |
-| K7 | K7 Power On/Off | `power_toggle` -> safe software shutdown | GPIO20 | Pin 38 |
-| K8 | K8 Reset / Reboot | `reset` -> safe software reboot | GPIO16 | Pin 36 |
-
-Important: K7 can request a clean software shutdown while the Pi is already running. A GPIO key cannot power on a fully unpowered Raspberry Pi by itself; true front-panel power-on still needs the USB power bank button or a supported external power-control/wake board.
-
-Button test commands:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/setup_gpio_buttons.py --check-only
-PYTHONPATH=pi-companion python3 scripts/setup_gpio_buttons.py --live-test --seconds 20
-python3 scripts/test_gpio_buttons.py
-```
 
 ---
 
@@ -231,7 +230,7 @@ Use data-capable USB cables:
 ```text
 ESP32-S3 DualEye -> Raspberry Pi USB port
 Heltec Mesh Node T114 -> Raspberry Pi USB port with USB-C data cable
-Optional InnoMaker CAN kit -> Raspberry Pi USB port only if using CAN bench tools
+Optional InnoMaker CAN kit -> Raspberry Pi USB port only if using isolated CAN bench tools
 ```
 
 The InnoMaker CAN kit can stay unplugged for a normal install. The installer skips CAN setup when the adapter is absent.
@@ -344,34 +343,26 @@ STRICT_T114_PLUG_FLASH=0 bash scripts/install_koalabyte_one_shot.sh
 # Make system command dependency checks strict on a real Pi image
 STRICT_FULL_RUNTIME_DEPENDENCIES=1 bash scripts/install_koalabyte_one_shot.sh
 
-# Extra folders to sync into GreatWhite Reef PCAP review
-KOALABYTE_REEF_PCAP_IMPORT_DIRS="/home/pi/captures:/mnt/usb/pcaps" bash scripts/install_koalabyte_one_shot.sh --check-only
-
-# Stable serial aliases: auto/default, force, or skip
-INSTALL_UDEV_RULES=auto bash scripts/install_koalabyte_one_shot.sh
-INSTALL_UDEV_RULES=1 bash scripts/install_koalabyte_one_shot.sh
-INSTALL_UDEV_RULES=0 bash scripts/install_koalabyte_one_shot.sh
-
-# Boot services: auto/default, force, or skip
-INSTALL_BOOT_SERVICES=auto bash scripts/install_koalabyte_one_shot.sh
-INSTALL_BOOT_SERVICES=1 bash scripts/install_koalabyte_one_shot.sh
-INSTALL_BOOT_SERVICES=0 bash scripts/install_koalabyte_one_shot.sh
-
 # Optional CAN behavior
 INSTALL_INNOMAKER_CAN=optional bash scripts/install_koalabyte_one_shot.sh
 INSTALL_INNOMAKER_CAN=0 bash scripts/install_koalabyte_one_shot.sh
 STRICT_INNOMAKER_CAN=1 bash scripts/install_koalabyte_one_shot.sh
+
+# Lab transmit policy controls
+KOALABYTE_CAN_TRANSMIT_MODE=gated-bench bash scripts/install_koalabyte_one_shot.sh --check-only
+KOALABYTE_CAN_TRANSMIT_MODE=listen-only bash scripts/install_koalabyte_one_shot.sh --check-only
+KOALABYTE_RF_BLE_TRANSMIT_MODE=passive-only bash scripts/install_koalabyte_one_shot.sh --check-only
 ```
 
 ---
 
 ## What the one-shot installer does
 
-The normal one-shot path prepares the Pi companion, checks the repo, handles udev names, flashes the ESP32-S3 DualEye firmware, prepares/flashes the Heltec T114 combined-safe profile, validates KillerKoala AI/voice readiness, checks eyes and mouth sync, checks menu display sync, checks jungle/eucalyptus theme fit, validates menu-managed prompt UI controls, validates Koala Kan Kommander/TwoCan menu actions, validates GreatWhite Reef module/docs/runtime dependencies, runs field readiness, checks version handshake, checks the local dashboard JSON, validates release/log helpers, runs KoalaByte Doctor, installs boot services, checks antenna readiness, prepares AntEater passive readiness, validates the K1-K8 front-panel button map, and records optional CAN status.
+The normal one-shot path prepares the Pi companion, checks the repo, handles udev names, flashes the ESP32-S3 DualEye firmware, prepares/flashes the Heltec T114 combined-safe profile, validates KillerKoala AI/voice readiness, checks eyes and mouth sync, checks menu display sync, checks jungle/eucalyptus theme fit, validates menu-managed prompt UI controls, validates Koala Kan Kommander/TwoCan menu actions, validates GreatWhite Reef module/docs/runtime dependencies, runs field readiness, records the owned-lab RF/BLE/CAN transmit policy, checks version handshake, checks the local dashboard JSON, validates release/log helpers, runs KoalaByte Doctor, installs boot services, checks antenna readiness, prepares AntEater passive readiness, validates the K1-K8 front-panel button map, and records optional CAN status.
 
 The `--heltec-uf2-first` path is the same full one-shot install, except the Heltec flash step requires the `HT-n5262` UF2 bootloader volume and uses the UF2 copy method instead of falling back to serial/west flashing.
 
-The dry run does the readiness checks without flashing firmware or installing services:
+The dry run does the readiness checks without flashing firmware, installing services, or transmitting traffic:
 
 ```bash
 bash scripts/install_koalabyte_one_shot.sh --check-only
@@ -381,6 +372,7 @@ Important output files:
 
 ```text
 logs/one_shot_install_status.json
+logs/one_shot/lab_transmit_policy.json
 logs/one_shot/control_surface_status.json
 logs/one_shot/full_runtime_dependencies.json
 logs/one_shot/menu_prompt_ui_readiness.json
@@ -424,14 +416,6 @@ scroll / highlight -> select with K3, Enter, touchscreen long press, USB/Bluetoo
 
 Submenu rows open another menu. Tool rows inside that submenu run the actual action. Pop-up keyboard mode only appears after selecting text input rows such as `Type WiGLE Name`, `Type WiGLE Key`, `Create Location Password`, `Unlock Current Process`, `Type BlueZ Lab Target`, `Type Mesh Message`, or `Type Mesh Destination`.
 
-Text entry controls:
-
-```text
-Buttons/touchscreen -> select on-screen keys
-USB/Bluetooth keyboard -> type directly, Enter saves, Backspace deletes, Esc cancels
-Voice-to-text -> say or route "keyboard text <words>" after the input page is open
-```
-
 Common voice patterns:
 
 ```text
@@ -442,12 +426,9 @@ killerkoala open GreatWhite Reef
 killerkoala open Koala Kan Kommander
 killerkoala run TwoCan Vehicle Diagnostics
 killerkoala run PCAP 1
-killerkoala run PCAP 2
 killerkoala run TigerShark Read Latest PCAP
 killerkoala run Wi-Fi + BLE Survey
 killerkoala run T114 BLE Check
-killerkoala run Platypus BT-Proxy
-killerkoala run Type Mesh Message
 killerkoala status
 killerkoala level
 killerkoala buttons
@@ -476,7 +457,9 @@ The visible UI uses one shared jungle-adventure/eucalyptus theme for terminal an
 
 Protected Bluetooth actions use the menu-managed BlueZ lab scope state. You no longer need to manually export `KOALABYTE_BLUEZ_LAB_TARGET` or `KOALABYTE_BLUEZ_OWNED_DEVICE` for normal menu use. Use `Type BlueZ Lab Target` and `Owned Device Scope ON` from the Lab submenu instead.
 
-### CAN Bench Tools -> Koala Kan Kommander
+---
+
+## CAN Bench Tools -> Koala Kan Kommander
 
 Koala Kan Kommander is the optional CAN bench submenu for the InnoMaker USB-to-CAN kit. The InnoMaker adapter is **optional**: a normal install and dry run continue when it is unplugged unless `STRICT_INNOMAKER_CAN=1` is explicitly set.
 
@@ -501,7 +484,7 @@ Main Canopy -> CAN Bench Tools -> Koala Kan Kommander
 | Bench Transmit Gate | `koala_kan_transmit_gate` | Runs gated synthetic transmit only when bench simulator confirmation env gates are set. |
 | Listen + Bench Transmit Gate | `koala_kan_listen_transmit_gate` | Runs gated synthetic transmit and then a bounded listen. |
 
-Koala Kan’s transmit-capable rows are for isolated owned bench simulators only. They require explicit bench simulator and confirmation gates, use standard 11-bit synthetic lab-range frames, and avoid UDS, OBD requests, DTC operations, OEM arbitration IDs, captured traffic replay, and actuator-oriented payloads.
+Koala Kan's transmit-capable rows are for isolated owned bench simulators only. They require explicit bench simulator and confirmation gates, use standard 11-bit synthetic lab-range frames, and avoid UDS, OBD requests, DTC operations, OEM arbitration IDs, captured traffic replay, and actuator-oriented payloads.
 
 TwoCan Vehicle Diagnostics is separate from the InnoMaker bench path. It checks whether an ELM327-style OBD-II diagnostic path appears ready and writes status artifacts under `logs/twocan_vehicle_diagnostics/`. It does not automate DTC clearing/reset commands, actuator tests, security access, ECU coding, or raw vehicle CAN transmit.
 
@@ -518,7 +501,7 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit-plac
 
 ---
 
-### GreatWhite Reef
+## GreatWhite Reef
 
 GreatWhite Reef is the wrapped packet-analysis submenu. It uses these KoalaByte names:
 

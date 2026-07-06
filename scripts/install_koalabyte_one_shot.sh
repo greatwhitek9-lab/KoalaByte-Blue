@@ -26,6 +26,10 @@ INSTALL_DUALEYE_VOICE_BRIDGE_SERVICE="${INSTALL_DUALEYE_VOICE_BRIDGE_SERVICE:-au
 STRICT_DUALEYE_VOICE_BRIDGE_SERVICE="${STRICT_DUALEYE_VOICE_BRIDGE_SERVICE:-0}"
 STRICT_FACE_MOUTH_SYNC="${STRICT_FACE_MOUTH_SYNC:-0}"
 STRICT_KILLERKOALA_AI="${STRICT_KILLERKOALA_AI:-0}"
+KOALABYTE_LAB_PROFILE="${KOALABYTE_LAB_PROFILE:-owned-lab}"
+KOALABYTE_CAN_TRANSMIT_MODE="${KOALABYTE_CAN_TRANSMIT_MODE:-gated-bench}"
+KOALABYTE_RF_BLE_TRANSMIT_MODE="${KOALABYTE_RF_BLE_TRANSMIT_MODE:-disabled-during-install}"
+STRICT_LAB_TRANSMIT_POLICY="${STRICT_LAB_TRANSMIT_POLICY:-1}"
 STATUS_PATH="${KOALABYTE_ONE_SHOT_STATUS_PATH:-logs/one_shot_install_status.json}"
 PYTHON_BIN="${PYTHON_BIN:-${REPO_ROOT}/pi-companion/.venv/bin/python}"
 
@@ -56,9 +60,17 @@ controls, validates menu display sync to Heltec and ESP32-S3 DualEye, checks the
 jungle/eucalyptus menu theme and text-fit guard, checks menu-managed prompt UI
 controls so shell exports are not needed for normal menu actions, checks the
 30-second AI face idle return, verifies action-complete AI face return, checks
-field readiness helpers, runs KoalaByte Doctor, installs udev/boot-service hooks
-when available, checks version/status dashboard helpers, and keeps optional CAN
-non-fatal unless STRICT_INNOMAKER_CAN=1 is set.
+field readiness helpers, records the owned-lab RF/BLE/CAN transmit policy,
+runs KoalaByte Doctor, installs udev/boot-service hooks when available, checks
+version/status dashboard helpers, and keeps optional CAN non-fatal unless
+STRICT_INNOMAKER_CAN=1 is set.
+
+Lab transmit policy:
+  The one-shot installer does not transmit RF, BLE, or CAN traffic during install.
+  It records the configured policy in logs/one_shot/lab_transmit_policy.json.
+  CAN transmit is limited to the existing gated synthetic bench-simulator path.
+  RF/BLE transmit/replay is not performed by the installer and remains disabled
+  during setup unless a separate authorized backend implements a bounded action.
 
 Useful env:
   ESP32_PORT=/dev/ttyUSB0
@@ -80,6 +92,10 @@ Useful env:
   STRICT_DUALEYE_VOICE_BRIDGE_SERVICE=1
   INSTALL_INNOMAKER_CAN=optional|auto|0|1
   STRICT_INNOMAKER_CAN=1
+  KOALABYTE_LAB_PROFILE=owned-lab|authorized-owned-lab|bench-only
+  KOALABYTE_CAN_TRANSMIT_MODE=gated-bench|listen-only|disabled
+  KOALABYTE_RF_BLE_TRANSMIT_MODE=disabled-during-install|passive-only
+  STRICT_LAB_TRANSMIT_POLICY=1|0
   INSTALL_UDEV_RULES=auto|1|0
   STRICT_UDEV_RULES=1
   INSTALL_BOOT_SERVICES=auto|1|0
@@ -130,9 +146,9 @@ write_status() {
   local status="$1"
   local step="$2"
   local reason="$3"
-  python3 - <<'PY' "${STATUS_PATH}" "${status}" "${step}" "${reason}" "${T114_PLUG_FLASH_PROFILE}" "${INSTALL_INNOMAKER_CAN}" "${CHECK_ONLY}" "${HELTEC_UF2_FIRST}"
+  python3 - <<'PY' "${STATUS_PATH}" "${status}" "${step}" "${reason}" "${T114_PLUG_FLASH_PROFILE}" "${INSTALL_INNOMAKER_CAN}" "${CHECK_ONLY}" "${HELTEC_UF2_FIRST}" "${KOALABYTE_LAB_PROFILE}" "${KOALABYTE_CAN_TRANSMIT_MODE}" "${KOALABYTE_RF_BLE_TRANSMIT_MODE}"
 import json, sys, time
-path, status, step, reason, profile, can_mode, check_only, heltec_uf2_first = sys.argv[1:]
+path, status, step, reason, profile, can_mode, check_only, heltec_uf2_first, lab_profile, can_tx_mode, rf_ble_tx_mode = sys.argv[1:]
 payload = {
     "status": status,
     "step": step,
@@ -142,6 +158,10 @@ payload = {
     "innomaker_can_mode": can_mode,
     "innomaker_can_required": False,
     "check_only": check_only == "1",
+    "lab_profile": lab_profile,
+    "can_transmit_mode": can_tx_mode,
+    "rf_ble_transmit_mode": rf_ble_tx_mode,
+    "installer_transmits_during_setup": False,
     "updated_at": time.time(),
 }
 open(path, "w", encoding="utf-8").write(json.dumps(payload, indent=2, sort_keys=True))
@@ -321,6 +341,53 @@ run_full_runtime_dependency_gate() {
   PYTHONPATH=pi-companion "${py}" scripts/check_full_runtime_dependencies.py "${dependency_args[@]}"
 }
 
+run_lab_transmit_policy_gate() {
+  local policy_path="logs/one_shot/lab_transmit_policy.json"
+  python3 - <<'PY' "${policy_path}" "${KOALABYTE_LAB_PROFILE}" "${KOALABYTE_CAN_TRANSMIT_MODE}" "${KOALABYTE_RF_BLE_TRANSMIT_MODE}" "${STRICT_LAB_TRANSMIT_POLICY}" "${CHECK_ONLY}"
+import json, sys, time
+from pathlib import Path
+path, lab_profile, can_mode, rf_ble_mode, strict, check_only = sys.argv[1:]
+allowed_lab = {"owned-lab", "authorized-owned-lab", "bench-only"}
+allowed_can = {"gated-bench", "listen-only", "disabled"}
+allowed_rf_ble = {"disabled-during-install", "passive-only"}
+errors = []
+if lab_profile not in allowed_lab:
+    errors.append(f"Unsupported KOALABYTE_LAB_PROFILE={lab_profile!r}")
+if can_mode not in allowed_can:
+    errors.append(f"Unsupported KOALABYTE_CAN_TRANSMIT_MODE={can_mode!r}")
+if rf_ble_mode not in allowed_rf_ble:
+    errors.append(f"Unsupported KOALABYTE_RF_BLE_TRANSMIT_MODE={rf_ble_mode!r}")
+payload = {
+    "status": "LAB_TRANSMIT_POLICY_OK" if not errors else "LAB_TRANSMIT_POLICY_ERROR",
+    "lab_profile": lab_profile,
+    "can_transmit_mode": can_mode,
+    "rf_ble_transmit_mode": rf_ble_mode,
+    "check_only": check_only == "1",
+    "installer_transmits_during_setup": False,
+    "can_policy": {
+        "mode": can_mode,
+        "allowed_path": "isolated SocketCAN bench simulator only when backend requires explicit bench simulator and confirmation gates",
+        "no_automatic_vehicle_writes": True,
+        "no_dtc_clear_or_ecu_coding": True,
+        "no_captured_traffic_replay": True,
+    },
+    "rf_ble_policy": {
+        "mode": rf_ble_mode,
+        "installer_live_transmit": False,
+        "no_pairing_or_writes_during_install": True,
+        "no_replay_during_install": True,
+    },
+    "errors": errors,
+    "updated_at": time.time(),
+}
+Path(path).parent.mkdir(parents=True, exist_ok=True)
+Path(path).write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+print(json.dumps(payload, sort_keys=True))
+if errors and strict == "1":
+    raise SystemExit(1)
+PY
+}
+
 run_menu_display_sync_gate() {
   local py
   py="$(python_for_checks)"
@@ -406,13 +473,14 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
   run_required "Menus buttons antennas controls and commands" env PYTHONPATH=pi-companion "$(python_for_checks)" scripts/check_one_shot_controls.py
   run_required "Full runtime dependencies and board helpers" run_full_runtime_dependency_gate
   run_required "Field readiness helpers" run_field_readiness
+  run_required "Owned-lab RF BLE CAN transmit policy" run_lab_transmit_policy_gate
   run_required "Version handshake readiness" run_version_handshake
   run_required "Status dashboard JSON check" run_status_dashboard_json
   run_required "Release and log helper checks" run_release_log_helper_checks
   run_required "KoalaByte Doctor quick check" run_doctor_quick
   run_required "External antenna readiness" bash scripts/configure_koalabyte_external_antennas.sh --check-only
   run_optional_can
-  write_status "complete" "one_shot_check_only" "dry-run checks complete; no firmware flashing or service install performed"
+  write_status "complete" "one_shot_check_only" "dry-run checks complete; no firmware flashing, RF/BLE/CAN transmit, or service install performed"
   trap - ERR
   echo
   echo "KoalaByte Blue V2 Heltec Edition one-shot check-only complete."
@@ -440,6 +508,7 @@ run_required "Menu prompt UI controls" run_menu_prompt_ui_gate
 run_required "Menus buttons antennas controls and commands" env PYTHONPATH=pi-companion "$(python_for_checks)" scripts/check_one_shot_controls.py
 run_required "Full runtime dependencies and board helpers" run_full_runtime_dependency_gate
 run_required "Field readiness helpers" run_field_readiness
+run_required "Owned-lab RF BLE CAN transmit policy" run_lab_transmit_policy_gate
 run_required "Version handshake readiness" run_version_handshake
 run_required "Status dashboard JSON check" run_status_dashboard_json
 run_required "Release and log helper checks" run_release_log_helper_checks
@@ -452,7 +521,7 @@ run_required "External antenna readiness" bash scripts/configure_koalabyte_exter
 run_required "AntEater passive readiness" prepare_anteater_status
 run_optional_can
 
-write_status "complete" "one_shot_install" "Pi, Heltec combined-safe primary BLE/mouth profile, ESP32-S3, DualEye mic voice bridge, KillerKoala AI/voice, eyes/mouth sync, menu display sync, jungle/eucalyptus menu theme fit, menu-managed prompt UI controls, AI-face idle/action-complete return, udev rules, boot services, version handshake, status dashboard check, release/log helper checks, field readiness helpers, doctor quick check, full runtime dependency gate, live T114 dashboard phrases, controls/commands, services, menu, antenna, passive-readiness, and optional CAN handling complete"
+write_status "complete" "one_shot_install" "Pi, Heltec combined-safe primary BLE/mouth profile, ESP32-S3, DualEye mic voice bridge, KillerKoala AI/voice, eyes/mouth sync, menu display sync, jungle/eucalyptus menu theme fit, menu-managed prompt UI controls, AI-face idle/action-complete return, udev rules, boot services, version handshake, status dashboard check, release/log helper checks, field readiness helpers, doctor quick check, full runtime dependency gate, live T114 dashboard phrases, controls/commands, services, menu, antenna, passive-readiness, owned-lab RF/BLE/CAN transmit policy, and optional CAN handling complete"
 trap - ERR
 
 echo

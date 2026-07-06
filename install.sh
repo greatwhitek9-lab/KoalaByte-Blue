@@ -34,6 +34,12 @@ Examples:
   bash install.sh --heltec-uf2-first
   bash install.sh check-only
 
+Lab transmit profile:
+  The installer does not transmit RF/BLE/CAN traffic during setup.
+  It installs/validates the owned-lab control surface and records the lab-transmit policy.
+  CAN bench transmit remains gated to isolated simulator use through explicit backend flags.
+  RF/BLE workflows remain scoped to owned-device lab controls and passive/readiness paths unless a separate authorized backend implements a bounded action.
+
 Useful environment:
   KOALABYTE_INSTALL_DIR=$HOME/KoalaByte-Blue
   KOALABYTE_BRANCH=Main
@@ -45,6 +51,12 @@ Useful environment:
   T114_PLUG_FLASH_PROFILE=combined-safe|color-mouth|hci-usb|skip
   INSTALL_INNOMAKER_CAN=optional|0|1
   STRICT_INNOMAKER_CAN=1
+  KOALABYTE_LAB_PROFILE=owned-lab
+  KOALABYTE_CAN_TRANSMIT_MODE=gated-bench|listen-only|disabled
+  KOALABYTE_RF_BLE_TRANSMIT_MODE=disabled-during-install|passive-only
+  STRICT_LAB_TRANSMIT_POLICY=1
+  CAN_INTERFACE=can0
+  CAN_BITRATE=500000
   KOALABYTE_ALLOW_DIRTY=1
 EOF
 }
