@@ -126,8 +126,14 @@ def _urban_poaching() -> dict[str, Any]:
     return asdict(asyncio.run(UrbanPoachingGame(cfg).play()))
 
 
+def _lab_transmit_policy(command: str) -> dict[str, Any]:
+    from . import lab_transmit_policy
+    return lab_transmit_policy.run_menu_action(command)
+
+
 def _koala_kan(command: str = "koala_kan_kommander") -> dict[str, Any]:
     from . import koala_kan_kommander as kan
+    from . import lab_transmit_policy
 
     interface = os.getenv("KOALABYTE_CAN_INTERFACE", os.getenv("CAN_INTERFACE", "can0"))
     output_dir = Path(os.getenv("KOALABYTE_KOALA_KAN_OUTPUT_DIR", str(kan.DEFAULT_OUTPUT_DIR)))
@@ -141,6 +147,13 @@ def _koala_kan(command: str = "koala_kan_kommander") -> dict[str, Any]:
     listen_seconds = _env_float("KOALABYTE_CAN_LISTEN_SECONDS", 10.0)
     bench_simulator = _truthy_env("KOALABYTE_CAN_BENCH_SIMULATOR")
     confirm_transmit = _truthy_env("KOALABYTE_CAN_CONFIRM_TRANSMIT")
+    transmit_commands = {"koala_kan_transmit_gate", "koala_kan_listen_transmit_gate"}
+    if command in transmit_commands:
+        gate = lab_transmit_policy.can_transmit_gate_status()
+        if not gate.get("allowed"):
+            return lab_transmit_policy.blocked_transmit_action(command, gate)
+        bench_simulator = True
+        confirm_transmit = True
 
     def full_check() -> dict[str, Any]:
         return {
@@ -148,6 +161,7 @@ def _koala_kan(command: str = "koala_kan_kommander") -> dict[str, Any]:
             "inventory": kan.inventory(output_dir),
             "status": kan.status(interface, output_dir),
             "report": kan.report(interface, output_dir),
+            "lab_transmit_policy": lab_transmit_policy.policy_status(),
             "optional_adapter": True,
         }
 
@@ -171,6 +185,7 @@ def _koala_kan(command: str = "koala_kan_kommander") -> dict[str, Any]:
         result.setdefault("optional_adapter", True)
         result.setdefault("interface", interface)
         result.setdefault("menu_command", command)
+        result.setdefault("lab_transmit_policy", lab_transmit_policy.policy_status())
     return result
 
 
@@ -300,29 +315,29 @@ def _meshtastic(command: str) -> dict[str, Any]:
     from . import meshtastic_app
     if command in {"meshtastic_app", "meshtastic_profile"}:
         return meshtastic_app.profile_status()
-    if command == "meshtastic_send_prompt":
+    if command in {"meshtastic_send_prompt", "meshtastic_send_prompt_status"}:
         return meshtastic_app.send_prompt_status()
     if command == "meshtastic_set_test_message":
         return meshtastic_app.set_send_message_preset("test")
     if command == "meshtastic_set_checkin_message":
         return meshtastic_app.set_send_message_preset("checkin")
-    if command == "meshtastic_confirm_send_on":
+    if command in {"meshtastic_confirm_send_on", "meshtastic_confirm_on"}:
         return meshtastic_app.set_send_confirm(True)
-    if command == "meshtastic_confirm_send_off":
+    if command in {"meshtastic_confirm_send_off", "meshtastic_confirm_off"}:
         return meshtastic_app.set_send_confirm(False)
-    if command == "meshtastic_clear_send_prompt":
+    if command in {"meshtastic_clear_send_prompt", "meshtastic_clear_send"}:
         return meshtastic_app.clear_send_prompt()
-    if command == "meshtastic_compatibility":
+    if command in {"meshtastic_compatibility", "meshtastic_compat"}:
         return meshtastic_app.compatibility_status()
     if command == "meshtastic_phone_pairing":
         return meshtastic_app.phone_pairing_guide()
-    if command == "meshtastic_esp32_device":
+    if command in {"meshtastic_esp32_device", "meshtastic_esp32_link"}:
         return meshtastic_app.esp32_device_guide()
-    if command == "meshtastic_setup_serial":
+    if command in {"meshtastic_setup_serial", "meshtastic_use_serial"}:
         return meshtastic_app.setup_serial()
-    if command == "meshtastic_setup_tcp":
+    if command in {"meshtastic_setup_tcp", "meshtastic_use_tcp"}:
         return meshtastic_app.setup_tcp()
-    if command == "meshtastic_setup_ble":
+    if command in {"meshtastic_setup_ble", "meshtastic_use_ble"}:
         return meshtastic_app.setup_ble()
     if command == "meshtastic_status":
         return meshtastic_app.status()
@@ -332,7 +347,7 @@ def _meshtastic(command: str) -> dict[str, Any]:
         return meshtastic_app.gps_info()
     if command == "meshtastic_listen":
         return meshtastic_app.listen(seconds=int(os.getenv("KOALABYTE_MESHTASTIC_LISTEN_SECONDS", "30")), prompt_password=False)
-    if command == "meshtastic_send_gate":
+    if command in {"meshtastic_send_gate", "meshtastic_send"}:
         from . import menu_prompt_state
         menu_prompt_state.apply_location_gate_env()
         return meshtastic_app.send_from_prompt(prompt_password=False)
@@ -433,6 +448,8 @@ def run_automated_menu_action(command: str, label: str = "", group: str = "") ->
             return _ok(command, label, {"status": "SUBMENU_NAVIGATION_ONLY", "target": command.split(":", 1)[1]})
         if command.startswith("status:"):
             return _ok(command, label, _status_row(command), "AUTOMATED_STATUS_COMPLETE")
+        if command.startswith("lab_transmit_"):
+            return _ok(command, label, _lab_transmit_policy(command))
         if command in {"prompt_state_status", "eucalyptus_prompt_status", "eucalyptus_gps_on", "eucalyptus_gps_off", "eucalyptus_wigle_dry_run_on", "eucalyptus_wigle_dry_run_off", "eucalyptus_wigle_upload_on", "eucalyptus_wigle_upload_off", "kruisin_prompt_status", "kruisin_gps_on", "kruisin_gps_off", "kruisin_nodes_on", "kruisin_nodes_off", "kruisin_default_ports", "kruisin_wigle_dry_run_on", "kruisin_wigle_dry_run_off", "kruisin_wigle_upload_on", "kruisin_wigle_upload_off", "location_gate_unlock_on", "location_gate_unlock_off"}:
             return _ok(command, label, _prompt(command))
         if command.startswith("bluez_lab_"):
