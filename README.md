@@ -31,7 +31,7 @@ Follow Urban Poacher:
 | Heltec Mesh Node T114 / nRF52840 | Primary BLE node plus GNSS and LoRa/Meshtastic path. It is not a Wi-Fi node. |
 | 8 independent key button module | Replaces the old six loose 4-pin tactile buttons. K1-K6 are menu controls, K7 Power On/Off requests shutdown, and K8 Reset / Reboot requests reboot. |
 | USB power bank / regulated USB supply | Production power source. No loose 18650/raw battery wiring is required. |
-| InnoMaker USB-to-CAN kit | Optional isolated owned-bench CAN adapter. It is skipped if absent unless strict CAN is requested. |
+| InnoMaker USB-to-CAN kit | Optional isolated owned-bench CAN adapter. InnoMaker CAN kit is optional and skipped if absent unless strict CAN is requested. |
 
 No custom PCB is required for this profile.
 
@@ -427,7 +427,6 @@ killerkoala open Koala Kan Kommander
 killerkoala run TwoCan Vehicle Diagnostics
 killerkoala run PCAP 1
 killerkoala run TigerShark Read Latest PCAP
-killerkoala run Wi-Fi + BLE Survey
 killerkoala run T114 BLE Check
 killerkoala status
 killerkoala level
