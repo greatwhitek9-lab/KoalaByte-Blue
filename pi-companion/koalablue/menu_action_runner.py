@@ -66,6 +66,16 @@ def _env_float(name: str, default: float) -> float:
     return float(str(raw))
 
 
+def _rf_ble_policy_overlay(action: str) -> dict[str, Any]:
+    from . import lab_transmit_policy
+    policy = lab_transmit_policy.policy_status()
+    policy["action_context"] = action
+    policy["rf_ble_menu_effective_behavior"] = "passive_or_offline_only"
+    policy["rf_ble_live_transmit"] = False
+    policy["captured_signal_replay"] = False
+    return policy
+
+
 def _lab_action(command: str) -> dict[str, Any]:
     from .authorized_lab_actions import AuthorizedLabActions
     result = AuthorizedLabActions().run(command, authorized=True, context={"source": "menu_or_voice_select", "manual_prompt_required": False})
@@ -90,7 +100,12 @@ def _ble_scan_summary(command: str) -> dict[str, Any]:
 def _koala_kapture() -> dict[str, Any]:
     from .koala_kapture import KoalaKaptureConfig, KoalaKaptureRecorder
     cfg = KoalaKaptureConfig(duration_seconds=float(os.getenv("KOALABYTE_MENU_KAPTURE_SECONDS", "12")), scan_window_seconds=4.0, max_records=300)
-    return asdict(asyncio.run(KoalaKaptureRecorder(cfg).record()))
+    result = asdict(asyncio.run(KoalaKaptureRecorder(cfg).record()))
+    result["lab_transmit_policy"] = _rf_ble_policy_overlay("koala_kapture")
+    result["rf_ble_live_transmit"] = False
+    result["captured_signal_replay"] = False
+    result["menu_boundary"] = "Koala Kapture is passive BLE advertisement metadata capture only; it does not pair, write, or transmit."
+    return result
 
 
 def _koala_kry(command: str = "koala_kry") -> dict[str, Any]:
@@ -116,8 +131,15 @@ def _koala_kry(command: str = "koala_kry") -> dict[str, Any]:
     }
     handler = handlers.get(command)
     if handler is None:
-        return {"status": "KOALA_KRY_ACTION_RECORDED", "command": command}
-    return handler()
+        result: dict[str, Any] = {"status": "KOALA_KRY_ACTION_RECORDED", "command": command}
+    else:
+        result = handler()
+    if isinstance(result, dict):
+        result.setdefault("lab_transmit_policy", _rf_ble_policy_overlay("koala_kry"))
+        result.setdefault("rf_ble_live_transmit", False)
+        result.setdefault("captured_signal_replay", False)
+        result.setdefault("menu_boundary", "Koala Kry is offline metadata replay/review only; it writes RF bench review artifacts but never sends RF/BLE traffic.")
+    return result
 
 
 def _urban_poaching() -> dict[str, Any]:
