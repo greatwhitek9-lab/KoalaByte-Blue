@@ -48,6 +48,24 @@ def _error(command: str, label: str, exc: Exception) -> dict[str, Any]:
     return payload
 
 
+def _truthy_env(name: str, default: str = "0") -> bool:
+    return os.getenv(name, default) in {"1", "true", "TRUE", "yes", "YES", "on", "ON"}
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw in {None, ""}:
+        return default
+    return int(str(raw), 0)
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw in {None, ""}:
+        return default
+    return float(str(raw))
+
+
 def _lab_action(command: str) -> dict[str, Any]:
     from .authorized_lab_actions import AuthorizedLabActions
     result = AuthorizedLabActions().run(command, authorized=True, context={"source": "menu_or_voice_select", "manual_prompt_required": False})
@@ -108,9 +126,52 @@ def _urban_poaching() -> dict[str, Any]:
     return asdict(asyncio.run(UrbanPoachingGame(cfg).play()))
 
 
-def _koala_kan() -> dict[str, Any]:
-    from .koala_kan_kommander import inventory, manifest, report, status
-    return {"manifest": manifest(), "inventory": inventory(), "status": status(), "report": report()}
+def _koala_kan(command: str = "koala_kan_kommander") -> dict[str, Any]:
+    from . import koala_kan_kommander as kan
+
+    interface = os.getenv("KOALABYTE_CAN_INTERFACE", os.getenv("CAN_INTERFACE", "can0"))
+    output_dir = Path(os.getenv("KOALABYTE_KOALA_KAN_OUTPUT_DIR", str(kan.DEFAULT_OUTPUT_DIR)))
+    payload_profile = os.getenv("KOALABYTE_CAN_PAYLOAD_PROFILE", "all")
+    transmit_profile = os.getenv("KOALABYTE_CAN_TRANSMIT_PROFILE", "heartbeat")
+    base_id = os.getenv("KOALABYTE_CAN_BASE_ID", "0x600")
+    sequence_count = _env_int("KOALABYTE_CAN_SEQUENCE_COUNT", 8)
+    transmit_sequence_count = _env_int("KOALABYTE_CAN_TRANSMIT_SEQUENCE_COUNT", 1)
+    tag = os.getenv("KOALABYTE_CAN_TAG", "KOALAKAN")
+    repeat_ms = _env_int("KOALABYTE_CAN_REPEAT_MS", 1000)
+    listen_seconds = _env_float("KOALABYTE_CAN_LISTEN_SECONDS", 10.0)
+    bench_simulator = _truthy_env("KOALABYTE_CAN_BENCH_SIMULATOR")
+    confirm_transmit = _truthy_env("KOALABYTE_CAN_CONFIRM_TRANSMIT")
+
+    def full_check() -> dict[str, Any]:
+        return {
+            "manifest": kan.manifest(output_dir),
+            "inventory": kan.inventory(output_dir),
+            "status": kan.status(interface, output_dir),
+            "report": kan.report(interface, output_dir),
+            "optional_adapter": True,
+        }
+
+    handlers: dict[str, Callable[[], Any]] = {
+        "koala_kan_kommander": full_check,
+        "koala_kan_manifest": lambda: kan.manifest(output_dir),
+        "koala_kan_inventory": lambda: kan.inventory(output_dir),
+        "koala_kan_status": lambda: kan.status(interface, output_dir),
+        "koala_kan_listen_10s": lambda: kan.listen(interface, duration_seconds=10.0, output_dir=output_dir),
+        "koala_kan_generate_payloads": lambda: kan.generate_payloads(interface=interface, profile=payload_profile, base_id=base_id, sequence_count=sequence_count, tag=tag, repeat_ms=repeat_ms, output_dir=output_dir),
+        "koala_kan_report": lambda: kan.report(interface, output_dir),
+        "koala_kan_transmit_placeholder": lambda: kan.blocked_transmit_placeholder(output_dir),
+        "koala_kan_transmit_gate": lambda: kan.transmit(interface=interface, profile=transmit_profile, base_id=base_id, sequence_count=transmit_sequence_count, tag=tag, repeat_ms=repeat_ms, bench_simulator=bench_simulator, confirm_transmit=confirm_transmit, output_dir=output_dir),
+        "koala_kan_listen_transmit_gate": lambda: kan.listen_transmit(interface=interface, listen_seconds=listen_seconds, output_dir=output_dir, profile=transmit_profile, base_id=base_id, sequence_count=transmit_sequence_count, tag=tag, repeat_ms=repeat_ms, bench_simulator=bench_simulator, confirm_transmit=confirm_transmit),
+    }
+    handler = handlers.get(command)
+    if handler is None:
+        return {"status": "KOALA_KAN_ACTION_RECORDED", "command": command, "optional_adapter": True}
+    result = handler()
+    if isinstance(result, dict):
+        result.setdefault("optional_adapter", True)
+        result.setdefault("interface", interface)
+        result.setdefault("menu_command", command)
+    return result
 
 
 def _defense_guard() -> dict[str, Any]:
@@ -391,8 +452,8 @@ def run_automated_menu_action(command: str, label: str = "", group: str = "") ->
             return _ok(command, label, _boomerang_export())
         if command in {"authorized_ble_inventory", "gatt_readiness_checklist", "pairing_security_review", "lab_beacon_plan", "packet_capture_notes", "defensive_report", "report", "restricted_placeholder"}:
             return _ok(command, label, _lab_action("defensive_report" if command == "report" else command))
-        if command == "koala_kan_kommander":
-            return _ok(command, label, _koala_kan())
+        if command == "koala_kan_kommander" or command.startswith("koala_kan_"):
+            return _ok(command, label, _koala_kan(command))
         if command == "urban_poaching":
             return _ok(command, label, _urban_poaching())
         if command == "thats_not_a_knife":
