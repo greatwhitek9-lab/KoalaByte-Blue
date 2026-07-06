@@ -12,6 +12,12 @@ KoalaByte Blue is for lawful owned-device labs, defensive review, education, and
 
 Join the KoalaByte Blue Discord for build help, firmware updates, and project discussion: https://discord.gg/aYAmEnrDs
 
+Follow Urban Poacher:
+
+- Instagram: https://www.instagram.com/urbanpoacher?igsh=OHo0aXI1eXZid29u&utm_source=qr
+- TikTok: https://www.tiktok.com/@urbanpoacher?_r=1&_t=ZP-97oAxnjUNDT
+- Facebook: https://www.facebook.com/share/197SYPvCFm/?mibextid=wwXIfr
+
 ---
 
 ## Quick build profile
