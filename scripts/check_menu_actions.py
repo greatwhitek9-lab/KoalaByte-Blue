@@ -14,7 +14,7 @@ if str(ROOT) not in sys.path:
 if str(PI_ROOT) not in sys.path:
     sys.path.insert(0, str(PI_ROOT))
 
-from koalablue.menu_catalog import MAIN_MENU_ITEMS, SUBMENU_ITEMS, all_menu_entries, leaf_menu_entries, submenu_name_from_command  # noqa: E402
+from koalablue.menu_catalog import MAIN_MENU_ITEMS, SUBMENU_ITEMS, all_menu_entries, leaf_menu_entries, menu_labels, submenu_name_from_command  # noqa: E402
 from koalablue.menu_theme import DEFAULT_JUNGLE_MENU_THEME, GRAPHICAL_DESCRIPTION_MAX_LINES, GRAPHICAL_LABEL_MAX_LINES, render_terminal_jungle_menu  # noqa: E402
 from scripts.run_menu_screen import make_menu, open_submenu  # noqa: E402
 
@@ -42,6 +42,36 @@ ALLOWED_DUPLICATE_COMMANDS = {
     "bluez_lab_scope_clear",
 }
 BUILT_IN_UI_COMMANDS = {"quit"}
+
+REQUIRED_KOALA_KAN_LABELS = [
+    "Run Full Kan Check",
+    "Kan Manifest",
+    "Detect CAN Interfaces",
+    "CAN0 Status",
+    "Listen 10 Seconds",
+    "Generate Bench Payloads",
+    "Write CAN Bench Report",
+    "TwoCan Vehicle Diagnostics",
+    "TwoCan Clear Codes Safety Note",
+    "Transmit Safety Check",
+    "Bench Transmit Gate",
+    "Listen + Bench Transmit Gate",
+]
+
+REQUIRED_KOALA_KAN_COMMANDS = [
+    "koala_kan_kommander",
+    "koala_kan_manifest",
+    "koala_kan_inventory",
+    "koala_kan_status",
+    "koala_kan_listen_10s",
+    "koala_kan_generate_payloads",
+    "koala_kan_report",
+    "twocan_vehicle_diagnostics",
+    "twocan_clear_codes_safety_note",
+    "koala_kan_transmit_placeholder",
+    "koala_kan_transmit_gate",
+    "koala_kan_listen_transmit_gate",
+]
 
 
 def _command(entry: dict[str, Any]) -> str:
@@ -92,6 +122,46 @@ def _check_terminal_theme_fit(menu_names: set[str]) -> list[str]:
         for line_no, line in enumerate(text.splitlines(), start=1):
             if len(line) > TERMINAL_FRAME_WIDTH:
                 failures.append(f"{menu_name} terminal theme line {line_no} exceeds {TERMINAL_FRAME_WIDTH} chars")
+    return failures
+
+
+def _validate_koala_kan_actions() -> list[str]:
+    failures: list[str] = []
+    labels = set(menu_labels("koala_kan"))
+    commands = {str(entry.get("command", "")) for entry in SUBMENU_ITEMS.get("koala_kan", [])}
+    for label in REQUIRED_KOALA_KAN_LABELS:
+        if label not in labels:
+            failures.append(f"Koala Kan submenu missing label: {label}")
+    for command in REQUIRED_KOALA_KAN_COMMANDS:
+        if command not in commands:
+            failures.append(f"Koala Kan submenu missing command: {command}")
+
+    runner_path = ROOT / "pi-companion" / "koalablue" / "menu_action_runner.py"
+    runner_text = runner_path.read_text(encoding="utf-8", errors="ignore") if runner_path.exists() else ""
+    required_runner_needles = [
+        "def _koala_kan",
+        "def _twocan_vehicle_diagnostics",
+        "kan.manifest",
+        "kan.inventory",
+        "kan.status",
+        "kan.listen",
+        "kan.generate_payloads",
+        "kan.report",
+        "kan.blocked_transmit_placeholder",
+        "kan.transmit",
+        "kan.listen_transmit",
+        "twocan.readiness",
+        "twocan.clear_codes_safety_note",
+    ] + REQUIRED_KOALA_KAN_COMMANDS
+    for needle in required_runner_needles:
+        if needle not in runner_text:
+            failures.append(f"menu_action_runner.py missing Koala Kan/TwoCan backend marker: {needle}")
+
+    twocan_path = ROOT / "pi-companion" / "koalablue" / "vehicle_diagnostics_readiness.py"
+    twocan_text = twocan_path.read_text(encoding="utf-8", errors="ignore") if twocan_path.exists() else ""
+    for needle in ["TwoCan Vehicle Diagnostics", "clear_codes_enabled", "False", "No diagnostic trouble code clearing"]:
+        if needle not in twocan_text:
+            failures.append(f"TwoCan helper missing safety marker: {needle}")
     return failures
 
 
@@ -167,6 +237,8 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
     for command in unexpected_duplicates:
         failures.append(f"unexpected duplicate visible command '{command}': {duplicate_commands[command]}")
 
+    failures.extend(_validate_koala_kan_actions())
+
     leaf_commands = sorted({_command(entry) for entry in leaf_menu_entries()})
     status_rows = sorted({_command(entry) for entry in leaf_menu_entries() if _command(entry).startswith("status:")})
     handler_commands = sorted(str(command) for command in handlers.keys())
@@ -183,6 +255,8 @@ def build_manifest() -> tuple[dict[str, Any], list[str]]:
         "leaf_commands": leaf_commands,
         "handler_commands": handler_commands,
         "built_in_ui_commands": sorted(BUILT_IN_UI_COMMANDS),
+        "koala_kan_required_labels": REQUIRED_KOALA_KAN_LABELS,
+        "koala_kan_required_commands": REQUIRED_KOALA_KAN_COMMANDS,
         "rows": rows,
         "theme": {
             "title": theme.title,
