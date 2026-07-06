@@ -39,17 +39,61 @@ Use the adapter-side connection supplied by the selected InnoMaker kit/listing. 
 
 ## Menu entry
 
-The menu option is named:
+The top-level CAN menu option is named:
+
+```text
+CAN Bench Tools -> Koala Kan Kommander
+```
+
+The Koala Kan Kommander submenu now exposes real actionable rows instead of one bundled placeholder.
 
 ```text
 Koala Kan Kommander
+├─ Run Full Kan Check
+├─ Kan Manifest
+├─ Detect CAN Interfaces
+├─ CAN0 Status
+├─ Listen 10 Seconds
+├─ Generate Bench Payloads
+├─ Write CAN Bench Report
+├─ TwoCan Vehicle Diagnostics
+├─ TwoCan Clear Codes Safety Note
+├─ Transmit Safety Check
+├─ Bench Transmit Gate
+├─ Listen + Bench Transmit Gate
+├─ Back to CAN Bench Tools
+└─ Back to Main Canopy
 ```
 
-The command key is:
+## Menu action map
 
-```text
-koala_kan_kommander
-```
+| Menu label | Command key | Backend behavior |
+|---|---|---|
+| Run Full Kan Check | `koala_kan_kommander` | Runs manifest, inventory, status, and report together. |
+| Kan Manifest | `koala_kan_manifest` | Writes the plug-in manifest with InnoMaker adapter path and safe defaults. |
+| Detect CAN Interfaces | `koala_kan_inventory` | Detects SocketCAN interfaces under `/sys/class/net`. |
+| CAN0 Status | `koala_kan_status` | Saves `ip -details -statistics link show <interface>` output. |
+| Listen 10 Seconds | `koala_kan_listen_10s` | Performs a bounded raw-socket CAN listen and saves JSON artifacts. |
+| Generate Bench Payloads | `koala_kan_generate_payloads` | Generates bench-only synthetic payload JSON using the `koala-kan-payload-batch-v1` schema. |
+| Write CAN Bench Report | `koala_kan_report` | Writes a Markdown report with inventory/status/payload artifact links. |
+| TwoCan Vehicle Diagnostics | `twocan_vehicle_diagnostics` | Checks safe OBD-II diagnostic readiness and writes an artifact. It does not clear codes. |
+| TwoCan Clear Codes Safety Note | `twocan_clear_codes_safety_note` | Writes a safety workflow note. It does not send code-clearing/reset commands. |
+| Transmit Safety Check | `koala_kan_transmit_placeholder` | Legacy blocked placeholder. It never sends frames. |
+| Bench Transmit Gate | `koala_kan_transmit_gate` | Sends synthetic lab-range frames only when bench simulator gates are explicitly set. |
+| Listen + Bench Transmit Gate | `koala_kan_listen_transmit_gate` | Runs gated synthetic transmit, then bounded listen, writing a combined artifact. |
+
+## TwoCan vehicle diagnostics boundary
+
+**TwoCan Vehicle Diagnostics** is intentionally separate from the InnoMaker SocketCAN bench path. It is a readiness/safety workflow for an ELM327-compatible OBD-II diagnostic adapter and owner-authorized troubleshooting.
+
+TwoCan currently does not automate clearing diagnostic trouble codes. Clearing codes is a reset/write operation that can mask unresolved safety or emissions faults. KoalaByte writes a safety-note artifact instead and keeps code clearing outside the automated menu action.
+
+TwoCan excludes:
+
+- DTC clearing or reset commands.
+- UDS diagnostic sessions, ECU security access, seed/key, coding, adaptation, or immobilizer operations.
+- Actuator/output-control functions for brakes, steering, lighting, locks, powertrain, or safety systems.
+- OEM-specific raw CAN frames, arbitrary CAN transmit, and captured traffic replay.
 
 ## Runner
 
@@ -65,7 +109,7 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py listen-transm
 PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py transmit-placeholder
 ```
 
-## Supported actions
+## Supported backend actions
 
 | Action | Behavior |
 |---|---|
@@ -139,6 +183,12 @@ ip -details -statistics link show can0
 ```
 
 Use the bitrate required by your isolated bench simulator or owned bench harness.
+
+## One-shot installer behavior
+
+The InnoMaker CAN kit remains optional. The one-shot installer records readiness when the adapter is present and continues when it is absent unless `STRICT_INNOMAKER_CAN=1` is explicitly set.
+
+The one-shot menu-action check now also verifies the Koala Kan and TwoCan submenu labels, command keys, and backend markers so submenu rows cannot silently become dead placeholders.
 
 ## Safety boundary
 
