@@ -169,7 +169,21 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
     "can_bench": [
-        _item("CAN Bench Tools", "Koala Kan Kommander", "koala_kan_kommander", "Open optional InnoMaker CAN bench workflow"),
+        _item("CAN Bench Tools", "Koala Kan Kommander", "submenu:koala_kan", "Open optional InnoMaker CAN bench workflow"),
+        _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
+    ],
+    "koala_kan": [
+        _item("CAN Bench Tools", "Run Full Kan Check", "koala_kan_kommander", "Run manifest, inventory, status, and report together"),
+        _item("CAN Bench Tools", "Kan Manifest", "koala_kan_manifest", "Write the Koala Kan/InnoMaker plugin manifest"),
+        _item("CAN Bench Tools", "Detect CAN Interfaces", "koala_kan_inventory", "Detect optional SocketCAN interfaces such as can0"),
+        _item("CAN Bench Tools", "CAN0 Status", "koala_kan_status", "Save ip details and statistics for the CAN interface"),
+        _item("CAN Bench Tools", "Listen 10 Seconds", "koala_kan_listen_10s", "Run bounded CAN listen and save JSON artifact"),
+        _item("CAN Bench Tools", "Generate Bench Payloads", "koala_kan_generate_payloads", "Generate synthetic bench-only CAN payloads"),
+        _item("CAN Bench Tools", "Write CAN Bench Report", "koala_kan_report", "Write inventory, status, and payload report"),
+        _item("CAN Bench Tools", "Transmit Safety Check", "koala_kan_transmit_placeholder", "Write blocked transmit placeholder artifact; never sends frames"),
+        _item("CAN Bench Tools", "Bench Transmit Gate", "koala_kan_transmit_gate", "Run gated synthetic transmit only when bench confirmation env gates are set"),
+        _item("CAN Bench Tools", "Listen + Bench Transmit Gate", "koala_kan_listen_transmit_gate", "Run gated synthetic transmit then bounded listen"),
+        _item("System / Companion", "Back to CAN Bench Tools", "submenu:can_bench", "Return to CAN Bench Tools"),
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
     "reports": [
@@ -240,6 +254,8 @@ def submenu_title(menu_name: str) -> str:
         return "Main Canopy"
     if menu_name == "can_bench":
         return "CAN Bench Tools"
+    if menu_name == "koala_kan":
+        return "Koala Kan Kommander"
     if menu_name == "koala_kry":
         return "Koala Kry"
     return menu_name.replace("_", " ").title()
