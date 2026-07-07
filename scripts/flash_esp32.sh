@@ -12,6 +12,16 @@ cd "${REPO_ROOT}"
 STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-1}" bash scripts/setup_esp32_tools.sh
 bash scripts/configure_esp32s3_dualeye_2g4_antenna.sh
 
+if [[ -z "${ESP32_PORT}" && -f scripts/discover_koalabyte_ports.py ]]; then
+  echo "Auto-discovering ESP32-S3 DualEye port..."
+  python3 scripts/discover_koalabyte_ports.py --profile heltec >/tmp/koalabyte_ports_discovery.json 2>/tmp/koalabyte_ports_discovery.err || true
+  if [[ -f logs/preflight/koalabyte_ports.env ]]; then
+    # shellcheck disable=SC1091
+    source logs/preflight/koalabyte_ports.env
+    ESP32_PORT="${ESP32_PORT:-${KOALABYTE_ESP32_FACE_PORT:-${KOALABYTE_ESP32_DUALEYE_BY_ID:-}}}"
+  fi
+fi
+
 cd "${FW_DIR}"
 
 PIO_COMMON_ARGS=()
@@ -38,6 +48,17 @@ Voice front end: ESP-SR AFE/VAD + WakeNet9 + MultiNet7 Q8 English command aliase
 PlatformIO env: ${PIO_ENV:-default}
 Upload port: ${ESP32_PORT:-PlatformIO auto-detect}
 EOF
+
+if [[ -z "${ESP32_PORT}" ]]; then
+  cat <<'EOF'
+
+ESP32_PORT was not auto-discovered. PlatformIO will try auto-detect.
+If upload chooses the wrong device, rerun with:
+  ESP32_PORT=/dev/serial/by-id/<esp32-device> NO_MONITOR=1 bash scripts/flash_esp32.sh
+
+For first flash on some ESP32-S3 boards, hold BOOT, tap RESET, then release BOOT when upload starts.
+EOF
+fi
 
 echo
 if [[ "${NO_CLEAN}" != "1" ]]; then
@@ -67,7 +88,7 @@ Expected on-device boot behavior:
 Expected serial boot JSON includes:
   "boot_animation": 1
   "esp32_external_antenna": 1
-  "voice_front_end": "ESP-SR AFE/VAD + WakeNet9 + MultiNet7 Q8 English"
+  "voice_front_end": "ESP-SR AFE/VAD + WakeNet9/MultiNet7 Q8 English"
 EOF
 
 if [[ "${NO_MONITOR}" == "1" ]]; then
