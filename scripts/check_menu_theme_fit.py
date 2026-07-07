@@ -16,6 +16,7 @@ if str(PI_ROOT) not in sys.path:
 
 import koalablue  # noqa: F401 - triggers GreatWhite Reef menu extension
 from koalablue.greatwhite_reef import PCAP_DIR, install_menu_catalog  # noqa: E402
+from koalablue.loading_face import LOADING_WORD, jungle_loading_message, loading_word_frame  # noqa: E402
 from koalablue.menu_catalog import SUBMENU_ITEMS, all_menu_entries, grouped_menu_labels, menu_labels, sorted_menu_entries, submenu_title  # noqa: E402
 from koalablue.menu_theme import (  # noqa: E402
     DEFAULT_JUNGLE_MENU_THEME,
@@ -103,6 +104,23 @@ def _terminal_fit_checks(menu_name: str) -> list[str]:
     return failures
 
 
+def _loading_face_checks() -> tuple[list[str], dict[str, object]]:
+    failures: list[str] = []
+    frames = [loading_word_frame(index) for index in range(len(LOADING_WORD))]
+    expected = [LOADING_WORD[: index + 1] for index in range(len(LOADING_WORD))]
+    if frames != expected:
+        failures.append(f"KillerKoala loading text must spell {LOADING_WORD} one letter at a time: {frames}")
+    sample = jungle_loading_message("Koala Kan Kommander", 2)
+    if "LOA" not in sample or "Koala Kan Kommander" not in sample or "<<" not in sample:
+        failures.append(f"KillerKoala loading banner missing jungle/Jumanji markers: {sample}")
+    runner = ROOT / "scripts" / "run_menu_screen.py"
+    runner_text = runner.read_text(encoding="utf-8", errors="ignore") if runner.exists() else ""
+    for marker in ["start_loading_face_sequence", "KILLERKOALA_LOADING_FACE_SENTINEL", "loading.stop()"]:
+        if marker not in runner_text:
+            failures.append(f"wrapped menu missing KillerKoala loading face marker: {marker}")
+    return failures, {"word": LOADING_WORD, "frames": frames, "sample": sample, "runner_hooked": not failures}
+
+
 def _graphical_text_checks() -> tuple[list[str], dict[str, object]]:
     failures: list[str] = []
     details: dict[str, object] = {"checked": False, "reason": ""}
@@ -166,6 +184,8 @@ def main() -> int:
         failures.extend(_list_order_checks(menu_name))
         failures.extend(_terminal_fit_checks(menu_name))
 
+    loading_failures, loading_details = _loading_face_checks()
+    failures.extend(loading_failures)
     graphical_failures, graphical_details = _graphical_text_checks()
     failures.extend(graphical_failures)
 
@@ -187,6 +207,7 @@ def main() -> int:
         "graphical_description_max_lines": GRAPHICAL_DESCRIPTION_MAX_LINES,
         "graphical_text_safe_pad": GRAPHICAL_TEXT_SAFE_PAD,
         "long_pcap_fit_fixture": str(seeded_pcap),
+        "loading_face": loading_details,
         "graphical_fit": graphical_details,
         "list_order": "explicit top-to-bottom source order; group metadata does not reorder rows",
         "failures": failures,
