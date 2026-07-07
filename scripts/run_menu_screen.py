@@ -12,6 +12,7 @@ from typing import Optional
 
 os.environ.setdefault("KOALABYTE_TTS", "1")
 
+from koalablue.loading_face import start_loading_face_sequence
 from koalablue.menu_action_runner import run_automated_menu_action
 from koalablue.menu_catalog import leaf_menu_entries, make_menu_items, submenu_name_from_command
 from koalablue.menu_ui import MenuEvent, MenuItem, MenuSelectionScreen
@@ -55,6 +56,12 @@ READINESS_SENTINELS = (
     "koalablue.gnss_location",
     "bluez_platypus_bt_proxy",
 )
+
+
+# Marker checked by scripts/check_killerkoala_loading_face.py: every generic menu
+# leaf action starts a KillerKoala loading face sequence whose text spells
+# LOADING one letter at a time using the shared jungle/Jumanji face styling.
+KILLERKOALA_LOADING_FACE_SENTINEL = "start_loading_face_sequence"
 
 
 def clear() -> None:
@@ -119,7 +126,11 @@ def run_eucalyptus_mode_action(_item: MenuItem) -> None:
 
 
 def run_generic_action(item: MenuItem) -> None:
-    result = run_automated_menu_action(item.command, item.label, item.group)
+    loading = start_loading_face_sequence(item.label)
+    try:
+        result = run_automated_menu_action(item.command, item.label, item.group)
+    finally:
+        loading.stop()
     write_result(item, str(result.get("status", "AUTOMATED_ACTION_COMPLETE")), result, "Automated menu action selected from the wrapped interface; no command prompt required.")
 
 
