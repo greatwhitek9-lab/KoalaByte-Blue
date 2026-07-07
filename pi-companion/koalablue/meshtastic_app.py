@@ -16,16 +16,20 @@ DISPLAY_NAME = "Meshtastic App"
 DEFAULT_LOG_DIR = Path("logs/meshtastic_app")
 DEFAULT_PROFILE = Path("logs/meshtastic_app/profile.json")
 DEFAULT_SEND_PROMPT = Path("logs/meshtastic_app/send_prompt.json")
+DEFAULT_MODE_STATUS = Path("logs/meshtastic_app/t114_meshtastic_mode.json")
 DEFAULT_SERIAL_PORT = os.getenv("KOALABYTE_MESHTASTIC_PORT") or os.getenv("KOALABYTE_HELTEC_USB_PORT") or os.getenv("KOALABYTE_PRIMARY_BLE_PORT") or "/dev/koalabyte-heltec"
 DEFAULT_TCP_HOST = os.getenv("KOALABYTE_MESHTASTIC_HOST") or os.getenv("MESHTASTIC_HOST") or ""
 DEFAULT_BLE_TARGET = os.getenv("KOALABYTE_MESHTASTIC_BLE") or os.getenv("MESHTASTIC_BLE") or ""
 DEFAULT_ESP32_PORT = os.getenv("KOALABYTE_MESHTASTIC_ESP32_PORT") or os.getenv("MESHTASTIC_ESP32_PORT") or "/dev/ttyUSB0"
+ENSURE_SCRIPT = Path("scripts/ensure_t114_meshtastic_mode.sh")
 
 PRESET_SEND_MESSAGES = {
     "test": "Test from KoalaByte Blue",
     "checkin": "KoalaByte Blue check-in",
     "online": "KoalaByte Blue is online",
 }
+
+LIVE_MESHTASTIC_ACTIONS = {"status", "nodes", "gps_info", "listen", "send", "send_from_prompt"}
 
 
 @dataclass(frozen=True)
@@ -111,6 +115,47 @@ def write_result(name: str, payload: dict[str, object], log_dir: str | Path = DE
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     payload["artifact_path"] = str(path)
     return payload
+
+
+def _read_mode_status() -> dict[str, object]:
+    if not DEFAULT_MODE_STATUS.exists():
+        return {"status": "MESHTASTIC_MODE_NOT_CHECKED", "path": str(DEFAULT_MODE_STATUS)}
+    try:
+        payload = json.loads(DEFAULT_MODE_STATUS.read_text(encoding="utf-8"))
+        return payload if isinstance(payload, dict) else {"status": "MESHTASTIC_MODE_STATUS_INVALID"}
+    except Exception as exc:
+        return {"status": "MESHTASTIC_MODE_STATUS_UNREADABLE", "error": str(exc), "path": str(DEFAULT_MODE_STATUS)}
+
+
+def ensure_meshtastic_mode(*, reason: str = "menu_action", timeout: float = 90.0) -> dict[str, object]:
+    """Make live Meshtastic menu actions boot/flash the T114 into Meshtastic mode first.
+
+    The helper is intentionally profile-based: combined-safe, HCI USB, and
+    Meshtastic remain separate T114 firmware roles. A live Meshtastic menu action
+    first checks whether the Meshtastic CLI can talk to the node. If not, it uses
+    scripts/ensure_t114_meshtastic_mode.sh to copy a configured Meshtastic UF2 to
+    the HT-n5262 UF2 bootloader volume.
+    """
+    if os.getenv("KOALABYTE_MESHTASTIC_AUTOBOOT", "1") not in {"1", "true", "TRUE", "yes", "YES", "on", "ON"}:
+        return {"status": "MESHTASTIC_AUTOBOOT_DISABLED", "reason": reason, "mode_status": _read_mode_status()}
+    if not ENSURE_SCRIPT.exists():
+        return {"status": "MESHTASTIC_MODE_HELPER_MISSING", "helper": str(ENSURE_SCRIPT), "reason": reason, "mode_status": _read_mode_status()}
+    env = os.environ.copy()
+    env.setdefault("KOALABYTE_MESHTASTIC_PORT", load_profile().port)
+    started = time.time()
+    completed = subprocess.run(["bash", str(ENSURE_SCRIPT)], capture_output=True, text=True, timeout=timeout, check=False, env=env)
+    mode_status = _read_mode_status()
+    return {
+        "status": "MESHTASTIC_MODE_READY" if completed.returncode == 0 else "MESHTASTIC_MODE_SWITCH_NEEDED",
+        "reason": reason,
+        "returncode": completed.returncode,
+        "stdout": completed.stdout[-4000:],
+        "stderr": completed.stderr[-2000:],
+        "helper": str(ENSURE_SCRIPT),
+        "started_at": started,
+        "ended_at": time.time(),
+        "mode_status": mode_status,
+    }
 
 
 def _env_confirm_send() -> Optional[bool]:
@@ -214,15 +259,18 @@ def profile_status(log_dir: str | Path = DEFAULT_LOG_DIR) -> dict[str, object]:
         "meshtastic_cli_available": meshtastic_cli_available(),
         "connection_args": connection_args(profile),
         "compatibility": compatibility_matrix(include_profile=False),
+        "mode_status": _read_mode_status(),
+        "autoboot_env": "KOALABYTE_MESHTASTIC_AUTOBOOT=1",
     }
     return write_result("profile", payload, log_dir)
 
 
 def compatibility_matrix(include_profile: bool = True) -> dict[str, object]:
     payload: dict[str, object] = {
-        "iphone_android_app": {"supported": True, "mode": "Pair the official Meshtastic phone app directly to the Heltec/ESP32 Meshtastic node over BLE, or use the app's network/TCP option when the node is reachable on the same LAN.", "koalabyte_role": "KoalaByte can use the same node through serial, TCP, or BLE for status, nodes, GPS, and protected listen/send helpers."},
-        "heltec_t114": {"supported": True, "recommended_pi_connection": "serial", "default_port": DEFAULT_SERIAL_PORT, "radio_role": "primary BLE/GNSS/LoRa board for KoalaByte; Meshtastic app node when flashed/configured for Meshtastic use."},
-        "esp32_meshtastic_device": {"supported": True, "recommended_pi_connections": ["serial", "tcp", "ble"], "default_serial_port": DEFAULT_ESP32_PORT, "notes": "ESP32 Meshtastic boards can be used as an external Meshtastic node when they expose USB serial, BLE, or TCP/network access."},
+        "iphone_android_app": {"supported": True, "mode": "Pair the official Meshtastic phone app directly to the Heltec T114 node over BLE, or use TCP when reachable on the same LAN.", "koalabyte_role": "KoalaByte can use the same node through serial, TCP, or BLE for status, nodes, GPS, protected listen, and protected send helpers."},
+        "heltec_t114": {"supported": True, "recommended_pi_connection": "serial", "default_port": DEFAULT_SERIAL_PORT, "radio_role": "Meshtastic firmware owns and actively drives the SX1262 LoRa radio in this mode."},
+        "menu_autoboot": {"supported": True, "helper": str(ENSURE_SCRIPT), "uf2_path_env": "T114_MESHTASTIC_UF2", "uf2_url_env": "T114_MESHTASTIC_UF2_URL", "note": "Live Meshtastic menu actions call the helper before running CLI status/nodes/GPS/listen/send."},
+        "esp32_meshtastic_device": {"supported": True, "recommended_pi_connections": ["serial", "tcp", "ble"], "default_serial_port": DEFAULT_ESP32_PORT, "notes": "ESP32 Meshtastic boards can be used as external nodes. This is separate from the ESP32-S3 DualEye face board unless that board is intentionally reflashed as a Meshtastic node."},
         "safety": {"channel_secrets_stored": False, "send_requires_confirm_send": True, "listen_and_send_require_protected_gate": True},
         "meshtastic_cli_available": meshtastic_cli_available(),
     }
@@ -238,7 +286,7 @@ def compatibility_status(log_dir: str | Path = DEFAULT_LOG_DIR) -> dict[str, obj
 
 
 def phone_pairing_guide(log_dir: str | Path = DEFAULT_LOG_DIR) -> dict[str, object]:
-    payload = {"action": "phone_pairing", "display_name": DISPLAY_NAME, "status": "MESHTASTIC_PHONE_APP_READY", "iphone_android": {"pairing_mode": "Use the Meshtastic iPhone/Android app to pair directly to the Heltec or ESP32 Meshtastic node over BLE.", "koalabyte_parallel_access": "KoalaByte can keep a local CLI profile for serial, BLE, or TCP status checks. Do not store channel secrets in KoalaByte logs.", "recommended_flow": ["Flash/configure the Heltec or ESP32 device with Meshtastic firmware using the normal Meshtastic app/tooling.", "Pair the phone app to that node and set region/channel settings in the phone app.", "Use KoalaByte's Meshtastic Status, Nodes, and GPS Info actions to read local node state from the same node when connected."]}, "profile": asdict(load_profile()), "send_prompt": load_send_prompt_state(), "meshtastic_cli_available": meshtastic_cli_available()}
+    payload = {"action": "phone_pairing", "display_name": DISPLAY_NAME, "status": "MESHTASTIC_PHONE_APP_READY", "iphone_android": {"pairing_mode": "Use the Meshtastic iPhone/Android app to pair directly to the Heltec T114 after it is in Meshtastic mode.", "koalabyte_parallel_access": "KoalaByte can keep a local CLI profile for serial, BLE, or TCP status checks. Do not store channel secrets in KoalaByte logs.", "recommended_flow": ["Choose any live Meshtastic menu action to auto-check/flash Meshtastic mode.", "Pair the phone app to that node and set region/channel settings in the phone app.", "Use KoalaByte's Meshtastic Status, Nodes, and GPS Info actions to read local node state from the same node when connected."]}, "profile": asdict(load_profile()), "send_prompt": load_send_prompt_state(), "meshtastic_cli_available": meshtastic_cli_available(), "mode_status": _read_mode_status()}
     return write_result("phone_pairing", payload, log_dir)
 
 
@@ -272,16 +320,18 @@ def setup_ble(ble: str = "", label: str = "KoalaByte BLE Meshtastic Node", log_d
 
 
 def status(log_dir: str | Path = DEFAULT_LOG_DIR) -> dict[str, object]:
+    mode = ensure_meshtastic_mode(reason="meshtastic_status")
     profile = load_profile()
     result = _run(["meshtastic", *connection_args(profile), "--info"], timeout=25.0)
-    payload = {"action": "status", "display_name": DISPLAY_NAME, "profile": asdict(profile), "result": result, "meshtastic_cli_available": meshtastic_cli_available()}
+    payload = {"action": "status", "display_name": DISPLAY_NAME, "profile": asdict(profile), "mode_gate": mode, "result": result, "meshtastic_cli_available": meshtastic_cli_available()}
     return write_result("status", payload, log_dir)
 
 
 def nodes(log_dir: str | Path = DEFAULT_LOG_DIR) -> dict[str, object]:
+    mode = ensure_meshtastic_mode(reason="meshtastic_nodes")
     profile = load_profile()
     result = _run(["meshtastic", *connection_args(profile), "--nodes"], timeout=30.0)
-    payload = {"action": "nodes", "display_name": DISPLAY_NAME, "profile": asdict(profile), "result": result, "meshtastic_cli_available": meshtastic_cli_available()}
+    payload = {"action": "nodes", "display_name": DISPLAY_NAME, "profile": asdict(profile), "mode_gate": mode, "result": result, "meshtastic_cli_available": meshtastic_cli_available()}
     return write_result("nodes", payload, log_dir)
 
 
@@ -289,9 +339,10 @@ def listen(seconds: int = 60, password: Optional[str] = None, prompt_password: b
     if not ensure_unlocked(password=password, prompt=prompt_password):
         payload = {"action": "listen", "display_name": DISPLAY_NAME, "protected": True, "status": "locked", "note": "protected-actions password required"}
         return write_result("listen_locked", payload, log_dir)
+    mode = ensure_meshtastic_mode(reason="meshtastic_listen")
     profile = load_profile()
     result = _run(["meshtastic", *connection_args(profile), "--listen"], timeout=max(5, seconds))
-    payload = {"action": "listen", "display_name": DISPLAY_NAME, "protected": True, "profile": asdict(profile), "result": result, "meshtastic_cli_available": meshtastic_cli_available()}
+    payload = {"action": "listen", "display_name": DISPLAY_NAME, "protected": True, "profile": asdict(profile), "mode_gate": mode, "result": result, "meshtastic_cli_available": meshtastic_cli_available()}
     return write_result("listen", payload, log_dir)
 
 
@@ -302,6 +353,7 @@ def send_text(message: str, dest: str = "", channel_index: Optional[int] = None,
     if not ensure_unlocked(password=password, prompt=prompt_password):
         payload = {"action": "send", "display_name": DISPLAY_NAME, "protected": True, "status": "locked", "note": "protected-actions password required"}
         return write_result("send_locked", payload, log_dir)
+    mode = ensure_meshtastic_mode(reason="meshtastic_send")
     profile = load_profile()
     args = ["meshtastic", *connection_args(profile)]
     if channel_index is not None:
@@ -312,7 +364,7 @@ def send_text(message: str, dest: str = "", channel_index: Optional[int] = None,
     if ack:
         args.append("--ack")
     result = _run(args, timeout=45.0)
-    payload = {"action": "send", "display_name": DISPLAY_NAME, "protected": True, "profile": asdict(profile), "dest": dest, "channel_index": channel_index, "ack": ack, "result": result, "meshtastic_cli_available": meshtastic_cli_available()}
+    payload = {"action": "send", "display_name": DISPLAY_NAME, "protected": True, "profile": asdict(profile), "dest": dest, "channel_index": channel_index, "ack": ack, "mode_gate": mode, "result": result, "meshtastic_cli_available": meshtastic_cli_available()}
     return write_result("send", payload, log_dir)
 
 
@@ -329,9 +381,10 @@ def send_from_prompt(password: Optional[str] = None, prompt_password: bool = Fal
 
 
 def gps_info(log_dir: str | Path = DEFAULT_LOG_DIR) -> dict[str, object]:
+    mode = ensure_meshtastic_mode(reason="meshtastic_gps")
     profile = load_profile()
     result = _run(["meshtastic", *connection_args(profile), "--info"], timeout=25.0)
-    payload = {"action": "gps_info", "display_name": DISPLAY_NAME, "profile": asdict(profile), "result": result, "note": "Use the connected Heltec or ESP32 Meshtastic node's firmware/GNSS status output.", "meshtastic_cli_available": meshtastic_cli_available()}
+    payload = {"action": "gps_info", "display_name": DISPLAY_NAME, "profile": asdict(profile), "mode_gate": mode, "result": result, "note": "Use the connected Heltec T114 Meshtastic node's firmware/GNSS status output.", "sx1262_mode": "Meshtastic firmware owns the LoRa radio in this mode.", "meshtastic_cli_available": meshtastic_cli_available()}
     return write_result("gps_info", payload, log_dir)
 
 
@@ -345,6 +398,7 @@ def run_cli(argv: Optional[list[str]] = None) -> int:
     setup.add_argument("--ble", default="")
     setup.add_argument("--label", default="KoalaByte Heltec Meshtastic Node")
     sub.add_parser("profile", help="Show saved/effective connection profile")
+    sub.add_parser("ensure-mode", help="Ensure the T114 is in Meshtastic mode")
     sub.add_parser("send-prompt", help="Show menu-managed send prompt state")
     sub.add_parser("set-test-message", help="Set menu-managed test message and reset confirmation")
     sub.add_parser("set-checkin-message", help="Set menu-managed check-in message and reset confirmation")
@@ -376,6 +430,9 @@ def run_cli(argv: Optional[list[str]] = None) -> int:
         return 0
     if args.command == "profile":
         print(json.dumps(profile_status(), indent=2, sort_keys=True))
+        return 0
+    if args.command == "ensure-mode":
+        print(json.dumps(ensure_meshtastic_mode(reason="cli_ensure_mode"), indent=2, sort_keys=True))
         return 0
     if args.command == "send-prompt":
         print(json.dumps(send_prompt_status(), indent=2, sort_keys=True))
