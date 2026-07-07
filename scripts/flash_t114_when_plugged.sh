@@ -25,13 +25,14 @@ Usage:
   T114_REQUIRE_UF2=1 T114_FLASH_METHOD=uf2 bash scripts/flash_t114_when_plugged.sh
   T114_PLUG_FLASH_PROFILE=color-mouth bash scripts/flash_t114_when_plugged.sh
   T114_PLUG_FLASH_PROFILE=hci-usb bash scripts/flash_t114_when_plugged.sh
+  T114_REQUIRE_UF2=1 T114_PLUG_FLASH_PROFILE=hci-usb bash scripts/flash_t114_when_plugged.sh
   T114_PLUG_FLASH_PROFILE=skip bash scripts/flash_t114_when_plugged.sh
   bash scripts/flash_t114_when_plugged.sh --check-only
 
 Manual T114 bootloader path:
   Connect the T114 by USB, then press RST twice quickly. The bootloader volume
-  should appear as HT-n5262. The combined-safe profile auto-detects that volume,
-  mounts it on Pi OS Lite when needed, and copies the generated UF2 firmware to it.
+  should appear as HT-n5262. UF2-capable profiles auto-detect that volume,
+  mount it on Pi OS Lite when needed, and copy the generated UF2 firmware to it.
 
 UF2-first mode:
   Set T114_REQUIRE_UF2=1 and T114_FLASH_METHOD=uf2 to require the HT-n5262 UF2
@@ -41,7 +42,7 @@ UF2-first mode:
 Profiles:
   combined-safe  Default combined T114 firmware for primary BLE JSON plus KillerKoala mouth/status JSON.
   color-mouth    Legacy mouth/status profile.
-  hci-usb        Optional USB Bluetooth adapter profile.
+  hci-usb        Optional USB Bluetooth HCI adapter profile for BlueZ/Koala Konnect.
   skip           Do not flash.
 EOF
 }
@@ -81,6 +82,23 @@ sudo_or_root() {
   fi
 }
 
+normalize_profile() {
+  case "$1" in
+    combined-safe|combined_safe|combined) echo "combined-safe" ;;
+    color-mouth|mouth|color_mouth) echo "color-mouth" ;;
+    hci-usb|hci_usb|koala-konnect|koala_konnect) echo "hci-usb" ;;
+    skip|none|disabled) echo "skip" ;;
+    *) echo "unsupported" ;;
+  esac
+}
+
+profile_supports_uf2() {
+  case "$(normalize_profile "$1")" in
+    combined-safe|hci-usb) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 write_status() {
   local status="$1"
   local reason="$2"
@@ -92,6 +110,7 @@ write_status() {
   "status": $(json_escape "${status}"),
   "reason": $(json_escape "${reason}"),
   "profile": $(json_escape "${PROFILE}"),
+  "normalized_profile": $(json_escape "$(normalize_profile "${PROFILE}")"),
   "selected_port": $(json_escape "${selected_port}"),
   "require_uf2": $(json_bool "${REQUIRE_UF2}"),
   "uf2_volume_name": $(json_escape "${UF2_VOLUME_NAME}"),
@@ -191,11 +210,11 @@ resolve_uf2_mount() {
 }
 
 helper_for_profile() {
-  case "${PROFILE}" in
-    combined-safe|combined_safe|combined) echo "scripts/flash_t114_combined_safe.sh" ;;
-    color-mouth|mouth|color_mouth) echo "scripts/flash_heltec_mouth.sh" ;;
-    hci-usb|hci_usb|koala-konnect|koala_konnect) echo "scripts/flash_nrf52840_t114_hci_usb.sh" ;;
-    skip|none|disabled) echo "" ;;
+  case "$(normalize_profile "${PROFILE}")" in
+    combined-safe) echo "scripts/flash_t114_combined_safe.sh" ;;
+    color-mouth) echo "scripts/flash_heltec_mouth.sh" ;;
+    hci-usb) echo "scripts/flash_nrf52840_t114_hci_usb.sh" ;;
+    skip) echo "" ;;
     *) echo "unsupported" ;;
   esac
 }
@@ -215,7 +234,7 @@ fi
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   if [[ -f "${HELPER}" ]]; then
-    write_status "check_ready" "Flash helper exists; check-only mode did not wait for or flash hardware. Combined-safe supports the HT-n5262 UF2 bootloader volume and Pi OS Lite mount path." "" "${HELPER}" ""
+    write_status "check_ready" "Flash helper exists; check-only mode did not wait for or flash hardware. combined-safe and hci-usb support HT-n5262 UF2 bootloader detection and Pi OS Lite mount paths." "" "${HELPER}" ""
   else
     write_status "check_missing_helper" "Flash helper is not present yet; check-only mode did not fail hardware deployment." "" "${HELPER}" ""
   fi
@@ -223,9 +242,9 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
   exit 0
 fi
 
-if [[ "${REQUIRE_UF2}" == "1" && !( "${PROFILE}" == "combined-safe" || "${PROFILE}" == "combined_safe" || "${PROFILE}" == "combined" ) ]]; then
-  write_status "unsupported_uf2_first_profile" "T114_REQUIRE_UF2=1 is only supported with the combined-safe profile." "" "${HELPER}" ""
-  echo "T114_REQUIRE_UF2=1 requires T114_PLUG_FLASH_PROFILE=combined-safe." >&2
+if [[ "${REQUIRE_UF2}" == "1" ]] && ! profile_supports_uf2 "${PROFILE}"; then
+  write_status "unsupported_uf2_first_profile" "T114_REQUIRE_UF2=1 is only supported with UF2-capable profiles: combined-safe or hci-usb." "" "${HELPER}" ""
+  echo "T114_REQUIRE_UF2=1 requires T114_PLUG_FLASH_PROFILE=combined-safe or hci-usb." >&2
   exit 2
 fi
 
@@ -235,11 +254,12 @@ if [[ "${REQUIRE_UF2}" == "1" ]]; then
 else
   echo "For manual bootloader flash: connect USB, press RST twice quickly, wait for the ${UF2_VOLUME_NAME} volume. On Pi OS Lite this script can mount the detected label at ${UF2_MOUNTPOINT}."
 fi
+
 START=$(date +%s)
 SELECTED_PORT=""
 SELECTED_UF2_MOUNT=""
 while true; do
-  if [[ "${PROFILE}" == "combined-safe" || "${PROFILE}" == "combined_safe" || "${PROFILE}" == "combined" ]]; then
+  if profile_supports_uf2 "${PROFILE}"; then
     if SELECTED_UF2_MOUNT="$(resolve_uf2_mount)"; then
       break
     fi
