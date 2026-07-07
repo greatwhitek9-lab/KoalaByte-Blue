@@ -8,6 +8,8 @@ from typing import Optional
 LOADING_WORD = "LOADING"
 LOADING_INTERVAL_SECONDS = 0.38
 LOADING_DURATION_MS = 1400
+JUNGLE_LOADING_LEFT = "<<"
+JUNGLE_LOADING_RIGHT = ">>"
 
 
 def _short(text: str, limit: int = 54) -> str:
@@ -31,7 +33,8 @@ def jungle_loading_message(action_title: str = "", step: int = 0) -> str:
     """Jungle/Jumanji-style loading banner for face displays and terminal text."""
     word = loading_word_frame(step)
     suffix = _short(action_title)
-    return f"{word}" if not suffix else f"{word} | {suffix}"
+    banner = f"{JUNGLE_LOADING_LEFT} {word} {JUNGLE_LOADING_RIGHT}"
+    return banner if not suffix else f"{banner} {suffix}"
 
 
 @dataclass
