@@ -37,6 +37,7 @@ payload = {
         "repo readiness",
         "runtime dependency import coverage",
         "menu/action readiness",
+        "README complete menu/submenu catalog coverage",
         "K1-K8 one-shot control readiness",
         "touch and speech control fallback readiness",
         "TwoCan read-only submenu and voice/touch/button/keyboard readiness",
@@ -104,6 +105,7 @@ run_step "Compile Python scripts and Pi companion" "${PYTHON_BIN}" -m compileall
 run_step "Repo readiness" "${PYTHON_BIN}" scripts/check_repo_readiness.py
 run_step "Runtime dependency coverage" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_full_runtime_dependencies.py
 run_step "Menu action readiness" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_menu_actions.py
+run_step "README complete menu catalog" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_readme_menu_catalog.py
 run_step "Menu display sync readiness" env PYTHONPATH=pi-companion KOALABYTE_MENU_SYNC=0 "${PYTHON_BIN}" scripts/check_menu_display_sync.py
 run_step "K1-K8 one-shot controls" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_one_shot_controls.py
 run_step "Touch and speech control fallback" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_control_mode_fallback.py
@@ -134,6 +136,6 @@ if [[ "${STRICT_DEPLOYABILITY}" == "1" ]]; then
 fi
 
 trap - ERR
-write_status "DEPLOYABILITY_READY" "install, dependency, menu, helper, fallback, TwoCan read-only, and flash dry-run checks passed"
+write_status "DEPLOYABILITY_READY" "install, dependency, menu, README catalog, helper, fallback, TwoCan read-only, and flash dry-run checks passed"
 echo
 printf 'KoalaByte deployability gate complete. Status: %s\n' "${STATUS_PATH}"
