@@ -65,7 +65,7 @@ Backspace or Left returns
 | Live PID Log 30 Seconds | Logs supported standard live PIDs for a bounded interval. The duration can be adjusted through `KOALABYTE_TWOCAN_LIVE_SECONDS`, with a maximum of 300 seconds. |
 | Offline CAN Capture Review | Summarizes a saved JSON, candump, log, or text capture. It never transmits or replays the capture. |
 | Repair Verification Checklist | Writes a pre-repair and post-repair checklist artifact. |
-| Clear Codes Safety Note | Writes the existing safety workflow note without sending a reset command. |
+| TwoCan Clear Codes Safety Note | Writes the existing safety workflow note without sending a reset command. |
 
 Artifacts are written under:
 
