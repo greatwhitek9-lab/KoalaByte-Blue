@@ -51,12 +51,39 @@ class GPIOButtonManager:
         self._button_objs = []
         self.available = False
         self.error: Optional[str] = None
+        self.control_mode = "auto"
+
+    def _record_touch_speech_fallback(self, reason: str) -> None:
+        try:
+            from .control_mode import write_control_mode
+
+            write_control_mode(
+                "touch_speech_only",
+                reason=reason,
+                source="gpio_button_manager",
+                buttons_available=False,
+                extra={"gpio_error": reason},
+            )
+            self.control_mode = "touch_speech_only"
+        except Exception:
+            pass
 
     def start(self) -> None:
+        try:
+            from .control_mode import effective_control_mode, gpio_buttons_enabled
+
+            self.control_mode = effective_control_mode()
+            if not gpio_buttons_enabled():
+                self.error = "GPIO buttons disabled by touch_speech_only control mode"
+                return
+        except Exception:
+            self.control_mode = "auto"
+
         try:
             from gpiozero import Button  # type: ignore
         except Exception as exc:
             self.error = f"gpiozero unavailable: {exc}"
+            self._record_touch_speech_fallback(self.error)
             return
         try:
             for name, cfg in self.buttons_config.items():
@@ -71,9 +98,22 @@ class GPIOButtonManager:
                 button.when_pressed = self._make_callback(number=number, name=name, label=label, command=press_command, event_type="press", pin=pin)
                 self._button_objs.append(button)
             self.available = True
+            self.control_mode = "full_controls"
+            try:
+                from .control_mode import write_control_mode
+
+                write_control_mode(
+                    "full_controls",
+                    reason="All K1-K8 GPIO inputs initialized successfully.",
+                    source="gpio_button_manager",
+                    buttons_available=True,
+                )
+            except Exception:
+                pass
         except Exception as exc:
             self.error = f"GPIO button init failed: {exc}"
             self.close()
+            self._record_touch_speech_fallback(self.error)
 
     def _make_callback(self, *, number: int, name: str, label: str, command: str, event_type: str, pin: int):
         def _callback() -> None:
@@ -90,7 +130,7 @@ class GPIOButtonManager:
 
     def _log(self, event: ButtonEvent) -> None:
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"type": "gpio_button", "button_number": event.number, "name": event.name, "label": event.label, "command": event.command, "event_type": event.event_type, "timestamp": event.timestamp, "pin_bcm": event.pin_bcm, "pull_up": self.electrical_mode.pull_up, "idle_state": self.electrical_mode.idle_state, "pressed_state": self.electrical_mode.pressed_state, "wiring": self.electrical_mode.wiring}
+        payload = {"type": "gpio_button", "button_number": event.number, "name": event.name, "label": event.label, "command": event.command, "event_type": event.event_type, "timestamp": event.timestamp, "pin_bcm": event.pin_bcm, "pull_up": self.electrical_mode.pull_up, "idle_state": self.electrical_mode.idle_state, "pressed_state": self.electrical_mode.pressed_state, "wiring": self.electrical_mode.wiring, "control_mode": self.control_mode}
         with self.log_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(payload, sort_keys=True) + "\n")
 
