@@ -26,6 +26,7 @@ PYTHON_IMPORTS = {
     "api_services": ["fastapi", "uvicorn", "requests", "httpx"],
     "gpio_buttons": ["gpiozero"],
     "can_bench": ["can"],
+    "twocan_read_only_obd": ["obd"],
     "voice_ai": ["pyttsx3", "speech_recognition"],
 }
 
@@ -67,6 +68,7 @@ REQUIRED_PROJECT_MODULES = [
     "koalablue.killerkoala_voice_control",
     "koalablue.killerkoala_hybrid_companion",
     "koalablue.koala_kan_kommander",
+    "koalablue.twocan_read_only",
     "koalablue.anteater",
     "koalablue.meshtastic_app",
     "scripts.check_menu_actions",
@@ -75,6 +77,8 @@ REQUIRED_PROJECT_MODULES = [
     "scripts.check_koala_kry_menu",
     "scripts.check_esp32_touch_menu",
     "scripts.check_one_shot_controls",
+    "scripts.check_twocan_read_only",
+    "scripts.run_twocan_read_only",
     "scripts.check_t114_status_dashboard",
 ]
 
@@ -104,6 +108,8 @@ BOARD_FILES = [
     "scripts/check_menu_prompt_ui.py",
     "scripts/check_koala_kry_menu.py",
     "scripts/check_esp32_touch_menu.py",
+    "scripts/check_twocan_read_only.py",
+    "scripts/run_twocan_read_only.py",
     "scripts/run_eucalyptus_wigle.py",
     "scripts/check_eucalyptus_wigle.py",
     "scripts/run_koala_kombat_kruisin.py",
@@ -112,7 +118,9 @@ BOARD_FILES = [
     "docs/ESP32_TOUCH_MENU_CALIBRATION.md",
     "docs/KOALA_KOMBAT_NODE_ROLES.md",
     "docs/GREATWHITE_REEF.md",
+    "docs/TWOCAN_READ_ONLY_TOOLS.md",
     "pi-companion/koalablue/greatwhite_reef.py",
+    "pi-companion/koalablue/twocan_read_only.py",
     "scripts/run_koala_bluez.py",
     "scripts/run_koala_bluez_manifest.sh",
     "scripts/run_koala_bluez_inventory.sh",
@@ -178,6 +186,34 @@ def _check_project_imports(modules: list[str]) -> tuple[dict[str, bool], list[st
     return results, failures
 
 
+def _run_twocan_read_only_gate() -> tuple[dict[str, object], list[str]]:
+    """Execute the no-hardware TwoCan safety/control test used by one-shot installs."""
+    try:
+        from scripts.check_twocan_read_only import main as check_twocan_read_only
+
+        returncode = int(check_twocan_read_only())
+        result = {
+            "executed": True,
+            "returncode": returncode,
+            "status_path": str(ROOT / "logs" / "twocan_vehicle_diagnostics" / "twocan_read_only_readiness.json"),
+            "checks": [
+                "jungle/Jumanji submenu registration and text fit",
+                "voice command routing",
+                "touchscreen, K1-K8 button, and keyboard handler routing",
+                "read-only OBD-II allowlist",
+                "CLEAR_DTC and security-access blocking before adapter query",
+                "offline capture analysis with transmit/replay disabled",
+            ],
+        }
+        return result, [] if returncode == 0 else ["TwoCan read-only one-shot readiness gate returned a failure"]
+    except Exception as exc:
+        return {
+            "executed": False,
+            "returncode": 1,
+            "error": str(exc),
+        }, [f"TwoCan read-only one-shot readiness gate could not run: {exc}"]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check KoalaByte Blue full runtime dependencies and board helper coverage")
     parser.add_argument("--strict-system", "--strict-commands", dest="strict_system", action="store_true", help="Fail on missing host system commands too")
@@ -188,9 +224,11 @@ def main() -> int:
     file_results, file_failures = _check_files(BOARD_FILES)
     module_results, module_failures = _check_project_imports(REQUIRED_PROJECT_MODULES)
     command_results, command_warnings = _check_commands(BOARD_COMMANDS)
+    twocan_gate, twocan_failures = _run_twocan_read_only_gate()
     failures.extend(py_failures)
     failures.extend(file_failures)
     failures.extend(module_failures)
+    failures.extend(twocan_failures)
 
     strict_system = args.strict_system or os.environ.get("STRICT_FULL_RUNTIME_DEPENDENCIES") == "1"
     if strict_system:
@@ -205,6 +243,7 @@ def main() -> int:
         "project_modules": module_results,
         "board_files": file_results,
         "system_commands": command_results,
+        "twocan_read_only_one_shot_gate": twocan_gate,
         "host_command_warnings": command_warnings,
         "strict_system": strict_system,
         "accepted_strict_flags": ["--strict-system", "--strict-commands", "STRICT_FULL_RUNTIME_DEPENDENCIES=1"],
