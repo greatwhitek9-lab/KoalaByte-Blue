@@ -12,6 +12,14 @@ try:
     from .twocan_read_only import install_menu_catalog as install_twocan_read_only_menu
 
     install_twocan_read_only_menu()
+    from . import menu_catalog as _menu_catalog
+
+    # This command intentionally appears in Koala Kan and the nested TwoCan
+    # menu. Keep the same visible label so duplicate-route validation recognizes
+    # it as one shared safety-note action rather than two conflicting actions.
+    for _row in _menu_catalog.SUBMENU_ITEMS.get("twocan_read_only", []):
+        if str(_row.get("command", "")) == "twocan_clear_codes_safety_note":
+            _row["label"] = "TwoCan Clear Codes Safety Note"
 except Exception:
     # Optional OBD-II/read-only menu support must not block core package imports.
     pass
