@@ -24,6 +24,11 @@ export PYTHONPATH="${REPO_ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}"
 export KOALABYTE_TTS
 export MENU_NO_TERMINAL_FALLBACK
 
+if [[ -z "${KOALABYTE_CONTROL_MODE:-}" ]]; then
+  KOALABYTE_CONTROL_MODE="$("${PYTHON_BIN}" -c 'from koalablue.control_mode import effective_control_mode; print(effective_control_mode())' 2>/dev/null || printf 'auto')"
+fi
+export KOALABYTE_CONTROL_MODE
+
 if [[ -z "${DISPLAY:-}" ]]; then
   export SDL_VIDEODRIVER="${SDL_VIDEODRIVER:-kmsdrm}"
   export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/koalabyte-runtime-$(id -u)}"
@@ -36,6 +41,11 @@ echo "Repo: ${REPO_ROOT}"
 echo "Python: ${PYTHON_BIN}"
 echo "Interface: wrapped graphical jungle UI"
 echo "Terminal fallback: ${MENU_NO_TERMINAL_FALLBACK} means disabled"
+echo "Control mode: ${KOALABYTE_CONTROL_MODE}"
+if [[ "${KOALABYTE_CONTROL_MODE}" == "touch_speech_only" ]]; then
+  echo "K1-K8 GPIO controls are bypassed. Touchscreen, KillerKoala speech control, and USB/Bluetooth keyboard remain enabled."
+  echo "After repairing the button board, run: PYTHONPATH=pi-companion ${PYTHON_BIN} scripts/setup_gpio_buttons.py --probe"
+fi
 
 echo "== KillerKoala spoken alerts =="
 if [[ "${KOALABYTE_TTS}" == "1" ]]; then
