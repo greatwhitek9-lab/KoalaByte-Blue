@@ -48,6 +48,58 @@ Idle / not pressed = HIGH
 Pressed            = LOW
 ```
 
+## Automatic touch + speech fallback
+
+The button board is no longer allowed to block the firmware install. During the Pi installation, `setup_gpio_buttons.py --check-only` performs a non-interactive GPIO initialization probe when it is running on a Raspberry Pi.
+
+If the K1-K8 GPIO stack cannot initialize:
+
+```text
+Installer behavior: continue flashing
+Control mode: touch_speech_only
+Touchscreen: enabled
+KillerKoala speech control: enabled
+USB/Bluetooth keyboard: enabled
+K1-K8 GPIO buttons: disabled
+```
+
+The selected mode is stored at:
+
+```text
+logs/control/control_mode.json
+```
+
+The boot launcher reads this artifact on every start. In `touch_speech_only` mode, the wrapped jungle UI still starts normally and the GPIO button manager is bypassed.
+
+Only set strict mode when a button failure should stop installation:
+
+```bash
+STRICT_GPIO_BUTTONS=1 bash scripts/install_koalabyte_one_shot.sh --heltec-uf2-first
+```
+
+Force touch and speech mode manually:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/set_control_mode.py touch_speech_only --reason "button board unavailable"
+sudo reboot
+```
+
+After repairing the board, probe the GPIO inputs and restore full controls:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/setup_gpio_buttons.py --probe
+sudo reboot
+```
+
+You can also select full controls manually:
+
+```bash
+PYTHONPATH=pi-companion python3 scripts/set_control_mode.py full_controls --reason "button board repaired"
+sudo reboot
+```
+
+A passive disconnected board with every line sitting HIGH can look identical to a healthy idle board during a non-interactive probe. Use the live test and press every key when you need to verify the actual board and wiring.
+
 ## K7 Power On/Off hardware note
 
 A GPIO key cannot start a Pi that has no running power path. Use the battery bank button or add a supported power-control board for true front-panel start behavior. K7 is a safe shutdown request while the Pi is already running.
@@ -60,7 +112,9 @@ K8 is a software reboot request. Do not wire K8 to raw battery voltage, 5V, ESP3
 
 ```bash
 PYTHONPATH=pi-companion python3 scripts/setup_gpio_buttons.py --check-only
+PYTHONPATH=pi-companion python3 scripts/setup_gpio_buttons.py --probe
 PYTHONPATH=pi-companion python3 scripts/setup_gpio_buttons.py --live-test --seconds 20
+PYTHONPATH=pi-companion python3 scripts/set_control_mode.py --show
 python3 scripts/test_gpio_buttons.py
 ```
 
