@@ -42,6 +42,8 @@ jobs:
           echo "field_readiness_sha=$(git rev-parse HEAD:scripts/check_field_readiness.py)"
           echo "prompt_ui_sha=$(git rev-parse HEAD:scripts/check_menu_prompt_ui.py)"
           echo "koala_kry_menu_sha=$(git rev-parse HEAD:scripts/check_koala_kry_menu.py)"
+          echo "twocan_read_only_sha=$(git rev-parse HEAD:pi-companion/koalablue/twocan_read_only.py)"
+          echo "twocan_check_sha=$(git rev-parse HEAD:scripts/check_twocan_read_only.py)"
           echo "menu_catalog_sha=$(git rev-parse HEAD:pi-companion/koalablue/menu_catalog.py)"
           echo "doctor_sha=$(git rev-parse HEAD:scripts/koalabyte_doctor.py)"
           echo "udev_rules_sha=$(git rev-parse HEAD:udev/99-koalabyte-blue.rules)"
@@ -120,7 +122,10 @@ jobs:
           PYTHONPATH=pi-companion python scripts/check_menu_prompt_ui.py
           PYTHONPATH=pi-companion python scripts/check_koala_kry_menu.py
           PYTHONPATH=pi-companion python scripts/check_menu_display_sync.py
+          PYTHONPATH=pi-companion python scripts/check_killerkoala_loading_face.py
           PYTHONPATH=pi-companion python scripts/check_one_shot_controls.py
+          PYTHONPATH=pi-companion python scripts/check_control_mode_fallback.py
+          PYTHONPATH=pi-companion python scripts/check_twocan_read_only.py
           PYTHONPATH=pi-companion python scripts/check_field_readiness.py
           PYTHONPATH=pi-companion python scripts/check_koalabyte_version_handshake.py
           PYTHONPATH=pi-companion python scripts/run_koalabyte_status_server.py --json
