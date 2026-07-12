@@ -8,6 +8,48 @@ Main Canopy -> CAN Bench Tools -> Koala Kan Kommander -> TwoCan Read-Only Tools
 
 It is intended only for a vehicle you own or are explicitly authorized to diagnose. Use an ELM327-compatible OBD-II adapter for the live diagnostic actions. The optional InnoMaker USB-CAN adapter remains part of the isolated Koala Kan bench workflow and is not the default vehicle-diagnostics adapter.
 
+## One-shot installer integration
+
+TwoCan is included automatically by the normal KoalaByte one-shot installer.
+
+The full installer performs all of these steps without requiring a separate TwoCan installation command:
+
+1. `install_pi.sh` installs `pi-companion/requirements.txt`, including `obd>=0.7.3` and the existing serial dependencies.
+2. Importing the `koalablue` package registers the TwoCan Read-Only Tools submenu and its shared action-runner handlers.
+3. The one-shot full-runtime dependency gate imports the TwoCan backend and CLI helper.
+4. The gate executes `scripts/check_twocan_read_only.py` during both `--check-only` and full installation.
+5. The check verifies voice, touchscreen, K1-K8 button-board, and USB/Bluetooth keyboard execution paths.
+6. It executes a fake-adapter safety test proving that an allowlisted read-only PID can run while `CLEAR_DTC` and security-access requests are blocked before the adapter query path.
+7. It parses a temporary saved CAN capture and verifies that replay and raw transmission remain disabled.
+
+Recommended install sequence:
+
+```bash
+cd ~
+rm -f koalabyte-install.sh
+curl -fsSL -o koalabyte-install.sh https://raw.githubusercontent.com/greatwhitek9-lab/KoalaByte-Blue/Main/install.sh
+chmod +x koalabyte-install.sh
+
+bash koalabyte-install.sh check-only
+
+# Put the Heltec T114 into HT-n5262 UF2 mode, then run:
+bash koalabyte-install.sh --heltec-uf2-first
+```
+
+One-shot status artifacts include:
+
+```text
+logs/one_shot/full_runtime_dependencies.json
+logs/twocan_vehicle_diagnostics/twocan_read_only_readiness.json
+```
+
+A successful one-shot readiness pass reports:
+
+```text
+FULL_RUNTIME_DEPENDENCIES_READY
+TWOCAN_READ_ONLY_READY
+```
+
 ## Control methods
 
 Every enabled TwoCan row uses the shared KoalaByte menu action path and can be selected by:
@@ -114,9 +156,12 @@ TwoCan Read-Only Tools does not include or automate:
 
 The live actions send only explicitly allowlisted read-only OBD-II requests. Offline capture review parses local saved artifacts and never opens a transmit or replay path.
 
-## Readiness check
+## Manual readiness checks
+
+The one-shot runs these automatically, but they remain available for troubleshooting:
 
 ```bash
 PYTHONPATH=pi-companion python3 scripts/check_twocan_read_only.py
+PYTHONPATH=pi-companion python3 scripts/check_full_runtime_dependencies.py
 bash scripts/check_deployability.sh
 ```
