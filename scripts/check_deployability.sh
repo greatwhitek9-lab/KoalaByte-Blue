@@ -39,6 +39,7 @@ payload = {
         "menu/action readiness",
         "K1-K8 one-shot control readiness",
         "touch and speech control fallback readiness",
+        "TwoCan read-only submenu and voice/touch/button/keyboard readiness",
         "first-boot WiFi helper check-only",
         "system package helper check-only",
         "ESP32 PlatformIO helper check-only",
@@ -106,6 +107,7 @@ run_step "Menu action readiness" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scr
 run_step "Menu display sync readiness" env PYTHONPATH=pi-companion KOALABYTE_MENU_SYNC=0 "${PYTHON_BIN}" scripts/check_menu_display_sync.py
 run_step "K1-K8 one-shot controls" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_one_shot_controls.py
 run_step "Touch and speech control fallback" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_control_mode_fallback.py
+run_step "TwoCan read-only controls" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_twocan_read_only.py
 
 run_step "WiFi first-boot helper check-only" bash scripts/setup_wifi_first_boot.sh --check-only
 run_step "System package helper check-only" bash scripts/setup_system_packages.sh --check-only
@@ -132,6 +134,6 @@ if [[ "${STRICT_DEPLOYABILITY}" == "1" ]]; then
 fi
 
 trap - ERR
-write_status "DEPLOYABILITY_READY" "install, dependency, menu, helper, fallback, and flash dry-run checks passed"
+write_status "DEPLOYABILITY_READY" "install, dependency, menu, helper, fallback, TwoCan read-only, and flash dry-run checks passed"
 echo
 printf 'KoalaByte deployability gate complete. Status: %s\n' "${STATUS_PATH}"
