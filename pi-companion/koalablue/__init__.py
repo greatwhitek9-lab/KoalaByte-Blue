@@ -7,3 +7,11 @@ try:
 except Exception:
     # Menu extensions must never prevent core package imports.
     pass
+
+try:
+    from .twocan_read_only import install_menu_catalog as install_twocan_read_only_menu
+
+    install_twocan_read_only_menu()
+except Exception:
+    # Optional OBD-II/read-only menu support must not block core package imports.
+    pass
