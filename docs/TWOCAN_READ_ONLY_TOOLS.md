@@ -154,7 +154,7 @@ TwoCan Read-Only Tools does not include or automate:
 - Captured traffic replay
 - Synthetic ECU or UDS simulators
 
-The live actions send only explicitly allowlisted read-only OBD-II requests. Offline capture review parses local saved artifacts and never opens a transmit or replay path.
+The live actions send only explicitly allowlisted read-only OBD-II requests. Offline capture review parses local saved artifacts and never opens a transmit or replay path. No captured traffic replay is performed.
 
 ## Manual readiness checks
 
