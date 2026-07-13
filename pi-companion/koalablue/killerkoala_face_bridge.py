@@ -59,7 +59,9 @@ def build_esp32_loading_eyes_payload(action_title: str = "", duration_ms: int = 
             "target_display": "esp32-s3-dualeye",
             "action_title": _short(action_title, 48),
             "preserve_eyes": True,
-            "eye_animation": "idle",
+            "look": "cyber",
+            "animation": "pulse",
+            "eye_animation": "pulse",
             "loading_text_on_eyes": False,
         }
     )
