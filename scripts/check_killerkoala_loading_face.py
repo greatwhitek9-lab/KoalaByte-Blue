@@ -51,6 +51,8 @@ def main() -> int:
         failures.append("Heltec loading payload does not select jungle_loading_banner")
     if heltec_payload.get("message") != "<< LOA >>":
         failures.append("Heltec loading payload does not carry the exact banner frame")
+    if len(json.dumps(heltec_payload, separators=(",", ":"))) >= 256:
+        failures.append("Heltec loading payload exceeds the T114 USB command-line budget")
     if esp32_payload.get("target_display") != "esp32-s3-dualeye":
         failures.append("DualEye loading payload does not target esp32-s3-dualeye")
     if esp32_payload.get("display_mode") != "ai_eyes":
@@ -78,19 +80,31 @@ def main() -> int:
         "ai_eyes",
         "loading_text_on_eyes",
     ]:
-        if marker not in bridge_text and marker != "jungle_loading_banner":
+        if marker not in bridge_text:
             failures.append(f"loading bridge missing split-display marker: {marker}")
 
     firmware = ROOT / "firmware" / "t114-combined-safe" / "src" / "main.c"
     firmware_text = firmware.read_text(encoding="utf-8", errors="ignore") if firmware.exists() else ""
+    for marker in ["jungle_loading_banner", "render_loading_banner", "loading_display_init"]:
+        if marker not in firmware_text:
+            failures.append(f"T114 firmware missing loading-state marker: {marker}")
+
+    renderer = ROOT / "firmware" / "t114-combined-safe" / "src" / "loading_display.c"
+    renderer_text = renderer.read_text(encoding="utf-8", errors="ignore") if renderer.exists() else ""
     for marker in [
-        "jungle_loading_banner",
-        "render_loading_banner",
         "DT_CHOSEN(zephyr_display)",
         "PIXEL_FORMAT_RGB_565",
+        "draw_jungle_frame",
+        "draw_centered_banner",
     ]:
-        if marker not in firmware_text:
-            failures.append(f"T114 firmware missing loading-display marker: {marker}")
+        if marker not in renderer_text:
+            failures.append(f"T114 display renderer missing marker: {marker}")
+
+    esp32_firmware = ROOT / "firmware" / "esp32-dualeye" / "src" / "main.cpp"
+    esp32_text = esp32_firmware.read_text(encoding="utf-8", errors="ignore") if esp32_firmware.exists() else ""
+    for marker in ["handleKillerKoalaFace", "setKoalagotchiEyeStyle", "killerkoala_eye_ack"]:
+        if marker not in esp32_text:
+            failures.append(f"DualEye firmware missing active-eye marker: {marker}")
 
     seq = start_loading_face_sequence("Loading Test", enabled=False)
     seq.stop()
