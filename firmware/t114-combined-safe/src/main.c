@@ -3,8 +3,9 @@
  * Default one-shot role:
  *   - Heltec T114 onboard nRF52840 is the primary BLE radio endpoint.
  *   - Heltec T114 GNSS is the primary GPS/GNSS source for the device.
- *   - BLE RX, bounded lab BLE TX, GNSS NMEA parsing, and mouth/status JSON share USB CDC.
+ *   - BLE RX, bounded lab BLE TX, GNSS NMEA parsing, TFT loading UI, and status JSON share USB CDC.
  *   - ESP32-S3 DualEye BLE and Raspberry Pi BlueZ remain secondary/fallback nodes.
+ *   - During loading the T114 renders the jungle banner while the ESP32-S3 keeps the AI eyes active.
  *   - SX1262 LoRa status hooks remain present; direct LoRa radio driving stays guarded
  *     until the exact T114 pin map, region, and recovery path are validated.
  */
@@ -25,13 +26,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "loading_display.h"
+
 #ifndef KOALABYTE_GNSS_UART_LABEL
 #define KOALABYTE_GNSS_UART_LABEL "UART_1"
 #endif
 
 #define KOALA_DEVICE "heltec-t114-nrf52840"
 #define KOALA_ROLE "primary"
-#define KOALA_FW "0.4.0-t114-combined-safe-ble-gnss"
+#define KOALA_FW "0.5.0-t114-combined-safe-ble-gnss-tft"
 #define KOALA_DUPLICATE_SUPPRESS_MS 5000
 #define KOALA_RSSI_CHANGE_DB 8
 #define KOALA_CACHE_SIZE 48
@@ -451,15 +454,17 @@ static void emit_tx_status(const char *status, const char *reason)
 
 static void emit_mouth_status(void)
 {
-    printk("{\"type\":\"heltec_mouth_status\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"transport\":\"usb-cdc\",\"state\":\"%s\",\"message\":\"%s\",\"face_enabled\":%s,\"fw\":\"%s\",\"uptime_ms\":%lld}\n",
-           KOALA_DEVICE, current_state, current_message, face_enabled ? "true" : "false", KOALA_FW,
-           (long long)(k_uptime_get() - boot_ms));
+    printk("{\"type\":\"heltec_mouth_status\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"transport\":\"usb-cdc\",\"state\":\"%s\",\"message\":\"%s\",\"face_enabled\":%s,\"display_ready\":%s,\"fw\":\"%s\",\"uptime_ms\":%lld}\n",
+           KOALA_DEVICE, current_state, current_message, face_enabled ? "true" : "false",
+           loading_display_ready() ? "true" : "false", KOALA_FW, (long long)(k_uptime_get() - boot_ms));
 }
 
 static void emit_ack(const char *state)
 {
-    printk("{\"type\":\"killerkoala_tft_ack\",\"device\":\"heltec-t114-color\",\"source\":\"%s\",\"state\":\"%s\",\"active\":true,\"gnss_enabled\":%s,\"gnss_primary\":true,\"ble_primary_enabled\":true,\"ble_scan_active\":%s,\"ble_tx_active\":%s,\"transport\":\"usb-cdc\"}\n",
-           KOALA_DEVICE, state ? state : current_state, gnss_ready ? "true" : "false", ble_scan_active ? "true" : "false", ble_adv_active ? "true" : "false");
+    printk("{\"type\":\"killerkoala_tft_ack\",\"device\":\"heltec-t114-color\",\"source\":\"%s\",\"state\":\"%s\",\"active\":true,\"display_ready\":%s,\"display_mode\":\"%s\",\"gnss_enabled\":%s,\"gnss_primary\":true,\"ble_primary_enabled\":true,\"ble_scan_active\":%s,\"ble_tx_active\":%s,\"transport\":\"usb-cdc\"}\n",
+           KOALA_DEVICE, state ? state : current_state, loading_display_ready() ? "true" : "false",
+           strcmp(current_state, "loading") == 0 ? "jungle_loading_banner" : "status",
+           gnss_ready ? "true" : "false", ble_scan_active ? "true" : "false", ble_adv_active ? "true" : "false");
 }
 
 static void emit_lora_status(void)
@@ -493,6 +498,12 @@ static void handle_face_command(const char *line)
     }
     face_enabled = strstr(line, "\"enabled\":false") == NULL;
     face_until_ms = k_uptime_get() + duration_ms;
+
+    if (strcmp(current_state, "loading") == 0 || strstr(line, "\"display_mode\":\"jungle_loading_banner\"")) {
+        render_loading_banner(current_message);
+    } else {
+        loading_display_end();
+    }
     emit_ack(current_state);
 }
 
@@ -655,13 +666,16 @@ static void start_ble_primary(void)
 int main(void)
 {
     int64_t now;
+    bool tft_ready;
     boot_ms = k_uptime_get();
+    tft_ready = loading_display_init();
     if (usb_enable(NULL) != 0) {
         printk("{\"type\":\"usb_error\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"message\":\"usb_enable failed\"}\n", KOALA_DEVICE);
     }
     init_gnss();
     k_sleep(K_MSEC(1200));
-    printk("{\"type\":\"boot\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"role\":\"%s\",\"fw\":\"%s\",\"transport\":\"usb-cdc\",\"scope\":\"primary BLE RX/TX plus primary GNSS and mouth/status JSON; LoRa hook guarded; WiFi handled by Pi/ESP32\"}\n", KOALA_DEVICE, KOALA_ROLE, KOALA_FW);
+    printk("{\"type\":\"boot\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"role\":\"%s\",\"fw\":\"%s\",\"transport\":\"usb-cdc\",\"tft_ready\":%s,\"loading_display\":\"jungle_loading_banner\",\"scope\":\"primary BLE RX/TX plus primary GNSS, T114 TFT loading banner, and status JSON; LoRa hook guarded; WiFi and AI eyes handled by Pi/ESP32\"}\n",
+           KOALA_DEVICE, KOALA_ROLE, KOALA_FW, tft_ready ? "true" : "false");
     emit_node_roles();
     emit_mouth_status();
     emit_gnss_status();
@@ -674,6 +688,9 @@ int main(void)
         now = k_uptime_get();
         if (face_enabled && face_until_ms > 0 && now > face_until_ms) {
             face_until_ms = 0;
+            if (strcmp(current_state, "loading") == 0) {
+                loading_display_end();
+            }
             copy_safe(current_state, sizeof(current_state), "idle", "idle");
         }
         if (ble_adv_active && ble_adv_until_ms > 0 && now > ble_adv_until_ms) {
