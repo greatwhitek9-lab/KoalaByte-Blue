@@ -19,21 +19,32 @@ def _short(text: str, limit: int = 54) -> str:
 
 def loading_word_frame(step: int = 0, word: str = LOADING_WORD) -> str:
     """Return the letter-by-letter loading word frame: L, LO, LOA ... LOADING."""
+
     clean = "".join(ch for ch in str(word or LOADING_WORD).upper() if ch.isalnum()) or LOADING_WORD
     index = max(0, int(step)) % len(clean)
     return clean[: index + 1]
 
 
-def loading_step_for_started_at(started_at: float, now: Optional[float] = None, interval: float = LOADING_INTERVAL_SECONDS) -> int:
+def jungle_loading_banner(step: int = 0) -> str:
+    """Return the exact banner rendered on the Heltec T114 display."""
+
+    return f"{JUNGLE_LOADING_LEFT} {loading_word_frame(step)} {JUNGLE_LOADING_RIGHT}"
+
+
+def loading_step_for_started_at(
+    started_at: float,
+    now: Optional[float] = None,
+    interval: float = LOADING_INTERVAL_SECONDS,
+) -> int:
     t = time.time() if now is None else float(now)
     return max(0, int((t - float(started_at)) / max(0.05, float(interval))))
 
 
 def jungle_loading_message(action_title: str = "", step: int = 0) -> str:
-    """Jungle/Jumanji-style loading banner for face displays and terminal text."""
-    word = loading_word_frame(step)
+    """Jungle/Jumanji-style loading text for logs and terminal diagnostics."""
+
+    banner = jungle_loading_banner(step)
     suffix = _short(action_title)
-    banner = f"{JUNGLE_LOADING_LEFT} {word} {JUNGLE_LOADING_RIGHT}"
     return banner if not suffix else f"{banner} {suffix}"
 
 
@@ -57,9 +68,15 @@ class LoadingFaceSequence:
         step = 0
         while not self._stop.is_set():
             try:
-                from .killerkoala_face_bridge import emit_face
-                emit_face("loading", jungle_loading_message(self.action_title, step), duration_ms=self.duration_ms)
+                from .killerkoala_face_bridge import emit_loading_frame
+
+                emit_loading_frame(
+                    jungle_loading_banner(step),
+                    action_title=self.action_title,
+                    duration_ms=self.duration_ms,
+                )
             except Exception:
+                # A display transport failure must never stop the selected action.
                 pass
             step += 1
             self._stop.wait(max(0.05, float(self.interval_seconds)))
