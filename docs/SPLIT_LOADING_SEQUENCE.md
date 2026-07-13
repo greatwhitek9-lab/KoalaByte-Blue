@@ -24,7 +24,7 @@ The DualEye remains in KillerKoala AI-eye mode during the same loading period:
 
 - left eye remains ultraviolet/purple;
 - right eye remains cyber green;
-- the eye animation remains active;
+- the cyber eyes use the active pulse animation;
 - the Heltec loading text is not drawn over the eyes.
 
 ## Transport
@@ -33,10 +33,10 @@ The Raspberry Pi emits two separate USB CDC payloads for each loading frame:
 
 ```text
 Heltec T114          -> display_mode: jungle_loading_banner
-ESP32-S3 DualEye     -> display_mode: ai_eyes
+ESP32-S3 DualEye     -> display_mode: ai_eyes, animation: pulse
 ```
 
-A missing display or serial-port failure is non-fatal and does not stop the selected menu action.
+Serial control lines remain inactive while the ports open, preventing common ESP32 DTR/RTS auto-reset circuits from interrupting the loading animation. A missing display or serial-port failure is non-fatal and does not stop the selected menu action.
 
 ## Validation
 
@@ -55,7 +55,7 @@ PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py \
   --emit-loading-test --strict-ports
 ```
 
-The connected test sends `<< LOAD >>` to the T114 and an eyes-only loading payload to the DualEye.
+The connected test sends `<< LOAD >>` to the T114 and an eyes-only pulsing payload to the DualEye.
 
 ## Firmware update
 
