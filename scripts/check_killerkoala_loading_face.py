@@ -59,6 +59,10 @@ def main() -> int:
         failures.append("DualEye loading payload does not keep ai_eyes mode")
     if esp32_payload.get("preserve_eyes") is not True:
         failures.append("DualEye loading payload does not preserve the AI eyes")
+    if esp32_payload.get("look") != "cyber":
+        failures.append("DualEye loading payload does not preserve the KillerKoala cyber eye style")
+    if esp32_payload.get("animation") != "pulse":
+        failures.append("DualEye loading payload does not actively pulse the AI eyes")
     if esp32_payload.get("loading_text_on_eyes") is not False:
         failures.append("DualEye loading payload allows loading text over the AI eyes")
     if esp32_payload.get("message"):
@@ -79,6 +83,7 @@ def main() -> int:
         "jungle_loading_banner",
         "ai_eyes",
         "loading_text_on_eyes",
+        '"animation": "pulse"',
     ]:
         if marker not in bridge_text:
             failures.append(f"loading bridge missing split-display marker: {marker}")
@@ -132,7 +137,7 @@ def main() -> int:
         "requirements": [
             "Heltec T114 renders the jungle loading banner one letter at a time",
             "T114 display power is asserted before the ST7789 display driver initializes",
-            "ESP32-S3 DualEye keeps the KillerKoala AI eyes active during loading",
+            "ESP32-S3 DualEye keeps pulsing KillerKoala cyber eyes active during loading",
             "Loading text is not drawn over the DualEye eye display",
             "Loading transport failures do not stop the selected action",
         ],
