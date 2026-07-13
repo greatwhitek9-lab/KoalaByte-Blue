@@ -119,7 +119,7 @@ def validate_protocol() -> list[str]:
             [
                 "DT_CHOSEN(zephyr_display)",
                 "PIXEL_FORMAT_RGB_565",
-                "ST7789",
+                "TFT_WIDTH",
                 "draw_jungle_frame",
             ],
         )
