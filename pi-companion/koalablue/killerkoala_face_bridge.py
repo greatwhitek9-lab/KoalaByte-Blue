@@ -103,9 +103,24 @@ def _serial_write(port: str, baud: int, payload: dict) -> bool:
     try:
         import serial  # type: ignore
 
-        with serial.Serial(port, baudrate=baud, timeout=0.15, write_timeout=0.35) as ser:  # type: ignore[attr-defined]
+        # Configure the port while closed so DTR/RTS stay inactive when it opens.
+        # This avoids ESP32 auto-reset circuits firing during repeated loading frames.
+        ser = serial.Serial()  # type: ignore[attr-defined]
+        ser.port = port
+        ser.baudrate = baud
+        ser.timeout = 0.15
+        ser.write_timeout = 0.35
+        ser.dsrdtr = False
+        ser.rtscts = False
+        ser.dtr = False
+        ser.rts = False
+        try:
+            ser.open()
             ser.write((json.dumps(payload, separators=(",", ":")) + "\n").encode("utf-8"))
             ser.flush()
+        finally:
+            if ser.is_open:
+                ser.close()
         return True
     except Exception:
         return False
