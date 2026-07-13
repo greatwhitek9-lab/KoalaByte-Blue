@@ -90,6 +90,7 @@ BOARD_FILES = [
     "firmware/t114-combined-safe/CMakeLists.txt",
     "firmware/t114-combined-safe/prj.conf",
     "firmware/t114-combined-safe/src/main.c",
+    "firmware/t114-combined-safe/src/display_power_init.c",
     "firmware/t114-combined-safe/src/loading_display.c",
     "firmware/t114-combined-safe/src/loading_display.h",
     "firmware/esp32-dualeye/platformio.ini",
@@ -127,6 +128,7 @@ BOARD_FILES = [
     "docs/KOALA_KOMBAT_NODE_ROLES.md",
     "docs/GREATWHITE_REEF.md",
     "docs/TWOCAN_READ_ONLY_TOOLS.md",
+    "docs/SPLIT_LOADING_SEQUENCE.md",
     "pi-companion/koalblue/greatwhite_reef.py".replace("koalblue", "koalablue"),
     "pi-companion/koalablue/killerkoala_face_bridge.py",
     "pi-companion/koalablue/loading_face.py",
@@ -196,6 +198,33 @@ def _check_project_imports(modules: list[str]) -> tuple[dict[str, bool], list[st
     return results, failures
 
 
+def _run_loading_display_gate() -> tuple[dict[str, object], list[str]]:
+    """Execute the no-hardware T114 banner and DualEye active-eye validation."""
+    try:
+        from scripts.check_killerkoala_loading_face import main as check_loading_face
+
+        returncode = int(check_loading_face())
+        result = {
+            "executed": True,
+            "returncode": returncode,
+            "status_path": str(ROOT / "logs" / "killerkoala_face" / "loading_face_readiness.json"),
+            "checks": [
+                "exact L through LOADING jungle banner frames",
+                "Heltec T114 ST7789 renderer and early display power sequencing",
+                "compact T114 USB loading payload",
+                "ESP32-S3 DualEye cyber eye preservation and pulse animation",
+                "no loading banner text on the DualEye display",
+            ],
+        }
+        return result, [] if returncode == 0 else ["split loading display one-shot readiness gate returned a failure"]
+    except Exception as exc:
+        return {
+            "executed": False,
+            "returncode": 1,
+            "error": str(exc),
+        }, [f"split loading display one-shot readiness gate could not run: {exc}"]
+
+
 def _run_twocan_read_only_gate() -> tuple[dict[str, object], list[str]]:
     """Execute the no-hardware TwoCan safety/control test used by one-shot installs."""
     try:
@@ -234,10 +263,12 @@ def main() -> int:
     file_results, file_failures = _check_files(BOARD_FILES)
     module_results, module_failures = _check_project_imports(REQUIRED_PROJECT_MODULES)
     command_results, command_warnings = _check_commands(BOARD_COMMANDS)
+    loading_gate, loading_failures = _run_loading_display_gate()
     twocan_gate, twocan_failures = _run_twocan_read_only_gate()
     failures.extend(py_failures)
     failures.extend(file_failures)
     failures.extend(module_failures)
+    failures.extend(loading_failures)
     failures.extend(twocan_failures)
 
     strict_system = args.strict_system or os.environ.get("STRICT_FULL_RUNTIME_DEPENDENCIES") == "1"
@@ -253,10 +284,11 @@ def main() -> int:
         "project_modules": module_results,
         "board_files": file_results,
         "system_commands": command_results,
+        "split_loading_display_one_shot_gate": loading_gate,
         "twocan_read_only_one_shot_gate": twocan_gate,
         "loading_display_split": {
             "heltec_t114": "jungle_loading_banner",
-            "esp32_s3_dualeye": "ai_eyes",
+            "esp32_s3_dualeye": "pulsing_ai_eyes",
             "loading_text_on_dualeye": False,
         },
         "host_command_warnings": command_warnings,
