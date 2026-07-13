@@ -100,6 +100,18 @@ def main() -> int:
         if marker not in renderer_text:
             failures.append(f"T114 display renderer missing marker: {marker}")
 
+    power_init = ROOT / "firmware" / "t114-combined-safe" / "src" / "display_power_init.c"
+    power_text = power_init.read_text(encoding="utf-8", errors="ignore") if power_init.exists() else ""
+    for marker in ["SYS_INIT", "POST_KERNEL", "vext_control", "tft_enable", "tft_backlight"]:
+        if marker not in power_text:
+            failures.append(f"T114 early display power initializer missing marker: {marker}")
+
+    cmake = ROOT / "firmware" / "t114-combined-safe" / "CMakeLists.txt"
+    cmake_text = cmake.read_text(encoding="utf-8", errors="ignore") if cmake.exists() else ""
+    for marker in ["src/display_power_init.c", "src/loading_display.c"]:
+        if marker not in cmake_text:
+            failures.append(f"T114 build does not include loading display source: {marker}")
+
     esp32_firmware = ROOT / "firmware" / "esp32-dualeye" / "src" / "main.cpp"
     esp32_text = esp32_firmware.read_text(encoding="utf-8", errors="ignore") if esp32_firmware.exists() else ""
     for marker in ["handleKillerKoalaFace", "setKoalagotchiEyeStyle", "killerkoala_eye_ack"]:
@@ -119,6 +131,7 @@ def main() -> int:
         "esp32_payload": esp32_payload,
         "requirements": [
             "Heltec T114 renders the jungle loading banner one letter at a time",
+            "T114 display power is asserted before the ST7789 display driver initializes",
             "ESP32-S3 DualEye keeps the KillerKoala AI eyes active during loading",
             "Loading text is not drawn over the DualEye eye display",
             "Loading transport failures do not stop the selected action",
