@@ -8,6 +8,7 @@
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/sys/util.h>
 
+#include <errno.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -35,7 +36,6 @@ static const struct gpio_dt_spec tft_backlight = GPIO_DT_SPEC_GET(DT_ALIAS(tft_l
 
 static uint16_t framebuffer[TFT_WIDTH * TFT_HEIGHT];
 static bool display_ready_flag;
-static bool loading_active;
 
 static uint16_t rgb565(uint8_t red, uint8_t green, uint8_t blue)
 {
@@ -274,7 +274,6 @@ void render_loading_banner(const char *banner)
     }
     draw_jungle_frame(banner);
     flush_frame();
-    loading_active = true;
 }
 
 void loading_display_end(void)
@@ -287,5 +286,4 @@ void loading_display_end(void)
         framebuffer[index] = background;
     }
     flush_frame();
-    loading_active = false;
 }
