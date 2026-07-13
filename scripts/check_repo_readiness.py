@@ -28,12 +28,14 @@ REQUIRED_FILES = [
     "pi-companion/koalablue/bluez_lab_scope.py",
     "pi-companion/koalablue/esp32_touch_menu_bridge.py",
     "pi-companion/koalablue/t114_menu_status.py",
-    "pi-companion/koalablue/meshtastic_app.py",
+    "pi-companion/koalblue/meshtastic_app.py".replace("koalblue", "koalablue"),
     "pi-companion/koalablue/meshtastic_menu_items.py",
     "pi-companion/koalablue/location_password_gate.py",
     "pi-companion/koalablue/gpio_buttons.py",
     "pi-companion/koalablue/killerkoala_vocabulary.py",
     "pi-companion/koalablue/killerkoala_voice_control.py",
+    "pi-companion/koalablue/loading_face.py",
+    "pi-companion/koalablue/twocan_read_only.py",
     "scripts/check_deployability.sh",
     "scripts/check_menu_actions.py",
     "scripts/check_menu_theme_fit.py",
@@ -42,6 +44,11 @@ REQUIRED_FILES = [
     "scripts/check_esp32_touch_menu.py",
     "scripts/check_full_runtime_dependencies.py",
     "scripts/check_one_shot_controls.py",
+    "scripts/check_control_mode_fallback.py",
+    "scripts/check_killerkoala_loading_face.py",
+    "scripts/check_readme_menu_catalog.py",
+    "scripts/check_twocan_read_only.py",
+    "scripts/run_twocan_read_only.py",
     "scripts/run_menu_screen.py",
     "scripts/run_location_password_gate.py",
     "scripts/run_esp32_touch_menu_bridge.py",
@@ -57,6 +64,7 @@ REQUIRED_FILES = [
     "firmware/t114-combined-safe/prj.conf",
     "docs/ESP32_TOUCH_MENU_CALIBRATION.md",
     "docs/GREATWHITE_REEF.md",
+    "docs/TWOCAN_READ_ONLY_TOOLS.md",
     "docs/FRONT_PANEL_BUTTONS_REVA5.md",
     "docs/BUTTON_WIRING_REVA5.md",
 ]
@@ -94,7 +102,23 @@ SHELL_HELPERS = [
     "scripts/build_koalabyte_release_package.sh",
 ]
 
-REQUIRED_RUNTIME_REQUIREMENTS = ["bleak", "pyserial", "rich", "pydantic", "fastapi", "uvicorn", "requests", "httpx", "gpiozero", "pygame", "python-can", "pyttsx3", "SpeechRecognition", "meshtastic"]
+REQUIRED_RUNTIME_REQUIREMENTS = [
+    "bleak",
+    "pyserial",
+    "rich",
+    "pydantic",
+    "fastapi",
+    "uvicorn",
+    "requests",
+    "httpx",
+    "gpiozero",
+    "pygame",
+    "python-can",
+    "obd",
+    "pyttsx3",
+    "SpeechRecognition",
+    "meshtastic",
+]
 
 
 def _file_contains(path: Path, needles: list[str]) -> list[str]:
@@ -112,32 +136,75 @@ def check_required_files(failures: list[str]) -> None:
 
 def check_readme(failures: list[str]) -> None:
     text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    for needle in [
+
+    required_exact = [
         "bash scripts/install_koalabyte_one_shot.sh",
-        "bash install.sh --heltec-uf2-first",
         "--heltec-uf2-first",
-        "InnoMaker CAN kit is optional",
         "ESP32-S3 DualEye",
         "Heltec Mesh Node T114",
         "Koala Kombat Kruisin",
         "Meshtastic App",
-        "jungle/eucalyptus",
         "Didgeridoo",
         "GNSS",
-        "TinyLlama",
-        "Ollama",
         "GreatWhite Reef",
         "TigerShark",
         "Great Wire Shark",
         "logs/greatwhite_reef/pcaps/",
         "HT-n5262",
-        "Press the T114 RST key twice",
-        "8 independent key button module",
-        "K7 Power On/Off",
-        "K8 Reset / Reboot",
-    ]:
+        "TwoCan Read-Only Tools submenu",
+        "Stored DTC Report",
+        "Offline CAN Capture Review",
+    ]
+    for needle in required_exact:
         if needle not in text:
             failures.append(f"README.md missing expected deployment text: {needle}")
+
+    # README wording evolves. Validate each deployment concept using accepted
+    # current and legacy phrases instead of requiring one stale sentence.
+    required_concepts: dict[str, tuple[str, ...]] = {
+        "UF2-first top-level install command": (
+            "bash install.sh --heltec-uf2-first",
+            "bash koalabyte-install.sh --heltec-uf2-first",
+        ),
+        "optional InnoMaker CAN hardware": (
+            "InnoMaker CAN kit is optional",
+            "optional InnoMaker USB-to-CAN adapter",
+            "An optional InnoMaker USB-to-CAN adapter",
+        ),
+        "jungle and eucalyptus interface identity": (
+            "jungle/eucalyptus",
+            "jungle/Jumanji-inspired renderer",
+            "eucalyptus borders",
+        ),
+        "local KillerKoala AI support": (
+            "TinyLlama",
+            "Ollama",
+            "KillerKoala Hybrid",
+        ),
+        "Heltec double-reset UF2 instructions": (
+            "Press the T114 RST key twice",
+            "Press RST twice quickly",
+        ),
+        "eight-key front panel hardware": (
+            "8 independent key button module",
+            "eight-key K1-K8 GPIO board",
+            "K1-K8 button-board",
+        ),
+        "K7 shutdown control": (
+            "K7 Power On/Off",
+            "K7 -> Power On/Off",
+        ),
+        "K8 reboot control": (
+            "K8 Reset / Reboot",
+            "K8 -> Reset / Reboot",
+        ),
+    }
+    for concept, accepted_phrases in required_concepts.items():
+        if not any(phrase in text for phrase in accepted_phrases):
+            failures.append(
+                f"README.md missing deployment concept: {concept}; accepted phrases: "
+                + " | ".join(accepted_phrases)
+            )
 
 
 def check_config(failures: list[str]) -> None:
@@ -170,7 +237,7 @@ def check_requirements(failures: list[str]) -> None:
 
 def check_menu_catalog(failures: list[str]) -> None:
     try:
-        import koalablue  # noqa: F401 - triggers GreatWhite Reef menu extension
+        import koalablue  # noqa: F401 - installs dynamic menu extensions
         from koalablue.menu_catalog import MENU_GROUPS, SUBMENU_ITEMS, leaf_menu_entries, menu_labels
         from scripts.check_menu_actions import build_manifest
     except Exception as exc:
@@ -185,7 +252,23 @@ def check_menu_catalog(failures: list[str]) -> None:
     for group in ["Didgeridoo", "GreatWhite Reef"]:
         if group not in MENU_GROUPS:
             failures.append(f"menu catalog missing {group} group")
-    for submenu in ["eucalyptus", "kruisin", "bluetooth", "didgeridoo", "meshtastic", "can_bench", "greatwhite_reef", "reports", "system", "lab", "power"]:
+    for submenu in [
+        "eucalyptus",
+        "kruisin",
+        "bluetooth",
+        "koala_kapture",
+        "koala_kry",
+        "didgeridoo",
+        "meshtastic",
+        "can_bench",
+        "koala_kan",
+        "twocan_read_only",
+        "greatwhite_reef",
+        "reports",
+        "system",
+        "lab",
+        "power",
+    ]:
         if submenu not in SUBMENU_ITEMS:
             failures.append(f"menu catalog missing {submenu} submenu")
     if "keyboard" in SUBMENU_ITEMS:
@@ -210,6 +293,12 @@ def check_menu_catalog(failures: list[str]) -> None:
     for label in ["Koala Kapture", "Koala Kry", "KoalaByte Lab", "Dropbear Discovery Sweep", "Platypus BT-Proxy", "AntEater", "Urban Poaching"]:
         if label not in bluetooth_labels:
             failures.append(f"Bluetooth submenu missing {label}")
+
+    twocan_labels = set(menu_labels("twocan_read_only"))
+    for label in ["Run Full Read-Only Scan", "Stored DTC Report", "Pending DTC Report", "Permanent DTC Report", "Freeze-Frame Snapshot", "Readiness Monitors", "Live PID Snapshot", "Offline CAN Capture Review", "Repair Verification Checklist"]:
+        if label not in twocan_labels:
+            failures.append(f"TwoCan submenu missing {label}")
+
     lab_labels = set(menu_labels("lab"))
     for label in ["BlueZ Lab Scope Status", "Type BlueZ Lab Target", "Owned Device Scope ON", "Owned Device Scope OFF", "Clear BlueZ Lab Scope"]:
         if label not in lab_labels:
@@ -231,7 +320,11 @@ def check_project_markers(failures: list[str]) -> None:
     checks = {
         "install.sh": ["--heltec-uf2-first", "HT-n5262", "scripts/install_koalabyte_one_shot.sh"],
         "scripts/install_koalabyte_one_shot.sh": ["--heltec-uf2-first", "HELTEC_UF2_FIRST", "T114_REQUIRE_UF2", "T114_FLASH_METHOD=uf2"],
-        "scripts/check_deployability.sh": ["DEPLOYABILITY_READY", "--heltec-uf2-first", "T114_REQUIRE_UF2=1", "flash_t114_when_plugged.sh"],
+        "scripts/check_deployability.sh": ["DEPLOYABILITY_READY", "--heltec-uf2-first", "T114_REQUIRE_UF2=1", "flash_t114_when_plugged.sh", "check_readme_menu_catalog.py", "check_twocan_read_only.py"],
+        "scripts/check_readme_menu_catalog.py": ["README_MENU_CATALOG_COMPLETE", "TwoCan Read-Only Tools submenu", "greatwhite_pcap_read:<filename>"],
+        "scripts/check_twocan_read_only.py": ["TWOCAN_READ_ONLY_READY", "CLEAR_DTC", "voice", "touchscreen", "K1-K8 button board", "USB/Bluetooth keyboard"],
+        "pi-companion/koalablue/twocan_read_only.py": ["READ_ONLY_SERVICE_NAMES", "FORBIDDEN_COMMAND_NAMES", "captured_traffic_replay_enabled", "twocan_live_pid_log_30s"],
+        "pi-companion/koalablue/loading_face.py": ["LOADING_WORD", "loading_word_frame", "start_loading_face_sequence"],
         "pi-companion/koalablue/popup_keyboard.py": ["bluez_lab_target", "Create Location Password", "Unlock Current Process"],
         "pi-companion/koalablue/greatwhite_reef.py": ["GreatWhite Reef", "TigerShark", "Great Wire Shark", "greatwhite_pcap_read:", "logs/greatwhite_reef"],
         "pi-companion/koalablue/bluez_lab_scope.py": ["BLUEZ_LAB_SCOPE_READY", "apply_env", "set_owned", "set_target"],
@@ -251,6 +344,7 @@ def check_project_markers(failures: list[str]) -> None:
         "scripts/koalabyte_blue_boot.sh": ["MENU_NO_TERMINAL_FALLBACK", "--no-terminal-fallback", "wrapped graphical jungle UI"],
         "systemd/koalabyte-menu.service": ["koalabyte_blue_boot.sh", "WantedBy=multi-user.target", "MENU_GRAPHICAL=1", "MENU_NO_TERMINAL_FALLBACK=1"],
         "docs/GREATWHITE_REEF.md": ["TigerShark", "Great Wire Shark", "logs/greatwhite_reef/pcaps/", "PCAP 1"],
+        "docs/TWOCAN_READ_ONLY_TOOLS.md": ["TwoCan Read-Only Tools", "Stored DTC Report", "Offline CAN Capture Review", "captured traffic replay"],
         "docs/FRONT_PANEL_BUTTONS_REVA5.md": ["8 independent key button module", "K7", "K8", "Power On/Off", "Reset"],
         "docs/BUTTON_WIRING_REVA5.md": ["8 independent key button module", "K1", "K8", "3.3V only"],
     }
