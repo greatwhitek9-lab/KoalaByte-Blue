@@ -3,6 +3,7 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(koalabyte_t114_combined_safe)
 
 target_sources(app PRIVATE
+  src/display_power_init.c
   src/main.c
   src/loading_display.c
 )
