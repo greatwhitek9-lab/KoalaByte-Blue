@@ -37,17 +37,18 @@ def build_face_payload(state: str, message: str = "", enabled: bool = True, dura
 
 
 def build_heltec_loading_payload(frame: str, action_title: str = "", duration_ms: int = 1400) -> dict:
-    payload = build_face_payload("loading", frame, duration_ms=duration_ms)
-    payload.update(
-        {
-            "display_mode": "jungle_loading_banner",
-            "target_display": "heltec-t114",
-            "action_title": _short(action_title, 48),
-            "preserve_eyes": False,
-            "banner_frame": _short(frame, 20),
-        }
-    )
-    return payload
+    """Build a compact payload that fits the T114 USB command buffer."""
+
+    return {
+        "type": "killerkoala_face",
+        "enabled": True,
+        "state": "loading",
+        "message": _short(frame, 20),
+        "duration_ms": max(250, int(duration_ms)),
+        "display_mode": "jungle_loading_banner",
+        "target_display": "heltec-t114",
+        "action_title": _short(action_title, 24),
+    }
 
 
 def build_esp32_loading_eyes_payload(action_title: str = "", duration_ms: int = 1400) -> dict:
