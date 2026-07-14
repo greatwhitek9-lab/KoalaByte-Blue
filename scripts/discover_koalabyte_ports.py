@@ -12,79 +12,81 @@ from typing import Iterable
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "logs" / "preflight"
-KNOWN_HELTEC_T114_USB_ID = "usb_Heltec_HT_n5262_F0E6F99E30161F35-if00"
-KNOWN_HELTEC_T114_BY_ID = f"/dev/serial/by-id/{KNOWN_HELTEC_T114_USB_ID}"
-SAMPLE_ESP32_DUALEYE_USB_ID = "usb-ESPRESSIF_USB_JTAG_serial_debug_unit_A0:F2:62:E3:DE:54-if00"
-ESP32_DUALEYE_BY_ID_GLOBS = (
-    "/dev/serial/by-id/*ESPRESSIF*USB*JTAG*serial*debug*unit*-if00",
-    "/dev/serial/by-id/*Espressif*USB*JTAG*serial*debug*unit*-if00",
-    "/dev/serial/by-id/*espressif*usb*jtag*serial*debug*unit*-if00",
-    "/dev/serial/by-id/*USB_JTAG_serial_debug_unit*-if00",
-    "/dev/serial/by-id/*usb_JTAG_serial_debug_unit*-if00",
-)
-ESP32_DUALEYE_ID_HINTS = ("espressif", "usb_jtag_serial_debug_unit", "usb-jtag", "usb_jtag", "serial_debug", "serial-debug")
 
-STABLE_PATHS = {
-    "primary_ble": "/dev/koalabyte-heltec",
-    "heltec": "/dev/koalabyte-heltec",
-    "heltec_t114_by_id": KNOWN_HELTEC_T114_BY_ID,
-    "heltec_t114_alias": "/dev/koalabyte-heltec-t114",
-    "nrf_ble": "/dev/koalabyte-nrf-ble",  # legacy external dongle alias only
-    "esp32_eyes": "/dev/koalabyte-esp32-eyes",
-    "esp32_dualeye_sample_by_id": f"/dev/serial/by-id/{SAMPLE_ESP32_DUALEYE_USB_ID}",
-    "esp32_dualeye_alias": "/dev/koalabyte-esp32-dualeye",
-}
-
-PREFERRED_ROLE_PATHS = {
-    "primary_ble": (KNOWN_HELTEC_T114_BY_ID, "/dev/koalabyte-heltec-t114", "/dev/koalabyte-heltec"),
-    "heltec": (KNOWN_HELTEC_T114_BY_ID, "/dev/koalabyte-heltec-t114", "/dev/koalabyte-heltec"),
-    "nrf_ble": ("/dev/koalabyte-nrf-ble",),
-    "esp32_eyes": ("/dev/koalabyte-esp32-dualeye", "/dev/koalabyte-esp32-eyes"),
-}
-
-SERIAL_PATTERNS = [
+SERIAL_PATTERNS = (
     "/dev/serial/by-id/*",
     "/dev/ttyACM*",
     "/dev/ttyUSB*",
-    "/dev/cu.usbmodem*",
-    "/dev/cu.usbserial*",
-]
+)
 
-HINTS = {
-    "primary_ble": ("koalabyte-heltec", "heltec", "t114", "ht-n5262", "ht_n5262", "usb_heltec_ht_n5262", "n5262", "wireless_tracker", "wireless-tracker", "nrf52840"),
-    "heltec": ("koalabyte-heltec", "heltec", "t114", "ht-n5262", "ht_n5262", "usb_heltec_ht_n5262", "n5262", "wireless_tracker", "wireless-tracker", "nrf52840"),
-    "nrf_ble": ("koalabyte-nrf-ble", "nrf52840", "pca10059", "nordic", "adafruit", "jlink"),
-    "esp32_eyes": ("koalabyte-esp32-eyes", "koalabyte-esp32-dualeye", "esp32", "esp32-s3", "espressif", "usb_jtag", "usb-jtag", "serial_debug", "serial-debug", "cp210", "ch340", "wchusb", "usb-serial"),
+HELTEC_HINTS = (
+    "heltec",
+    "ht-n5262",
+    "ht_n5262",
+    "n5262",
+    "wireless_tracker",
+    "wireless-tracker",
+)
+ESP32_HINTS = (
+    "espressif",
+    "usb_jtag_serial_debug_unit",
+    "usb-jtag",
+    "usb_jtag",
+    "serial_debug",
+    "serial-debug",
+    "esp32",
+    "cp210",
+    "ch340",
+    "wchusb",
+)
+NRF_DONGLE_HINTS = (
+    "pca10059",
+    "nordic",
+    "nrf52840_dongle",
+    "nrf52840-dongle",
+    "adafruit_nrf52840",
+    "jlink",
+)
+
+STABLE_PATHS = {
+    "heltec": "/dev/koalabyte-heltec",
+    "heltec_t114_alias": "/dev/koalabyte-heltec-t114",
+    "esp32_dualeye": "/dev/koalabyte-esp32-dualeye",
+    "esp32_eyes": "/dev/koalabyte-esp32-eyes",
+    "legacy_nrf": "/dev/koalabyte-nrf-ble",
 }
 
 
 def run(args: list[str], timeout: float = 3.0) -> dict[str, object]:
     try:
-        p = subprocess.run(args, capture_output=True, text=True, timeout=timeout, check=False)
-        return {"command": args, "returncode": p.returncode, "stdout": p.stdout.strip(), "stderr": p.stderr.strip()}
-    except FileNotFoundError as exc:
+        proc = subprocess.run(args, capture_output=True, text=True, timeout=timeout, check=False)
+        return {
+            "command": args,
+            "returncode": proc.returncode,
+            "stdout": proc.stdout.strip(),
+            "stderr": proc.stderr.strip(),
+        }
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
         return {"command": args, "returncode": 127, "stdout": "", "stderr": str(exc)}
-    except subprocess.TimeoutExpired:
-        return {"command": args, "returncode": 124, "stdout": "", "stderr": "command timed out"}
 
 
 def unique_paths(paths: Iterable[Path]) -> list[Path]:
     seen: set[str] = set()
-    out: list[Path] = []
+    result: list[Path] = []
     for path in paths:
-        key = str(path)
-        if key not in seen:
-            seen.add(key)
-            out.append(path)
-    return out
+        value = str(path)
+        if value not in seen:
+            seen.add(value)
+            result.append(path)
+    return result
 
 
 def serial_candidates() -> list[dict[str, str]]:
     paths: list[Path] = []
     for pattern in SERIAL_PATTERNS:
-        paths.extend(sorted(Path("/").glob(pattern.lstrip("/"))))
-    entries = []
-    for path in unique_paths(paths):
+        paths.extend(Path("/").glob(pattern.lstrip("/")))
+    entries: list[dict[str, str]] = []
+    for path in unique_paths(sorted(paths)):
         try:
             resolved = str(path.resolve())
         except OSError:
@@ -94,7 +96,49 @@ def serial_candidates() -> list[dict[str, str]]:
     return entries
 
 
-def add_avoid_path(entries: list[dict[str, str]], avoid: set[str], selected: str) -> None:
+def has_any(label: str, hints: tuple[str, ...]) -> bool:
+    return any(hint in label for hint in hints)
+
+
+def choose_role(
+    entries: list[dict[str, str]],
+    hints: tuple[str, ...],
+    avoid: set[str],
+    stable_paths: tuple[str, ...] = (),
+) -> str:
+    for stable in stable_paths:
+        if stable and Path(stable).exists() and stable not in avoid:
+            return stable
+
+    scored: list[tuple[int, str]] = []
+    for entry in entries:
+        path = entry["path"]
+        resolved = entry["resolved"]
+        label = entry["label"]
+        if path in avoid or resolved in avoid:
+            continue
+
+        # Role-specific evidence is mandatory. A generic by-id or ttyACM path
+        # alone must never classify an Espressif board as a Nordic dongle.
+        if not has_any(label, hints):
+            continue
+
+        score = 100
+        if path.startswith("/dev/serial/by-id/"):
+            score += 25
+        if "ttyacm" in label:
+            score += 5
+        if "ttyusb" in label:
+            score += 3
+        scored.append((score, path))
+
+    if not scored:
+        return ""
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    return scored[0][1]
+
+
+def add_avoid(entries: list[dict[str, str]], avoid: set[str], selected: str) -> None:
     if not selected:
         return
     avoid.add(selected)
@@ -108,60 +152,12 @@ def add_avoid_path(entries: list[dict[str, str]], avoid: set[str], selected: str
             avoid.add(entry["resolved"])
 
 
-def dynamic_preferred_paths(role: str) -> list[str]:
-    if role != "esp32_eyes":
-        return []
-    paths: list[str] = []
-    for pattern in ESP32_DUALEYE_BY_ID_GLOBS:
-        paths.extend(sorted(glob.glob(pattern)))
-    return paths
+def serial_id(path: str) -> str:
+    return Path(path).name if path.startswith("/dev/serial/by-id/") else ""
 
 
-def serial_id_from_path(path: str) -> str:
-    if path.startswith("/dev/serial/by-id/"):
-        return Path(path).name
-    return ""
-
-
-def choose_port(entries: list[dict[str, str]], role: str, avoid: set[str]) -> str:
-    for preferred in [*dynamic_preferred_paths(role), *PREFERRED_ROLE_PATHS.get(role, (STABLE_PATHS.get(role, ""),))]:
-        if preferred and Path(preferred).exists() and preferred not in avoid:
-            return preferred
-
-    hints = HINTS[role]
-    scored: list[tuple[int, str]] = []
-    for entry in entries:
-        path = entry["path"]
-        resolved = entry["resolved"]
-        label = entry["label"]
-        if path in avoid or resolved in avoid:
-            continue
-        score = 0
-        if path == KNOWN_HELTEC_T114_BY_ID and role in {"primary_ble", "heltec"}:
-            score += 100
-        if role == "esp32_eyes" and any(hint in label for hint in ESP32_DUALEYE_ID_HINTS):
-            score += 60
-        if path.startswith("/dev/serial/by-id"):
-            score += 20
-        for hint in hints:
-            if hint in label:
-                score += 10
-        if role == "esp32_eyes" and ("ttyusb" in label or "usbserial" in label):
-            score += 3
-        if role == "esp32_eyes" and ("ttyacm" in label or "usbmodem" in label):
-            score += 2
-        if role in {"primary_ble", "heltec", "nrf_ble"} and ("ttyacm" in label or "usbmodem" in label):
-            score += 3
-        if score:
-            scored.append((score, path))
-    if not scored:
-        return ""
-    scored.sort(key=lambda item: (-item[0], item[1]))
-    return scored[0][1]
-
-
-def ip_link_exists(interface: str) -> bool:
-    return run(["ip", "link", "show", interface])["returncode"] == 0
+def interface_exists(name: str) -> bool:
+    return run(["ip", "link", "show", name])["returncode"] == 0
 
 
 def write_env(path: Path, values: dict[str, str]) -> None:
@@ -173,51 +169,46 @@ def write_env(path: Path, values: dict[str, str]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def resolve_profile(profile: str) -> str:
-    if profile == "auto":
-        return "heltec"
-    return profile
-
-
 def discover(profile: str) -> dict[str, object]:
-    profile = resolve_profile(profile)
     entries = serial_candidates()
     avoid: set[str] = set()
 
-    if profile == "heltec":
-        heltec = choose_port(entries, "heltec", avoid)
-        add_avoid_path(entries, avoid, heltec)
-        primary_ble = heltec
-        legacy_nrf = choose_port(entries, "nrf_ble", avoid)
-    else:
-        legacy_nrf = choose_port(entries, "nrf_ble", avoid)
-        add_avoid_path(entries, avoid, legacy_nrf)
-        heltec = choose_port(entries, "heltec", avoid)
-        primary_ble = legacy_nrf or heltec
+    heltec = choose_role(
+        entries,
+        HELTEC_HINTS,
+        avoid,
+        (STABLE_PATHS["heltec_t114_alias"], STABLE_PATHS["heltec"]),
+    )
+    add_avoid(entries, avoid, heltec)
 
-    add_avoid_path(entries, avoid, legacy_nrf)
-    add_avoid_path(entries, avoid, heltec)
-    esp32 = choose_port(entries, "esp32_eyes", avoid)
-    esp32_usb_id = serial_id_from_path(esp32)
+    esp32 = choose_role(
+        entries,
+        ESP32_HINTS,
+        avoid,
+        (STABLE_PATHS["esp32_dualeye"], STABLE_PATHS["esp32_eyes"]),
+    )
+    add_avoid(entries, avoid, esp32)
+
+    legacy_nrf = choose_role(entries, NRF_DONGLE_HINTS, avoid, (STABLE_PATHS["legacy_nrf"],))
+    primary_ble = heltec if profile == "heltec" else (legacy_nrf or heltec)
 
     can_interface = os.environ.get("CAN_INTERFACE", "can0")
     vcan_interface = os.environ.get("VCAN_INTERFACE", "vcan0")
 
     env = {
         "KOALABYTE_PRIMARY_BLE_PORT": primary_ble,
-        "KOALABYTE_PRIMARY_BLE_SOURCE": "heltec-t114-nrf52840" if profile == "heltec" else "legacy-nrf52840-dongle",
+        "KOALABYTE_PRIMARY_BLE_SOURCE": "heltec-t114-nrf52840" if heltec else "legacy-nrf52840-dongle",
         "KOALABYTE_HELTEC_USB_PORT": heltec,
         "HELTEC_PORT": heltec,
         "HELTEC_MODEL": "Heltec_T114" if heltec else "",
-        "HELTEC_USB_ID": KNOWN_HELTEC_T114_USB_ID if heltec else "",
-        "KOALABYTE_HELTEC_T114_BY_ID": KNOWN_HELTEC_T114_BY_ID if heltec else "",
-        # Backward-compatible aliases. In the Heltec Edition these point at the Heltec T114 onboard nRF52840.
+        "HELTEC_USB_ID": serial_id(heltec),
+        "KOALABYTE_HELTEC_T114_BY_ID": heltec if heltec.startswith("/dev/serial/by-id/") else "",
         "KOALABYTE_NRF_BLE_PORT": primary_ble,
         "NRF_BLE_PORT": primary_ble,
         "KOALABYTE_ESP32_FACE_PORT": esp32,
         "KOALABYTE_ESP32_MIC_PORT": esp32,
         "ESP32_PORT": esp32,
-        "ESP32_DUALEYE_USB_ID": esp32_usb_id,
+        "ESP32_DUALEYE_USB_ID": serial_id(esp32),
         "KOALABYTE_ESP32_DUALEYE_BY_ID": esp32 if esp32.startswith("/dev/serial/by-id/") else "",
         "CAN_INTERFACE": can_interface,
         "CAN_BITRATE": os.environ.get("CAN_BITRATE", "500000"),
@@ -229,53 +220,44 @@ def discover(profile: str) -> dict[str, object]:
         "timestamp": time.time(),
         "serial_candidates": entries,
         "stable_paths": STABLE_PATHS,
-        "known_heltec_t114_usb_id": KNOWN_HELTEC_T114_USB_ID,
-        "sample_esp32_dualeye_usb_id": SAMPLE_ESP32_DUALEYE_USB_ID,
-        "esp32_dualeye_by_id_globs": ESP32_DUALEYE_BY_ID_GLOBS,
-        "preferred_role_paths": PREFERRED_ROLE_PATHS,
         "ports": {
             "primary_ble": primary_ble,
             "primary_ble_source": env["KOALABYTE_PRIMARY_BLE_SOURCE"],
             "heltec": heltec,
-            "heltec_usb_id": KNOWN_HELTEC_T114_USB_ID if heltec else "",
+            "heltec_usb_id": serial_id(heltec),
             "legacy_nrf_ble": legacy_nrf,
             "esp32_eyes": esp32,
-            "esp32_dualeye_usb_id": esp32_usb_id,
+            "esp32_dualeye_usb_id": serial_id(esp32),
             "can_interface": can_interface,
-            "can_present": ip_link_exists(can_interface),
+            "can_present": interface_exists(can_interface),
             "vcan_interface": vcan_interface,
-            "vcan_present": ip_link_exists(vcan_interface),
+            "vcan_present": interface_exists(vcan_interface),
         },
         "env": env,
-        "commands": {
-            "lsusb": run(["lsusb"]),
-            "ip_link": run(["ip", "link"]),
-        },
+        "commands": {"lsusb": run(["lsusb"]), "ip_link": run(["ip", "link"])},
     }
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Discover KoalaByte Blue V2 Heltec Edition USB/CAN ports and write stable runtime env files.")
+    parser = argparse.ArgumentParser(description="Discover KoalaByte Blue USB and CAN roles.")
     parser.add_argument("--profile", choices=["main", "heltec", "auto"], default="heltec")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
-    parser.add_argument("--strict", action="store_true", help="fail if the profile's primary runtime port is not found")
+    parser.add_argument("--strict", action="store_true")
     args = parser.parse_args()
 
-    profile = resolve_profile(args.profile)
-    out_dir = Path(args.output_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    profile = "heltec" if args.profile == "auto" else args.profile
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
     report = discover(profile)
-    json_path = out_dir / "koalabyte_ports.json"
-    env_path = out_dir / "koalabyte_ports.env"
+    json_path = output_dir / "koalabyte_ports.json"
+    env_path = output_dir / "koalabyte_ports.env"
     json_path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
     write_env(env_path, report["env"])  # type: ignore[arg-type]
-
     print(json.dumps({"profile": profile, "json": str(json_path), "env": str(env_path), "ports": report["ports"]}, indent=2, sort_keys=True))
 
-    if args.strict:
-        ports = report["ports"]  # type: ignore[assignment]
-        primary = ports.get("primary_ble") if isinstance(ports, dict) else ""
-        if not primary:
+    ports = report["ports"]
+    if args.strict and isinstance(ports, dict):
+        if not ports.get("primary_ble") or not ports.get("esp32_eyes"):
             return 1
     return 0
 
