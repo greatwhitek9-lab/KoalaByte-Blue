@@ -19,6 +19,8 @@ Usage:
 The helper supports Raspberry Pi OS Bookworm and Trixie. Package names are
 resolved against the active apt repositories so one renamed optional package
 does not abort the complete dependency installation.
+
+GreatWhite Reef packet-review support is provided by tshark and wireshark.
 EOF
 }
 
