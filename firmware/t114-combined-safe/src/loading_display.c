@@ -24,15 +24,18 @@
 
 static const struct device *const display_dev = DEVICE_DT_GET(DISPLAY_NODE);
 
-#if DT_NODE_EXISTS(DT_ALIAS(vext_control))
-static const struct gpio_dt_spec vext_control = GPIO_DT_SPEC_GET(DT_ALIAS(vext_control), gpios);
-#endif
-#if DT_NODE_EXISTS(DT_ALIAS(tft_en))
-static const struct gpio_dt_spec tft_enable = GPIO_DT_SPEC_GET(DT_ALIAS(tft_en), gpios);
-#endif
-#if DT_NODE_EXISTS(DT_ALIAS(tft_led_en))
-static const struct gpio_dt_spec tft_backlight = GPIO_DT_SPEC_GET(DT_ALIAS(tft_led_en), gpios);
-#endif
+/*
+ * Use the stable T114 v2 GPIO numbers instead of board_controls aliases.
+ * This keeps the native ST7789 renderer usable with the NCS v2.9 board
+ * backport while display_power_init.c asserts the same pins before probe.
+ */
+#define KOALABYTE_GPIO0_NODE DT_NODELABEL(gpio0)
+#define KOALABYTE_VEXT_CONTROL_PIN 21
+#define KOALABYTE_TFT_ENABLE_PIN 3
+#define KOALABYTE_TFT_BACKLIGHT_PIN 15
+
+static const struct device *const koalabyte_gpio0 =
+    DEVICE_DT_GET(KOALABYTE_GPIO0_NODE);
 
 static uint16_t framebuffer[TFT_WIDTH * TFT_HEIGHT];
 static bool display_ready_flag;
@@ -208,12 +211,25 @@ static void draw_jungle_frame(const char *banner)
     }
 }
 
-static bool enable_output(const struct gpio_dt_spec *spec)
+static bool configure_board_outputs(void)
 {
-    if (!spec || !spec->port || !device_is_ready(spec->port)) {
+    if (!device_is_ready(koalabyte_gpio0)) {
         return false;
     }
-    return gpio_pin_configure_dt(spec, GPIO_OUTPUT_ACTIVE) == 0;
+
+    if (gpio_pin_configure(koalabyte_gpio0, KOALABYTE_VEXT_CONTROL_PIN,
+                           GPIO_OUTPUT) != 0 ||
+        gpio_pin_set(koalabyte_gpio0, KOALABYTE_VEXT_CONTROL_PIN, 1) != 0 ||
+        gpio_pin_configure(koalabyte_gpio0, KOALABYTE_TFT_ENABLE_PIN,
+                           GPIO_OUTPUT) != 0 ||
+        gpio_pin_set(koalabyte_gpio0, KOALABYTE_TFT_ENABLE_PIN, 0) != 0 ||
+        gpio_pin_configure(koalabyte_gpio0, KOALABYTE_TFT_BACKLIGHT_PIN,
+                           GPIO_OUTPUT) != 0 ||
+        gpio_pin_set(koalabyte_gpio0, KOALABYTE_TFT_BACKLIGHT_PIN, 0) != 0) {
+        return false;
+    }
+
+    return true;
 }
 
 static void flush_frame(void)
@@ -232,15 +248,10 @@ static void flush_frame(void)
 
 bool loading_display_init(void)
 {
-#if DT_NODE_EXISTS(DT_ALIAS(vext_control))
-    (void)enable_output(&vext_control);
-#endif
-#if DT_NODE_EXISTS(DT_ALIAS(tft_en))
-    (void)enable_output(&tft_enable);
-#endif
-#if DT_NODE_EXISTS(DT_ALIAS(tft_led_en))
-    (void)enable_output(&tft_backlight);
-#endif
+    if (!configure_board_outputs()) {
+        display_ready_flag = false;
+        return false;
+    }
 
     k_sleep(K_MSEC(40));
     if (!device_is_ready(display_dev)) {
