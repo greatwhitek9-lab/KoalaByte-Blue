@@ -3,81 +3,65 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/init.h>
 
+#include <errno.h>
+
 /*
- * The current Heltec T114 board definition exposes VEXT, TFT power, and TFT
- * backlight through aliases whose child nodes do not carry an explicit status.
- * When an application overlay disables the board_controls parent for an older
- * Zephyr/NCS compatibility build, each child still individually defaults to
- * status = "okay". Checking only the child therefore still expands invalid
- * GPIO_DT_SPEC_GET() macros.
+ * NCS v2.9 predates the upstream Heltec T114 v2 devicetree model.  Its GPIO
+ * macros cannot safely consume the board_controls child aliases from the
+ * backported board definition, even though the underlying nRF52840 GPIO pins
+ * are stable.  Drive the three documented T114 v2 control pins directly so
+ * display power is ready before the ST7789 driver probes the panel.
  *
- * Gate each specification on both the child and its parent. This keeps normal
- * display-power initialization on native board definitions, while completely
- * compiling it out when the compatibility overlay disables board_controls.
+ * Upstream board mapping:
+ *   P0.21 VEXT control       active high
+ *   P0.03 TFT enable        active low
+ *   P0.15 TFT backlight     active low
  */
-#define KOALABYTE_CONTROL_NODE_USABLE(node_id) \
-    (DT_NODE_HAS_STATUS(node_id, okay) && \
-     DT_NODE_HAS_STATUS(DT_PARENT(node_id), okay))
+#define KOALABYTE_GPIO0_NODE DT_NODELABEL(gpio0)
+#define KOALABYTE_VEXT_CONTROL_PIN 21
+#define KOALABYTE_TFT_ENABLE_PIN 3
+#define KOALABYTE_TFT_BACKLIGHT_PIN 15
 
-#if KOALABYTE_CONTROL_NODE_USABLE(DT_ALIAS(vext_control))
-#define KOALABYTE_HAS_VEXT_CONTROL 1
-static const struct gpio_dt_spec early_vext_control =
-    GPIO_DT_SPEC_GET(DT_ALIAS(vext_control), gpios);
-#else
-#define KOALABYTE_HAS_VEXT_CONTROL 0
-#endif
+static const struct device *const koalabyte_gpio0 =
+    DEVICE_DT_GET(KOALABYTE_GPIO0_NODE);
 
-#if KOALABYTE_CONTROL_NODE_USABLE(DT_ALIAS(tft_en))
-#define KOALABYTE_HAS_TFT_ENABLE 1
-static const struct gpio_dt_spec early_tft_enable =
-    GPIO_DT_SPEC_GET(DT_ALIAS(tft_en), gpios);
-#else
-#define KOALABYTE_HAS_TFT_ENABLE 0
-#endif
-
-#if KOALABYTE_CONTROL_NODE_USABLE(DT_ALIAS(tft_led_en))
-#define KOALABYTE_HAS_TFT_BACKLIGHT 1
-static const struct gpio_dt_spec early_tft_backlight =
-    GPIO_DT_SPEC_GET(DT_ALIAS(tft_led_en), gpios);
-#else
-#define KOALABYTE_HAS_TFT_BACKLIGHT 0
-#endif
-
-static int enable_pin(const struct gpio_dt_spec *spec)
+static int configure_output(unsigned int pin, int physical_level)
 {
-    if (!spec || !spec->port || !device_is_ready(spec->port)) {
-        return 0;
+    int rc;
+
+    if (!device_is_ready(koalabyte_gpio0)) {
+        return -ENODEV;
     }
-    return gpio_pin_configure_dt(spec, GPIO_OUTPUT_ACTIVE);
+
+    rc = gpio_pin_configure(koalabyte_gpio0, pin, GPIO_OUTPUT);
+    if (rc != 0) {
+        return rc;
+    }
+
+    return gpio_pin_set(koalabyte_gpio0, pin, physical_level);
 }
 
 static int koalabyte_t114_display_power_init(void)
 {
-    int rc = 0;
+    int rc;
 
-#if KOALABYTE_HAS_VEXT_CONTROL
-    rc = enable_pin(&early_vext_control);
+    rc = configure_output(KOALABYTE_VEXT_CONTROL_PIN, 1);
     if (rc != 0) {
         return rc;
     }
-#endif
-#if KOALABYTE_HAS_TFT_ENABLE
-    rc = enable_pin(&early_tft_enable);
-    if (rc != 0) {
-        return rc;
-    }
-#endif
-#if KOALABYTE_HAS_TFT_BACKLIGHT
-    rc = enable_pin(&early_tft_backlight);
-    if (rc != 0) {
-        return rc;
-    }
-#endif
 
-    return 0;
+    rc = configure_output(KOALABYTE_TFT_ENABLE_PIN, 0);
+    if (rc != 0) {
+        return rc;
+    }
+
+    return configure_output(KOALABYTE_TFT_BACKLIGHT_PIN, 0);
 }
 
-/* The ST7789 display driver initializes at CONFIG_DISPLAY_INIT_PRIORITY (85).
- * Run after GPIO devices are ready but before the display driver probes the panel.
+/*
+ * The ST7789 display driver initializes at CONFIG_DISPLAY_INIT_PRIORITY (85).
+ * Run after GPIO devices are ready but before the display driver probes the
+ * panel.  Keep the legacy marker names for the no-hardware readiness gate:
+ * vext_control, tft_enable, tft_backlight.
  */
 SYS_INIT(koalabyte_t114_display_power_init, POST_KERNEL, 70);
