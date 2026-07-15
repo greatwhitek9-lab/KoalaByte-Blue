@@ -3,14 +3,38 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/init.h>
 
-#if DT_NODE_EXISTS(DT_ALIAS(vext_control))
-static const struct gpio_dt_spec early_vext_control = GPIO_DT_SPEC_GET(DT_ALIAS(vext_control), gpios);
+/*
+ * The current Heltec T114 board definition exposes VEXT, TFT power, and TFT
+ * backlight through aliases.  When an application overlay disables the
+ * board_controls parent for compatibility with an older Zephyr/NCS release,
+ * those aliases still exist even though their nodes are not usable.
+ *
+ * DT_NODE_EXISTS() is therefore insufficient here: it causes
+ * GPIO_DT_SPEC_GET() to expand GPIO macros for disabled nodes.  Gate each
+ * specification and initialization path on status = "okay" instead.
+ */
+#if DT_NODE_HAS_STATUS(DT_ALIAS(vext_control), okay)
+#define KOALABYTE_HAS_VEXT_CONTROL 1
+static const struct gpio_dt_spec early_vext_control =
+    GPIO_DT_SPEC_GET(DT_ALIAS(vext_control), gpios);
+#else
+#define KOALABYTE_HAS_VEXT_CONTROL 0
 #endif
-#if DT_NODE_EXISTS(DT_ALIAS(tft_en))
-static const struct gpio_dt_spec early_tft_enable = GPIO_DT_SPEC_GET(DT_ALIAS(tft_en), gpios);
+
+#if DT_NODE_HAS_STATUS(DT_ALIAS(tft_en), okay)
+#define KOALABYTE_HAS_TFT_ENABLE 1
+static const struct gpio_dt_spec early_tft_enable =
+    GPIO_DT_SPEC_GET(DT_ALIAS(tft_en), gpios);
+#else
+#define KOALABYTE_HAS_TFT_ENABLE 0
 #endif
-#if DT_NODE_EXISTS(DT_ALIAS(tft_led_en))
-static const struct gpio_dt_spec early_tft_backlight = GPIO_DT_SPEC_GET(DT_ALIAS(tft_led_en), gpios);
+
+#if DT_NODE_HAS_STATUS(DT_ALIAS(tft_led_en), okay)
+#define KOALABYTE_HAS_TFT_BACKLIGHT 1
+static const struct gpio_dt_spec early_tft_backlight =
+    GPIO_DT_SPEC_GET(DT_ALIAS(tft_led_en), gpios);
+#else
+#define KOALABYTE_HAS_TFT_BACKLIGHT 0
 #endif
 
 static int enable_pin(const struct gpio_dt_spec *spec)
@@ -25,19 +49,19 @@ static int koalabyte_t114_display_power_init(void)
 {
     int rc = 0;
 
-#if DT_NODE_EXISTS(DT_ALIAS(vext_control))
+#if KOALABYTE_HAS_VEXT_CONTROL
     rc = enable_pin(&early_vext_control);
     if (rc != 0) {
         return rc;
     }
 #endif
-#if DT_NODE_EXISTS(DT_ALIAS(tft_en))
+#if KOALABYTE_HAS_TFT_ENABLE
     rc = enable_pin(&early_tft_enable);
     if (rc != 0) {
         return rc;
     }
 #endif
-#if DT_NODE_EXISTS(DT_ALIAS(tft_led_en))
+#if KOALABYTE_HAS_TFT_BACKLIGHT
     rc = enable_pin(&early_tft_backlight);
     if (rc != 0) {
         return rc;
