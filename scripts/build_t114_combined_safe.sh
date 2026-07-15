@@ -5,7 +5,8 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPO_ROOT}"
 
 BUILD_DIR="${T114_COMBINED_BUILD_DIR:-build/t114-combined-safe}"
-BOARD="${T114_BOARD:-heltec_t114_v2/nrf52840}"
+BOARD="${T114_BOARD:-heltec_t114_v2/nrf52840/uf2}"
+BOARD_ROOT="${T114_BOARD_ROOT:-${REPO_ROOT}}"
 APP_DIR="${T114_COMBINED_APP_DIR:-firmware/t114-combined-safe}"
 STATUS_PATH="${T114_COMBINED_STATUS_PATH:-logs/t114_combined_safe_build_status.json}"
 STRICT="${STRICT_T114_COMBINED_BUILD:-0}"
@@ -30,6 +31,7 @@ write_status() {
   "mode": "t114_combined_safe",
   "profile": "combined-safe",
   "board": $(json_escape "${BOARD}"),
+  "board_root": $(json_escape "${BOARD_ROOT}"),
   "app_dir": $(json_escape "${APP_DIR}"),
   "build_dir": $(json_escape "${BUILD_DIR}"),
   "primary_ble": "heltec-t114-nrf52840",
@@ -59,6 +61,15 @@ if [[ ! -d "${APP_DIR}" ]]; then
   exit 1
 fi
 
-west build -b "${BOARD}" "${APP_DIR}" -d "${BUILD_DIR}" -- -DKOALABYTE_GNSS_UART_LABEL="${T114_GNSS_UART_LABEL}"
+if [[ ! -f "${BOARD_ROOT}/boards/heltec/heltec_t114_v2/board.yml" ]]; then
+  write_status "missing_board_definition" "Heltec T114 V2 out-of-tree board definition is missing under ${BOARD_ROOT}/boards/heltec/heltec_t114_v2."
+  echo "Heltec T114 V2 board definition not found." >&2
+  echo "Install the upstream board files under: ${BOARD_ROOT}/boards/heltec/heltec_t114_v2" >&2
+  exit 1
+fi
+
+west build -p always -b "${BOARD}" "${APP_DIR}" -d "${BUILD_DIR}" -- \
+  -DBOARD_ROOT="${BOARD_ROOT}" \
+  -DKOALABYTE_GNSS_UART_LABEL="${T114_GNSS_UART_LABEL}"
 write_status "built" "T114 combined-safe firmware build completed."
 echo "T114 combined-safe build complete: ${BUILD_DIR}"
