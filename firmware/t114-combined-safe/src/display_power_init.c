@@ -5,15 +5,21 @@
 
 /*
  * The current Heltec T114 board definition exposes VEXT, TFT power, and TFT
- * backlight through aliases.  When an application overlay disables the
- * board_controls parent for compatibility with an older Zephyr/NCS release,
- * those aliases still exist even though their nodes are not usable.
+ * backlight through aliases whose child nodes do not carry an explicit status.
+ * When an application overlay disables the board_controls parent for an older
+ * Zephyr/NCS compatibility build, each child still individually defaults to
+ * status = "okay". Checking only the child therefore still expands invalid
+ * GPIO_DT_SPEC_GET() macros.
  *
- * DT_NODE_EXISTS() is therefore insufficient here: it causes
- * GPIO_DT_SPEC_GET() to expand GPIO macros for disabled nodes.  Gate each
- * specification and initialization path on status = "okay" instead.
+ * Gate each specification on both the child and its parent. This keeps normal
+ * display-power initialization on native board definitions, while completely
+ * compiling it out when the compatibility overlay disables board_controls.
  */
-#if DT_NODE_HAS_STATUS(DT_ALIAS(vext_control), okay)
+#define KOALABYTE_CONTROL_NODE_USABLE(node_id) \
+    (DT_NODE_HAS_STATUS(node_id, okay) && \
+     DT_NODE_HAS_STATUS(DT_PARENT(node_id), okay))
+
+#if KOALABYTE_CONTROL_NODE_USABLE(DT_ALIAS(vext_control))
 #define KOALABYTE_HAS_VEXT_CONTROL 1
 static const struct gpio_dt_spec early_vext_control =
     GPIO_DT_SPEC_GET(DT_ALIAS(vext_control), gpios);
@@ -21,7 +27,7 @@ static const struct gpio_dt_spec early_vext_control =
 #define KOALABYTE_HAS_VEXT_CONTROL 0
 #endif
 
-#if DT_NODE_HAS_STATUS(DT_ALIAS(tft_en), okay)
+#if KOALABYTE_CONTROL_NODE_USABLE(DT_ALIAS(tft_en))
 #define KOALABYTE_HAS_TFT_ENABLE 1
 static const struct gpio_dt_spec early_tft_enable =
     GPIO_DT_SPEC_GET(DT_ALIAS(tft_en), gpios);
@@ -29,7 +35,7 @@ static const struct gpio_dt_spec early_tft_enable =
 #define KOALABYTE_HAS_TFT_ENABLE 0
 #endif
 
-#if DT_NODE_HAS_STATUS(DT_ALIAS(tft_led_en), okay)
+#if KOALABYTE_CONTROL_NODE_USABLE(DT_ALIAS(tft_led_en))
 #define KOALABYTE_HAS_TFT_BACKLIGHT 1
 static const struct gpio_dt_spec early_tft_backlight =
     GPIO_DT_SPEC_GET(DT_ALIAS(tft_led_en), gpios);
