@@ -3,6 +3,8 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/init.h>
 
+#include <errno.h>
+
 /*
  * NCS v2.9 predates the upstream Heltec T114 v2 devicetree model.  Its GPIO
  * macros cannot safely consume the board_controls child aliases from the
