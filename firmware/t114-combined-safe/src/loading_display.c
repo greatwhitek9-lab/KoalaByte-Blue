@@ -269,7 +269,7 @@ bool loading_display_init(void)
     }
 
     display_ready_flag = true;
-    loading_display_end();
+    render_loading_banner("LOADING");
     return true;
 }
 
