@@ -17,7 +17,9 @@ config GPIO
 config USB_DEVICE_REMOTE_WAKEUP
 	default n
 
-source "boards/common/usb/Kconfig.cdc_acm_serial.defconfig"
+# NCS v2.9 predates boards/common/usb/Kconfig.cdc_acm_serial.defconfig.
+# Applications using the UF2 qualifier select the legacy USB CDC ACM stack in
+# their prj.conf.
 
 # Timing in nanoseconds / cycles at 64MHz for led strip
 config DELAY_T0H
