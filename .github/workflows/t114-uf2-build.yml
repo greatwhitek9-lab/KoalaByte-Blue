@@ -112,7 +112,7 @@ jobs:
           for required in \
             'CONFIG_BT=y' \
             'CONFIG_BT_CTLR=y' \
-            'CONFIG_BT_LL_SOFTDEVICE=y' \
+            'CONFIG_BT_LL_SW_SPLIT=y' \
             'CONFIG_BT_OBSERVER=y' \
             'CONFIG_BT_BROADCASTER=y' \
             'CONFIG_USB_DEVICE_STACK=y' \
@@ -124,11 +124,13 @@ jobs:
             'CONFIG_FLASH_LOAD_OFFSET=0x26000'; do
             grep -Fxq "${required}" "${cfg}"
           done
+          grep -Fxq '# CONFIG_BT_LL_SOFTDEVICE is not set' "${cfg}"
           grep -Fxq '# CONFIG_BT_CENTRAL is not set' "${cfg}"
           grep -Fxq '# CONFIG_BT_PERIPHERAL is not set' "${cfg}"
           grep -Fxq '# CONFIG_BT_SCAN_WITH_IDENTITY is not set' "${cfg}"
           grep -Fxq '# CONFIG_LORA is not set' "${cfg}"
-          grep -Fq 'zephyr,bt-hci = &bt_hci_sdc' "${dts}"
+          grep -Fq 'zephyr,bt-hci = &bt_hci_controller' "${dts}"
+          grep -Fq 'compatible = "zephyr,bt-hci-ll-sw-split"' "${dts}"
           grep -Fq 'zephyr,console = &board_cdc_acm_uart' "${dts}"
           grep -Fq 'code_partition: partition@26000' "${dts}"
           grep -Fq 'compatible = "sitronix,st7789v"' "${dts}"
@@ -156,7 +158,7 @@ jobs:
         run: |
           image_dir="build/t114-combined-safe/t114-combined-safe/zephyr"
           raw="${image_dir}/zephyr.uf2"
-          output="releases/koalabyte-t114-combined-safe-display-ht-n5262.uf2"
+          output="releases/koalabyte-t114-combined-safe-display-llsplit-ht-n5262.uf2"
           mkdir -p releases
           python3 scripts/inspect_uf2.py "${raw}" | tee releases/uf2-raw-metadata.txt
           python3 scripts/patch_uf2_family.py "${raw}" "${output}" 0xada52840
@@ -170,6 +172,7 @@ jobs:
             echo "workflow_run_id=${GITHUB_RUN_ID}"
             echo "board=heltec_t114_v2/nrf52840/uf2"
             echo "profile=t114-combined-safe"
+            echo "bluetooth_controller=zephyr_ll_sw_split"
             echo "ncs=v2.9.0"
             echo "zephyr_sdk=0.16.8"
             echo "uf2_family=0xada52840"
@@ -179,12 +182,12 @@ jobs:
       - name: Upload hardware-validation artifact
         uses: actions/upload-artifact@v4
         with:
-          name: koalabyte-t114-combined-safe-display-ht-n5262
+          name: koalabyte-t114-combined-safe-display-llsplit-ht-n5262
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 30
           path: |
-            releases/koalabyte-t114-combined-safe-display-ht-n5262.uf2
+            releases/koalabyte-t114-combined-safe-display-llsplit-ht-n5262.uf2
             releases/uf2-raw-metadata.txt
             releases/uf2-patched-metadata.txt
             releases/SHA256SUMS.txt
