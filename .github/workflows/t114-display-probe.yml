@@ -120,8 +120,11 @@ jobs:
           grep -Fq 'zephyr,display = &tft_display' "${dts}"
           grep -Fq 'code_partition: partition@26000' "${dts}"
           grep -Fq 'compatible = "sitronix,st7789v"' "${dts}"
-          grep -Fq 'width = < 0x87 >' "${dts}"
-          grep -Fq 'height = < 0xf0 >' "${dts}"
+          grep -Fq 'width = < 0xf0 >' "${dts}"
+          grep -Fq 'height = < 0x87 >' "${dts}"
+          grep -Fq 'x-offset = < 0x28 >' "${dts}"
+          grep -Fq 'y-offset = < 0x35 >' "${dts}"
+          grep -Fq 'mdac = < 0x60 >' "${dts}"
           grep -Fq 'usb_led_st7789_only' firmware/t114-display-probe/src/main.c
           grep -Fq 'render_loading_banner("LOADING")' firmware/t114-combined-safe/src/loading_display.c
           grep -Fq 'SYS_INIT(koalabyte_t114_display_power_init, POST_KERNEL, 70)' firmware/t114-combined-safe/src/display_power_init.c
