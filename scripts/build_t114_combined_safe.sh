@@ -54,12 +54,18 @@ if ! command -v west >/dev/null 2>&1; then
   fi
   echo "west not found; wrote ${STATUS_PATH}" >&2
   exit 0
-
+fi
 
 if [[ ! -d "${APP_DIR}" ]]; then
   write_status "missing_app" "Combined T114 firmware app directory is missing."
   exit 1
-f1
+fi
+
+west build -p always -b "${BOARD}" "${APP_DIR}" -d "${BUILD_DIR}" -- \
+  -DKOALABYTE_GNSS_UART_LABEL="${T114_GNSS_UART_LABEL}"
+
+write_status "built" "T114 combined-safe firmware build completed."
+echo "T114 combined-safe build complete: ${BUILD_DIR}"
 
 west build -p always -b "${BOARD}" "${APP_DIR}" -d "${BUILD_DIR}" -- \
   -DKOALABYTE_GNSS_UART_LABEL="${T114_GNSS_UART_LABEL}"
