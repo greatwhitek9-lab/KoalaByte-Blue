@@ -60,6 +60,15 @@ jobs:
       - name: Check out exact PR source
         uses: actions/checkout@v4
 
+      - name: Restore NCS and Zephyr SDK cache
+        id: ncs-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.NCS_WORKSPACE }}
+            ${{ env.ZEPHYR_SDK_INSTALL_DIR }}
+          key: t114-ncs-${{ env.NCS_REVISION }}-zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+
       - name: Prepare isolated Python bootstrap
         shell: bash
         run: |
@@ -73,7 +82,17 @@ jobs:
         shell: bash
         env:
           PYTHON_BIN: ${{ runner.temp }}/ncs-bootstrap/bin/python
+          SKIP_NCS_UPDATE: ${{ steps.ncs-cache.outputs.cache-hit == 'true' && '1' || '0' }}
         run: bash scripts/setup_nrf_connect_sdk_toolchain.sh
+
+      - name: Save NCS and Zephyr SDK cache
+        if: steps.ncs-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.NCS_WORKSPACE }}
+            ${{ env.ZEPHYR_SDK_INSTALL_DIR }}
+          key: ${{ steps.ncs-cache.outputs.cache-primary-key }}
 
       - name: Build combined-safe display BLE GNSS firmware
         shell: bash
