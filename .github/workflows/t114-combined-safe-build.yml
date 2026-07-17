@@ -31,10 +31,20 @@ jobs:
             wget \
             python3-pip
 
+      - name: Install west
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install west
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Verify west
+        run: |
+          west --version
+
       - name: Build firmware
         run: |
           chmod +x scripts/build_t114_combined_safe.sh
-          scripts/build_t114_combined_safe.sh
+          ./scripts/build_t114_combined_safe.sh
 
       - name: Locate build output
         run: |
@@ -42,7 +52,7 @@ jobs:
           find . -name "*.hex"
           find . -name "*.bin"
 
-      - name: Upload UF2
+      - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
           name: heltec-t114-firmware
