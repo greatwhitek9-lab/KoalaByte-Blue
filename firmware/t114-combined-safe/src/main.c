@@ -6,7 +6,7 @@
  *   - BLE RX, bounded lab BLE TX, GNSS NMEA parsing, TFT loading UI, and status JSON share USB CDC.
  *   - ESP32-S3 DualEye BLE and Raspberry Pi BlueZ remain secondary/fallback nodes.
  *   - During loading the T114 renders the jungle banner while the ESP32-S3 keeps the AI eyes active.
- *   - SX1262 LoRa status hooks remain present; direct LoRa radio driving stays guarded
+ *   - The normal profile exposes Meshtastic mode status; the Pi switches to the separate Meshtastic UF2
  *     until the exact T114 pin map, region, and recovery path are validated.
  */
 
@@ -35,7 +35,7 @@
 
 #define KOALA_DEVICE "heltec-t114-nrf52840"
 #define KOALA_ROLE "primary"
-#define KOALA_FW "0.5.1-t114-combined-safe-llsplit-ble-gnss-tft"
+#define KOALA_FW "0.6.0-t114-final-ble-gnss-tft-landscape"
 #define KOALA_DUPLICATE_SUPPRESS_MS 5000
 #define KOALA_RSSI_CHANGE_DB 8
 #define KOALA_CACHE_SIZE 48
@@ -481,7 +481,7 @@ static void emit_ack(const char *state)
 
 static void emit_lora_status(void)
 {
-    printk("{\"type\":\"lora_status\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"transport\":\"usb-cdc\",\"enabled\":false,\"guarded\":true,\"status\":\"pin_validation_required\",\"coexists_with\":[\"gnss\",\"ble\",\"wifi\"],\"note\":\"SX1262/LoRa direct driver is guarded until SPI, DIO, reset, busy, RF switch, region, and recovery settings are validated.\"}\n",
+    printk("{\"type\":\"lora_status\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"transport\":\"usb-cdc\",\"enabled\":false,\"guarded\":true,\"status\":\"meshtastic_profile_switch_required\",\"meshtastic_profile_available\":true,\"mode_switch\":\"pi_managed_uf2\",\"coexists_with\":[\"gnss\",\"ble\",\"wifi\"],\"note\":\"The normal KoalaByte profile keeps direct SX1262 driving disabled; the Pi switches the T114 to its separate verified Meshtastic UF2.\"}\n",
            KOALA_DEVICE);
 }
 
@@ -686,7 +686,7 @@ int main(void)
     }
     init_gnss();
     k_sleep(K_MSEC(1200));
-    printk("{\"type\":\"boot\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"role\":\"%s\",\"fw\":\"%s\",\"transport\":\"usb-cdc\",\"tft_ready\":%s,\"loading_display\":\"jungle_loading_banner\",\"scope\":\"primary BLE RX/TX plus primary GNSS, T114 TFT loading banner, and status JSON; LoRa hook guarded; WiFi and AI eyes handled by Pi/ESP32\"}\n",
+    printk("{\"type\":\"boot\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"role\":\"%s\",\"fw\":\"%s\",\"transport\":\"usb-cdc\",\"tft_ready\":%s,\"loading_display\":\"jungle_loading_banner\",\"scope\":\"primary BLE RX/TX plus primary GNSS, landscape T114 TFT, and USB status JSON; Meshtastic is a separate Pi-managed T114 UF2 profile; WiFi and AI eyes are handled by Pi/ESP32\"}\n",
            KOALA_DEVICE, KOALA_ROLE, KOALA_FW, tft_ready ? "true" : "false");
     emit_node_roles();
     emit_mouth_status();
