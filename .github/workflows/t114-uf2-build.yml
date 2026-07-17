@@ -104,7 +104,8 @@ jobs:
       - name: Patch and verify HT-n5262 UF2 metadata
         shell: bash
         run: |
-          raw="build/t114-combined-safe/zephyr/zephyr.uf2"
+          image_dir="build/t114-combined-safe/t114-combined-safe/zephyr"
+          raw="${image_dir}/zephyr.uf2"
           output="releases/koalabyte-t114-combined-safe-display-ht-n5262.uf2"
           mkdir -p releases
           python3 scripts/inspect_uf2.py "${raw}" | tee releases/uf2-raw-metadata.txt
@@ -135,5 +136,5 @@ jobs:
             releases/uf2-patched-metadata.txt
             releases/SHA256SUMS.txt
             releases/build-provenance.txt
-            build/t114-combined-safe/zephyr/.config
-            build/t114-combined-safe/zephyr/zephyr.dts
+            build/t114-combined-safe/t114-combined-safe/zephyr/.config
+            build/t114-combined-safe/t114-combined-safe/zephyr/zephyr.dts
