@@ -13,8 +13,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#define TFT_WIDTH 135
-#define TFT_HEIGHT 240
+#define TFT_WIDTH 240
+#define TFT_HEIGHT 135
 #define GLYPH_WIDTH 4
 #define GLYPH_HEIGHT 7
 #define GLYPH_SCALE 2
@@ -196,17 +196,24 @@ static void draw_jungle_frame(const char *banner)
         draw_leaf(x + 10, TFT_HEIGHT - 9, leaf_green);
     }
 
-    fill_rect(8, 91, TFT_WIDTH - 16, 2, shadow);
-    fill_rect(8, 145, TFT_WIDTH - 16, 2, shadow);
+    const int banner_y =
+        (TFT_HEIGHT - (GLYPH_HEIGHT * GLYPH_SCALE)) / 2;
+    const int banner_bottom =
+        banner_y + (GLYPH_HEIGHT * GLYPH_SCALE);
+    const int dot_y = MIN(banner_bottom + 15, TFT_HEIGHT - 10);
+
+    fill_rect(12, MAX(banner_y - 10, 9), TFT_WIDTH - 24, 2, shadow);
+    fill_rect(12, MIN(banner_bottom + 7, TFT_HEIGHT - 9),
+              TFT_WIDTH - 24, 2, shadow);
     draw_centered_banner(banner, gold);
 
     int active = loading_letter_count(banner);
     int start_x = (TFT_WIDTH - 61) / 2;
     for (int index = 0; index < 7; index++) {
         uint16_t dot = index < active ? gold : deep_green;
-        fill_rect(start_x + (index * 9), 161, 5, 5, dot);
+        fill_rect(start_x + (index * 9), dot_y, 5, 5, dot);
         if (index < active) {
-            set_pixel(start_x + (index * 9) + 2, 160, leaf_green);
+            set_pixel(start_x + (index * 9) + 2, dot_y - 1, leaf_green);
         }
     }
 }
