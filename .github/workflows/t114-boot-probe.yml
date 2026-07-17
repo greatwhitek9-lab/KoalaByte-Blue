@@ -1,0 +1,161 @@
+name: Build Heltec T114 USB LED boot probe
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - Main
+    paths:
+      - .github/workflows/t114-boot-probe.yml
+      - boards/heltec/heltec_t114_v2/**
+      - firmware/t114-boot-probe/**
+      - scripts/inspect_uf2.py
+      - scripts/patch_uf2_family.py
+      - scripts/setup_nrf_connect_sdk_toolchain.sh
+      - scripts/setup_system_packages.sh
+
+permissions:
+  contents: read
+
+concurrency:
+  group: t114-boot-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-t114-boot-probe:
+    name: Build isolated T114 USB LED boot probe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      NCS_WORKSPACE: ${{ github.workspace }}/.ncs
+      NCS_REVISION: v2.9.0
+      ZEPHYR_SDK_VERSION: 0.16.8
+      ZEPHYR_SDK_INSTALL_DIR: ${{ github.workspace }}/zephyr-sdk-0.16.8
+      INSTALL_NCS_TOOLCHAIN: "1"
+      STRICT_NCS_TOOLCHAIN: "1"
+      SKIP_NCS_UPDATE: "0"
+
+    steps:
+      - name: Check out exact source commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Restore NCS and Zephyr SDK cache
+        id: ncs-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.NCS_WORKSPACE }}
+            ${{ env.ZEPHYR_SDK_INSTALL_DIR }}
+          key: t114-ncs-${{ env.NCS_REVISION }}-zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Prepare isolated Python bootstrap
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-venv
+          python3 -m venv "${RUNNER_TEMP}/ncs-bootstrap"
+          "${RUNNER_TEMP}/ncs-bootstrap/bin/python" -m pip install --upgrade pip wheel setuptools west
+          echo "${RUNNER_TEMP}/ncs-bootstrap/bin" >> "${GITHUB_PATH}"
+
+      - name: Install nRF Connect SDK v2.9 and Zephyr SDK
+        shell: bash
+        env:
+          PYTHON_BIN: ${{ runner.temp }}/ncs-bootstrap/bin/python
+          SKIP_NCS_UPDATE: ${{ steps.ncs-cache.outputs.cache-hit == 'true' && '1' || '0' }}
+        run: bash scripts/setup_nrf_connect_sdk_toolchain.sh
+
+      - name: Build isolated boot probe
+        shell: bash
+        run: |
+          source logs/nrf_connect_sdk_env.sh
+          west build -p always \
+            -b heltec_t114_v2/nrf52840/uf2 \
+            firmware/t114-boot-probe \
+            -d build/t114-boot-probe \
+            -- -DBOARD_ROOT="${GITHUB_WORKSPACE}"
+
+      - name: Verify isolated boot contract
+        shell: bash
+        run: |
+          image_dir="build/t114-boot-probe/t114-boot-probe/zephyr"
+          cfg="${image_dir}/.config"
+          dts="${image_dir}/zephyr.dts"
+
+          for required in \
+            'CONFIG_GPIO=y' \
+            'CONFIG_SERIAL=y' \
+            'CONFIG_CONSOLE=y' \
+            'CONFIG_UART_CONSOLE=y' \
+            'CONFIG_USB_DEVICE_STACK=y' \
+            'CONFIG_USB_CDC_ACM=y' \
+            'CONFIG_BUILD_OUTPUT_UF2=y' \
+            'CONFIG_FLASH_LOAD_OFFSET=0x26000'; do
+            grep -Fxq "${required}" "${cfg}"
+          done
+
+          for forbidden in \
+            'CONFIG_BT=y' \
+            'CONFIG_DISPLAY=y' \
+            'CONFIG_GNSS=y' \
+            'CONFIG_LORA=y' \
+            'CONFIG_SPI=y' \
+            'CONFIG_SENSOR=y'; do
+            if grep -Fxq "${forbidden}" "${cfg}"; then
+              echo "Forbidden boot-probe subsystem enabled: ${forbidden}" >&2
+              exit 1
+            fi
+          done
+
+          grep -Fq 'zephyr,console = &board_cdc_acm_uart' "${dts}"
+          grep -Fq 'code_partition: partition@26000' "${dts}"
+          grep -Fq '"profile":"usb_led_only"' firmware/t114-boot-probe/src/main.c
+          grep -Fq 'k_sleep(K_SECONDS(1))' firmware/t114-boot-probe/src/main.c
+
+      - name: Patch and verify HT-n5262 UF2 metadata
+        shell: bash
+        env:
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          image_dir="build/t114-boot-probe/t114-boot-probe/zephyr"
+          raw="${image_dir}/zephyr.uf2"
+          output="releases/koalabyte-t114-boot-probe-usb-led-ht-n5262.uf2"
+          mkdir -p releases
+          python3 scripts/inspect_uf2.py "${raw}" | tee releases/boot-probe-uf2-raw-metadata.txt
+          python3 scripts/patch_uf2_family.py "${raw}" "${output}" 0xada52840
+          python3 scripts/inspect_uf2.py "${output}" | tee releases/boot-probe-uf2-patched-metadata.txt
+          grep -Fq 'Address min: 0x00026000' releases/boot-probe-uf2-patched-metadata.txt
+          grep -Fq "Families: ['0xada52840']" releases/boot-probe-uf2-patched-metadata.txt
+          sha256sum "${output}" | tee releases/BOOT_PROBE_SHA256SUMS.txt
+          {
+            echo "source_commit=${SOURCE_COMMIT}"
+            echo "workflow_commit=${GITHUB_SHA}"
+            echo "workflow_run_id=${GITHUB_RUN_ID}"
+            echo "board=heltec_t114_v2/nrf52840/uf2"
+            echo "profile=usb_led_only"
+            echo "display=disabled"
+            echo "bluetooth=disabled"
+            echo "gnss=disabled"
+            echo "lora=disabled"
+            echo "ncs=v2.9.0"
+            echo "zephyr_sdk=0.16.8"
+            echo "uf2_family=0xada52840"
+            echo "expected_offset=0x00026000"
+          } > releases/boot-probe-build-provenance.txt
+
+      - name: Upload boot-probe hardware-validation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: koalabyte-t114-boot-probe-usb-led-ht-n5262
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 30
+          path: |
+            releases/koalabyte-t114-boot-probe-usb-led-ht-n5262.uf2
+            releases/boot-probe-uf2-raw-metadata.txt
+            releases/boot-probe-uf2-patched-metadata.txt
+            releases/BOOT_PROBE_SHA256SUMS.txt
+            releases/boot-probe-build-provenance.txt
+            build/t114-boot-probe/t114-boot-probe/zephyr/.config
+            build/t114-boot-probe/t114-boot-probe/zephyr/zephyr.dts
