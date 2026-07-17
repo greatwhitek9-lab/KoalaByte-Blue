@@ -232,18 +232,31 @@ static bool configure_board_outputs(void)
     return true;
 }
 
+static uint16_t rotated[TFT_WIDTH * TFT_HEIGHT];
+
 static void flush_frame(void)
 {
     if (!display_ready_flag) {
         return;
     }
+
+    /* Rotate the framebuffer 180 degrees */
+    for (int y = 0; y < TFT_HEIGHT; y++) {
+        for (int x = 0; x < TFT_WIDTH; x++) {
+            rotated[(TFT_HEIGHT - 1 - y) * TFT_WIDTH +
+                    (TFT_WIDTH - 1 - x)] =
+                framebuffer[y * TFT_WIDTH + x];
+        }
+    }
+
     const struct display_buffer_descriptor descriptor = {
-        .buf_size = sizeof(framebuffer),
+        .buf_size = sizeof(rotated),
         .width = TFT_WIDTH,
         .height = TFT_HEIGHT,
         .pitch = TFT_WIDTH,
     };
-    (void)display_write(display_dev, 0, 0, &descriptor, framebuffer);
+
+    (void)display_write(display_dev, 0, 0, &descriptor, rotated);
 }
 
 bool loading_display_init(void)
