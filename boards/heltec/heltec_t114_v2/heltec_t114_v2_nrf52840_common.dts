@@ -24,6 +24,7 @@
 		zephyr,flash = &flash0;
 		zephyr,ieee802154 = &ieee802154;
 		zephyr,display = &tft_display;
+		zephyr,bt-hci = &bt_hci_controller;
 	};
 
 	leds {
@@ -187,6 +188,17 @@
 };
 
 &ieee802154 {
+	status = "okay";
+};
+
+/* The HT-n5262 UF2 bootloader already carries the Nordic S140 flash layout.
+ * Use Zephyr's in-tree controller, matching the upstream T114 board, instead
+ * of starting the nRF Connect SDK SoftDevice Controller alongside it. */
+&bt_hci_sdc {
+	status = "disabled";
+};
+
+&bt_hci_controller {
 	status = "okay";
 };
 
