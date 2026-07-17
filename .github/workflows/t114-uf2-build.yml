@@ -17,7 +17,7 @@ on:
       - scripts/setup_system_packages.sh
   push:
     branches:
-      - agent/render-t114-loading-banner
+      - Main
     paths:
       - .github/workflows/t114-uf2-build.yml
       - boards/heltec/heltec_t114_v2/**
@@ -44,8 +44,8 @@ jobs:
     env:
       NCS_WORKSPACE: ${{ github.workspace }}/.ncs
       NCS_REVISION: v2.9.0
-      ZEPHYR_SDK_VERSION: 0.17.0
-      ZEPHYR_SDK_INSTALL_DIR: ${{ github.workspace }}/.zephyr-sdk-0.17.0
+      ZEPHYR_SDK_VERSION: 0.16.8
+      ZEPHYR_SDK_INSTALL_DIR: ${{ github.workspace }}/.zephyr-sdk-0.16.8
       INSTALL_NCS_TOOLCHAIN: "1"
       STRICT_NCS_TOOLCHAIN: "1"
       SKIP_NCS_UPDATE: "0"
@@ -99,7 +99,7 @@ jobs:
             echo "board=heltec_t114_v2/nrf52840/uf2"
             echo "profile=t114-combined-safe"
             echo "ncs=v2.9.0"
-            echo "zephyr_sdk=0.17.0"
+            echo "zephyr_sdk=0.16.8"
             echo "uf2_family=0x239a0071"
             echo "expected_offset=0x00001000"
           } > releases/build-provenance.txt
