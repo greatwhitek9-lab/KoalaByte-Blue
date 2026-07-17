@@ -103,6 +103,48 @@ jobs:
           grep -Fq 'render_loading_banner("LOADING")' firmware/t114-combined-safe/src/loading_display.c
           bash scripts/build_t114_combined_safe.sh
 
+      - name: Verify KoalaByte feature and role contract
+        shell: bash
+        run: |
+          image_dir="build/t114-combined-safe/t114-combined-safe/zephyr"
+          cfg="${image_dir}/.config"
+          dts="${image_dir}/zephyr.dts"
+          for required in \
+            'CONFIG_BT=y' \
+            'CONFIG_BT_CTLR=y' \
+            'CONFIG_BT_LL_SOFTDEVICE=y' \
+            'CONFIG_BT_OBSERVER=y' \
+            'CONFIG_BT_BROADCASTER=y' \
+            'CONFIG_USB_DEVICE_STACK=y' \
+            'CONFIG_USB_CDC_ACM=y' \
+            'CONFIG_DISPLAY=y' \
+            'CONFIG_ST7789V=y' \
+            'CONFIG_ST7789V_RGB565=y' \
+            'CONFIG_BUILD_OUTPUT_UF2=y' \
+            'CONFIG_FLASH_LOAD_OFFSET=0x26000'; do
+            grep -Fxq "${required}" "${cfg}"
+          done
+          grep -Fq 'zephyr,bt-hci = &bt_hci_sdc' "${dts}"
+          grep -Fq 'zephyr,console = &board_cdc_acm_uart' "${dts}"
+          grep -Fq 'code_partition: partition@26000' "${dts}"
+          grep -Fq 'compatible = "sitronix,st7789v"' "${dts}"
+          grep -Fq 'uart1: uart@40028000' "${dts}"
+          grep -Fq 'compatible = "semtech,sx1262"' "${dts}"
+          for marker in \
+            'render_loading_banner("LOADING")' \
+            'start_ble_primary' \
+            'init_gnss' \
+            'killerkoala_face' \
+            'ble_lab_advertise_start' \
+            'node_roles' \
+            'lora_status'; do
+            grep -Fq "${marker}" firmware/t114-combined-safe/src/*.c
+          done
+          PYTHONPATH=pi-companion python3 scripts/check_killerkoala_loading_face.py
+          PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py
+          PYTHONPATH=pi-companion python3 scripts/check_menu_display_sync.py
+          PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
+
       - name: Patch and verify HT-n5262 UF2 metadata
         shell: bash
         env:
@@ -145,3 +187,8 @@ jobs:
             releases/build-provenance.txt
             build/t114-combined-safe/t114-combined-safe/zephyr/.config
             build/t114-combined-safe/t114-combined-safe/zephyr/zephyr.dts
+            logs/t114_combined_safe_build_status.json
+            logs/killerkoala_face/loading_face_readiness.json
+            logs/killerkoala_face/face_mouth_sync_status.json
+            logs/one_shot/menu_display_sync_status.json
+            logs/one_shot/control_surface_status.json
