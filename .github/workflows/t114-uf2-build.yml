@@ -45,7 +45,7 @@ jobs:
       NCS_WORKSPACE: ${{ github.workspace }}/.ncs
       NCS_REVISION: v2.9.0
       ZEPHYR_SDK_VERSION: 0.16.8
-      ZEPHYR_SDK_INSTALL_DIR: ${{ github.workspace }}/.zephyr-sdk-0.16.8
+      ZEPHYR_SDK_INSTALL_DIR: ${{ github.workspace }}/zephyr-sdk-0.16.8
       INSTALL_NCS_TOOLCHAIN: "1"
       STRICT_NCS_TOOLCHAIN: "1"
       SKIP_NCS_UPDATE: "0"
