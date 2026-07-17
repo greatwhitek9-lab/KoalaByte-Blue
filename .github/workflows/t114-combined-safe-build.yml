@@ -1,1 +1,52 @@
+name: Build Heltec T114 Combined Safe UF2
 
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - Main
+    paths:
+      - "firmware/t114-combined-safe/**"
+      - ".github/workflows/t114-combined-safe-build.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git \
+            cmake \
+            ninja-build \
+            gperf \
+            ccache \
+            dfu-util \
+            device-tree-compiler \
+            wget \
+            python3-pip
+
+      - name: Build firmware
+        run: |
+          chmod +x scripts/build_t114_combined_safe.sh
+          scripts/build_t114_combined_safe.sh
+
+      - name: Locate build output
+        run: |
+          find . -name "*.uf2"
+          find . -name "*.hex"
+          find . -name "*.bin"
+
+      - name: Upload UF2
+        uses: actions/upload-artifact@v4
+        with:
+          name: heltec-t114-firmware
+          path: |
+            **/*.uf2
+            **/*.hex
+            **/*.bin
