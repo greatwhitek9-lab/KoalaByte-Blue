@@ -2,8 +2,10 @@ name: Build Heltec T114 Combined Safe UF2
 
 on:
   workflow_dispatch:
+
   push:
-    branches: [ Main ]
+    branches:
+      - Main
     paths:
       - "firmware/t114-combined-safe/**"
       - "scripts/build_t114_combined_safe.sh"
@@ -14,9 +16,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Install prerequisites
+      - name: Install Linux packages
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -36,32 +39,28 @@ jobs:
           python3 -m pip install west
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Install nRF Connect SDK
+      - name: Install nRF Connect SDK v3.1.0
         run: |
-          west init -m https://github.com/nrfconnect/sdk-nrf --mr v2.9.0 ncs
+          west init -m https://github.com/nrfconnect/sdk-nrf --mr v3.1.0 ncs
           cd ncs
           west update
           west zephyr-export
           python3 -m pip install -r zephyr/scripts/requirements.txt
 
-      - name: Show Zephyr information
+      - name: Show SDK version
         run: |
           cd ncs/zephyr
-          echo "========== WEST =========="
-          west --version
-          echo
-          echo "========== ZEPHYR VERSION =========="
-          git describe --tags || true
+          git describe --tags --always
           git rev-parse HEAD
-          echo
-          echo "========== BOARDS DIRECTORY =========="
-          ls boards
-          echo
-          echo "========== HELTEC BOARDS =========="
-          find boards -type d | grep heltec || true
-          echo
-          echo "========== SEARCHING FOR heltec_t114_v2 =========="
-          find boards -type d -name "heltec_t114_v2" || true
+
+      - name: Check for Heltec board
+        run: |
+          echo "Searching for heltec_t114_v2..."
+          find ncs -type d -name "heltec_t114_v2" || true
+
+      - name: Show available Heltec boards
+        run: |
+          find ncs/zephyr/boards -iname "*heltec*" || true
 
       - name: Build firmware
         env:
@@ -69,6 +68,11 @@ jobs:
         run: |
           chmod +x scripts/build_t114_combined_safe.sh
           scripts/build_t114_combined_safe.sh
+
+      - name: Show build output
+        if: always()
+        run: |
+          find build -type f || true
 
       - name: Upload firmware
         if: always()
@@ -79,4 +83,3 @@ jobs:
             build/**/*.uf2
             build/**/*.hex
             build/**/*.bin
-            logs/**/*.json
