@@ -19,28 +19,24 @@ jobs:
     env:
       BOARD: heltec_t114_v2/nrf52840/uf2
       BOARD_ROOT: ${{ github.workspace }}
-      APP_DIR: firmware/t114-combined-safe
-      BUILD_DIR: build/t114-combined-safe
-      ZEPHYR_SDK_INSTALL_DIR: ${{ github.workspace }}/zephyr-sdk-0.17.0
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install system packages
+      - name: Install prerequisites
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             git \
             wget \
-            cmake \
             ninja-build \
+            cmake \
             gperf \
             ccache \
-            dfu-util \
             device-tree-compiler \
-            python3-pip \
-            xz-utils
+            dfu-util \
+            python3-pip
 
       - name: Install west
         run: |
@@ -48,35 +44,35 @@ jobs:
           python3 -m pip install west
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Download nRF Connect SDK 3.1.0
+      - name: Fetch nRF Connect SDK v3.1.0
         run: |
           west init -m https://github.com/nrfconnect/sdk-nrf --mr v3.1.0 ncs
           cd ncs
           west update
           west zephyr-export
-          python3 -m pip install -r zephyr/scripts/requirements.txt
+          pip3 install -r zephyr/scripts/requirements.txt
 
-      - name: Install Zephyr SDK 0.17.0
+      - name: Install Zephyr SDK
         run: |
+          cd $HOME
           wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.0/zephyr-sdk-0.17.0_linux-x86_64.tar.xz
-          tar -xf zephyr-sdk-0.17.0_linux-x86_64.tar.xz
+          tar xf zephyr-sdk-0.17.0_linux-x86_64.tar.xz
           cd zephyr-sdk-0.17.0
-          ./setup.sh -t arm-zephyr-eabi
+          ./setup.sh -c
+          echo "ZEPHYR_SDK_INSTALL_DIR=$HOME/zephyr-sdk-0.17.0" >> $GITHUB_ENV
 
-      - name: Verify custom board exists
+      - name: Verify custom board
         run: |
-          echo "===== Repository boards ====="
-          find "$GITHUB_WORKSPACE/boards" -maxdepth 3 -type d || true
+          echo "Repository root:"
+          pwd
 
           echo
-          echo "===== Heltec board files ====="
-          ls -R "$GITHUB_WORKSPACE/boards/heltec/heltec_t114_v2"
+          echo "Boards directory:"
+          find boards -maxdepth 3 -type d || true
 
-      - name: Show SDK version
-        run: |
-          cd ncs/zephyr
-          git describe --tags --always
-          git rev-parse HEAD
+          echo
+          echo "Heltec board:"
+          ls -R boards/heltec/heltec_t114_v2
 
       - name: Build firmware
         env:
@@ -84,16 +80,13 @@ jobs:
           BOARD_ROOT: ${{ github.workspace }}
           T114_BOARD: heltec_t114_v2/nrf52840/uf2
           T114_BOARD_ROOT: ${{ github.workspace }}
-          T114_COMBINED_APP_DIR: firmware/t114-combined-safe
-          T114_COMBINED_BUILD_DIR: build/t114-combined-safe
         run: |
           chmod +x scripts/build_t114_combined_safe.sh
           ./scripts/build_t114_combined_safe.sh
 
-      - name: Show build directory
+      - name: Show build output
         if: always()
         run: |
-          echo "===== Build output ====="
           find build -type f || true
 
       - name: Upload firmware
