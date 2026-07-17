@@ -11,6 +11,7 @@ on:
       - firmware/t114-boot-probe/**
       - scripts/inspect_uf2.py
       - scripts/patch_uf2_family.py
+      - scripts/verify_uf2_vector.py
       - scripts/setup_nrf_connect_sdk_toolchain.sh
       - scripts/setup_system_packages.sh
 
@@ -70,7 +71,7 @@ jobs:
         shell: bash
         run: |
           source logs/nrf_connect_sdk_env.sh
-          west build -p always \
+          west build --no-sysbuild -p always \
             -b heltec_t114_v2/nrf52840/uf2 \
             firmware/t114-boot-probe \
             -d build/t114-boot-probe \
@@ -79,7 +80,7 @@ jobs:
       - name: Verify isolated boot contract
         shell: bash
         run: |
-          image_dir="build/t114-boot-probe/t114-boot-probe/zephyr"
+          image_dir="build/t114-boot-probe/zephyr"
           cfg="${image_dir}/.config"
           dts="${image_dir}/zephyr.dts"
 
@@ -101,7 +102,8 @@ jobs:
             'CONFIG_GNSS=y' \
             'CONFIG_LORA=y' \
             'CONFIG_SPI=y' \
-            'CONFIG_SENSOR=y'; do
+            'CONFIG_SENSOR=y' \
+            'CONFIG_PARTITION_MANAGER_ENABLED=y'; do
             if grep -Fxq "${forbidden}" "${cfg}"; then
               echo "Forbidden boot-probe subsystem enabled: ${forbidden}" >&2
               exit 1
@@ -118,15 +120,21 @@ jobs:
         env:
           SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          image_dir="build/t114-boot-probe/t114-boot-probe/zephyr"
+          image_dir="build/t114-boot-probe/zephyr"
           raw="${image_dir}/zephyr.uf2"
-          output="releases/koalabyte-t114-boot-probe-usb-led-ht-n5262.uf2"
+          output="releases/koalabyte-t114-boot-probe-relocated-239a-usb-led-ht-n5262.uf2"
           mkdir -p releases
           python3 scripts/inspect_uf2.py "${raw}" | tee releases/boot-probe-uf2-raw-metadata.txt
-          python3 scripts/patch_uf2_family.py "${raw}" "${output}" 0xada52840
+          python3 scripts/patch_uf2_family.py "${raw}" "${output}" 0x239a0071
           python3 scripts/inspect_uf2.py "${output}" | tee releases/boot-probe-uf2-patched-metadata.txt
           grep -Fq 'Address min: 0x00026000' releases/boot-probe-uf2-patched-metadata.txt
-          grep -Fq "Families: ['0xada52840']" releases/boot-probe-uf2-patched-metadata.txt
+          grep -Fq "Families: ['0x239a0071']" releases/boot-probe-uf2-patched-metadata.txt
+          python3 scripts/verify_uf2_vector.py "${output}" \
+            --vector-address 0x26000 \
+            --application-min 0x26000 \
+            --application-max 0xec000 \
+            --family 0x239a0071 | tee releases/boot-probe-vector-validation.txt
+          grep -Fq 'Reset handler range valid: true' releases/boot-probe-vector-validation.txt
           sha256sum "${output}" | tee releases/BOOT_PROBE_SHA256SUMS.txt
           {
             echo "source_commit=${SOURCE_COMMIT}"
@@ -140,22 +148,28 @@ jobs:
             echo "lora=disabled"
             echo "ncs=v2.9.0"
             echo "zephyr_sdk=0.16.8"
-            echo "uf2_family=0xada52840"
+            echo "uf2_family=0x239a0071"
             echo "expected_offset=0x00026000"
+            echo "sysbuild=disabled"
+            echo "vector_relocation=validated"
           } > releases/boot-probe-build-provenance.txt
 
       - name: Upload boot-probe hardware-validation artifact
         uses: actions/upload-artifact@v4
         with:
-          name: koalabyte-t114-boot-probe-usb-led-ht-n5262
+          name: koalabyte-t114-boot-probe-relocated-239a-usb-led-ht-n5262
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 30
           path: |
-            releases/koalabyte-t114-boot-probe-usb-led-ht-n5262.uf2
+            releases/koalabyte-t114-boot-probe-relocated-239a-usb-led-ht-n5262.uf2
             releases/boot-probe-uf2-raw-metadata.txt
             releases/boot-probe-uf2-patched-metadata.txt
             releases/BOOT_PROBE_SHA256SUMS.txt
             releases/boot-probe-build-provenance.txt
-            build/t114-boot-probe/t114-boot-probe/zephyr/.config
-            build/t114-boot-probe/t114-boot-probe/zephyr/zephyr.dts
+            releases/boot-probe-vector-validation.txt
+            build/t114-boot-probe/zephyr/.config
+            build/t114-boot-probe/zephyr/zephyr.dts
+            build/t114-boot-probe/zephyr/zephyr.elf
+            build/t114-boot-probe/zephyr/zephyr.map
+            build/t114-boot-probe/zephyr/zephyr.hex
