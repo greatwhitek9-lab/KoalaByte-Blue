@@ -42,10 +42,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
-      NCS_WORKSPACE: ${{ runner.temp }}/ncs
+      NCS_WORKSPACE: ${{ github.workspace }}/.ncs
       NCS_REVISION: v2.9.0
       ZEPHYR_SDK_VERSION: 0.17.0
-      ZEPHYR_SDK_INSTALL_DIR: ${{ runner.temp }}/zephyr-sdk-0.17.0
+      ZEPHYR_SDK_INSTALL_DIR: ${{ github.workspace }}/.zephyr-sdk-0.17.0
       INSTALL_NCS_TOOLCHAIN: "1"
       STRICT_NCS_TOOLCHAIN: "1"
       SKIP_NCS_UPDATE: "0"
