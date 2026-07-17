@@ -13,6 +13,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
+#include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/sys/util.h>
@@ -52,6 +53,14 @@
 #define CONSOLE_NODE DT_CHOSEN(zephyr_console)
 static const struct device *const console_dev = DEVICE_DT_GET(CONSOLE_NODE);
 
+#define KOALA_GNSS_UART_NODE DT_NODELABEL(uart1)
+#define KOALA_GPIO1_NODE DT_NODELABEL(gpio1)
+#define KOALA_GNSS_RESET_PIN 6
+#define KOALA_GNSS_WAKEUP_PIN 2
+
+static const struct device *const gnss_dev = DEVICE_DT_GET(KOALA_GNSS_UART_NODE);
+static const struct device *const koala_gpio1 = DEVICE_DT_GET(KOALA_GPIO1_NODE);
+
 struct seen_entry {
     bt_addr_le_t addr;
     int8_t rssi;
@@ -83,7 +92,6 @@ static int64_t face_until_ms;
 static char rx_line[KOALA_LINE_MAX];
 static size_t rx_len;
 
-static const struct device *gnss_dev;
 static char gnss_label[24] = KOALABYTE_GNSS_UART_LABEL;
 static char gnss_line[KOALA_NMEA_MAX];
 static size_t gnss_len;
@@ -400,19 +408,23 @@ static void parse_nmea_sentence(char *sentence)
 
 static void init_gnss(void)
 {
-    const char *candidates[] = {KOALABYTE_GNSS_UART_LABEL, "UART_1", "UARTE_1", "uart1"};
-    for (size_t i = 0; i < ARRAY_SIZE(candidates); i++) {
-        if (!candidates[i] || candidates[i][0] == '\0') {
-            continue;
-        }
-        gnss_dev = device_get_binding(candidates[i]);
-        if (gnss_dev && device_is_ready(gnss_dev)) {
-            copy_safe(gnss_label, sizeof(gnss_label), candidates[i], "UART_1");
-            gnss_ready = true;
-            return;
-        }
-    }
     gnss_ready = false;
+
+    if (!device_is_ready(koala_gpio1) || !device_is_ready(gnss_dev)) {
+        return;
+    }
+
+    /* Keep L76K reset inactive and force the receiver awake. VEXT is already
+     * enabled by the early board power initializer used by the display. */
+    if (gpio_pin_configure(koala_gpio1, KOALA_GNSS_RESET_PIN,
+                           GPIO_OUTPUT_HIGH) != 0 ||
+        gpio_pin_configure(koala_gpio1, KOALA_GNSS_WAKEUP_PIN,
+                           GPIO_OUTPUT_HIGH) != 0) {
+        return;
+    }
+
+    copy_safe(gnss_label, sizeof(gnss_label), "uart1", "uart1");
+    gnss_ready = true;
 }
 
 static void poll_gnss(void)
