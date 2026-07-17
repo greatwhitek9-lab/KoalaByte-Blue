@@ -35,7 +35,7 @@
 
 #define KOALA_DEVICE "heltec-t114-nrf52840"
 #define KOALA_ROLE "primary"
-#define KOALA_FW "0.5.0-t114-combined-safe-ble-gnss-tft"
+#define KOALA_FW "0.5.1-t114-combined-safe-llsplit-ble-gnss-tft"
 #define KOALA_DUPLICATE_SUPPRESS_MS 5000
 #define KOALA_RSSI_CHANGE_DB 8
 #define KOALA_CACHE_SIZE 48
@@ -693,6 +693,10 @@ int main(void)
     emit_gnss_status();
     emit_lora_status();
     emit_tx_status("idle", "boot");
+    /* Give the TFT banner and USB CDC endpoint time to become observable
+     * before the radio controller starts. This also makes first-boot faults
+     * distinguishable during the monitored hardware gate. */
+    k_sleep(K_MSEC(3000));
     start_ble_primary();
     while (true) {
         poll_usb_commands();
