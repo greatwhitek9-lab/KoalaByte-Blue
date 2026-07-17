@@ -239,5 +239,18 @@
 
 zephyr_udc0: &usbd {
 	status = "okay";
+
+	board_cdc_acm_uart: board_cdc_acm_uart {
+		compatible = "zephyr,cdc-acm-uart";
+	};
 };
-#include <../boards/common/usb/cdc_acm_serial.dtsi>
+
+/ {
+	chosen {
+		zephyr,console = &board_cdc_acm_uart;
+		zephyr,shell-uart = &board_cdc_acm_uart;
+		zephyr,uart-mcumgr = &board_cdc_acm_uart;
+		zephyr,bt-mon-uart = &board_cdc_acm_uart;
+		zephyr,bt-c2h-uart = &board_cdc_acm_uart;
+	};
+};
