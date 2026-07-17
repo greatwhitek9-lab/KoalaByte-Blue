@@ -2,6 +2,19 @@ name: Build Heltec T114 combined-safe UF2
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - Main
+    paths:
+      - .github/workflows/t114-uf2-build.yml
+      - boards/heltec/heltec_t114_v2/**
+      - firmware/t114-combined-safe/**
+      - scripts/build_t114_combined_safe.sh
+      - scripts/inspect_uf2.py
+      - scripts/patch_uf2_family.py
+      - scripts/setup_nrf_connect_sdk_toolchain.sh
+      - scripts/setup_nrf_tools.sh
+      - scripts/setup_system_packages.sh
   push:
     branches:
       - agent/render-t114-loading-banner
