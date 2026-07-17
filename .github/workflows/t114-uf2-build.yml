@@ -124,11 +124,18 @@ jobs:
             'CONFIG_FLASH_LOAD_OFFSET=0x26000'; do
             grep -Fxq "${required}" "${cfg}"
           done
-          grep -Fxq '# CONFIG_BT_LL_SOFTDEVICE is not set' "${cfg}"
-          grep -Fxq '# CONFIG_BT_CENTRAL is not set' "${cfg}"
-          grep -Fxq '# CONFIG_BT_PERIPHERAL is not set' "${cfg}"
-          grep -Fxq '# CONFIG_BT_SCAN_WITH_IDENTITY is not set' "${cfg}"
-          grep -Fxq '# CONFIG_LORA is not set' "${cfg}"
+          for forbidden in \
+            'CONFIG_BT_LL_SOFTDEVICE=y' \
+            'CONFIG_BT_CENTRAL=y' \
+            'CONFIG_BT_PERIPHERAL=y' \
+            'CONFIG_BT_SCAN_WITH_IDENTITY=y' \
+            'CONFIG_LORA=y'; do
+            if grep -Fxq "${forbidden}" "${cfg}"; then
+              echo "Forbidden configuration is enabled: ${forbidden}" >&2
+              exit 1
+            fi
+          done
+          grep -E '^(CONFIG_BT_LL_|CONFIG_BT_CTLR|CONFIG_BT_OBSERVER|CONFIG_BT_BROADCASTER|CONFIG_USB_DEVICE_STACK|CONFIG_USB_CDC_ACM|CONFIG_DISPLAY|CONFIG_ST7789V|CONFIG_FLASH_LOAD_OFFSET)' "${cfg}"
           grep -Fq 'zephyr,bt-hci = &bt_hci_controller' "${dts}"
           grep -Fq 'compatible = "zephyr,bt-hci-ll-sw-split"' "${dts}"
           grep -Fq 'zephyr,console = &board_cdc_acm_uart' "${dts}"
