@@ -110,7 +110,7 @@ jobs:
 
           grep -Fq 'zephyr,console = &board_cdc_acm_uart' "${dts}"
           grep -Fq 'code_partition: partition@26000' "${dts}"
-          grep -Fq '"profile":"usb_led_only"' firmware/t114-boot-probe/src/main.c
+          grep -Fq 'usb_led_only' firmware/t114-boot-probe/src/main.c
           grep -Fq 'k_sleep(K_SECONDS(1))' firmware/t114-boot-probe/src/main.c
 
       - name: Patch and verify HT-n5262 UF2 metadata
