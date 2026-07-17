@@ -15,16 +15,17 @@ T114_GNSS_UART_LABEL="${T114_GNSS_UART_LABEL:-UART_1}"
 mkdir -p "$(dirname "${STATUS_PATH}")"
 
 json_escape() {
-  python3 - <<'PY' "$1"
+python3 - <<'PY' "$1"
 import json, sys
 print(json.dumps(sys.argv[1]))
 PY
 }
 
 write_status() {
-  local status="$1"
-  local reason="$2"
-  cat > "${STATUS_PATH}" <<JSON
+local status="$1"
+local reason="$2"
+
+cat > "${STATUS_PATH}" <<JSON
 {
   "status": $(json_escape "${status}"),
   "reason": $(json_escape "${reason}"),
@@ -37,8 +38,11 @@ write_status() {
   "primary_ble": "heltec-t114-nrf52840",
   "primary_gnss": "heltec-t114-gnss",
   "gnss_uart_label": $(json_escape "${T114_GNSS_UART_LABEL}"),
-  "secondary_ble_nodes": ["esp32-s3-dualeye", "raspberry-pi-bluez"],
-  "safety": "BLE RX/TX and GNSS can run together; LoRa direct radio driver remains guarded until T114 pin validation",
+  "secondary_ble_nodes": [
+    "esp32-s3-dualeye",
+    "raspberry-pi-bluez"
+  ],
+  "safety": "BLE RX/TX and GNSS can run together; LoRa driver guarded until pin validation.",
   "updated_at": $(date +%s)
 }
 JSON
@@ -48,26 +52,47 @@ bash scripts/configure_t114_2g4_antenna.sh --check-only || true
 bash scripts/configure_t114_lora_external_antenna.sh --check-only || true
 
 if ! command -v west >/dev/null 2>&1; then
-  write_status "missing_west" "west is not installed; run scripts/setup_heltec_t114_tools.sh with INSTALL_HELTEC_NRF_TOOLS=1 or install the nRF Connect SDK."
-  if [[ "${STRICT}" == "1" ]]; then
-    exit 1
-  fi
-  echo "west not found; wrote ${STATUS_PATH}" >&2
-  exit 0
+    write_status "missing_west" "west is not installed."
+
+    if [[ "${STRICT}" == "1" ]]; then
+        exit 1
+    fi
+
+    echo "west not installed."
+    exit 0
 fi
 
 if [[ ! -d "${APP_DIR}" ]]; then
-  write_status "missing_app" "Combined T114 firmware app directory is missing."
-  exit 1
+    write_status "missing_app" "Application directory missing."
+    exit 1
 fi
 
-west build -p always -b "${BOARD}" "${APP_DIR}" -d "${BUILD_DIR}" -- \
-  -DKOALABYTE_GNSS_UART_LABEL="${T114_GNSS_UART_LABEL}"
+echo ""
+echo "==============================="
+echo "KoalaByte T114 Build"
+echo "==============================="
+echo "BOARD       = ${BOARD}"
+echo "BOARD_ROOT  = ${BOARD_ROOT}"
+echo "APP_DIR     = ${APP_DIR}"
+echo "BUILD_DIR   = ${BUILD_DIR}"
+echo ""
+
+export BOARD_ROOT="${BOARD_ROOT}"
+
+west build \
+    -p always \
+    -b "${BOARD}" \
+    "${APP_DIR}" \
+    -d "${BUILD_DIR}" \
+    -- \
+    -DBOARD_ROOT="${BOARD_ROOT}" \
+    -DKOALABYTE_GNSS_UART_LABEL="${T114_GNSS_UART_LABEL}"
 
 write_status "built" "T114 combined-safe firmware build completed."
-echo "T114 combined-safe build complete: ${BUILD_DIR}"
 
-west build -p always -b "${BOARD}" "${APP_DIR}" -d "${BUILD_DIR}" -- \
-  -DKOALABYTE_GNSS_UART_LABEL="${T114_GNSS_UART_LABEL}"
-write_status "built" "T114 combined-safe firmware build completed."
-echo "T114 combined-safe build complete: ${BUILD_DIR}"
+echo ""
+echo "======================================"
+echo "Build completed successfully."
+echo "Output directory:"
+echo "  ${BUILD_DIR}"
+echo "======================================"
