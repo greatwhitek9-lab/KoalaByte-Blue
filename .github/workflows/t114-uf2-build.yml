@@ -57,8 +57,10 @@ jobs:
       STRICT_T114_COMBINED_BUILD: "1"
 
     steps:
-      - name: Check out exact PR source
+      - name: Check out exact source commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Restore NCS and Zephyr SDK cache
         id: ncs-cache
@@ -103,6 +105,8 @@ jobs:
 
       - name: Patch and verify HT-n5262 UF2 metadata
         shell: bash
+        env:
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           image_dir="build/t114-combined-safe/t114-combined-safe/zephyr"
           raw="${image_dir}/zephyr.uf2"
@@ -115,7 +119,9 @@ jobs:
           grep -Fq "Families: ['0xada52840']" releases/uf2-patched-metadata.txt
           sha256sum "${output}" | tee releases/SHA256SUMS.txt
           {
-            echo "source_commit=${GITHUB_SHA}"
+            echo "source_commit=${SOURCE_COMMIT}"
+            echo "workflow_commit=${GITHUB_SHA}"
+            echo "workflow_run_id=${GITHUB_RUN_ID}"
             echo "board=heltec_t114_v2/nrf52840/uf2"
             echo "profile=t114-combined-safe"
             echo "ncs=v2.9.0"
@@ -129,6 +135,7 @@ jobs:
         with:
           name: koalabyte-t114-combined-safe-display-ht-n5262
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 30
           path: |
             releases/koalabyte-t114-combined-safe-display-ht-n5262.uf2
