@@ -44,6 +44,25 @@ jobs:
           west zephyr-export
           python3 -m pip install -r zephyr/scripts/requirements.txt
 
+      - name: Show Zephyr information
+        run: |
+          cd ncs/zephyr
+          echo "========== WEST =========="
+          west --version
+          echo
+          echo "========== ZEPHYR VERSION =========="
+          git describe --tags || true
+          git rev-parse HEAD
+          echo
+          echo "========== BOARDS DIRECTORY =========="
+          ls boards
+          echo
+          echo "========== HELTEC BOARDS =========="
+          find boards -type d | grep heltec || true
+          echo
+          echo "========== SEARCHING FOR heltec_t114_v2 =========="
+          find boards -type d -name "heltec_t114_v2" || true
+
       - name: Build firmware
         env:
           ZEPHYR_BASE: ${{ github.workspace }}/ncs/zephyr
@@ -52,6 +71,7 @@ jobs:
           scripts/build_t114_combined_safe.sh
 
       - name: Upload firmware
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: heltec-t114-firmware
@@ -59,3 +79,4 @@ jobs:
             build/**/*.uf2
             build/**/*.hex
             build/**/*.bin
+            logs/**/*.json
