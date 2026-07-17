@@ -7,9 +7,10 @@ on:
     branches:
       - Main
     paths:
+      - "boards/**"
       - "firmware/t114-combined-safe/**"
-      - "scripts/build_t114_combined_safe.sh"
-      - ".github/workflows/t114-combined-safe-build.yml"
+      - "scripts/**"
+      - ".github/workflows/**"
 
 jobs:
   build:
@@ -18,6 +19,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Show repository contents
+        run: |
+          pwd
+          ls -la
+          echo ""
+          echo "===== Custom Boards ====="
+          find boards -type f || true
 
       - name: Install Linux packages
         run: |
@@ -53,25 +62,32 @@ jobs:
           git describe --tags --always
           git rev-parse HEAD
 
-      - name: Check for Heltec board
+      - name: Verify custom board exists
         run: |
-          echo "Searching for heltec_t114_v2..."
-          find ncs -type d -name "heltec_t114_v2" || true
+          echo "===== Looking for custom board ====="
+          find boards -type d -name "heltec_t114_v2"
+          echo ""
+          echo "===== Board files ====="
+          find boards/heltec/heltec_t114_v2 -type f || true
 
-      - name: Show available Heltec boards
+      - name: Show SDK Heltec boards
         run: |
+          echo "===== SDK Boards ====="
           find ncs/zephyr/boards -iname "*heltec*" || true
 
       - name: Build firmware
         env:
           ZEPHYR_BASE: ${{ github.workspace }}/ncs/zephyr
+          BOARD_ROOT: ${{ github.workspace }}
         run: |
+          export BOARD_ROOT="${{ github.workspace }}"
           chmod +x scripts/build_t114_combined_safe.sh
           scripts/build_t114_combined_safe.sh
 
       - name: Show build output
         if: always()
         run: |
+          echo "===== Build Directory ====="
           find build -type f || true
 
       - name: Upload firmware
