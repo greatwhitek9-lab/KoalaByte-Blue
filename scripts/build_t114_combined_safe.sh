@@ -38,7 +38,7 @@ write_status() {
   "primary_gnss": "heltec-t114-gnss",
   "gnss_uart_label": $(json_escape "${T114_GNSS_UART_LABEL}"),
   "secondary_ble_nodes": ["esp32-s3-dualeye", "raspberry-pi-bluez"],
-  "safety": "BLE RX/TX and GNSS can run together; LoRa direct radio driver remains guarded until T114 pin validation",
+  "safety": "BLE RX/TX and GNSS run in the normal KoalaByte profile; Meshtastic remains a separate Pi-managed T114 UF2 profile",
   "updated_at": $(date +%s)
 }
 JSON
@@ -68,7 +68,7 @@ if [[ ! -f "${BOARD_ROOT}/boards/heltec/heltec_t114_v2/board.yml" ]]; then
   exit 1
 fi
 
-west build -p always -b "${BOARD}" "${APP_DIR}" -d "${BUILD_DIR}" -- \
+west build --no-sysbuild -p always -b "${BOARD}" "${APP_DIR}" -d "${BUILD_DIR}" -- \
   -DBOARD_ROOT="${BOARD_ROOT}" \
   -DKOALABYTE_GNSS_UART_LABEL="${T114_GNSS_UART_LABEL}"
 write_status "built" "T114 combined-safe firmware build completed."
