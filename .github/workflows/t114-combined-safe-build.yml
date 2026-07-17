@@ -3,10 +3,10 @@ name: Build Heltec T114 Combined Safe UF2
 on:
   workflow_dispatch:
   push:
-    branches:
-      - Main
+    branches: [ Main ]
     paths:
       - "firmware/t114-combined-safe/**"
+      - "scripts/build_t114_combined_safe.sh"
       - ".github/workflows/t114-combined-safe-build.yml"
 
 jobs:
@@ -14,8 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install prerequisites
         run: |
@@ -37,26 +36,26 @@ jobs:
           python3 -m pip install west
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Verify west
+      - name: Install nRF Connect SDK
         run: |
-          west --version
+          west init -m https://github.com/nrfconnect/sdk-nrf --mr v2.9.0 ncs
+          cd ncs
+          west update
+          west zephyr-export
+          python3 -m pip install -r zephyr/scripts/requirements.txt
 
       - name: Build firmware
+        env:
+          ZEPHYR_BASE: ${{ github.workspace }}/ncs/zephyr
         run: |
           chmod +x scripts/build_t114_combined_safe.sh
-          ./scripts/build_t114_combined_safe.sh
-
-      - name: Locate build output
-        run: |
-          find . -name "*.uf2"
-          find . -name "*.hex"
-          find . -name "*.bin"
+          scripts/build_t114_combined_safe.sh
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
           name: heltec-t114-firmware
           path: |
-            **/*.uf2
-            **/*.hex
-            **/*.bin
+            build/**/*.uf2
+            build/**/*.hex
+            build/**/*.bin
