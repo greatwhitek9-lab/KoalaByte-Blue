@@ -59,17 +59,9 @@ fi
 if [[ ! -d "${APP_DIR}" ]]; then
   write_status "missing_app" "Combined T114 firmware app directory is missing."
   exit 1
-fi
 
-if [[ ! -f "${BOARD_ROOT}/boards/heltec/heltec_t114_v2/board.yml" ]]; then
-  write_status "missing_board_definition" "Heltec T114 V2 out-of-tree board definition is missing under ${BOARD_ROOT}/boards/heltec/heltec_t114_v2."
-  echo "Heltec T114 V2 board definition not found." >&2
-  echo "Install the upstream board files under: ${BOARD_ROOT}/boards/heltec/heltec_t114_v2" >&2
-  exit 1
-fi
 
 west build -p always -b "${BOARD}" "${APP_DIR}" -d "${BUILD_DIR}" -- \
-  -DBOARD_ROOT="${BOARD_ROOT}" \
   -DKOALABYTE_GNSS_UART_LABEL="${T114_GNSS_UART_LABEL}"
 write_status "built" "T114 combined-safe firmware build completed."
 echo "T114 combined-safe build complete: ${BUILD_DIR}"
