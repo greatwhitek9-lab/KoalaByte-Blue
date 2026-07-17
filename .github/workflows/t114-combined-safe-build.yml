@@ -9,38 +9,38 @@ on:
     paths:
       - "boards/**"
       - "firmware/t114-combined-safe/**"
-      - "scripts/**"
-      - ".github/workflows/**"
+      - "scripts/build_t114_combined_safe.sh"
+      - ".github/workflows/t114-combined-safe-build.yml"
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      BOARD: heltec_t114_v2/nrf52840/uf2
+      BOARD_ROOT: ${{ github.workspace }}
+      APP_DIR: firmware/t114-combined-safe
+      BUILD_DIR: build/t114-combined-safe
+      ZEPHYR_SDK_INSTALL_DIR: ${{ github.workspace }}/zephyr-sdk-0.17.0
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Show repository contents
-        run: |
-          pwd
-          ls -la
-          echo ""
-          echo "===== Custom Boards ====="
-          find boards -type f || true
-
-      - name: Install Linux packages
+      - name: Install system packages
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             git \
+            wget \
             cmake \
             ninja-build \
             gperf \
             ccache \
             dfu-util \
             device-tree-compiler \
-            wget \
-            python3-pip
+            python3-pip \
+            xz-utils
 
       - name: Install west
         run: |
@@ -48,7 +48,7 @@ jobs:
           python3 -m pip install west
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Install nRF Connect SDK v3.1.0
+      - name: Download nRF Connect SDK 3.1.0
         run: |
           west init -m https://github.com/nrfconnect/sdk-nrf --mr v3.1.0 ncs
           cd ncs
@@ -56,46 +56,53 @@ jobs:
           west zephyr-export
           python3 -m pip install -r zephyr/scripts/requirements.txt
 
+      - name: Install Zephyr SDK 0.17.0
+        run: |
+          wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.0/zephyr-sdk-0.17.0_linux-x86_64.tar.xz
+          tar -xf zephyr-sdk-0.17.0_linux-x86_64.tar.xz
+          cd zephyr-sdk-0.17.0
+          ./setup.sh -t arm-zephyr-eabi
+
+      - name: Verify custom board exists
+        run: |
+          echo "===== Repository boards ====="
+          find "$GITHUB_WORKSPACE/boards" -maxdepth 3 -type d || true
+
+          echo
+          echo "===== Heltec board files ====="
+          ls -R "$GITHUB_WORKSPACE/boards/heltec/heltec_t114_v2"
+
       - name: Show SDK version
         run: |
           cd ncs/zephyr
           git describe --tags --always
           git rev-parse HEAD
 
-      - name: Verify custom board exists
-        run: |
-          echo "===== Looking for custom board ====="
-          find boards -type d -name "heltec_t114_v2"
-          echo ""
-          echo "===== Board files ====="
-          find boards/heltec/heltec_t114_v2 -type f || true
-
-      - name: Show SDK Heltec boards
-        run: |
-          echo "===== SDK Boards ====="
-          find ncs/zephyr/boards -iname "*heltec*" || true
-
       - name: Build firmware
         env:
           ZEPHYR_BASE: ${{ github.workspace }}/ncs/zephyr
           BOARD_ROOT: ${{ github.workspace }}
+          T114_BOARD: heltec_t114_v2/nrf52840/uf2
+          T114_BOARD_ROOT: ${{ github.workspace }}
+          T114_COMBINED_APP_DIR: firmware/t114-combined-safe
+          T114_COMBINED_BUILD_DIR: build/t114-combined-safe
         run: |
-          export BOARD_ROOT="${{ github.workspace }}"
           chmod +x scripts/build_t114_combined_safe.sh
-          scripts/build_t114_combined_safe.sh
+          ./scripts/build_t114_combined_safe.sh
 
-      - name: Show build output
+      - name: Show build directory
         if: always()
         run: |
-          echo "===== Build Directory ====="
+          echo "===== Build output ====="
           find build -type f || true
 
       - name: Upload firmware
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: heltec-t114-firmware
+          name: heltec-t114-combined-safe
           path: |
             build/**/*.uf2
             build/**/*.hex
             build/**/*.bin
+            build/**/*.elf
