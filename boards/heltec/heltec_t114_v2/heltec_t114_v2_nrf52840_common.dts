@@ -127,8 +127,9 @@
 			ram-param = [00 f0];
 			rgb-param = [cd 08 14];
 			mipi-mode = "MIPI_DBI_MODE_SPI_4WIRE";
-			pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
-			status = "okay";
+		pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
+colmod = <0x55>;
+status = "okay";
 		};
 	};
 
