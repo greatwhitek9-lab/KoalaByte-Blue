@@ -116,7 +116,8 @@
 			gctrl = <0x35>;
 			vrhs = <0x12>;
 			vdvs = <0x20>;
-			mdac = <0x00>;
+		    colmod = <0x55>;
+            mdac = <0x00>;
 			gamma = <0x01>;
 			lcm = <0x2c>;
 			porch-param = [0c 0c 00 33 33];
