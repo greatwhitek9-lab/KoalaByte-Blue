@@ -5,7 +5,7 @@
  *   - Heltec T114 GNSS is the primary GPS/GNSS source for the device.
  *   - BLE RX, bounded lab BLE TX, GNSS NMEA parsing, TFT loading UI, and status JSON share USB CDC.
  *   - ESP32-S3 DualEye BLE and Raspberry Pi BlueZ remain secondary/fallback nodes.
- *   - During loading the T114 renders the jungle banner while the ESP32-S3 keeps the AI eyes active.
+ *   - At boot the T114 flashes KILLERKOALA, then switches directly to the mouth screen.
  *   - SX1262 LoRa status hooks remain present; direct LoRa radio driving stays guarded
  *     until the exact T114 pin map, region, and recovery path are validated.
  */
@@ -34,7 +34,7 @@
 
 #define KOALA_DEVICE "heltec-t114-nrf52840"
 #define KOALA_ROLE "primary"
-#define KOALA_FW "0.6.0-t114-mouth-menu-runtime"
+#define KOALA_FW "0.7.0-t114-right-landscape-boot-mouth"
 #define KOALA_DUPLICATE_SUPPRESS_MS 5000
 #define KOALA_RSSI_CHANGE_DB 8
 #define KOALA_CACHE_SIZE 48
@@ -45,7 +45,7 @@
 #define KOALA_STATUS_MS 15000
 #define KOALA_GNSS_STATUS_MS 5000
 #define KOALA_FACE_DEFAULT_MS 4500
-#define KOALA_BOOT_LOADING_MS 2500
+#define KOALA_BOOT_SPLASH_MS 1200
 #define KOALA_MOUTH_ANIMATION_MS 180
 #define KOALA_TX_DEFAULT_MS 30000
 #define KOALA_TX_MAX_MS 60000
@@ -712,8 +712,9 @@ int main(void)
     boot_ms = k_uptime_get();
     tft_ready = loading_display_init();
     copy_safe(current_state, sizeof(current_state), "loading", "loading");
-    copy_safe(current_message, sizeof(current_message), "LOADING", "LOADING");
-    face_until_ms = boot_ms + KOALA_BOOT_LOADING_MS;
+    copy_safe(current_message, sizeof(current_message),
+              "KILLERKOALA", "KILLERKOALA");
+    face_until_ms = boot_ms + KOALA_BOOT_SPLASH_MS;
     mouth_open = false;
     last_mouth_animation_ms = boot_ms;
     if (usb_enable(NULL) != 0) {
@@ -721,7 +722,7 @@ int main(void)
     }
     init_gnss();
     k_sleep(K_MSEC(1200));
-    printk("{\"type\":\"boot\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"role\":\"%s\",\"fw\":\"%s\",\"transport\":\"usb-cdc\",\"tft_ready\":%s,\"loading_display\":\"jungle_loading_banner\",\"scope\":\"primary BLE RX/TX plus primary GNSS, T114 TFT loading banner, and status JSON; LoRa hook guarded; WiFi and AI eyes handled by Pi/ESP32\"}\n",
+    printk("{\"type\":\"boot\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"role\":\"%s\",\"fw\":\"%s\",\"transport\":\"usb-cdc\",\"tft_ready\":%s,\"loading_display\":\"killerkoala_boot_splash\",\"scope\":\"primary BLE RX/TX plus primary GNSS, T114 boot splash and mouth, and status JSON; LoRa hook guarded; WiFi and AI eyes handled by Pi/ESP32\"}\n",
            KOALA_DEVICE, KOALA_ROLE, KOALA_FW, tft_ready ? "true" : "false");
     emit_node_roles();
     emit_mouth_status();
