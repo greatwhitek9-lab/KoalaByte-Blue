@@ -48,14 +48,100 @@ jobs:
           mkdir -p releases
           pio run -d firmware/esp32-dualeye 2>&1 | tee releases/esp32-dualeye-platformio.log
 
-      - name: Upload firmware build outputs and log
+      - name: Package full-flash image and Windows flasher
+        shell: bash
+        run: |
+          set -euo pipefail
+          build="firmware/esp32-dualeye/.pio/build/esp32s3_dualeye"
+          package="releases/koalabyte-esp32-s3-dualeye-v0.7.0"
+          mkdir -p "${package}"
+
+          boot_app0="$(find "${HOME}/.platformio/packages/framework-arduinoespressif32" -path '*/tools/partitions/boot_app0.bin' -print -quit)"
+          test -n "${boot_app0}"
+          test -f "${build}/bootloader.bin"
+          test -f "${build}/partitions.bin"
+          test -f "${build}/firmware.bin"
+
+          cp "${build}/bootloader.bin" "${package}/bootloader.bin"
+          cp "${build}/partitions.bin" "${package}/partitions.bin"
+          cp "${build}/firmware.bin" "${package}/firmware.bin"
+          cp "${boot_app0}" "${package}/boot_app0.bin"
+          cp releases/esp32-dualeye-platformio.log "${package}/build.log"
+
+          python -m esptool --chip esp32s3 merge_bin \
+            -o "${package}/koalabyte-esp32-s3-dualeye-v0.7.0-full-flash.bin" \
+            --flash_mode qio --flash_freq 80m --flash_size 16MB \
+            0x0000 "${package}/bootloader.bin" \
+            0x8000 "${package}/partitions.bin" \
+            0xE000 "${package}/boot_app0.bin" \
+            0x10000 "${package}/firmware.bin"
+
+          cat > "${package}/flash-esp32-dualeye.ps1" <<'POWERSHELL'
+          param(
+            [Parameter(Mandatory=$true)]
+            [string]$Port,
+            [int]$Baud = 921600,
+            [switch]$SkipErase
+          )
+
+          $ErrorActionPreference = "Stop"
+          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.7.0-full-flash.bin"
+          if (-not (Test-Path $Image)) { throw "Firmware image not found: $Image" }
+
+          py -m pip install --user "esptool==4.11.0"
+          if ($LASTEXITCODE -ne 0) { throw "Unable to install esptool." }
+
+          py -m esptool --chip esp32s3 --port $Port chip_id
+          if ($LASTEXITCODE -ne 0) { throw "ESP32-S3 not responding on $Port. Enter download mode and retry." }
+
+          if (-not $SkipErase) {
+            py -m esptool --chip esp32s3 --port $Port erase_flash
+            if ($LASTEXITCODE -ne 0) { throw "Flash erase failed." }
+          }
+
+          py -m esptool --chip esp32s3 --port $Port --baud $Baud write_flash -z 0x0 $Image
+          if ($LASTEXITCODE -ne 0) { throw "Firmware write failed." }
+
+          Write-Host "Flash complete. Press RESET once, then allow the board to boot."
+          POWERSHELL
+
+          cat > "${package}/README-FLASH.txt" <<'README'
+          KoalaByte Blue ESP32-S3 DualEye firmware v0.7.0
+
+          Exact hardware target:
+            Waveshare ESP32-S3-DualEye-Touch-LCD-1.28
+            ESP32-S3R8, 16 MB flash, 8 MB OPI PSRAM
+            Two 240x240 GC9A01A round LCDs
+
+          Recommended Windows command from this folder:
+            powershell -ExecutionPolicy Bypass -File .\flash-esp32-dualeye.ps1 -Port COM7
+
+          Replace COM7 with the COM port assigned by Windows.
+
+          Full image write address:
+            0x0000 koalabyte-esp32-s3-dualeye-v0.7.0-full-flash.bin
+
+          Component addresses, provided for recovery/advanced use:
+            0x0000  bootloader.bin
+            0x8000  partitions.bin
+            0xE000  boot_app0.bin
+            0x10000 firmware.bin
+
+          Disconnect the battery for the first flash and power the board from USB only.
+          Do not disconnect USB while erasing or writing.
+          README
+
+          (
+            cd "${package}"
+            sha256sum *.bin flash-esp32-dualeye.ps1 README-FLASH.txt build.log > SHA256SUMS.txt
+          )
+
+      - name: Upload firmware package
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: esp32-dualeye-platformio-build
+          name: koalabyte-esp32-s3-dualeye-v0.7.0
           path: |
+            releases/koalabyte-esp32-s3-dualeye-v0.7.0/**
             releases/esp32-dualeye-platformio.log
-            firmware/esp32-dualeye/.pio/build/esp32s3_dualeye/firmware.*
-            firmware/esp32-dualeye/.pio/build/esp32s3_dualeye/*.elf
-            firmware/esp32-dualeye/.pio/build/esp32s3_dualeye/*.map
           if-no-files-found: error
