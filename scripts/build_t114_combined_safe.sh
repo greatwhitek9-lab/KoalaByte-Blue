@@ -79,7 +79,7 @@ echo ""
 
 export BOARD_ROOT="${BOARD_ROOT}"
 
-west build \
+west build --no-sysbuild \
     -p always \
     -b "${BOARD}" \
     "${APP_DIR}" \
