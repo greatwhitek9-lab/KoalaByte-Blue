@@ -124,14 +124,16 @@ jobs:
           KoalaByte Blue ESP32-S3 DualEye v0.7.1 recovery firmware
 
           Exact hardware target:
-            Waveshare ESP32-S3-DualEye-Touch-LCD-1.28
+            Verified non-touch ESP32-S3 DualEye 1.28-inch variant
             Good display: LCD2, front-right / back-left / TF-card side
+            No touch controller or touch panel is present
 
           Recovery changes:
             - initializes LCD2 only; damaged LCD1 is never selected
             - one shared 200x200 RGB565 framebuffer instead of four canvases
             - conservative 40 MHz display SPI
-            - Wi-Fi, BLE, microphone, speaker and touch disabled for stability testing
+            - Wi-Fi, BLE, microphone and speaker disabled for stability testing
+            - touch support permanently disabled for this non-touch hardware
             - realistic animated koala face with no clock/tick marks
 
           Windows command from this folder:
