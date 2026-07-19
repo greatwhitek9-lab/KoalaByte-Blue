@@ -50,6 +50,7 @@ ENVEOF
 cat > /tmp/${SERVICE} <<SERVICEEOF
 [Unit]
 Description=KoalaByte CAN interface setup for InnoMaker SocketCAN adapter
+Documentation=https://github.com/INNO-MAKER/usb2can
 After=systemd-udev-settle.service network.target
 Wants=systemd-udev-settle.service
 
@@ -58,7 +59,7 @@ Type=oneshot
 WorkingDirectory=${ROOT}
 EnvironmentFile=-${ENV_PATH}
 ExecStart=${ROOT}/scripts/run_can0_service.sh
-RemainAfterExit=yes
+RemainAfterExit=no
 StandardOutput=append:${ROOT}/logs/koala_kan_kommander/can0_service.log
 StandardError=append:${ROOT}/logs/koala_kan_kommander/can0_service.err
 
