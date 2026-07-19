@@ -102,6 +102,8 @@ def main() -> int:
         "draw_jungle_frame",
         "draw_centered_banner",
         'render_loading_banner("LOADING")',
+        "render_killerkoala_mouth",
+        "render_menu_status",
     ]:
         if marker not in renderer_text:
             failures.append(f"T114 display renderer missing marker: {marker}")
