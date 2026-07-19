@@ -11,6 +11,7 @@
 #include "heltec_t114_v2-pinctrl.dtsi"
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include <zephyr/dt-bindings/led/led.h>
+#include <zephyr/dt-bindings/display/panel.h>
 #include <zephyr/dt-bindings/mipi_dbi/mipi_dbi.h>
 #include <dt-bindings/lora/sx126x.h>
 
@@ -23,6 +24,7 @@
 		zephyr,flash = &flash0;
 		zephyr,ieee802154 = &ieee802154;
 		zephyr,display = &tft_display;
+		zephyr,bt-hci = &bt_hci_controller;
 	};
 
 	leds {
@@ -126,7 +128,7 @@
 			nvgam-param = [d0 04 0c 11 13 2c 3f 44 51 2f 1f 1f 20 23];
 			ram-param = [00 f0];
 			rgb-param = [cd 08 14];
-			mipi-mode = "MIPI_DBI_MODE_SPI_4WIRE";
+			mipi-mode = <MIPI_DBI_MODE_SPI_4WIRE>;
 			status = "okay";
 		};
 	};
@@ -189,6 +191,16 @@
 	status = "okay";
 };
 
+/* The HT-n5262 bootloader preserves the Nordic S140 flash layout, while
+ * this application uses Zephyr's in-tree link-layer controller. */
+&bt_hci_sdc {
+	status = "disabled";
+};
+
+&bt_hci_controller {
+	status = "okay";
+};
+
 &spi2 {
 	compatible = "nordic,nrf-spi";
 	status = "okay";
@@ -238,5 +250,18 @@
 
 zephyr_udc0: &usbd {
 	status = "okay";
+
+	board_cdc_acm_uart: board_cdc_acm_uart {
+		compatible = "zephyr,cdc-acm-uart";
+	};
 };
-#include <../boards/common/usb/cdc_acm_serial.dtsi>
+
+/ {
+	chosen {
+		zephyr,console = &board_cdc_acm_uart;
+		zephyr,shell-uart = &board_cdc_acm_uart;
+		zephyr,uart-mcumgr = &board_cdc_acm_uart;
+		zephyr,bt-mon-uart = &board_cdc_acm_uart;
+		zephyr,bt-c2h-uart = &board_cdc_acm_uart;
+	};
+};
