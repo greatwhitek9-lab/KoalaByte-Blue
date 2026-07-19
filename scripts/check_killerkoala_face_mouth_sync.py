@@ -17,8 +17,10 @@ from koalablue.killerkoala_face_bridge import (
     build_esp32_loading_eyes_payload,
     build_face_payload,
     build_heltec_loading_payload,
+    build_koalagotchi_status_payload,
     emit_face,
     emit_loading_frame,
+    select_koalagotchi_expression,
 )
 
 STATUS_PATH = ROOT / "logs" / "killerkoala_face" / "face_mouth_sync_status.json"
@@ -107,6 +109,24 @@ def validate_protocol() -> list[str]:
     if esp32_loading.get("loading_text_on_eyes") is not False or esp32_loading.get("message"):
         failures.append("DualEye loading payload must not draw the loading banner over the eyes")
 
+    expression_cases = [
+        (92, "happy and content", "smile"),
+        (76, "eating eucalyptus Bluetooth leaves", "bite"),
+        (18, "cranky boomerang toss", "snarl"),
+        (70, "patrolling the gum branch", "sideways_grin"),
+    ]
+    for health, mood, expected_expression in expression_cases:
+        expression = select_koalagotchi_expression(health, mood)
+        if expression != expected_expression:
+            failures.append(f"health/mood mapping {health}/{mood!r} produced {expression}, expected {expected_expression}")
+        status_payload = build_koalagotchi_status_payload(health, mood)
+        if status_payload.get("type") != "koalagotchi_status":
+            failures.append("Koalagotchi mouth payload type changed")
+        if status_payload.get("expression") != expected_expression:
+            failures.append(f"Koalagotchi payload lost {expected_expression} expression")
+        if len(json.dumps(status_payload, separators=(",", ":"))) >= 256:
+            failures.append("Koalagotchi health/mood payload exceeds the T114 USB command-line budget")
+
     failures.extend(
         _file_contains(
             T114_FIRMWARE,
@@ -120,6 +140,12 @@ def validate_protocol() -> list[str]:
                 "render_menu_status",
                 "KOALA_BOOT_SPLASH_MS",
                 'strcmp(current_display_mode(), "killerkoala_mouth") == 0',
+                "koalagotchi_status",
+                "expression_from_koalagotchi",
+                "smile_frames",
+                "bite_frames",
+                "snarl_frames",
+                "sideways_grin_frames",
             ],
         )
     )
@@ -133,8 +159,12 @@ def validate_protocol() -> list[str]:
                 "draw_jungle_frame",
                 "draw_killerkoala_mouth_frame",
                 "KILLERKOALA_MOUTH_TEXT_FREE",
-                "KILLERKOALA_MOUTH_WIDTH 224",
-                "fill_ellipse",
+                "KILLERKOALA_CYBER_MOUTH_FRAME_BYTES 64800",
+                "killerkoala_cyber_mouth_smile_rgb565_be",
+                "killerkoala_cyber_mouth_happy_rgb565_be",
+                "killerkoala_cyber_mouth_bite_rgb565_be",
+                "killerkoala_cyber_mouth_snarl_rgb565_be",
+                "killerkoala_cyber_mouth_sideways_grin_rgb565_be",
                 "draw_koalagotchi_action_frame",
                 "render_killerkoala_boot_splash",
                 "render_koalagotchi_action",
@@ -189,7 +219,7 @@ def main() -> int:
     _write(
         _status_payload(
             "FACE_MOUTH_SYNC_READY",
-            "T114 artwork boot splash transitions to a full-screen text-free animated mouth and plays Koalagotchi during actions while ESP32-S3 DualEye displays the executing action name",
+            "T114 artwork boot splash transitions to a text-free cyberpunk koala mouth whose smile, bite, snarl, and sideways-grin sequences follow Koalagotchi health/mood; T114 still plays Koalagotchi during actions while ESP32-S3 DualEye displays the executing action name",
             emit_result=emit_result,
             loading_result=loading_result,
         )
