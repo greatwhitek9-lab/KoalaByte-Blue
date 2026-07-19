@@ -24,6 +24,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable, Optional
 
+from .killerkoala_face_bridge import emit_koalagotchi_status
 from .menu_theme import DEFAULT_JUNGLE_MENU_THEME, JungleMenuUnavailable, _import_pygame, _pick_font
 
 ACTION_NAME = "Eucalyptus Mode"
@@ -35,6 +36,10 @@ DEFAULT_IDLE_SECONDS = 180.0
 DEFAULT_TICK_SECONDS = 1.0
 MAX_CONTENTMENT = 100
 MIN_CONTENTMENT = 0
+KOALAGOTCHI_MOUTH_RETRY_SECONDS = 5.0
+
+_last_mouth_sync_signature: tuple[int, str] | None = None
+_last_mouth_sync_attempt = 0.0
 
 DORMANT_GRUMBLES = [
     "Oi, ya drongo, the air's drier than a dead gumleaf. Give me some Bluetooth tucker!",
@@ -239,6 +244,23 @@ def update_pet_state(
     return CyberPetState(contentment, max(state.total_observations_seen, stats.observation_count), stats.observation_count, last_new_data_time, direction, next_pos, mood, boomerang_throws, now), delta, should_grumble, mood
 
 
+def sync_koalagotchi_mouth(state: CyberPetState, *, force: bool = False) -> dict | None:
+    """Send changed health/mood state to the T114 without reopening USB each tick."""
+
+    global _last_mouth_sync_attempt, _last_mouth_sync_signature
+    signature = (state.contentment, state.mood)
+    now = time.monotonic()
+    if not force and signature == _last_mouth_sync_signature:
+        return None
+    if not force and now - _last_mouth_sync_attempt < KOALAGOTCHI_MOUTH_RETRY_SECONDS:
+        return None
+    _last_mouth_sync_attempt = now
+    result = emit_koalagotchi_status(state.contentment, state.mood)
+    if result.get("wrote_heltec") or result.get("disabled"):
+        _last_mouth_sync_signature = signature
+    return result
+
+
 def _bar(value: int, width: int = 24) -> str:
     filled = int(round(width * max(MIN_CONTENTMENT, min(MAX_CONTENTMENT, value)) / MAX_CONTENTMENT))
     return "█" * filled + "░" * (width - filled)
@@ -315,6 +337,7 @@ def run_terminal(
         stats = read_eucalyptus_stats(capture_dirs)
         state, delta, should_grumble, mood = update_pet_state(state, stats, idle_seconds=idle_seconds, branch_width=max(40, _screen_width() - 8))
         save_state(state, state_path)
+        sync_koalagotchi_mouth(state)
         append_event({
             "action": ACTION_NAME,
             "event": "tick",
@@ -455,6 +478,7 @@ def run_graphical(
             stats = read_eucalyptus_stats(capture_dirs)
             state, delta, should_grumble, mood = update_pet_state(state, stats, idle_seconds=idle_seconds, branch_width=max(40, w - 120))
             save_state(state, state_path)
+            sync_koalagotchi_mouth(state)
             append_event({
                 "action": ACTION_NAME,
                 "event": "graphical_tick",
