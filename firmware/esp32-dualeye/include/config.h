@@ -1,17 +1,18 @@
 #pragma once
 
-// KillerKoala ESP32-S3 DualEye config RevA29.
+// KillerKoala ESP32-S3 DualEye config RevA30 recovery profile.
 // Exact target: Waveshare ESP32-S3-DualEye-Touch-LCD-1.28.
-// ESP32-S3R8, 16 MB flash, 8 MB OPI PSRAM, two GC9A01A 240x240 LCDs,
-// two CST816 touch controllers, ES8311 speaker codec, and ES7210 mic ADC.
+// This recovery build initializes only the known-good LCD2 panel and keeps
+// high-load peripherals disabled until display stability is hardware-verified.
 
-#define KOALABLUE_FW_VERSION "0.7.0-dualeye-video-lcd2-primary"
+#define KOALABLUE_FW_VERSION "0.7.1-dualeye-recovery-realistic-koala"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define SERIAL_BAUD 115200
 
-#define KOALABLUE_ACTIVE_THEME "jungle_jumanji_eucalyptus"
+#define KOALABLUE_ACTIVE_THEME "killerkoala_realistic_cyber_fur"
 #define KOALABLUE_THEMES_DIR "firmware/esp32-dualeye/themes"
+#define KOALA_RECOVERY_PROFILE 1
 
 #define ESP32S3_DUALEYE_EXTERNAL_2G4_ANTENNA 0
 #define ESP32S3_DUALEYE_2G4_ANTENNA_MODE "onboard_ceramic_default"
@@ -28,21 +29,22 @@
 #define KILLERKOALA_COMPANION_BRAIN "Raspberry Pi large-vocabulary Australian male cyberpunk companion"
 #define KILLERKOALA_RESPONSE_POLICY "anti-repeat rotating Australian terminology; Pi handles complex answers"
 
-#define ENABLE_LOCAL_BLE_SCAN 1
-#define ENABLE_KOALA_KOMBAT_WIFI_NODE 1
+// Recovery gate: stabilize the display before re-enabling radios, audio and touch.
+#define ENABLE_LOCAL_BLE_SCAN 0
+#define ENABLE_KOALA_KOMBAT_WIFI_NODE 0
 #define ENABLE_KOALA_KOMBAT_SERIAL_COMMANDS 1
-#define ENABLE_MIC_WAKE 1
+#define ENABLE_MIC_WAKE 0
 #define ENABLE_WAKE_WORD_FILTER 1
 #define ENABLE_DISPLAY_STUB 0
 #define ENABLE_DISPLAY_BOOT_ANIMATION 1
-#define ENABLE_AUDIO_SPEAKER 1
-#define ENABLE_TOUCH_MENU 1
+#define ENABLE_AUDIO_SPEAKER 0
+#define ENABLE_TOUCH_MENU 0
 
 #define KOALA_KOMBAT_WIFI_SCAN_INTERVAL_MS 15000
 #define KOALA_KOMBAT_WIFI_MAX_APS 16
 #define KOALA_KOMBAT_WIFI_PASSIVE_SCAN 1
 
-#define DISPLAY_DRIVER "GC9A01A_DUAL"
+#define DISPLAY_DRIVER "GC9A01A_DUAL_SHARED_SPI"
 #define DISPLAY_WIDTH 240
 #define DISPLAY_HEIGHT 240
 #define DISPLAY_SPI_MISO_PIN 40
@@ -58,8 +60,12 @@
 #define DISPLAY_LCD1_ROTATION 1
 #define DISPLAY_LCD2_ROTATION 3
 #define DISPLAY_INVERT_COLOR 1
-#define DISPLAY_SPI_SCLK_HZ 80000000UL
+// 40 MHz is deliberately conservative for first hardware validation.
+#define DISPLAY_SPI_SCLK_HZ 40000000UL
 
+// The user's intact display is LCD2: front-right / back-left / TF-card side.
+#define KOALA_LCD1_ENABLED 0
+#define KOALA_LCD2_ENABLED 1
 #define KOALA_PRIMARY_DISPLAY 2
 #define KOALA_PRIMARY_DISPLAY_POSITION "front_right_back_left"
 #define KOALA_CRITICAL_UI_PRIMARY_ONLY 1
