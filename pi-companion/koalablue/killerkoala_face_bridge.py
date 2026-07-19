@@ -64,6 +64,19 @@ def build_koalagotchi_status_payload(health: int, mood: str = "") -> dict:
     }
 
 
+def build_speech_payload(active: bool, message: str = "", channel: str = "pi-ai") -> dict:
+    """Build the compact T114 speech lifecycle command used by either AI voice."""
+
+    return {
+        "type": "killerkoala_speech",
+        "active": bool(active),
+        "message": _short(message, 48) if active else "",
+        "channel": _short(channel or "pi-ai", 20).lower(),
+        "target_display": "heltec-t114",
+        "source": "pi-companion",
+    }
+
+
 def build_heltec_loading_payload(frame: str, action_title: str = "", duration_ms: int = 1400) -> dict:
     """Build a compact Koalagotchi frame that fits the T114 USB command buffer."""
 
@@ -226,6 +239,25 @@ def emit_koalagotchi_status(health: int, mood: str = "") -> dict:
     return result
 
 
+def emit_speech_state(active: bool, message: str = "", *, channel: str = "pi-ai") -> dict:
+    """Start or stop the T114 speaking mouth for local or Pi-side AI audio."""
+
+    payload = build_speech_payload(active, message, channel)
+    _, heltec_port = _resolve_ports()
+    baud = int(os.getenv("KOALABYTE_FACE_BAUD", str(DEFAULT_BAUD)))
+    disabled = bool(os.getenv("KOALABYTE_FACE_DISABLED"))
+    wrote_heltec = False if disabled else _serial_write(heltec_port, baud, payload)
+    result = {
+        "mode": "koalagotchi_speaking_mouth",
+        "payload": payload,
+        "heltec_usb_port": heltec_port,
+        "wrote_heltec": wrote_heltec,
+        "disabled": disabled,
+    }
+    _write_result_log("last_speech_state.json", result)
+    return result
+
+
 def emit_loading_frame(frame: str, action_title: str = "", *, duration_ms: int = 1400) -> dict:
     """Play Koalagotchi on T114 while DualEye names the executing action."""
 
@@ -273,9 +305,7 @@ def show_action_face(action_title: str, message: str = "") -> dict:
 
 
 def show_speaking_face(message: str, *, success: bool = True, stopped: bool = False) -> dict:
-    if stopped:
-        return emit_face("error", message, duration_ms=5200)
-    return emit_face("speaking" if success else "error", message, duration_ms=5600)
+    return emit_speech_state(not stopped and success, message, channel="local-ai")
 
 
 def should_show_action_face(command: str) -> bool:

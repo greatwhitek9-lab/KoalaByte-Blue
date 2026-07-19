@@ -33,6 +33,11 @@ the muzzle, cheek, and jaw pose.
 
 Every decoded payload is exactly 64,800 bytes. Repository copies are split
 into two base64 text parts; the build decodes them and rejects any size or
-SHA-256 mismatch before generating the C include. The expression state machine maps
-Koalagotchi contentment/health and mood to smile, bite, snarl, and asymmetric
-sideways-grin animation sequences without drawing any words on the T114.
+SHA-256 mismatch before generating the C include. The expression state machine
+maps Koalagotchi contentment/health and mood to smile, bite, snarl, and
+asymmetric sideways-grin animation sequences without drawing any words on the
+T114. Seven eased RGB565 interpolation steps connect idle poses, with irregular
+holds so the idle loop does not look mechanical. Three-step faster transitions
+move through varied open, closed, bite, and sideways poses while Pi-side or
+local-AI speech is active; an explicit speech-stop event returns the mouth
+smoothly to the current mood sequence.

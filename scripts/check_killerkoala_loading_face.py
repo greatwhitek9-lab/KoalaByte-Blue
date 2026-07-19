@@ -123,6 +123,7 @@ def main() -> int:
         "draw_koalagotchi_action_frame",
         "render_koalagotchi_action",
         "render_killerkoala_mouth",
+        "blend_rgb565_be",
         "render_menu_status",
     ]:
         if marker not in renderer_text:
@@ -189,6 +190,8 @@ def main() -> int:
         "requirements": [
             "Heltec T114 boots through the supplied artwork and plays Koalagotchi during actions",
             "T114 smile, bite, snarl, and sideways-grin frames follow Koalagotchi contentment and mood",
+            "T114 mouth poses use eased RGB565 interpolation and cycle naturally while idle",
+            "T114 speaking mouth follows explicit Pi/local-AI speech start and stop events",
             "T114 display power is asserted before the ST7789 display driver initializes",
             "ESP32-S3 DualEye displays the name of every executing menu action",
             "Loading text is not drawn over the DualEye eye display",

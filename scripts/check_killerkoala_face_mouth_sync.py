@@ -18,6 +18,7 @@ from koalablue.killerkoala_face_bridge import (
     build_face_payload,
     build_heltec_loading_payload,
     build_koalagotchi_status_payload,
+    build_speech_payload,
     emit_face,
     emit_loading_frame,
     select_koalagotchi_expression,
@@ -127,6 +128,15 @@ def validate_protocol() -> list[str]:
         if len(json.dumps(status_payload, separators=(",", ":"))) >= 256:
             failures.append("Koalagotchi health/mood payload exceeds the T114 USB command-line budget")
 
+    speech_start = build_speech_payload(True, "KillerKoala is speaking locally", "local-ai")
+    speech_stop = build_speech_payload(False, channel="pi-ai")
+    if speech_start.get("type") != "killerkoala_speech" or speech_start.get("active") is not True:
+        failures.append("AI speech start does not activate the T114 speaking mouth")
+    if speech_stop.get("active") is not False or speech_stop.get("message"):
+        failures.append("AI speech stop does not settle the T114 speaking mouth")
+    if len(json.dumps(speech_start, separators=(",", ":"))) >= 256:
+        failures.append("AI speech payload exceeds the T114 USB command-line budget")
+
     failures.extend(
         _file_contains(
             T114_FIRMWARE,
@@ -141,11 +151,14 @@ def validate_protocol() -> list[str]:
                 "KOALA_BOOT_SPLASH_MS",
                 'strcmp(current_display_mode(), "killerkoala_mouth") == 0',
                 "koalagotchi_status",
+                "killerkoala_speech",
+                "handle_speech_command",
                 "expression_from_koalagotchi",
-                "smile_frames",
-                "bite_frames",
-                "snarl_frames",
-                "sideways_grin_frames",
+                "idle_sequences",
+                "speaking_sequence",
+                "eased_mouth_blend",
+                "KOALA_IDLE_TRANSITION_STEPS",
+                "KOALA_SPEECH_TRANSITION_STEPS",
             ],
         )
     )
@@ -165,6 +178,8 @@ def validate_protocol() -> list[str]:
                 "killerkoala_cyber_mouth_bite_rgb565_be",
                 "killerkoala_cyber_mouth_snarl_rgb565_be",
                 "killerkoala_cyber_mouth_sideways_grin_rgb565_be",
+                "blend_rgb565_be",
+                "blend_amount",
                 "draw_koalagotchi_action_frame",
                 "render_killerkoala_boot_splash",
                 "render_koalagotchi_action",
@@ -219,7 +234,7 @@ def main() -> int:
     _write(
         _status_payload(
             "FACE_MOUTH_SYNC_READY",
-            "T114 artwork boot splash transitions to a text-free cyberpunk koala mouth whose smile, bite, snarl, and sideways-grin sequences follow Koalagotchi health/mood; T114 still plays Koalagotchi during actions while ESP32-S3 DualEye displays the executing action name",
+            "T114 artwork boot splash transitions to a text-free cyberpunk koala mouth with eased RGB565 pose interpolation, irregular multi-expression idle choreography, and speech start/stop lip movement for Pi/local AI audio; T114 still plays Koalagotchi during actions while ESP32-S3 DualEye displays the executing action name",
             emit_result=emit_result,
             loading_result=loading_result,
         )

@@ -291,34 +291,70 @@ static void draw_jungle_frame(const char *banner)
     }
 }
 
-static void draw_killerkoala_mouth_frame(const char *state,
-                                           const char *message,
-                                           uint8_t frame_index)
+static const uint8_t *killerkoala_mouth_frame(uint8_t frame_index)
 {
-    const uint8_t *frame = killerkoala_cyber_mouth_smile_rgb565_be;
+    switch (frame_index) {
+    case 1:
+        return killerkoala_cyber_mouth_happy_rgb565_be;
+    case 2:
+        return killerkoala_cyber_mouth_bite_rgb565_be;
+    case 3:
+        return killerkoala_cyber_mouth_snarl_rgb565_be;
+    case 4:
+        return killerkoala_cyber_mouth_sideways_grin_rgb565_be;
+    default:
+        return killerkoala_cyber_mouth_smile_rgb565_be;
+    }
+}
+
+static uint16_t blend_rgb565_be(const uint8_t *from, const uint8_t *to,
+                                uint16_t weight)
+{
+    uint16_t from_pixel = ((uint16_t)from[0] << 8) | from[1];
+    uint16_t to_pixel = ((uint16_t)to[0] << 8) | to[1];
+    uint16_t inverse = 256U - weight;
+    uint16_t red = (uint16_t)(((((from_pixel >> 11) & 0x1fU) * inverse) +
+                               (((to_pixel >> 11) & 0x1fU) * weight) + 128U) >> 8);
+    uint16_t green = (uint16_t)(((((from_pixel >> 5) & 0x3fU) * inverse) +
+                                 (((to_pixel >> 5) & 0x3fU) * weight) + 128U) >> 8);
+    uint16_t blue = (uint16_t)((((from_pixel & 0x1fU) * inverse) +
+                                ((to_pixel & 0x1fU) * weight) + 128U) >> 8);
+
+    return sys_cpu_to_be16((uint16_t)((red << 11) | (green << 5) | blue));
+}
+
+static void draw_killerkoala_mouth_frame(const char *state,
+                                         const char *message,
+                                         uint8_t from_frame_index,
+                                         uint8_t to_frame_index,
+                                         uint8_t blend_amount)
+{
+    const uint8_t *from = killerkoala_mouth_frame(from_frame_index);
+    const uint8_t *to = killerkoala_mouth_frame(to_frame_index);
 
     ARG_UNUSED(state);
     ARG_UNUSED(message);
 
-    switch (frame_index) {
-    case 1:
-        frame = killerkoala_cyber_mouth_happy_rgb565_be;
-        break;
-    case 2:
-        frame = killerkoala_cyber_mouth_bite_rgb565_be;
-        break;
-    case 3:
-        frame = killerkoala_cyber_mouth_snarl_rgb565_be;
-        break;
-    case 4:
-        frame = killerkoala_cyber_mouth_sideways_grin_rgb565_be;
-        break;
-    default:
-        break;
+    if (from == to || blend_amount == 0U) {
+        memcpy(framebuffer, from, sizeof(framebuffer));
+        return;
+    }
+    if (blend_amount == UINT8_MAX) {
+        memcpy(framebuffer, to, sizeof(framebuffer));
+        return;
     }
 
-    /* Every expression is a text-free frame with pose-specific neon shadows. */
-    memcpy(framebuffer, frame, sizeof(framebuffer));
+    /*
+     * Interpolate every RGB565 pixel. The caller supplies an eased blend value,
+     * so the muzzle, jaw, teeth, and purple/lime lighting flow into the next
+     * pose instead of flashing between two complete still images.
+     */
+    uint16_t weight = (uint16_t)blend_amount + (blend_amount >> 7);
+    for (size_t index = 0; index < ARRAY_SIZE(framebuffer); index++) {
+        size_t byte_index = index * 2U;
+        framebuffer[index] = blend_rgb565_be(&from[byte_index],
+                                             &to[byte_index], weight);
+    }
 }
 
 static void draw_koalagotchi_action_frame(uint8_t frame_index)
@@ -490,12 +526,15 @@ void render_loading_banner(const char *banner)
 }
 
 void render_killerkoala_mouth(const char *state, const char *message,
-                              uint8_t frame_index)
+                              uint8_t from_frame_index,
+                              uint8_t to_frame_index,
+                              uint8_t blend_amount)
 {
     if (!display_ready_flag) {
         return;
     }
-    draw_killerkoala_mouth_frame(state, message, frame_index);
+    draw_killerkoala_mouth_frame(state, message, from_frame_index,
+                                 to_frame_index, blend_amount);
     flush_frame();
 }
 
@@ -510,5 +549,5 @@ void render_menu_status(const char *message)
 
 void loading_display_end(void)
 {
-    render_killerkoala_mouth("idle", "KILLERKOALA", 0);
+    render_killerkoala_mouth("idle", "KILLERKOALA", 0, 0, 0);
 }

@@ -150,7 +150,8 @@ full-screen animated KillerKoala mouth while DualEye leaves the
 executing-action label. At boot, the user-supplied artwork remains visible for
 six seconds before the first mouth frame. The mouth contains no status words
 and continues animating while the T114 is idle, even when the Pi and DualEye
-are disconnected.
+are disconnected. Idle poses are joined by eased per-pixel RGB565 transitions
+and irregular hold times, avoiding hard full-screen frame swaps.
 
 The T114 mouth uses five cyberpunk koala keyframes with pose-specific purple
 and lime rim lighting. Koalagotchi contentment/health and mood select the loop:
@@ -162,6 +163,11 @@ and lime rim lighting. Koalagotchi contentment/health and mood select the loop:
 | cranky, angry, hostile, or health at/below 25 | snarl |
 | patrolling, mischievous, boomerang, or sideways mood | sideways grin |
 | Pi disconnected/no status yet | calm smile |
+
+While either the Pi-side TTS voice or local AI voice is producing audio, the
+Pi sends explicit speech-start and speech-stop events to the T114. The mouth
+uses a faster varied open/close cadence while speech is active and then eases
+back into the current health/mood idle sequence when the audio finishes.
 
 ### Button-board fallback
 

@@ -10,7 +10,9 @@ void render_killerkoala_boot_splash(void);
 void render_koalagotchi_action(const char *action_title, uint8_t frame_index);
 void render_loading_banner(const char *banner);
 void render_killerkoala_mouth(const char *state, const char *message,
-                              uint8_t frame_index);
+                              uint8_t from_frame_index,
+                              uint8_t to_frame_index,
+                              uint8_t blend_amount);
 void render_menu_status(const char *message);
 void loading_display_end(void);
 

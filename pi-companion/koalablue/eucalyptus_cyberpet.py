@@ -24,7 +24,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable, Optional
 
-from .killerkoala_face_bridge import emit_koalagotchi_status
+from .killerkoala_face_bridge import emit_koalagotchi_status, emit_speech_state
 from .menu_theme import DEFAULT_JUNGLE_MENU_THEME, JungleMenuUnavailable, _import_pygame, _pick_font
 
 ACTION_NAME = "Eucalyptus Mode"
@@ -196,10 +196,13 @@ def speak_line(line: str, *, tts_enabled: Optional[bool] = None, tts_command: Op
     enabled = tts_enabled if tts_enabled is not None else os.environ.get("KOALABYTE_TTS", "1") != "0"
     command = _resolve_tts_command(tts_command) if enabled else None
     if command:
+        emit_speech_state(True, line, channel="pi-tts")
         try:
             subprocess.run(_tts_args(command, line), check=False, timeout=8)
         except Exception:
             pass
+        finally:
+            emit_speech_state(False, channel="pi-tts")
 
 
 def update_pet_state(
