@@ -35,7 +35,7 @@
 
 #define KOALA_DEVICE "heltec-t114-nrf52840"
 #define KOALA_ROLE "primary"
-#define KOALA_FW "0.8.2-t114-art-splash-text-free-animated-mouth-koalagotchi"
+#define KOALA_FW "0.9.0-t114-koalagotchi-mood-mouth-library"
 #define KOALA_DUPLICATE_SUPPRESS_MS 5000
 #define KOALA_RSSI_CHANGE_DB 8
 #define KOALA_CACHE_SIZE 48
@@ -46,8 +46,8 @@
 #define KOALA_STATUS_MS 15000
 #define KOALA_GNSS_STATUS_MS 5000
 #define KOALA_FACE_DEFAULT_MS 4500
-#define KOALA_BOOT_SPLASH_MS 1200
-#define KOALA_MOUTH_ANIMATION_MS 320
+#define KOALA_BOOT_SPLASH_MS 6000
+#define KOALA_MOUTH_ANIMATION_MS 260
 #define KOALA_TX_DEFAULT_MS 30000
 #define KOALA_TX_MAX_MS 60000
 #define KOALA_ADV_NAME_MAX 20
@@ -67,6 +67,13 @@ struct adv_summary {
     char manufacturer_hex[(KOALA_MFG_MAX * 2) + 1];
 };
 
+enum koala_mouth_expression {
+    KOALA_MOUTH_SMILE = 0,
+    KOALA_MOUTH_BITE,
+    KOALA_MOUTH_SNARL,
+    KOALA_MOUTH_SIDEWAYS_GRIN,
+};
+
 static struct seen_entry seen[KOALA_CACHE_SIZE];
 static uint32_t total_seen;
 static uint32_t total_emitted;
@@ -84,7 +91,10 @@ static char current_message[96] = "killerkoala online";
 static bool face_enabled = true;
 static int64_t face_until_ms;
 static int64_t last_mouth_animation_ms;
-static bool mouth_open;
+static enum koala_mouth_expression mouth_expression = KOALA_MOUTH_SMILE;
+static uint8_t mouth_phase;
+static int koalagotchi_health = 75;
+static char koalagotchi_mood[48] = "calm";
 static uint8_t koalagotchi_frame;
 static char rx_line[KOALA_LINE_MAX];
 static size_t rx_len;
@@ -202,6 +212,101 @@ static int extract_json_int(const char *line, const char *key, int fallback)
         p++;
     }
     return atoi(p);
+}
+
+static bool contains_text(const char *text, const char *needle)
+{
+    return text && needle && strstr(text, needle) != NULL;
+}
+
+static const char *mouth_expression_name(enum koala_mouth_expression expression)
+{
+    switch (expression) {
+    case KOALA_MOUTH_BITE:
+        return "bite";
+    case KOALA_MOUTH_SNARL:
+        return "snarl";
+    case KOALA_MOUTH_SIDEWAYS_GRIN:
+        return "sideways_grin";
+    case KOALA_MOUTH_SMILE:
+    default:
+        return "smile";
+    }
+}
+
+static enum koala_mouth_expression expression_from_koalagotchi(
+    const char *explicit_expression, const char *mood, int health)
+{
+    if (contains_text(explicit_expression, "bite")) {
+        return KOALA_MOUTH_BITE;
+    }
+    if (contains_text(explicit_expression, "snarl")) {
+        return KOALA_MOUTH_SNARL;
+    }
+    if (contains_text(explicit_expression, "sideways") ||
+        contains_text(explicit_expression, "mischief")) {
+        return KOALA_MOUTH_SIDEWAYS_GRIN;
+    }
+    if (contains_text(explicit_expression, "smile") ||
+        contains_text(explicit_expression, "happy")) {
+        return KOALA_MOUTH_SMILE;
+    }
+
+    if (health <= 25 || contains_text(mood, "cranky") ||
+        contains_text(mood, "angry") || contains_text(mood, "snarl") ||
+        contains_text(mood, "hostile")) {
+        return KOALA_MOUTH_SNARL;
+    }
+    if (contains_text(mood, "eating") || contains_text(mood, "feeding") ||
+        contains_text(mood, "chew")) {
+        return KOALA_MOUTH_BITE;
+    }
+    if (contains_text(mood, "patrolling") || contains_text(mood, "mischief") ||
+        contains_text(mood, "boomerang") || contains_text(mood, "sideways")) {
+        return KOALA_MOUTH_SIDEWAYS_GRIN;
+    }
+    return KOALA_MOUTH_SMILE;
+}
+
+static enum koala_mouth_expression expression_for_face_state(const char *state)
+{
+    if (state && strcmp(state, "error") == 0) {
+        return KOALA_MOUTH_SNARL;
+    }
+    if (state && (strcmp(state, "speaking") == 0 ||
+                  strcmp(state, "action") == 0)) {
+        return KOALA_MOUTH_BITE;
+    }
+    if (state && (strcmp(state, "wake") == 0 ||
+                  strcmp(state, "thinking") == 0)) {
+        return KOALA_MOUTH_SIDEWAYS_GRIN;
+    }
+    if (state && strcmp(state, "success") == 0) {
+        return KOALA_MOUTH_SMILE;
+    }
+    return expression_from_koalagotchi(NULL, koalagotchi_mood,
+                                       koalagotchi_health);
+}
+
+static uint8_t current_mouth_frame(void)
+{
+    static const uint8_t smile_frames[] = {0, 1, 0, 1};
+    static const uint8_t bite_frames[] = {1, 2, 2, 1};
+    static const uint8_t snarl_frames[] = {3, 4, 3, 4};
+    static const uint8_t sideways_grin_frames[] = {4, 0, 4, 1};
+    uint8_t phase = mouth_phase % 4U;
+
+    switch (mouth_expression) {
+    case KOALA_MOUTH_BITE:
+        return bite_frames[phase];
+    case KOALA_MOUTH_SNARL:
+        return snarl_frames[phase];
+    case KOALA_MOUTH_SIDEWAYS_GRIN:
+        return sideways_grin_frames[phase];
+    case KOALA_MOUTH_SMILE:
+    default:
+        return smile_frames[phase];
+    }
 }
 
 static bool json_true(const char *line, const char *key)
@@ -460,22 +565,17 @@ static void emit_tx_status(const char *status, const char *reason)
 
 static void emit_mouth_status(void)
 {
-    printk("{\"type\":\"heltec_mouth_status\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"transport\":\"usb-cdc\",\"state\":\"%s\",\"message\":\"%s\",\"face_enabled\":%s,\"display_ready\":%s,\"fw\":\"%s\",\"uptime_ms\":%lld}\n",
+    printk("{\"type\":\"heltec_mouth_status\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"transport\":\"usb-cdc\",\"state\":\"%s\",\"message\":\"%s\",\"face_enabled\":%s,\"display_ready\":%s,\"health\":%d,\"mood\":\"%s\",\"expression\":\"%s\",\"frame_index\":%u,\"fw\":\"%s\",\"uptime_ms\":%lld}\n",
            KOALA_DEVICE, current_state, current_message, face_enabled ? "true" : "false",
-           loading_display_ready() ? "true" : "false", KOALA_FW, (long long)(k_uptime_get() - boot_ms));
+           loading_display_ready() ? "true" : "false", koalagotchi_health,
+           koalagotchi_mood, mouth_expression_name(mouth_expression),
+           current_mouth_frame(), KOALA_FW, (long long)(k_uptime_get() - boot_ms));
 }
 
 static bool is_menu_state(const char *state)
 {
     return state && (strcmp(state, "menu_highlight") == 0 ||
                      strcmp(state, "menu_select") == 0);
-}
-
-static bool is_animated_mouth_state(const char *state)
-{
-    return state && (strcmp(state, "speaking") == 0 ||
-                     strcmp(state, "action") == 0 ||
-                     strcmp(state, "wake") == 0);
 }
 
 static const char *current_display_mode(void)
@@ -495,7 +595,7 @@ static const char *current_display_mode(void)
 static void render_current_face(void)
 {
     if (!face_enabled) {
-        render_killerkoala_mouth("idle", "KILLERKOALA", false);
+        render_killerkoala_mouth("idle", "KILLERKOALA", 0);
     } else if (strcmp(current_state, "koalagotchi_action") == 0) {
         render_koalagotchi_action(current_message, koalagotchi_frame);
     } else if (strcmp(current_state, "loading") == 0) {
@@ -503,7 +603,8 @@ static void render_current_face(void)
     } else if (is_menu_state(current_state)) {
         render_menu_status(current_message);
     } else {
-        render_killerkoala_mouth(current_state, current_message, mouth_open);
+        render_killerkoala_mouth(current_state, current_message,
+                                 current_mouth_frame());
     }
 }
 
@@ -555,10 +656,42 @@ static void handle_face_command(const char *line)
     } else if (strstr(line, "\"display_mode\":\"jungle_loading_banner\"")) {
         copy_safe(current_state, sizeof(current_state), "loading", "loading");
     }
-    mouth_open = is_animated_mouth_state(current_state);
+    mouth_expression = expression_for_face_state(current_state);
+    mouth_phase = 0;
     last_mouth_animation_ms = k_uptime_get();
     render_current_face();
     emit_ack(current_state);
+}
+
+static void handle_koalagotchi_status(const char *line)
+{
+    char mood[sizeof(koalagotchi_mood)] = "calm";
+    char expression[32] = "";
+    int health = extract_json_int(line, "health",
+                                  extract_json_int(line, "contentment", 75));
+
+    if (health < 0) {
+        health = 0;
+    } else if (health > 100) {
+        health = 100;
+    }
+    (void)extract_json_string(line, "mood", mood, sizeof(mood));
+    (void)extract_json_string(line, "expression", expression,
+                              sizeof(expression));
+    koalagotchi_health = health;
+    copy_safe(koalagotchi_mood, sizeof(koalagotchi_mood), mood, "calm");
+    mouth_expression = expression_from_koalagotchi(
+        expression, koalagotchi_mood, koalagotchi_health);
+    mouth_phase = 0;
+    face_enabled = true;
+    face_until_ms = 0;
+    copy_safe(current_state, sizeof(current_state), "idle", "idle");
+    copy_safe(current_message, sizeof(current_message), "", "");
+    last_mouth_animation_ms = k_uptime_get();
+    render_current_face();
+    printk("{\"type\":\"koalagotchi_status_ack\",\"device\":\"heltec-t114\",\"health\":%d,\"mood\":\"%s\",\"expression\":\"%s\",\"frame_index\":%u}\n",
+           koalagotchi_health, koalagotchi_mood,
+           mouth_expression_name(mouth_expression), current_mouth_frame());
 }
 
 static void stop_lab_advertising(const char *reason)
@@ -623,7 +756,9 @@ static void handle_line(const char *line)
     if (!line || line[0] == '\0') {
         return;
     }
-    if (strstr(line, "\"type\":\"killerkoala_face\"") || strstr(line, "\"type\":\"ai_face\"")) {
+    if (strstr(line, "\"type\":\"koalagotchi_status\"")) {
+        handle_koalagotchi_status(line);
+    } else if (strstr(line, "\"type\":\"killerkoala_face\"") || strstr(line, "\"type\":\"ai_face\"")) {
         handle_face_command(line);
     } else if (strstr(line, "\"type\":\"status\"") || strstr(line, "\"type\":\"heltec_mouth_status\"")) {
         emit_mouth_status();
@@ -727,7 +862,8 @@ int main(void)
     copy_safe(current_message, sizeof(current_message),
               "KILLERKOALA", "KILLERKOALA");
     face_until_ms = 0;
-    mouth_open = false;
+    mouth_expression = KOALA_MOUTH_SMILE;
+    mouth_phase = 0;
     last_mouth_animation_ms = boot_ms;
     if (usb_enable(NULL) != 0) {
         printk("{\"type\":\"usb_error\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"message\":\"usb_enable failed\"}\n", KOALA_DEVICE);
@@ -737,7 +873,8 @@ int main(void)
     copy_safe(current_state, sizeof(current_state), "idle", "idle");
     copy_safe(current_message, sizeof(current_message),
               "KILLERKOALA", "KILLERKOALA");
-    mouth_open = true;
+    mouth_expression = KOALA_MOUTH_SMILE;
+    mouth_phase = 0;
     last_mouth_animation_ms = k_uptime_get();
     render_current_face();
     printk("{\"type\":\"boot\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"role\":\"%s\",\"fw\":\"%s\",\"transport\":\"usb-cdc\",\"tft_ready\":%s,\"loading_display\":\"killerkoala_artwork_to_mouth\",\"scope\":\"primary BLE RX/TX plus primary GNSS, T114 artwork splash and mouth, and status JSON; LoRa hook guarded; WiFi and AI eyes handled by Pi/ESP32\"}\n",
@@ -755,7 +892,9 @@ int main(void)
         if (face_until_ms > 0 && now > face_until_ms) {
             face_until_ms = 0;
             face_enabled = true;
-            mouth_open = true;
+            mouth_expression = expression_from_koalagotchi(
+                NULL, koalagotchi_mood, koalagotchi_health);
+            mouth_phase = 0;
             last_mouth_animation_ms = now;
             copy_safe(current_state, sizeof(current_state), "idle", "idle");
             copy_safe(current_message, sizeof(current_message),
@@ -767,7 +906,7 @@ int main(void)
             strcmp(current_display_mode(), "killerkoala_mouth") == 0 &&
             now - last_mouth_animation_ms >= KOALA_MOUTH_ANIMATION_MS) {
             last_mouth_animation_ms = now;
-            mouth_open = !mouth_open;
+            mouth_phase = (uint8_t)((mouth_phase + 1U) % 4U);
             render_current_face();
         }
         if (ble_adv_active && ble_adv_until_ms > 0 && now > ble_adv_until_ms) {
