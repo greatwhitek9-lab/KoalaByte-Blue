@@ -1,11 +1,11 @@
 #pragma once
 
-// KillerKoala ESP32-S3 DualEye config RevA30 recovery profile.
-// Exact target: Waveshare ESP32-S3-DualEye-Touch-LCD-1.28.
+// KillerKoala ESP32-S3 DualEye config RevA31 recovery profile.
+// Exact target: verified non-touch ESP32-S3 DualEye 1.28-inch variant.
 // This recovery build initializes only the known-good LCD2 panel and keeps
 // high-load peripherals disabled until display stability is hardware-verified.
 
-#define KOALABLUE_FW_VERSION "0.7.1-dualeye-recovery-realistic-koala"
+#define KOALABLUE_FW_VERSION "0.7.1-dualeye-recovery-realistic-koala-nontouch"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define SERIAL_BAUD 115200
@@ -13,6 +13,7 @@
 #define KOALABLUE_ACTIVE_THEME "killerkoala_realistic_cyber_fur"
 #define KOALABLUE_THEMES_DIR "firmware/esp32-dualeye/themes"
 #define KOALA_RECOVERY_PROFILE 1
+#define KOALA_HAS_TOUCH 0
 
 #define ESP32S3_DUALEYE_EXTERNAL_2G4_ANTENNA 0
 #define ESP32S3_DUALEYE_2G4_ANTENNA_MODE "onboard_ceramic_default"
@@ -29,7 +30,9 @@
 #define KILLERKOALA_COMPANION_BRAIN "Raspberry Pi large-vocabulary Australian male cyberpunk companion"
 #define KILLERKOALA_RESPONSE_POLICY "anti-repeat rotating Australian terminology; Pi handles complex answers"
 
-// Recovery gate: stabilize the display before re-enabling radios, audio and touch.
+// Recovery gate: stabilize the display before re-enabling radios and audio.
+// Touch is permanently disabled because this verified board revision has no
+// touch controller or touch panel.
 #define ENABLE_LOCAL_BLE_SCAN 0
 #define ENABLE_KOALA_KOMBAT_WIFI_NODE 0
 #define ENABLE_KOALA_KOMBAT_SERIAL_COMMANDS 1
@@ -72,22 +75,24 @@
 #define KOALA_TEXT_INPUT_PRIMARY_ONLY 1
 #define KOALA_MIRROR_ACTION_ANIMATIONS 1
 #define KOALA_ALLOW_MISSING_LCD1 1
-#define KOALA_ACTIVE_TOUCH_DISPLAY 2
+#define KOALA_ACTIVE_TOUCH_DISPLAY 0
 #define KOALA_EYE_RENDER_FPS 30
 #define KOALA_EYE_CANVAS_SIZE 200
 
 #define BOOT_ANIMATION_TOTAL_MS 6000
 #define BOOT_ANIMATION_FRAME_MS 33
 
-#define TOUCH_MENU_BACKEND "waveshare_cst816d_lcd2_i2c"
-#define TOUCH_MENU_CONTROLLER "CST816D-LCD2"
-#define TOUCH_MENU_I2C_ADDR 0x15
-#define TOUCH_MENU_I2C_SDA_PIN 3
-#define TOUCH_MENU_I2C_SCL_PIN 2
-#define TOUCH_MENU_INT_PIN 7
-#define TOUCH_MENU_RST_PIN 6
-#define TOUCH_MENU_I2C_CLOCK_HZ 400000
-#define TOUCH_MENU_POLL_MS 10
+// Compile-time placeholders only. No touch hardware is present and all touch
+// initialization/polling remains excluded by ENABLE_TOUCH_MENU == 0.
+#define TOUCH_MENU_BACKEND "disabled_non_touch_hardware"
+#define TOUCH_MENU_CONTROLLER "none"
+#define TOUCH_MENU_I2C_ADDR 0x00
+#define TOUCH_MENU_I2C_SDA_PIN -1
+#define TOUCH_MENU_I2C_SCL_PIN -1
+#define TOUCH_MENU_INT_PIN -1
+#define TOUCH_MENU_RST_PIN -1
+#define TOUCH_MENU_I2C_CLOCK_HZ 100000
+#define TOUCH_MENU_POLL_MS 1000
 #define TOUCH_MENU_SCREEN_W 240
 #define TOUCH_MENU_SCREEN_H 240
 #define TOUCH_MENU_RAW_MIN_X 0
@@ -96,7 +101,7 @@
 #define TOUCH_MENU_RAW_MAX_Y 239
 #define TOUCH_MENU_INVERT_X 0
 #define TOUCH_MENU_INVERT_Y 0
-#define TOUCH_MENU_SWAP_XY 1
+#define TOUCH_MENU_SWAP_XY 0
 #define TOUCH_MENU_ROW_HEIGHT 40
 #define TOUCH_MENU_VISIBLE_ROWS 6
 #define TOUCH_MENU_LONG_PRESS_MS 500
