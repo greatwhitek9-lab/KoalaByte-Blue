@@ -35,7 +35,7 @@
 
 #define KOALA_DEVICE "heltec-t114-nrf52840"
 #define KOALA_ROLE "primary"
-#define KOALA_FW "0.8.1-t114-art-splash-mouth-koalagotchi"
+#define KOALA_FW "0.8.2-t114-art-splash-text-free-animated-mouth-koalagotchi"
 #define KOALA_DUPLICATE_SUPPRESS_MS 5000
 #define KOALA_RSSI_CHANGE_DB 8
 #define KOALA_CACHE_SIZE 48
@@ -47,7 +47,7 @@
 #define KOALA_GNSS_STATUS_MS 5000
 #define KOALA_FACE_DEFAULT_MS 4500
 #define KOALA_BOOT_SPLASH_MS 1200
-#define KOALA_MOUTH_ANIMATION_MS 180
+#define KOALA_MOUTH_ANIMATION_MS 320
 #define KOALA_TX_DEFAULT_MS 30000
 #define KOALA_TX_MAX_MS 60000
 #define KOALA_ADV_NAME_MAX 20
@@ -737,6 +737,8 @@ int main(void)
     copy_safe(current_state, sizeof(current_state), "idle", "idle");
     copy_safe(current_message, sizeof(current_message),
               "KILLERKOALA", "KILLERKOALA");
+    mouth_open = true;
+    last_mouth_animation_ms = k_uptime_get();
     render_current_face();
     printk("{\"type\":\"boot\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"role\":\"%s\",\"fw\":\"%s\",\"transport\":\"usb-cdc\",\"tft_ready\":%s,\"loading_display\":\"killerkoala_artwork_to_mouth\",\"scope\":\"primary BLE RX/TX plus primary GNSS, T114 artwork splash and mouth, and status JSON; LoRa hook guarded; WiFi and AI eyes handled by Pi/ESP32\"}\n",
            KOALA_DEVICE, KOALA_ROLE, KOALA_FW, tft_ready ? "true" : "false");
@@ -753,15 +755,16 @@ int main(void)
         if (face_until_ms > 0 && now > face_until_ms) {
             face_until_ms = 0;
             face_enabled = true;
-            mouth_open = false;
+            mouth_open = true;
+            last_mouth_animation_ms = now;
             copy_safe(current_state, sizeof(current_state), "idle", "idle");
             copy_safe(current_message, sizeof(current_message),
                       "KILLERKOALA", "KILLERKOALA");
             render_current_face();
             emit_ack(current_state);
         }
-        if (face_enabled && face_until_ms > 0 &&
-            is_animated_mouth_state(current_state) &&
+        if (face_enabled &&
+            strcmp(current_display_mode(), "killerkoala_mouth") == 0 &&
             now - last_mouth_animation_ms >= KOALA_MOUTH_ANIMATION_MS) {
             last_mouth_animation_ms = now;
             mouth_open = !mouth_open;
