@@ -13,8 +13,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#define TFT_WIDTH 135
-#define TFT_HEIGHT 240
+#define TFT_WIDTH 240
+#define TFT_HEIGHT 135
 #define GLYPH_WIDTH 4
 #define GLYPH_HEIGHT 7
 #define GLYPH_SCALE 2
@@ -170,8 +170,8 @@ static void draw_centered_text_at(const char *text, int y, uint16_t color)
     if (length == 0U) {
         return;
     }
-    if (length > 13U) {
-        length = 13U;
+    if (length > 23U) {
+        length = 23U;
     }
     int text_width = ((int)length * GLYPH_CELL_WIDTH) - 2;
     int x = MAX((TFT_WIDTH - text_width) / 2, 1);
@@ -232,17 +232,17 @@ static void draw_jungle_frame(const char *banner)
         draw_leaf(x + 10, TFT_HEIGHT - 9, leaf_green);
     }
 
-    fill_rect(8, 91, TFT_WIDTH - 16, 2, shadow);
-    fill_rect(8, 145, TFT_WIDTH - 16, 2, shadow);
+    fill_rect(8, 44, TFT_WIDTH - 16, 2, shadow);
+    fill_rect(8, 87, TFT_WIDTH - 16, 2, shadow);
     draw_centered_banner(banner, gold);
 
     int active = loading_letter_count(banner);
     int start_x = (TFT_WIDTH - 61) / 2;
     for (int index = 0; index < 7; index++) {
         uint16_t dot = index < active ? gold : deep_green;
-        fill_rect(start_x + (index * 9), 161, 5, 5, dot);
+        fill_rect(start_x + (index * 9), 103, 5, 5, dot);
         if (index < active) {
-            set_pixel(start_x + (index * 9) + 2, 160, leaf_green);
+            set_pixel(start_x + (index * 9) + 2, 102, leaf_green);
         }
     }
 }
@@ -281,23 +281,23 @@ static void draw_killerkoala_mouth_frame(const char *state,
         draw_leaf(x + 10, TFT_HEIGHT - 10, deep_green);
     }
 
-    draw_centered_text_at(state && state[0] ? state : "IDLE", 62, leaf_green);
+    draw_centered_text_at(state && state[0] ? state : "IDLE", 18, leaf_green);
 
     if (mouth_open) {
-        fill_rect(24, 101, TFT_WIDTH - 48, 5, lip);
-        fill_rect(18, 106, TFT_WIDTH - 36, 30, mouth_dark);
-        fill_rect(24, 136, TFT_WIDTH - 48, 5, lip);
-        fill_rect(39, 125, TFT_WIDTH - 78, 7, tongue);
+        fill_rect(36, 48, TFT_WIDTH - 72, 5, lip);
+        fill_rect(28, 53, TFT_WIDTH - 56, 32, mouth_dark);
+        fill_rect(36, 85, TFT_WIDTH - 72, 5, lip);
+        fill_rect(54, 75, TFT_WIDTH - 108, 7, tongue);
     } else {
-        fill_rect(20, 117, TFT_WIDTH - 40, 3, mouth_dark);
-        fill_rect(26, 113, TFT_WIDTH - 52, 4, lip);
-        fill_rect(26, 120, TFT_WIDTH - 52, 4, lip);
-        fill_rect(20, 116, 8, 5, lip);
-        fill_rect(TFT_WIDTH - 28, 116, 8, 5, lip);
+        fill_rect(30, 69, TFT_WIDTH - 60, 3, mouth_dark);
+        fill_rect(38, 65, TFT_WIDTH - 76, 4, lip);
+        fill_rect(38, 72, TFT_WIDTH - 76, 4, lip);
+        fill_rect(30, 68, 10, 5, lip);
+        fill_rect(TFT_WIDTH - 40, 68, 10, 5, lip);
     }
 
     if (message && message[0]) {
-        draw_centered_text_at(message, 158, gold);
+        draw_centered_text_at(message, 106, gold);
     }
 }
 
@@ -322,31 +322,24 @@ static bool configure_board_outputs(void)
     return true;
 }
 
-static uint16_t rotated[TFT_WIDTH * TFT_HEIGHT];
-
 static void flush_frame(void)
 {
     if (!display_ready_flag) {
         return;
     }
 
-    /* Rotate the framebuffer 180 degrees */
-    for (int y = 0; y < TFT_HEIGHT; y++) {
-        for (int x = 0; x < TFT_WIDTH; x++) {
-            rotated[(TFT_HEIGHT - 1 - y) * TFT_WIDTH +
-                    (TFT_WIDTH - 1 - x)] =
-                framebuffer[y * TFT_WIDTH + x];
-        }
-    }
-
+    /*
+     * The ST7789 MADCTL setting owns the right-hand 90-degree rotation.
+     * The renderer therefore writes a native 240x135 landscape frame.
+     */
     const struct display_buffer_descriptor descriptor = {
-        .buf_size = sizeof(rotated),
+        .buf_size = sizeof(framebuffer),
         .width = TFT_WIDTH,
         .height = TFT_HEIGHT,
         .pitch = TFT_WIDTH,
     };
 
-    (void)display_write(display_dev, 0, 0, &descriptor, rotated);
+    (void)display_write(display_dev, 0, 0, &descriptor, framebuffer);
 }
 
 bool loading_display_init(void)
