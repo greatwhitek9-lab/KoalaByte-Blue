@@ -112,7 +112,7 @@ def validate_protocol() -> list[str]:
                 "render_loading_banner",
                 "render_killerkoala_mouth",
                 "render_menu_status",
-                "KOALA_BOOT_LOADING_MS",
+                "KOALA_BOOT_SPLASH_MS",
             ],
         )
     )
@@ -169,7 +169,7 @@ def main() -> int:
     _write(
         _status_payload(
             "FACE_MOUTH_SYNC_READY",
-            "T114 boot loading transitions to the synchronized mouth, menu labels replace the mouth temporarily, and ESP32-S3 AI eyes remain active",
+            "T114 KILLERKOALA boot splash transitions directly to the visible synchronized mouth, menu labels replace the mouth temporarily, and ESP32-S3 AI eyes remain active",
             emit_result=emit_result,
             loading_result=loading_result,
         )
