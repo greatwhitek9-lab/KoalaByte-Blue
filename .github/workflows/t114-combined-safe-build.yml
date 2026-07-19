@@ -3,6 +3,15 @@ name: Build Heltec T114 Combined Safe UF2
 on:
   workflow_dispatch:
 
+  pull_request:
+    branches:
+      - Main
+    paths:
+      - "boards/**"
+      - "firmware/t114-combined-safe/**"
+      - "scripts/build_t114_combined_safe.sh"
+      - ".github/workflows/t114-combined-safe-build.yml"
+
   push:
     branches:
       - Main
@@ -14,7 +23,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
 
     env:
       BOARD: heltec_t114_v2/nrf52840/uf2
