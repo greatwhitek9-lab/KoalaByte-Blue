@@ -202,7 +202,8 @@ void drawEye(GFXcanvas16 &canvas, bool leftEye, Rgb baseColor, uint32_t now,
   float browLift = 0.05f;
 
   if (eqi(eyes.animation, "sleepy") || containsI(lastMood, "sleep")) openness *= 0.48f;
-  if (eqi(eyes.animation, "speaking") || containsI(lastMood, "speaking")) {
+  if (eqi(eyes.animation, "speaking") || eqi(eyes.animation, "blink") ||
+      containsI(lastMood, "speaking")) {
     openness *= 0.80f + 0.20f * sinf(phase * 9.0f);
     browLift = 0.25f + 0.14f * sinf(phase * 4.0f);
   }
@@ -275,33 +276,38 @@ void drawEye(GFXcanvas16 &canvas, bool leftEye, Rgb baseColor, uint32_t now,
 }
 
 void drawPrimaryMenu(uint32_t now) {
-  bool errorState = containsI(lastMood, "error") || containsI(lastMood, "failed");
-  drawEye(rightCanvas, false, eyes.right, now, errorState, true);
-  uint16_t accent = errorState ? rgb565(255, 95, 220) : rgb565(50, 255, 113);
+  drawEye(rightCanvas, false, eyes.right, now, false, true);
+  const uint16_t accent = rgb565(50, 255, 113);
   rightCanvas.fillRoundRect(10, 117, kCanvas - 20, 67, 12, rgb565(5, 12, 20));
   rightCanvas.drawRoundRect(10, 117, kCanvas - 20, 67, 12, accent);
-  drawCentered(rightCanvas, errorState ? "ERROR" : "MENU", 126, 2, accent);
+  drawCentered(rightCanvas, "MENU", 126, 2, accent);
 
   String line(lastMood);
   if (line.length() > 26) line = line.substring(0, 26);
   drawCentered(rightCanvas, line.c_str(), 154, 1, rgb565(220, 232, 238));
 
-  drawEye(leftCanvas, true, eyes.left, now, errorState, false);
+  drawEye(leftCanvas, true, eyes.left, now, false, false);
 }
 
 void renderFrame(uint32_t now) {
   if (!dualEyeDisplayReady()) return;
   updateMotion(now);
   const bool errorState = containsI(lastMood, "error") || containsI(lastMood, "failed") ||
-                          eqi(eyes.animation, "error") || eqi(eyes.animation, "glitch");
+                          eqi(eyes.animation, "error") ||
+                          (eqi(eyes.animation, "glitch") && eqi(eyes.look, "angry"));
   const bool menuState = eqi(lastMode, "menu") || eqi(lastMode, "text_input") ||
                          eqi(lastMode, "prompt") || eqi(lastMode, "warning");
 
-  if (menuState && KOALA_CRITICAL_UI_PRIMARY_ONLY) {
+  // Error text belongs on the Heltec status display. DualEye keeps both
+  // cyber-koala eyes visible and performs only the alternating siren animation.
+  if (errorState) {
+    drawEye(leftCanvas, true, eyes.left, now, true, false);
+    drawEye(rightCanvas, false, eyes.right, now, true, false);
+  } else if (menuState && KOALA_CRITICAL_UI_PRIMARY_ONLY) {
     drawPrimaryMenu(now);
   } else {
-    drawEye(leftCanvas, true, eyes.left, now, errorState, false);
-    drawEye(rightCanvas, false, eyes.right, now, errorState, false);
+    drawEye(leftCanvas, true, eyes.left, now, false, false);
+    drawEye(rightCanvas, false, eyes.right, now, false, false);
   }
 
   dualEyePushCanvas(1, leftCanvas, (DISPLAY_WIDTH - kCanvas) / 2,
