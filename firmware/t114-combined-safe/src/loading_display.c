@@ -85,35 +85,66 @@ static void draw_leaf(int center_x, int center_y, uint16_t color)
     set_pixel(center_x, center_y + 2, color);
 }
 
-static uint8_t glyph_row(char ch, int row)
+static uint32_t glyph_pattern(char ch)
 {
-    static const uint8_t glyph_l[GLYPH_HEIGHT] = {0x8, 0x8, 0x8, 0x8, 0x8, 0x8, 0xf};
-    static const uint8_t glyph_o[GLYPH_HEIGHT] = {0x6, 0x9, 0x9, 0x9, 0x9, 0x9, 0x6};
-    static const uint8_t glyph_a[GLYPH_HEIGHT] = {0x6, 0x9, 0x9, 0xf, 0x9, 0x9, 0x9};
-    static const uint8_t glyph_d[GLYPH_HEIGHT] = {0xe, 0x9, 0x9, 0x9, 0x9, 0x9, 0xe};
-    static const uint8_t glyph_i[GLYPH_HEIGHT] = {0xf, 0x2, 0x2, 0x2, 0x2, 0x2, 0xf};
-    static const uint8_t glyph_n[GLYPH_HEIGHT] = {0x9, 0xd, 0xd, 0xb, 0xb, 0x9, 0x9};
-    static const uint8_t glyph_g[GLYPH_HEIGHT] = {0x6, 0x9, 0x8, 0xb, 0x9, 0x9, 0x7};
-    static const uint8_t glyph_lt[GLYPH_HEIGHT] = {0x1, 0x2, 0x4, 0x8, 0x4, 0x2, 0x1};
-    static const uint8_t glyph_gt[GLYPH_HEIGHT] = {0x8, 0x4, 0x2, 0x1, 0x2, 0x4, 0x8};
-    const uint8_t *glyph = NULL;
+    if (ch >= 'a' && ch <= 'z') {
+        ch = (char)(ch - ('a' - 'A'));
+    }
 
     switch (ch) {
-    case 'L': glyph = glyph_l; break;
-    case 'O': glyph = glyph_o; break;
-    case 'A': glyph = glyph_a; break;
-    case 'D': glyph = glyph_d; break;
-    case 'I': glyph = glyph_i; break;
-    case 'N': glyph = glyph_n; break;
-    case 'G': glyph = glyph_g; break;
-    case '<': glyph = glyph_lt; break;
-    case '>': glyph = glyph_gt; break;
-    case ' ': return 0;
-    default: return 0;
+    case 'A': return 0x699f999U;
+    case 'B': return 0xe99e99eU;
+    case 'C': return 0x7888887U;
+    case 'D': return 0xe99999eU;
+    case 'E': return 0xf88e88fU;
+    case 'F': return 0xf88e888U;
+    case 'G': return 0x788b997U;
+    case 'H': return 0x999f999U;
+    case 'I': return 0xf22222fU;
+    case 'J': return 0x1111996U;
+    case 'K': return 0x9ac8ca9U;
+    case 'L': return 0x888888fU;
+    case 'M': return 0x9ff9999U;
+    case 'N': return 0x9ddbb99U;
+    case 'O': return 0x6999996U;
+    case 'P': return 0xe99e888U;
+    case 'Q': return 0x6999ba5U;
+    case 'R': return 0xe99ea99U;
+    case 'S': return 0x788611eU;
+    case 'T': return 0xf222222U;
+    case 'U': return 0x9999996U;
+    case 'V': return 0x9999962U;
+    case 'W': return 0x9999ff9U;
+    case 'X': return 0x9962699U;
+    case 'Y': return 0x9962222U;
+    case 'Z': return 0xf12488fU;
+    case '0': return 0x6999996U;
+    case '1': return 0x2622227U;
+    case '2': return 0x691248fU;
+    case '3': return 0xe11611eU;
+    case '4': return 0x99f1111U;
+    case '5': return 0xf88e11eU;
+    case '6': return 0x688e996U;
+    case '7': return 0xf124444U;
+    case '8': return 0x6996996U;
+    case '9': return 0x6997116U;
+    case '<': return 0x1248421U;
+    case '>': return 0x8421248U;
+    case '/': return 0x1122488U;
+    case '-': return 0x000f000U;
+    case ':': return 0x0200020U;
+    case '.': return 0x0000002U;
+    case '_': return 0x000000fU;
+    case ' ': return 0U;
+    default: return 0xe112002U;
     }
-    return glyph[row];
 }
 
+static uint8_t glyph_row(char ch, int row)
+{
+    uint32_t pattern = glyph_pattern(ch);
+    return (uint8_t)((pattern >> ((GLYPH_HEIGHT - 1 - row) * 4)) & 0x0fU);
+}
 static void draw_glyph(char ch, int x, int y, uint16_t color)
 {
     for (int row = 0; row < GLYPH_HEIGHT; row++) {
@@ -133,9 +164,9 @@ static void draw_glyph(char ch, int x, int y, uint16_t color)
     }
 }
 
-static void draw_centered_banner(const char *banner, uint16_t color)
+static void draw_centered_text_at(const char *text, int y, uint16_t color)
 {
-    size_t length = banner ? strlen(banner) : 0U;
+    size_t length = text ? strlen(text) : 0U;
     if (length == 0U) {
         return;
     }
@@ -144,11 +175,16 @@ static void draw_centered_banner(const char *banner, uint16_t color)
     }
     int text_width = ((int)length * GLYPH_CELL_WIDTH) - 2;
     int x = MAX((TFT_WIDTH - text_width) / 2, 1);
-    int y = (TFT_HEIGHT - (GLYPH_HEIGHT * GLYPH_SCALE)) / 2;
 
     for (size_t index = 0; index < length; index++) {
-        draw_glyph(banner[index], x + ((int)index * GLYPH_CELL_WIDTH), y, color);
+        draw_glyph(text[index], x + ((int)index * GLYPH_CELL_WIDTH), y, color);
     }
+}
+
+static void draw_centered_banner(const char *banner, uint16_t color)
+{
+    int y = (TFT_HEIGHT - (GLYPH_HEIGHT * GLYPH_SCALE)) / 2;
+    draw_centered_text_at(banner, y, color);
 }
 
 static int loading_letter_count(const char *banner)
@@ -208,6 +244,60 @@ static void draw_jungle_frame(const char *banner)
         if (index < active) {
             set_pixel(start_x + (index * 9) + 2, 160, leaf_green);
         }
+    }
+}
+
+static void draw_killerkoala_mouth_frame(const char *state,
+                                           const char *message,
+                                           bool mouth_open)
+{
+    const uint16_t background = rgb565(2, 18, 8);
+    const uint16_t deep_green = rgb565(8, 72, 30);
+    const uint16_t leaf_green = rgb565(44, 235, 92);
+    const uint16_t gold = rgb565(245, 188, 48);
+    const uint16_t mouth_dark = rgb565(10, 2, 5);
+    const uint16_t tongue = rgb565(220, 54, 92);
+    uint16_t lip = gold;
+
+    if (state && strcmp(state, "error") == 0) {
+        lip = rgb565(255, 68, 48);
+    } else if (state && strcmp(state, "success") == 0) {
+        lip = leaf_green;
+    }
+
+    for (size_t index = 0; index < ARRAY_SIZE(framebuffer); index++) {
+        framebuffer[index] = background;
+    }
+
+    fill_rect(0, 0, TFT_WIDTH, 3, gold);
+    fill_rect(0, TFT_HEIGHT - 3, TFT_WIDTH, 3, gold);
+    fill_rect(0, 0, 3, TFT_HEIGHT, gold);
+    fill_rect(TFT_WIDTH - 3, 0, 3, TFT_HEIGHT, gold);
+    fill_rect(6, 6, TFT_WIDTH - 12, 2, deep_green);
+    fill_rect(6, TFT_HEIGHT - 8, TFT_WIDTH - 12, 2, deep_green);
+
+    for (int x = 18; x < TFT_WIDTH - 18; x += 24) {
+        draw_leaf(x, 9, leaf_green);
+        draw_leaf(x + 10, TFT_HEIGHT - 10, deep_green);
+    }
+
+    draw_centered_text_at(state && state[0] ? state : "IDLE", 62, leaf_green);
+
+    if (mouth_open) {
+        fill_rect(24, 101, TFT_WIDTH - 48, 5, lip);
+        fill_rect(18, 106, TFT_WIDTH - 36, 30, mouth_dark);
+        fill_rect(24, 136, TFT_WIDTH - 48, 5, lip);
+        fill_rect(39, 125, TFT_WIDTH - 78, 7, tongue);
+    } else {
+        fill_rect(20, 117, TFT_WIDTH - 40, 3, mouth_dark);
+        fill_rect(26, 113, TFT_WIDTH - 52, 4, lip);
+        fill_rect(26, 120, TFT_WIDTH - 52, 4, lip);
+        fill_rect(20, 116, 8, 5, lip);
+        fill_rect(TFT_WIDTH - 28, 116, 8, 5, lip);
+    }
+
+    if (message && message[0]) {
+        draw_centered_text_at(message, 158, gold);
     }
 }
 
@@ -300,14 +390,26 @@ void render_loading_banner(const char *banner)
     flush_frame();
 }
 
-void loading_display_end(void)
+void render_killerkoala_mouth(const char *state, const char *message,
+                              bool mouth_open)
 {
     if (!display_ready_flag) {
         return;
     }
-    const uint16_t background = rgb565(2, 18, 8);
-    for (size_t index = 0; index < ARRAY_SIZE(framebuffer); index++) {
-        framebuffer[index] = background;
-    }
+    draw_killerkoala_mouth_frame(state, message, mouth_open);
     flush_frame();
+}
+
+void render_menu_status(const char *message)
+{
+    if (!display_ready_flag) {
+        return;
+    }
+    draw_jungle_frame(message && message[0] ? message : "MENU");
+    flush_frame();
+}
+
+void loading_display_end(void)
+{
+    render_killerkoala_mouth("idle", "KILLERKOALA", false);
 }
