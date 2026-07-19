@@ -105,7 +105,7 @@ jobs:
         shell: bash
         run: |
           source logs/nrf_connect_sdk_env.sh
-          grep -Fq 'render_loading_banner("LOADING")' firmware/t114-combined-safe/src/loading_display.c
+          grep -Fq 'render_loading_banner("KILLERKOALA")' firmware/t114-combined-safe/src/loading_display.c
           grep -Fq 'render_killerkoala_mouth' firmware/t114-combined-safe/src/loading_display.c
           grep -Fq 'render_menu_status' firmware/t114-combined-safe/src/loading_display.c
           grep -Fq '#define TFT_WIDTH 240' firmware/t114-combined-safe/src/loading_display.c
@@ -159,7 +159,7 @@ jobs:
           grep -Fq 'uart1: uart@40028000' "${dts}"
           grep -Fq 'compatible = "semtech,sx1262"' "${dts}"
           for marker in \
-            'render_loading_banner("LOADING")' \
+            'render_loading_banner("KILLERKOALA")' \
             'render_killerkoala_mouth' \
             'render_menu_status' \
             'start_ble_primary' \
@@ -211,6 +211,7 @@ jobs:
             echo "vector_relocation=validated"
             echo "display_orientation=landscape_right_90_from_v2"
             echo "display_geometry=240x135_offset_40_53_mdac_0x60"
+            echo "boot_sequence=killerkoala_splash_1200ms_to_visible_idle_mouth"
             echo "normal_profile=usb_ble_gnss_display"
             echo "meshtastic_profile=separate_pi_managed_uf2"
           } > releases/build-provenance.txt
@@ -222,7 +223,7 @@ jobs:
           3. Double-press RST quickly. A drive named HT-n5262 should appear.
           4. Copy koalabyte-t114-recovery-pr17-v3-right-landscape-239a-ht-n5262.uf2 to HT-n5262.
           5. The drive should disconnect automatically. Do not unplug during the copy.
-          6. Wait 15 seconds. Expect LOADING for about 2.5 seconds, then the KillerKoala mouth.
+          6. Wait 15 seconds. Expect a brief KILLERKOALA splash, then the visible KillerKoala mouth.
           7. Windows should enumerate a non-Bluetooth USB CDC serial port for VID_2FE3 and PID_0100.
 
           This artifact was rejected unless its vector table and reset handler both fell inside
