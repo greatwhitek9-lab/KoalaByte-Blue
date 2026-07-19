@@ -147,8 +147,21 @@ animation. The shared action clock still advances through seven frames:
 
 When the action finishes, the T114 leaves Koalagotchi and returns to the
 full-screen animated KillerKoala mouth while DualEye leaves the
-executing-action label. The mouth contains no status words and continues
-animating while the T114 is idle, even when the Pi and DualEye are disconnected.
+executing-action label. At boot, the user-supplied artwork remains visible for
+six seconds before the first mouth frame. The mouth contains no status words
+and continues animating while the T114 is idle, even when the Pi and DualEye
+are disconnected.
+
+The T114 mouth uses five cyberpunk koala keyframes with pose-specific purple
+and lime rim lighting. Koalagotchi contentment/health and mood select the loop:
+
+| Koalagotchi condition | T114 mouth sequence |
+| --- | --- |
+| happy, calm, or high health | smile |
+| eating or feeding | bite/chew |
+| cranky, angry, hostile, or health at/below 25 | snarl |
+| patrolling, mischievous, boomerang, or sideways mood | sideways grin |
+| Pi disconnected/no status yet | calm smile |
 
 ### Button-board fallback
 
