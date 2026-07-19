@@ -101,6 +101,7 @@ def main() -> int:
         "PIXEL_FORMAT_RGB_565",
         "draw_jungle_frame",
         "draw_centered_banner",
+        'render_loading_banner("LOADING")',
     ]:
         if marker not in renderer_text:
             failures.append(f"T114 display renderer missing marker: {marker}")
