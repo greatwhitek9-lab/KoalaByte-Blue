@@ -68,13 +68,28 @@ jobs:
           cp "${boot_app0}" "${package}/boot_app0.bin"
           cp releases/esp32-dualeye-platformio.log "${package}/build.log"
 
-          python -m esptool --chip esp32s3 merge_bin \
-            -o "${package}/koalabyte-esp32-s3-dualeye-v0.7.0-full-flash.bin" \
-            --flash_mode qio --flash_freq 80m --flash_size 16MB \
-            0x0000 "${package}/bootloader.bin" \
-            0x8000 "${package}/partitions.bin" \
-            0xE000 "${package}/boot_app0.bin" \
-            0x10000 "${package}/firmware.bin"
+          PACKAGE_DIR="${package}" python - <<'PY'
+          import os
+          from pathlib import Path
+
+          package = Path(os.environ["PACKAGE_DIR"])
+          parts = [
+              (0x0000, package / "bootloader.bin"),
+              (0x8000, package / "partitions.bin"),
+              (0xE000, package / "boot_app0.bin"),
+              (0x10000, package / "firmware.bin"),
+          ]
+          payloads = [(offset, path.read_bytes()) for offset, path in parts]
+          end = max(offset + len(payload) for offset, payload in payloads)
+          image = bytearray(b"\xFF" * end)
+          for offset, payload in payloads:
+              image[offset:offset + len(payload)] = payload
+          output = package / "koalabyte-esp32-s3-dualeye-v0.7.0-full-flash.bin"
+          output.write_bytes(image)
+          for offset, payload in payloads:
+              assert image[offset:offset + len(payload)] == payload
+          print(f"Created {output} ({len(image)} bytes)")
+          PY
 
           cat > "${package}/flash-esp32-dualeye.ps1" <<'POWERSHELL'
           param(
