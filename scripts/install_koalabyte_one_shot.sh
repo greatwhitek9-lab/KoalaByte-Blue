@@ -13,6 +13,8 @@ T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE:-combined-safe}"
 HELTEC_UF2_FIRST="${HELTEC_UF2_FIRST:-0}"
 INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN:-optional}"
 STRICT_INNOMAKER_CAN="${STRICT_INNOMAKER_CAN:-0}"
+INSTALL_CAN0_SERVICE="${INSTALL_CAN0_SERVICE:-auto}"
+STRICT_CAN0_SERVICE="${STRICT_CAN0_SERVICE:-0}"
 INSTALL_BLE_NODE_MANAGER_SERVICE="${INSTALL_BLE_NODE_MANAGER_SERVICE:-auto}"
 STRICT_BLE_NODE_MANAGER_SERVICE="${STRICT_BLE_NODE_MANAGER_SERVICE:-0}"
 INSTALL_UDEV_RULES="${INSTALL_UDEV_RULES:-auto}"
@@ -92,6 +94,8 @@ Useful env:
   STRICT_DUALEYE_VOICE_BRIDGE_SERVICE=1
   INSTALL_INNOMAKER_CAN=optional|auto|0|1
   STRICT_INNOMAKER_CAN=1
+  INSTALL_CAN0_SERVICE=auto|1|0
+  STRICT_CAN0_SERVICE=1|0
   KOALABYTE_LAB_PROFILE=owned-lab|authorized-owned-lab|bench-only
   KOALABYTE_CAN_TRANSMIT_MODE=gated-bench|listen-only|disabled
   KOALABYTE_RF_BLE_TRANSMIT_MODE=disabled-during-install|passive-only
@@ -197,12 +201,13 @@ write_innomaker_can_status() {
   local manifest_rc="${5:-null}"
   local inventory_rc="${6:-null}"
   local status_rc="${7:-null}"
+  local service_rc="${8:-null}"
   local interface="${CAN_INTERFACE:-can0}"
   local can_interfaces=""
   can_interfaces="$(find /sys/class/net -maxdepth 1 -type l -name 'can*' -printf '%f ' 2>/dev/null || true)"
-  python3 - <<'PY' "logs/can/innomaker_optional_status.json" "${status}" "${detected}" "${interface}" "${can_interfaces}" "${setup_rc}" "${manifest_rc}" "${inventory_rc}" "${status_rc}" "${note}"
+  python3 - <<'PY' "logs/can/innomaker_optional_status.json" "${status}" "${detected}" "${interface}" "${can_interfaces}" "${setup_rc}" "${manifest_rc}" "${inventory_rc}" "${status_rc}" "${service_rc}" "${note}"
 import json, sys, time
-path, status, detected, interface, can_interfaces, setup_rc, manifest_rc, inventory_rc, status_rc, note = sys.argv[1:]
+path, status, detected, interface, can_interfaces, setup_rc, manifest_rc, inventory_rc, status_rc, service_rc, note = sys.argv[1:]
 def rc(value):
     return None if value == "null" else int(value)
 payload = {
@@ -215,6 +220,8 @@ payload = {
     "manifest_rc": rc(manifest_rc),
     "inventory_rc": rc(inventory_rc),
     "status_rc": rc(status_rc),
+    "service_rc": rc(service_rc),
+    "persistent_service": "koalabyte-can0.service",
     "note": note,
     "updated_at": time.time(),
 }
@@ -239,8 +246,11 @@ run_optional_can() {
   esac
 
   if [[ "${CHECK_ONLY}" == "1" ]]; then
-    write_innomaker_can_status "OPTIONAL_CAN_CHECK_ONLY" "false" "InnoMaker CAN kit is optional. Dry-run recorded policy only." >/dev/null
-    write_status "ok" "optional_innomaker_can" "optional CAN check-only policy recorded"
+    bash -n scripts/setup_can0.sh
+    bash -n scripts/run_can0_service.sh
+    bash -n scripts/install_can0_service.sh
+    write_innomaker_can_status "OPTIONAL_CAN_CHECK_ONLY" "false" "InnoMaker CAN kit is optional. Dry-run validated SocketCAN setup and persistent service scripts without changing the host." >/dev/null
+    write_status "ok" "optional_innomaker_can" "optional CAN check-only policy and service scripts validated"
     return 0
   fi
 
@@ -262,14 +272,20 @@ run_optional_can() {
   inventory_rc=$?
   PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/run_koala_kan_kommander.py status --interface "${CAN_INTERFACE:-can0}"
   status_rc=$?
+  INSTALL_CAN0_SERVICE="${INSTALL_CAN0_SERVICE}" \
+  STRICT_CAN0_SERVICE="${STRICT_CAN0_SERVICE}" \
+  CAN_INTERFACE="${CAN_INTERFACE:-can0}" \
+  CAN_BITRATE="${CAN_BITRATE:-500000}" \
+    bash scripts/install_can0_service.sh
+  service_rc=$?
   set -e
 
-  write_innomaker_can_status "OPTIONAL_CAN_CHECK_RECORDED" "true" "InnoMaker CAN kit is optional. It was detected, so setup and status checks were attempted." "${setup_rc}" "${manifest_rc}" "${inventory_rc}" "${status_rc}" >/dev/null
-  if [[ "${STRICT_INNOMAKER_CAN}" == "1" && ( "${setup_rc}" != "0" || "${manifest_rc}" != "0" || "${inventory_rc}" != "0" || "${status_rc}" != "0" ) ]]; then
+  write_innomaker_can_status "OPTIONAL_CAN_READY" "true" "InnoMaker was detected; SocketCAN setup, manifest, inventory, status, and persistent hot-plug service installation were attempted without flashing adapter firmware." "${setup_rc}" "${manifest_rc}" "${inventory_rc}" "${status_rc}" "${service_rc}" >/dev/null
+  if [[ "${STRICT_INNOMAKER_CAN}" == "1" && ( "${setup_rc}" != "0" || "${manifest_rc}" != "0" || "${inventory_rc}" != "0" || "${status_rc}" != "0" || "${service_rc}" != "0" ) ]]; then
     echo "STRICT_INNOMAKER_CAN=1 is set and the optional CAN checks failed." >&2
     exit 1
   fi
-  write_status "ok" "optional_innomaker_can" "optional CAN detected; setup/checks completed or were non-failing"
+  write_status "ok" "optional_innomaker_can" "optional CAN detected; SocketCAN setup/checks and persistent service completed or were non-failing"
 }
 
 prepare_anteater_status() {
