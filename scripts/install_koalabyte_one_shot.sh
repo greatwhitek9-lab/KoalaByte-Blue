@@ -6,6 +6,7 @@ cd "${REPO_ROOT}"
 
 CHECK_ONLY=0
 ESP32_PORT="${ESP32_PORT:-}"
+FLASH_ESP32="${FLASH_ESP32:-0}"
 NO_MONITOR="${NO_MONITOR:-1}"
 FLASH_T114_ON_PLUG="${FLASH_T114_ON_PLUG:-auto}"
 STRICT_T114_PLUG_FLASH="${STRICT_T114_PLUG_FLASH:-1}"
@@ -76,6 +77,7 @@ Lab transmit policy:
 
 Useful env:
   ESP32_PORT=/dev/ttyUSB0
+  FLASH_ESP32=0|1   # default 0 preserves the already-flashed DualEye firmware
   KOALABYTE_ESP32_MIC_PORT=/dev/koalabyte-esp32-dualeye
   KOALABYTE_HELTEC_USB_PORT=/dev/koalabyte-heltec
   KOALABYTE_MENU_SYNC=auto|0
@@ -476,6 +478,28 @@ run_dualeye_voice_bridge_service() {
   PYTHON_BIN="${PYTHON_BIN}" bash scripts/install_esp32_dualeye_voice_bridge_service.sh
 }
 
+run_esp32_firmware_step() {
+  case "${FLASH_ESP32}" in
+    0|false|False|no|NO|skip|SKIP)
+      echo "Preserving existing ESP32-S3 DualEye firmware; synchronization services remain enabled."
+      return 0
+      ;;
+    1|true|True|yes|YES)
+      STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-1}" \
+        bash scripts/setup_esp32_tools.sh
+      if [[ -n "${ESP32_PORT}" ]]; then
+        ESP32_PORT="${ESP32_PORT}" NO_MONITOR="${NO_MONITOR}" bash scripts/flash_esp32.sh
+      else
+        NO_MONITOR="${NO_MONITOR}" bash scripts/flash_esp32.sh
+      fi
+      ;;
+    *)
+      echo "Unknown FLASH_ESP32=${FLASH_ESP32}. Use 0 to preserve firmware or 1 for an explicit reflash." >&2
+      return 2
+      ;;
+  esac
+}
+
 trap 'write_status "failed" "one_shot_install" "one-shot installer exited before completion"' ERR
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
@@ -516,7 +540,7 @@ run_required "udev rules install" run_udev_install_or_check
 run_required "Raspberry Pi companion + Heltec combined-safe flash" env FLASH_T114_ON_PLUG="${FLASH_T114_ON_PLUG}" STRICT_T114_PLUG_FLASH="${STRICT_T114_PLUG_FLASH}" T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE}" T114_REQUIRE_UF2="${T114_REQUIRE_UF2:-0}" T114_FLASH_METHOD="${T114_FLASH_METHOD:-auto}" bash scripts/install_pi.sh
 run_required "KillerKoala AI and voice readiness" run_killerkoala_ai_readiness
 run_required "ESP32-S3 DualEye mic voice bridge service" run_dualeye_voice_bridge_service
-run_required "ESP32-S3 DualEye firmware flash" env ESP32_PORT="${ESP32_PORT}" NO_MONITOR="${NO_MONITOR}" STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-1}" bash -c 'STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS}" bash scripts/setup_esp32_tools.sh; if [[ -n "${ESP32_PORT}" ]]; then ESP32_PORT="${ESP32_PORT}" NO_MONITOR="${NO_MONITOR}" bash scripts/flash_esp32.sh; else NO_MONITOR="${NO_MONITOR}" bash scripts/flash_esp32.sh; fi'
+run_required "ESP32-S3 firmware preservation or explicit flash" run_esp32_firmware_step
 run_required "KillerKoala eyes and mouth sync" run_face_mouth_sync
 run_required "Menu display sync and AI-face controls" run_menu_display_sync_gate
 run_required "Jungle menu theme and text fit" run_menu_theme_fit_gate
@@ -537,7 +561,7 @@ run_required "External antenna readiness" bash scripts/configure_koalabyte_exter
 run_required "AntEater passive readiness" prepare_anteater_status
 run_optional_can
 
-write_status "complete" "one_shot_install" "Pi, Heltec combined-safe primary BLE/mouth profile, ESP32-S3, DualEye mic voice bridge, KillerKoala AI/voice, eyes/mouth sync, menu display sync, jungle/eucalyptus menu theme fit, menu-managed prompt UI controls, AI-face idle/action-complete return, udev rules, boot services, version handshake, status dashboard check, release/log helper checks, field readiness helpers, doctor quick check, full runtime dependency gate, live T114 dashboard phrases, controls/commands, services, menu, antenna, passive-readiness, owned-lab RF/BLE/CAN transmit policy, and optional CAN handling complete"
+write_status "complete" "one_shot_install" "Pi, Heltec combined-safe primary BLE/mouth profile, preserved ESP32-S3 firmware, DualEye mic voice bridge, KillerKoala AI/voice, eyes/mouth sync, menu display sync, jungle/eucalyptus menu theme fit, menu-managed prompt UI controls, AI-face idle/action-complete return, udev rules, boot services, version handshake, status dashboard check, release/log helper checks, field readiness helpers, doctor quick check, full runtime dependency gate, live T114 dashboard phrases, controls/commands, services, menu, antenna, passive-readiness, owned-lab RF/BLE/CAN transmit policy, and optional CAN handling complete"
 trap - ERR
 
 echo
