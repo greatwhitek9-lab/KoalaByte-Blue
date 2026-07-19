@@ -19,6 +19,8 @@
 #define GLYPH_HEIGHT 7
 #define GLYPH_SCALE 2
 #define GLYPH_CELL_WIDTH 10
+#define KILLERKOALA_MOUTH_TEXT_FREE 1
+#define KILLERKOALA_MOUTH_WIDTH 224
 
 #define DISPLAY_NODE DT_CHOSEN(zephyr_display)
 
@@ -84,6 +86,43 @@ static void fill_circle(int center_x, int center_y, int radius,
                 set_pixel(center_x + x, center_y + y, color);
             }
         }
+    }
+}
+
+static void fill_ellipse(int center_x, int center_y, int radius_x,
+                         int radius_y, uint16_t color)
+{
+    int64_t radius_x_squared = (int64_t)radius_x * radius_x;
+    int64_t radius_y_squared = (int64_t)radius_y * radius_y;
+    int64_t limit = radius_x_squared * radius_y_squared;
+
+    for (int y = -radius_y; y <= radius_y; y++) {
+        for (int x = -radius_x; x <= radius_x; x++) {
+            int64_t distance = ((int64_t)x * x * radius_y_squared) +
+                               ((int64_t)y * y * radius_x_squared);
+            if (distance <= limit) {
+                set_pixel(center_x + x, center_y + y, color);
+            }
+        }
+    }
+}
+
+static void draw_upper_fang(int center_x, int top_y, int half_width,
+                            int height, uint16_t color)
+{
+    for (int row = 0; row < height; row++) {
+        int span = MAX(1, (half_width * (height - row)) / height);
+        fill_rect(center_x - span, top_y + row, (span * 2) + 1, 1, color);
+    }
+}
+
+static void draw_lower_fang(int center_x, int bottom_y, int half_width,
+                            int height, uint16_t color)
+{
+    for (int row = 0; row < height; row++) {
+        int span = MAX(1, (half_width * (row + 1)) / height);
+        fill_rect(center_x - span, bottom_y - height + row,
+                  (span * 2) + 1, 1, color);
     }
 }
 
@@ -270,55 +309,63 @@ static void draw_killerkoala_mouth_frame(const char *state,
                                            const char *message,
                                            bool mouth_open)
 {
-    const uint16_t background = rgb565(2, 18, 8);
-    const uint16_t deep_green = rgb565(8, 72, 30);
-    const uint16_t leaf_green = rgb565(44, 235, 92);
-    const uint16_t gold = rgb565(245, 188, 48);
-    const uint16_t mouth_dark = rgb565(10, 2, 5);
-    const uint16_t tongue = rgb565(220, 54, 92);
-    uint16_t lip = gold;
+    const uint16_t background = rgb565(1, 2, 2);
+    const uint16_t mouth_dark = rgb565(8, 2, 7);
+    const uint16_t lip_shadow = rgb565(44, 49, 52);
+    const uint16_t lip_highlight = rgb565(120, 128, 132);
+    const uint16_t teeth = rgb565(248, 238, 206);
+    const uint16_t tongue_dark = rgb565(92, 10, 48);
+    const uint16_t tongue = rgb565(232, 43, 112);
+    const uint16_t uv_glow = rgb565(177, 48, 255);
+    const uint16_t green_glow = rgb565(142, 255, 54);
+    uint16_t lip = lip_highlight;
+
+    ARG_UNUSED(message);
 
     if (state && strcmp(state, "error") == 0) {
-        lip = rgb565(255, 68, 48);
+        lip = rgb565(255, 58, 48);
     } else if (state && strcmp(state, "success") == 0) {
-        lip = leaf_green;
+        lip = green_glow;
     }
 
     for (size_t index = 0; index < ARRAY_SIZE(framebuffer); index++) {
         framebuffer[index] = background;
     }
 
-    fill_rect(0, 0, TFT_WIDTH, 3, gold);
-    fill_rect(0, TFT_HEIGHT - 3, TFT_WIDTH, 3, gold);
-    fill_rect(0, 0, 3, TFT_HEIGHT, gold);
-    fill_rect(TFT_WIDTH - 3, 0, 3, TFT_HEIGHT, gold);
-    fill_rect(6, 6, TFT_WIDTH - 12, 2, deep_green);
-    fill_rect(6, TFT_HEIGHT - 8, TFT_WIDTH - 12, 2, deep_green);
-
-    for (int x = 18; x < TFT_WIDTH - 18; x += 24) {
-        draw_leaf(x, 9, leaf_green);
-        draw_leaf(x + 10, TFT_HEIGHT - 10, deep_green);
-    }
-
-    draw_centered_text_at(state && state[0] ? state : "IDLE", 18, leaf_green);
-
+    /* Mouth mode is deliberately text-free and fills nearly the full TFT. */
+    fill_circle(12, 67, 20, uv_glow);
+    fill_circle(TFT_WIDTH - 13, 67, 20, green_glow);
     if (mouth_open) {
-        fill_rect(36, 48, TFT_WIDTH - 72, 5, lip);
-        fill_rect(28, 53, TFT_WIDTH - 56, 32, mouth_dark);
-        fill_rect(36, 85, TFT_WIDTH - 72, 5, lip);
-        fill_rect(54, 75, TFT_WIDTH - 108, 7, tongue);
-    } else {
-        /* Keep the idle mouth unmistakably visible without making it talk. */
-        fill_rect(42, 62, TFT_WIDTH - 84, 5, lip);
-        fill_rect(34, 67, TFT_WIDTH - 68, 16, mouth_dark);
-        fill_rect(42, 83, TFT_WIDTH - 84, 5, lip);
-        fill_rect(54, 76, TFT_WIDTH - 108, 5, tongue);
-        fill_rect(34, 66, 10, 18, lip);
-        fill_rect(TFT_WIDTH - 44, 66, 10, 18, lip);
-    }
+        fill_ellipse(TFT_WIDTH / 2, TFT_HEIGHT / 2, KILLERKOALA_MOUTH_WIDTH / 2,
+                     64, lip_shadow);
+        fill_ellipse(TFT_WIDTH / 2, TFT_HEIGHT / 2, 108, 59, lip);
+        fill_ellipse(TFT_WIDTH / 2, TFT_HEIGHT / 2, 101, 52, mouth_dark);
+        fill_ellipse(TFT_WIDTH / 2, 101, 72, 25, tongue_dark);
+        fill_ellipse(TFT_WIDTH / 2, 98, 65, 20, tongue);
 
-    if (message && message[0]) {
-        draw_centered_text_at(message, 106, gold);
+        draw_upper_fang(48, 23, 10, 27, teeth);
+        draw_upper_fang(88, 17, 8, 21, teeth);
+        draw_upper_fang(152, 17, 8, 21, teeth);
+        draw_upper_fang(192, 23, 10, 27, teeth);
+        draw_lower_fang(71, 120, 8, 20, teeth);
+        draw_lower_fang(120, 126, 9, 23, teeth);
+        draw_lower_fang(169, 120, 8, 20, teeth);
+    } else {
+        /* The grin stays large between open frames; it never collapses to a bar. */
+        fill_ellipse(TFT_WIDTH / 2, TFT_HEIGHT / 2, KILLERKOALA_MOUTH_WIDTH / 2,
+                     49, lip_shadow);
+        fill_ellipse(TFT_WIDTH / 2, TFT_HEIGHT / 2, 108, 44, lip);
+        fill_ellipse(TFT_WIDTH / 2, TFT_HEIGHT / 2, 101, 37, mouth_dark);
+        fill_ellipse(TFT_WIDTH / 2, 91, 70, 16, tongue_dark);
+        fill_ellipse(TFT_WIDTH / 2, 88, 62, 12, tongue);
+
+        draw_upper_fang(48, 37, 9, 20, teeth);
+        draw_upper_fang(84, 32, 7, 16, teeth);
+        draw_upper_fang(156, 32, 7, 16, teeth);
+        draw_upper_fang(192, 37, 9, 20, teeth);
+        draw_lower_fang(70, 101, 7, 15, teeth);
+        draw_lower_fang(120, 107, 8, 18, teeth);
+        draw_lower_fang(170, 101, 7, 15, teeth);
     }
 }
 
