@@ -53,7 +53,7 @@ jobs:
         run: |
           set -euo pipefail
           build="firmware/esp32-dualeye/.pio/build/esp32s3_dualeye"
-          package="releases/koalabyte-esp32-s3-dualeye-v0.7.0"
+          package="releases/koalabyte-esp32-s3-dualeye-v0.7.1-recovery-realistic-koala"
           mkdir -p "${package}"
 
           boot_app0="$(find "${HOME}/.platformio/packages/framework-arduinoespressif32" -path '*/tools/partitions/boot_app0.bin' -print -quit)"
@@ -84,23 +84,23 @@ jobs:
           image = bytearray(b"\xFF" * end)
           for offset, payload in payloads:
               image[offset:offset + len(payload)] = payload
-          output = package / "koalabyte-esp32-s3-dualeye-v0.7.0-full-flash.bin"
+          output = package / "koalabyte-esp32-s3-dualeye-v0.7.1-recovery-full-flash.bin"
           output.write_bytes(image)
           for offset, payload in payloads:
               assert image[offset:offset + len(payload)] == payload
           print(f"Created {output} ({len(image)} bytes)")
           PY
 
-          cat > "${package}/flash-esp32-dualeye.ps1" <<'POWERSHELL'
+          cat > "${package}/flash-esp32-dualeye-recovery.ps1" <<'POWERSHELL'
           param(
             [Parameter(Mandatory=$true)]
             [string]$Port,
-            [int]$Baud = 921600,
+            [int]$Baud = 460800,
             [switch]$SkipErase
           )
 
           $ErrorActionPreference = "Stop"
-          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.7.0-full-flash.bin"
+          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.7.1-recovery-full-flash.bin"
           if (-not (Test-Path $Image)) { throw "Firmware image not found: $Image" }
 
           py -m pip install --user "esptool==4.11.0"
@@ -117,46 +117,41 @@ jobs:
           py -m esptool --chip esp32s3 --port $Port --baud $Baud write_flash -z 0x0 $Image
           if ($LASTEXITCODE -ne 0) { throw "Firmware write failed." }
 
-          Write-Host "Flash complete. Press RESET once, then allow the board to boot."
+          Write-Host "Recovery flash complete. Press RESET once and allow the six-second boot animation to finish."
           POWERSHELL
 
           cat > "${package}/README-FLASH.txt" <<'README'
-          KoalaByte Blue ESP32-S3 DualEye firmware v0.7.0
+          KoalaByte Blue ESP32-S3 DualEye v0.7.1 recovery firmware
 
           Exact hardware target:
             Waveshare ESP32-S3-DualEye-Touch-LCD-1.28
-            ESP32-S3R8, 16 MB flash, 8 MB OPI PSRAM
-            Two 240x240 GC9A01A round LCDs
+            Good display: LCD2, front-right / back-left / TF-card side
 
-          Recommended Windows command from this folder:
-            powershell -ExecutionPolicy Bypass -File .\flash-esp32-dualeye.ps1 -Port COM7
+          Recovery changes:
+            - initializes LCD2 only; damaged LCD1 is never selected
+            - one shared 200x200 RGB565 framebuffer instead of four canvases
+            - conservative 40 MHz display SPI
+            - Wi-Fi, BLE, microphone, speaker and touch disabled for stability testing
+            - realistic animated koala face with no clock/tick marks
 
-          Replace COM7 with the COM port assigned by Windows.
+          Windows command from this folder:
+            powershell -ExecutionPolicy Bypass -File .\flash-esp32-dualeye-recovery.ps1 -Port COM9
 
-          Full image write address:
-            0x0000 koalabyte-esp32-s3-dualeye-v0.7.0-full-flash.bin
-
-          Component addresses, provided for recovery/advanced use:
-            0x0000  bootloader.bin
-            0x8000  partitions.bin
-            0xE000  boot_app0.bin
-            0x10000 firmware.bin
-
-          Disconnect the battery for the first flash and power the board from USB only.
-          Do not disconnect USB while erasing or writing.
+          Replace COM9 if Windows assigns a different port.
+          Disconnect the battery for the recovery flash and use USB power only.
           README
 
           (
             cd "${package}"
-            sha256sum *.bin flash-esp32-dualeye.ps1 README-FLASH.txt build.log > SHA256SUMS.txt
+            sha256sum *.bin flash-esp32-dualeye-recovery.ps1 README-FLASH.txt build.log > SHA256SUMS.txt
           )
 
       - name: Upload firmware package
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: koalabyte-esp32-s3-dualeye-v0.7.0
+          name: koalabyte-esp32-s3-dualeye-v0.7.1-recovery-realistic-koala
           path: |
-            releases/koalabyte-esp32-s3-dualeye-v0.7.0/**
+            releases/koalabyte-esp32-s3-dualeye-v0.7.1-recovery-realistic-koala/**
             releases/esp32-dualeye-platformio.log
           if-no-files-found: error
