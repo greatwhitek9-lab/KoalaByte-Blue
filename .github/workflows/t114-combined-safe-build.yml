@@ -101,18 +101,38 @@ jobs:
             ${{ env.ZEPHYR_SDK_INSTALL_DIR }}
           key: ${{ steps.ncs-cache.outputs.cache-primary-key }}
 
-      - name: Build T114 artwork splash, mouth, and menu runtime
+      - name: Build T114 artwork splash, mood mouth library, and menu runtime
         shell: bash
         run: |
           source logs/nrf_connect_sdk_env.sh
           splash="firmware/t114-combined-safe/assets/killerkoala-bootsplash-240x135.rgb565be"
           test "$(wc -c < "${splash}")" -eq 64800
           echo '7e097b1966de7bc9338a825917be4d71480bae226373eb993cf2ac8e5f0dab26  firmware/t114-combined-safe/assets/killerkoala-bootsplash-240x135.rgb565be' | sha256sum -c -
+          while read -r expected stem; do
+            decoded="${RUNNER_TEMP}/${stem}.rgb565be"
+            python3 firmware/t114-combined-safe/scripts/decode_base64_asset.py \
+              --expected-bytes 64800 \
+              --expected-sha256 "${expected}" \
+              --output "${decoded}" \
+              "firmware/t114-combined-safe/assets/${stem}.rgb565be.b64.part0" \
+              "firmware/t114-combined-safe/assets/${stem}.rgb565be.b64.part1"
+            test "$(wc -c < "${decoded}")" -eq 64800
+            echo "${expected}  ${decoded}" | sha256sum -c -
+          done <<'MOUTHS'
+          4ac8487889927f12245b7aab18bcbae67a136d435bedfbc12d64b6438b325c0b killerkoala-cyber-mouth-smile-240x135
+          16753b3a5ae15a9946c7a519203d181ac4c1d21a121f7de6699497bbc96c4f00 killerkoala-cyber-mouth-happy-240x135
+          7473bc86850497c03067fce47f3bd2bdf6166ca0ac1cbc14f19dc579adac93cd killerkoala-cyber-mouth-bite-240x135
+          265f944b10b4cab58ee0d84b5e67fbec805a2cd7774829641697a3077f058ed0 killerkoala-cyber-mouth-snarl-240x135
+          2698c29d589abe9b3582be48f630da71ce0c3051d7656d7f4ba57556fd435e49 killerkoala-cyber-mouth-sideways-grin-240x135
+          MOUTHS
           grep -Fq 'render_killerkoala_boot_splash' firmware/t114-combined-safe/src/loading_display.c
           grep -Fq 'render_koalagotchi_action' firmware/t114-combined-safe/src/loading_display.c
           grep -Fq 'render_killerkoala_mouth' firmware/t114-combined-safe/src/loading_display.c
           grep -Fq '#define KILLERKOALA_MOUTH_TEXT_FREE 1' firmware/t114-combined-safe/src/loading_display.c
-          grep -Fq '#define KILLERKOALA_MOUTH_WIDTH 224' firmware/t114-combined-safe/src/loading_display.c
+          grep -Fq '#define KILLERKOALA_CYBER_MOUTH_FRAME_BYTES 64800' firmware/t114-combined-safe/src/loading_display.c
+          grep -Fq '#define KOALA_BOOT_SPLASH_MS 6000' firmware/t114-combined-safe/src/main.c
+          grep -Fq 'expression_from_koalagotchi' firmware/t114-combined-safe/src/main.c
+          grep -Fq 'sideways_grin_frames' firmware/t114-combined-safe/src/main.c
           grep -Fq 'strcmp(current_display_mode(), "killerkoala_mouth") == 0' firmware/t114-combined-safe/src/main.c
           grep -Fq 'render_menu_status' firmware/t114-combined-safe/src/loading_display.c
           grep -Fq '#define TFT_WIDTH 240' firmware/t114-combined-safe/src/loading_display.c
@@ -190,7 +210,7 @@ jobs:
         run: |
           image_dir="build/t114-combined-safe/zephyr"
           raw="${image_dir}/zephyr.uf2"
-          output="releases/koalabyte-t114-recovery-pr17-v5-text-free-animated-mouth-right-landscape-239a-ht-n5262.uf2"
+          output="releases/koalabyte-t114-recovery-pr17-v6-cyber-koala-mood-mouth-right-landscape-239a-ht-n5262.uf2"
           mkdir -p releases
           python3 scripts/inspect_uf2.py "${raw}" | tee releases/uf2-raw-metadata.txt
           python3 scripts/patch_uf2_family.py "${raw}" "${output}" 0x239a0071
@@ -219,9 +239,10 @@ jobs:
             echo "vector_relocation=validated"
             echo "display_orientation=landscape_right_90_from_v2"
             echo "display_geometry=240x135_offset_40_53_mdac_0x60"
-            echo "boot_sequence=uploaded_killerkoala_artwork_1200ms_to_text_free_full_screen_animated_mouth"
+            echo "boot_sequence=uploaded_killerkoala_artwork_6000ms_to_text_free_cyber_koala_mood_mouth"
             echo "boot_splash_rgb565_sha256=7e097b1966de7bc9338a825917be4d71480bae226373eb993cf2ac8e5f0dab26"
             echo "koalagotchi_action_mode=heltec_animation_dualeye_action_label"
+            echo "koalagotchi_mouth_modes=smile_bite_snarl_sideways_grin_from_health_and_mood"
             echo "normal_profile=usb_ble_gnss_display"
             echo "meshtastic_profile=separate_pi_managed_uf2"
           } > releases/build-provenance.txt
@@ -231,9 +252,9 @@ jobs:
           1. Do not use the earlier KoalaByte-T114-combined-safe-PR17.zip image.
           2. Connect the Heltec T114 directly to the Windows PC with a known data USB-C cable.
           3. Double-press RST quickly. A drive named HT-n5262 should appear.
-          4. Copy koalabyte-t114-recovery-pr17-v5-text-free-animated-mouth-right-landscape-239a-ht-n5262.uf2 to HT-n5262.
+          4. Copy koalabyte-t114-recovery-pr17-v6-cyber-koala-mood-mouth-right-landscape-239a-ht-n5262.uf2 to HT-n5262.
           5. The drive should disconnect automatically. Do not unplug during the copy.
-          6. Wait 15 seconds. Expect the supplied artwork, then a text-free full-screen animated KillerKoala mouth.
+          6. Wait 15 seconds. Expect the supplied artwork for six seconds, then the text-free cyberpunk Koala mood-mouth animation.
           7. Windows should enumerate a non-Bluetooth USB CDC serial port for VID_2FE3 and PID_0100.
 
           This artifact was rejected unless its vector table and reset handler both fell inside
@@ -243,12 +264,12 @@ jobs:
       - name: Upload hardware-validation artifact
         uses: actions/upload-artifact@v4
         with:
-          name: koalabyte-t114-recovery-pr17-v5-text-free-animated-mouth-right-landscape-239a-ht-n5262
+          name: koalabyte-t114-recovery-pr17-v6-cyber-koala-mood-mouth-right-landscape-239a-ht-n5262
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 30
           path: |
-            releases/koalabyte-t114-recovery-pr17-v5-text-free-animated-mouth-right-landscape-239a-ht-n5262.uf2
+            releases/koalabyte-t114-recovery-pr17-v6-cyber-koala-mood-mouth-right-landscape-239a-ht-n5262.uf2
             releases/uf2-raw-metadata.txt
             releases/uf2-patched-metadata.txt
             releases/SHA256SUMS.txt
