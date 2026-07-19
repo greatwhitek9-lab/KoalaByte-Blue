@@ -1,4 +1,4 @@
-name: Build Heltec T114 Combined Safe UF2
+name: Build Heltec T114 Recovery UF2
 
 on:
   workflow_dispatch:
@@ -7,109 +7,248 @@ on:
     branches:
       - Main
     paths:
-      - "boards/**"
+      - ".github/workflows/t114-combined-safe-build.yml"
+      - "boards/heltec/heltec_t114_v2/**"
       - "firmware/t114-combined-safe/**"
       - "scripts/build_t114_combined_safe.sh"
-      - ".github/workflows/t114-combined-safe-build.yml"
+      - "scripts/inspect_uf2.py"
+      - "scripts/patch_uf2_family.py"
+      - "scripts/verify_uf2_vector.py"
+      - "scripts/setup_nrf_connect_sdk_toolchain.sh"
+      - "scripts/setup_nrf_tools.sh"
+      - "scripts/setup_system_packages.sh"
 
   push:
     branches:
       - Main
     paths:
-      - "boards/**"
+      - ".github/workflows/t114-combined-safe-build.yml"
+      - "boards/heltec/heltec_t114_v2/**"
       - "firmware/t114-combined-safe/**"
       - "scripts/build_t114_combined_safe.sh"
-      - ".github/workflows/t114-combined-safe-build.yml"
+      - "scripts/inspect_uf2.py"
+      - "scripts/patch_uf2_family.py"
+      - "scripts/verify_uf2_vector.py"
+      - "scripts/setup_nrf_connect_sdk_toolchain.sh"
+      - "scripts/setup_nrf_tools.sh"
+      - "scripts/setup_system_packages.sh"
+
+permissions:
+  contents: read
 
 concurrency:
-  group: t114-combined-safe-${{ github.workflow }}-${{ github.ref }}
+  group: t114-recovery-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
+    name: Build and validate HT-n5262 recovery image
     runs-on: ubuntu-24.04
     timeout-minutes: 90
 
     env:
-      BOARD: heltec_t114_v2/nrf52840/uf2
-      BOARD_ROOT: ${{ github.workspace }}
+      NCS_WORKSPACE: ${{ github.workspace }}/.ncs
+      NCS_REVISION: v2.9.0
+      ZEPHYR_SDK_VERSION: 0.16.8
+      ZEPHYR_SDK_INSTALL_DIR: ${{ github.workspace }}/zephyr-sdk-0.16.8
+      INSTALL_NCS_TOOLCHAIN: "1"
+      STRICT_NCS_TOOLCHAIN: "1"
+      SKIP_NCS_UPDATE: "0"
+      VALIDATE_BUILD: "0"
+      T114_BOARD: heltec_t114_v2/nrf52840/uf2
+      T114_BOARD_ROOT: ${{ github.workspace }}
+      T114_COMBINED_APP_DIR: firmware/t114-combined-safe
+      T114_COMBINED_BUILD_DIR: build/t114-combined-safe
+      STRICT_T114_COMBINED_BUILD: "1"
 
     steps:
-      - name: Checkout repository
+      - name: Check out exact source commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Install prerequisites
+      - name: Restore NCS and Zephyr SDK cache
+        id: ncs-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.NCS_WORKSPACE }}
+            ${{ env.ZEPHYR_SDK_INSTALL_DIR }}
+          key: t114-ncs-${{ env.NCS_REVISION }}-zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Prepare isolated Python bootstrap
+        shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            git \
-            wget \
-            ninja-build \
-            cmake \
-            gperf \
-            ccache \
-            device-tree-compiler \
-            dfu-util \
-            python3-pip
+          sudo apt-get install -y python3-venv
+          python3 -m venv "${RUNNER_TEMP}/ncs-bootstrap"
+          "${RUNNER_TEMP}/ncs-bootstrap/bin/python" -m pip install --upgrade pip wheel setuptools west
+          echo "${RUNNER_TEMP}/ncs-bootstrap/bin" >> "${GITHUB_PATH}"
 
-      - name: Install west
-        run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install west
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Fetch nRF Connect SDK v3.1.0
-        run: |
-          west init -m https://github.com/nrfconnect/sdk-nrf --mr v3.1.0 ncs
-          cd ncs
-          west update
-          west zephyr-export
-          pip3 install -r zephyr/scripts/requirements.txt
-
-      - name: Install Zephyr SDK
-        run: |
-          cd $HOME
-          wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.0/zephyr-sdk-0.17.0_linux-x86_64.tar.xz
-          tar xf zephyr-sdk-0.17.0_linux-x86_64.tar.xz
-          cd zephyr-sdk-0.17.0
-          ./setup.sh -c
-          echo "ZEPHYR_SDK_INSTALL_DIR=$HOME/zephyr-sdk-0.17.0" >> $GITHUB_ENV
-
-      - name: Verify custom board
-        run: |
-          echo "Repository root:"
-          pwd
-
-          echo
-          echo "Boards directory:"
-          find boards -maxdepth 3 -type d || true
-
-          echo
-          echo "Heltec board:"
-          ls -R boards/heltec/heltec_t114_v2
-
-      - name: Build firmware
+      - name: Install nRF Connect SDK v2.9 and Zephyr SDK
+        shell: bash
         env:
-          ZEPHYR_BASE: ${{ github.workspace }}/ncs/zephyr
-          BOARD_ROOT: ${{ github.workspace }}
-          T114_BOARD: heltec_t114_v2/nrf52840/uf2
-          T114_BOARD_ROOT: ${{ github.workspace }}
-        run: |
-          chmod +x scripts/build_t114_combined_safe.sh
-          ./scripts/build_t114_combined_safe.sh
+          PYTHON_BIN: ${{ runner.temp }}/ncs-bootstrap/bin/python
+          SKIP_NCS_UPDATE: ${{ steps.ncs-cache.outputs.cache-hit == 'true' && '1' || '0' }}
+        run: bash scripts/setup_nrf_connect_sdk_toolchain.sh
 
-      - name: Show build output
-        if: always()
-        run: |
-          find build -type f || true
+      - name: Save NCS and Zephyr SDK cache
+        if: steps.ncs-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.NCS_WORKSPACE }}
+            ${{ env.ZEPHYR_SDK_INSTALL_DIR }}
+          key: ${{ steps.ncs-cache.outputs.cache-primary-key }}
 
-      - name: Upload firmware
-        if: success()
+      - name: Build T114 mouth and menu runtime
+        shell: bash
+        run: |
+          source logs/nrf_connect_sdk_env.sh
+          grep -Fq 'render_loading_banner("LOADING")' firmware/t114-combined-safe/src/loading_display.c
+          grep -Fq 'render_killerkoala_mouth' firmware/t114-combined-safe/src/loading_display.c
+          grep -Fq 'render_menu_status' firmware/t114-combined-safe/src/loading_display.c
+          bash scripts/build_t114_combined_safe.sh
+
+      - name: Verify partition, controller, display, and role contract
+        shell: bash
+        run: |
+          image_dir="build/t114-combined-safe/zephyr"
+          cfg="${image_dir}/.config"
+          dts="${image_dir}/zephyr.dts"
+          for required in \
+            'CONFIG_BT=y' \
+            'CONFIG_BT_CTLR=y' \
+            'CONFIG_BT_LL_SW_SPLIT=y' \
+            'CONFIG_BT_OBSERVER=y' \
+            'CONFIG_BT_BROADCASTER=y' \
+            'CONFIG_USB_DEVICE_STACK=y' \
+            'CONFIG_USB_CDC_ACM=y' \
+            'CONFIG_DISPLAY=y' \
+            'CONFIG_ST7789V=y' \
+            'CONFIG_ST7789V_RGB565=y' \
+            'CONFIG_BUILD_OUTPUT_UF2=y' \
+            'CONFIG_FLASH_LOAD_OFFSET=0x26000'; do
+            grep -Fxq "${required}" "${cfg}"
+          done
+          for forbidden in \
+            'CONFIG_BT_LL_SOFTDEVICE=y' \
+            'CONFIG_BT_CENTRAL=y' \
+            'CONFIG_BT_PERIPHERAL=y' \
+            'CONFIG_BT_SCAN_WITH_IDENTITY=y' \
+            'CONFIG_LORA=y' \
+            'CONFIG_PARTITION_MANAGER_ENABLED=y'; do
+            if grep -Fxq "${forbidden}" "${cfg}"; then
+              echo "Forbidden configuration is enabled: ${forbidden}" >&2
+              exit 1
+            fi
+          done
+          grep -E '^(CONFIG_BT_LL_|CONFIG_BT_CTLR|CONFIG_BT_OBSERVER|CONFIG_BT_BROADCASTER|CONFIG_USB_DEVICE_STACK|CONFIG_USB_CDC_ACM|CONFIG_DISPLAY|CONFIG_ST7789V|CONFIG_FLASH_LOAD_OFFSET)' "${cfg}"
+          grep -Fq 'zephyr,bt-hci = &bt_hci_controller' "${dts}"
+          grep -Fq 'compatible = "zephyr,bt-hci-ll-sw-split"' "${dts}"
+          grep -Fq 'zephyr,console = &board_cdc_acm_uart' "${dts}"
+          grep -Fq 'code_partition: partition@26000' "${dts}"
+          grep -Fq 'compatible = "sitronix,st7789v"' "${dts}"
+          grep -Fq 'width = < 0x87 >' "${dts}"
+          grep -Fq 'height = < 0xf0 >' "${dts}"
+          grep -Fq 'x-offset = < 0x34 >' "${dts}"
+          grep -Fq 'y-offset = < 0x28 >' "${dts}"
+          grep -Fq 'mdac = < 0x0 >' "${dts}"
+          grep -Fq 'uart1: uart@40028000' "${dts}"
+          grep -Fq 'compatible = "semtech,sx1262"' "${dts}"
+          for marker in \
+            'render_loading_banner("LOADING")' \
+            'render_killerkoala_mouth' \
+            'render_menu_status' \
+            'start_ble_primary' \
+            'init_gnss' \
+            'killerkoala_face' \
+            'ble_lab_advertise_start' \
+            'node_roles' \
+            'lora_status'; do
+            grep -Fq "${marker}" firmware/t114-combined-safe/src/*.c
+          done
+          PYTHONPATH=pi-companion python3 scripts/check_killerkoala_loading_face.py
+          PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py
+          PYTHONPATH=pi-companion python3 scripts/check_menu_display_sync.py
+          PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
+
+      - name: Patch and prove the HT-n5262 UF2 boot vector
+        shell: bash
+        env:
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          image_dir="build/t114-combined-safe/zephyr"
+          raw="${image_dir}/zephyr.uf2"
+          output="releases/koalabyte-t114-recovery-pr17-relocated-239a-ht-n5262.uf2"
+          mkdir -p releases
+          python3 scripts/inspect_uf2.py "${raw}" | tee releases/uf2-raw-metadata.txt
+          python3 scripts/patch_uf2_family.py "${raw}" "${output}" 0x239a0071
+          python3 scripts/inspect_uf2.py "${output}" | tee releases/uf2-patched-metadata.txt
+          grep -Fq 'Address min: 0x00026000' releases/uf2-patched-metadata.txt
+          grep -Fq "Families: ['0x239a0071']" releases/uf2-patched-metadata.txt
+          python3 scripts/verify_uf2_vector.py "${output}" \
+            --vector-address 0x26000 \
+            --application-min 0x26000 \
+            --application-max 0xec000 \
+            --family 0x239a0071 | tee releases/vector-validation.txt
+          grep -Fq 'Reset handler range valid: true' releases/vector-validation.txt
+          sha256sum "${output}" | tee releases/SHA256SUMS.txt
+          {
+            echo "source_commit=${SOURCE_COMMIT}"
+            echo "workflow_commit=${GITHUB_SHA}"
+            echo "workflow_run_id=${GITHUB_RUN_ID}"
+            echo "board=heltec_t114_v2/nrf52840/uf2"
+            echo "profile=t114-combined-safe-recovery"
+            echo "bluetooth_controller=zephyr_ll_sw_split"
+            echo "ncs=v2.9.0"
+            echo "zephyr_sdk=0.16.8"
+            echo "uf2_family=0x239a0071"
+            echo "expected_offset=0x00026000"
+            echo "sysbuild=disabled"
+            echo "vector_relocation=validated"
+            echo "display_orientation=portrait_180_degree_framebuffer_rotation"
+            echo "display_geometry=135x240_offset_52_40_mdac_0x00"
+            echo "normal_profile=usb_ble_gnss_display"
+            echo "meshtastic_profile=separate_pi_managed_uf2"
+          } > releases/build-provenance.txt
+          cat > releases/FLASH-INSTRUCTIONS.txt <<'EOF'
+          KoalaByte T114 recovery image
+
+          1. Do not use the earlier KoalaByte-T114-combined-safe-PR17.zip image.
+          2. Connect the Heltec T114 directly to the Windows PC with a known data USB-C cable.
+          3. Double-press RST quickly. A drive named HT-n5262 should appear.
+          4. Copy koalabyte-t114-recovery-pr17-relocated-239a-ht-n5262.uf2 to HT-n5262.
+          5. The drive should disconnect automatically. Do not unplug during the copy.
+          6. Wait 15 seconds. Expect LOADING for about 2.5 seconds, then the KillerKoala mouth.
+          7. Windows should enumerate a non-Bluetooth USB CDC serial port for VID_2FE3 and PID_0100.
+
+          This artifact was rejected unless its vector table and reset handler both fell inside
+          the HT-n5262 application partition at 0x00026000-0x000ebfff.
+          EOF
+
+      - name: Upload hardware-validation artifact
         uses: actions/upload-artifact@v4
         with:
-          name: heltec-t114-combined-safe
+          name: koalabyte-t114-recovery-pr17-relocated-239a-ht-n5262
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 30
           path: |
-            build/**/*.uf2
-            build/**/*.hex
-            build/**/*.bin
-            build/**/*.elf
+            releases/koalabyte-t114-recovery-pr17-relocated-239a-ht-n5262.uf2
+            releases/uf2-raw-metadata.txt
+            releases/uf2-patched-metadata.txt
+            releases/SHA256SUMS.txt
+            releases/build-provenance.txt
+            releases/vector-validation.txt
+            releases/FLASH-INSTRUCTIONS.txt
+            build/t114-combined-safe/zephyr/zephyr.elf
+            build/t114-combined-safe/zephyr/zephyr.map
+            build/t114-combined-safe/zephyr/zephyr.hex
+            build/t114-combined-safe/zephyr/.config
+            build/t114-combined-safe/zephyr/zephyr.dts
+            logs/t114_combined_safe_build_status.json
+            logs/killerkoala_face/loading_face_readiness.json
+            logs/killerkoala_face/face_mouth_sync_status.json
+            logs/one_shot/menu_display_sync_status.json
+            logs/one_shot/control_surface_status.json
