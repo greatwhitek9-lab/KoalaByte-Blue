@@ -34,7 +34,7 @@
 
 #define KOALA_DEVICE "heltec-t114-nrf52840"
 #define KOALA_ROLE "primary"
-#define KOALA_FW "0.5.0-t114-combined-safe-ble-gnss-tft"
+#define KOALA_FW "0.6.0-t114-mouth-menu-runtime"
 #define KOALA_DUPLICATE_SUPPRESS_MS 5000
 #define KOALA_RSSI_CHANGE_DB 8
 #define KOALA_CACHE_SIZE 48
@@ -45,6 +45,8 @@
 #define KOALA_STATUS_MS 15000
 #define KOALA_GNSS_STATUS_MS 5000
 #define KOALA_FACE_DEFAULT_MS 4500
+#define KOALA_BOOT_LOADING_MS 2500
+#define KOALA_MOUTH_ANIMATION_MS 180
 #define KOALA_TX_DEFAULT_MS 30000
 #define KOALA_TX_MAX_MS 60000
 #define KOALA_ADV_NAME_MAX 20
@@ -80,6 +82,8 @@ static char current_state[32] = "boot";
 static char current_message[96] = "killerkoala online";
 static bool face_enabled = true;
 static int64_t face_until_ms;
+static int64_t last_mouth_animation_ms;
+static bool mouth_open;
 static char rx_line[KOALA_LINE_MAX];
 static size_t rx_len;
 
@@ -459,11 +463,48 @@ static void emit_mouth_status(void)
            loading_display_ready() ? "true" : "false", KOALA_FW, (long long)(k_uptime_get() - boot_ms));
 }
 
+static bool is_menu_state(const char *state)
+{
+    return state && (strcmp(state, "menu_highlight") == 0 ||
+                     strcmp(state, "menu_select") == 0);
+}
+
+static bool is_animated_mouth_state(const char *state)
+{
+    return state && (strcmp(state, "speaking") == 0 ||
+                     strcmp(state, "action") == 0 ||
+                     strcmp(state, "wake") == 0);
+}
+
+static const char *current_display_mode(void)
+{
+    if (strcmp(current_state, "loading") == 0) {
+        return "jungle_loading_banner";
+    }
+    if (is_menu_state(current_state)) {
+        return "menu_status";
+    }
+    return "killerkoala_mouth";
+}
+
+static void render_current_face(void)
+{
+    if (!face_enabled) {
+        render_killerkoala_mouth("idle", "KILLERKOALA", false);
+    } else if (strcmp(current_state, "loading") == 0) {
+        render_loading_banner(current_message[0] ? current_message : "LOADING");
+    } else if (is_menu_state(current_state)) {
+        render_menu_status(current_message);
+    } else {
+        render_killerkoala_mouth(current_state, current_message, mouth_open);
+    }
+}
+
 static void emit_ack(const char *state)
 {
     printk("{\"type\":\"killerkoala_tft_ack\",\"device\":\"heltec-t114-color\",\"source\":\"%s\",\"state\":\"%s\",\"active\":true,\"display_ready\":%s,\"display_mode\":\"%s\",\"gnss_enabled\":%s,\"gnss_primary\":true,\"ble_primary_enabled\":true,\"ble_scan_active\":%s,\"ble_tx_active\":%s,\"transport\":\"usb-cdc\"}\n",
            KOALA_DEVICE, state ? state : current_state, loading_display_ready() ? "true" : "false",
-           strcmp(current_state, "loading") == 0 ? "jungle_loading_banner" : "status",
+           current_display_mode(),
            gnss_ready ? "true" : "false", ble_scan_active ? "true" : "false", ble_adv_active ? "true" : "false");
 }
 
@@ -499,11 +540,12 @@ static void handle_face_command(const char *line)
     face_enabled = strstr(line, "\"enabled\":false") == NULL;
     face_until_ms = k_uptime_get() + duration_ms;
 
-    if (strcmp(current_state, "loading") == 0 || strstr(line, "\"display_mode\":\"jungle_loading_banner\"")) {
-        render_loading_banner(current_message);
-    } else {
-        loading_display_end();
+    if (strstr(line, "\"display_mode\":\"jungle_loading_banner\"")) {
+        copy_safe(current_state, sizeof(current_state), "loading", "loading");
     }
+    mouth_open = is_animated_mouth_state(current_state);
+    last_mouth_animation_ms = k_uptime_get();
+    render_current_face();
     emit_ack(current_state);
 }
 
@@ -669,6 +711,11 @@ int main(void)
     bool tft_ready;
     boot_ms = k_uptime_get();
     tft_ready = loading_display_init();
+    copy_safe(current_state, sizeof(current_state), "loading", "loading");
+    copy_safe(current_message, sizeof(current_message), "LOADING", "LOADING");
+    face_until_ms = boot_ms + KOALA_BOOT_LOADING_MS;
+    mouth_open = false;
+    last_mouth_animation_ms = boot_ms;
     if (usb_enable(NULL) != 0) {
         printk("{\"type\":\"usb_error\",\"device\":\"heltec-t114\",\"source\":\"%s\",\"message\":\"usb_enable failed\"}\n", KOALA_DEVICE);
     }
@@ -686,12 +733,22 @@ int main(void)
         poll_usb_commands();
         poll_gnss();
         now = k_uptime_get();
-        if (face_enabled && face_until_ms > 0 && now > face_until_ms) {
+        if (face_until_ms > 0 && now > face_until_ms) {
             face_until_ms = 0;
-            if (strcmp(current_state, "loading") == 0) {
-                loading_display_end();
-            }
+            face_enabled = true;
+            mouth_open = false;
             copy_safe(current_state, sizeof(current_state), "idle", "idle");
+            copy_safe(current_message, sizeof(current_message),
+                      "KILLERKOALA", "KILLERKOALA");
+            render_current_face();
+            emit_ack(current_state);
+        }
+        if (face_enabled && face_until_ms > 0 &&
+            is_animated_mouth_state(current_state) &&
+            now - last_mouth_animation_ms >= KOALA_MOUTH_ANIMATION_MS) {
+            last_mouth_animation_ms = now;
+            mouth_open = !mouth_open;
+            render_current_face();
         }
         if (ble_adv_active && ble_adv_until_ms > 0 && now > ble_adv_until_ms) {
             stop_lab_advertising("duration_complete");
