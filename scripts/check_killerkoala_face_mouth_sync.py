@@ -110,6 +110,9 @@ def validate_protocol() -> list[str]:
                 "heltec_mouth_status",
                 "jungle_loading_banner",
                 "render_loading_banner",
+                "render_killerkoala_mouth",
+                "render_menu_status",
+                "KOALA_BOOT_LOADING_MS",
             ],
         )
     )
@@ -121,6 +124,8 @@ def validate_protocol() -> list[str]:
                 "PIXEL_FORMAT_RGB_565",
                 "TFT_WIDTH",
                 "draw_jungle_frame",
+                "draw_killerkoala_mouth_frame",
+                "render_menu_status",
             ],
         )
     )
@@ -164,7 +169,7 @@ def main() -> int:
     _write(
         _status_payload(
             "FACE_MOUTH_SYNC_READY",
-            "T114 renders loading text while ESP32-S3 keeps the KillerKoala AI eyes active",
+            "T114 boot loading transitions to the synchronized mouth, menu labels replace the mouth temporarily, and ESP32-S3 AI eyes remain active",
             emit_result=emit_result,
             loading_result=loading_result,
         )
