@@ -109,16 +109,20 @@
 			compatible = "sitronix,st7789v";
 			mipi-max-frequency = <8000000>;
 			reg = <0>;
-			width = <135>;
-			height = <240>;
-			x-offset = <52>;
-			y-offset = <40>;
+			/*
+			 * Heltec T114 factory orientation 3: rotate right into
+			 * the 240x135 landscape view.
+			 */
+			width = <240>;
+			height = <135>;
+			x-offset = <40>;
+			y-offset = <53>;
 			vcom = <0x19>;
 			gctrl = <0x35>;
 			vrhs = <0x12>;
 			vdvs = <0x20>;
 			colmod = <0x55>;
-			mdac = <0x00>;
+			mdac = <0x60>;
 			gamma = <0x01>;
 			lcm = <0x2c>;
 			porch-param = [0c 0c 00 33 33];
