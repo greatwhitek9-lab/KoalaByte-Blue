@@ -119,6 +119,7 @@ def validate_protocol() -> list[str]:
                 "render_killerkoala_mouth",
                 "render_menu_status",
                 "KOALA_BOOT_SPLASH_MS",
+                'strcmp(current_display_mode(), "killerkoala_mouth") == 0',
             ],
         )
     )
@@ -131,6 +132,9 @@ def validate_protocol() -> list[str]:
                 "TFT_WIDTH",
                 "draw_jungle_frame",
                 "draw_killerkoala_mouth_frame",
+                "KILLERKOALA_MOUTH_TEXT_FREE",
+                "KILLERKOALA_MOUTH_WIDTH 224",
+                "fill_ellipse",
                 "draw_koalagotchi_action_frame",
                 "render_killerkoala_boot_splash",
                 "render_koalagotchi_action",
@@ -138,6 +142,13 @@ def validate_protocol() -> list[str]:
             ],
         )
     )
+    renderer_text = T114_LOADING_RENDERER.read_text(encoding="utf-8", errors="ignore")
+    mouth_start = renderer_text.find("static void draw_killerkoala_mouth_frame")
+    mouth_end = renderer_text.find("static void draw_koalagotchi_action_frame", mouth_start)
+    if mouth_start < 0 or mouth_end < 0:
+        failures.append("T114 text-free mouth renderer boundaries are missing")
+    elif "draw_centered_text_at" in renderer_text[mouth_start:mouth_end]:
+        failures.append("T114 mouth renderer must not draw IDLE, KILLERKOALA, or other words")
     failures.extend(
         _file_contains(
             EYES_FIRMWARE,
@@ -178,7 +189,7 @@ def main() -> int:
     _write(
         _status_payload(
             "FACE_MOUTH_SYNC_READY",
-            "T114 artwork boot splash transitions to the mouth and plays Koalagotchi during actions while ESP32-S3 DualEye displays the executing action name",
+            "T114 artwork boot splash transitions to a full-screen text-free animated mouth and plays Koalagotchi during actions while ESP32-S3 DualEye displays the executing action name",
             emit_result=emit_result,
             loading_result=loading_result,
         )
