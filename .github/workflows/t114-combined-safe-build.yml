@@ -21,6 +21,10 @@ on:
       - "scripts/build_t114_combined_safe.sh"
       - ".github/workflows/t114-combined-safe-build.yml"
 
+concurrency:
+  group: t114-combined-safe-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-24.04
