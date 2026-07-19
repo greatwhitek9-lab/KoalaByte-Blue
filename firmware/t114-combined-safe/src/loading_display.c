@@ -289,11 +289,13 @@ static void draw_killerkoala_mouth_frame(const char *state,
         fill_rect(36, 85, TFT_WIDTH - 72, 5, lip);
         fill_rect(54, 75, TFT_WIDTH - 108, 7, tongue);
     } else {
-        fill_rect(30, 69, TFT_WIDTH - 60, 3, mouth_dark);
-        fill_rect(38, 65, TFT_WIDTH - 76, 4, lip);
-        fill_rect(38, 72, TFT_WIDTH - 76, 4, lip);
-        fill_rect(30, 68, 10, 5, lip);
-        fill_rect(TFT_WIDTH - 40, 68, 10, 5, lip);
+        /* Keep the idle mouth unmistakably visible without making it talk. */
+        fill_rect(42, 62, TFT_WIDTH - 84, 5, lip);
+        fill_rect(34, 67, TFT_WIDTH - 68, 16, mouth_dark);
+        fill_rect(42, 83, TFT_WIDTH - 84, 5, lip);
+        fill_rect(54, 76, TFT_WIDTH - 108, 5, tongue);
+        fill_rect(34, 66, 10, 18, lip);
+        fill_rect(TFT_WIDTH - 44, 66, 10, 18, lip);
     }
 
     if (message && message[0]) {
@@ -365,7 +367,7 @@ bool loading_display_init(void)
     }
 
     display_ready_flag = true;
-    render_loading_banner("LOADING");
+    render_loading_banner("KILLERKOALA");
     return true;
 }
 
