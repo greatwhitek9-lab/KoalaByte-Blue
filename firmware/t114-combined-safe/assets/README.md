@@ -15,3 +15,24 @@ regenerated or stretched.
 
 The Zephyr build converts the RGB565 payload to a generated include and
 rejects a payload whose compiled size is not exactly the 240x135 framebuffer.
+
+## Cyber-mouth expression library
+
+Five 240x135 cartoon cyberpunk Koala mouth frames are embedded as row-major,
+big-endian RGB565 payloads. Each frame carries its own ultraviolet-left and
+lime-green-right rim lighting so the colored highlights and shadows move with
+the muzzle, cheek, and jaw pose.
+
+| Expression frame | RGB565 SHA-256 |
+| --- | --- |
+| smile | `4ac8487889927f12245b7aab18bcbae67a136d435bedfbc12d64b6438b325c0b` |
+| happy/open smile | `16753b3a5ae15a9946c7a519203d181ac4c1d21a121f7de6699497bbc96c4f00` |
+| bite/chew | `7473bc86850497c03067fce47f3bd2bdf6166ca0ac1cbc14f19dc579adac93cd` |
+| snarl | `265f944b10b4cab58ee0d84b5e67fbec805a2cd7774829641697a3077f058ed0` |
+| sideways grin | `2698c29d589abe9b3582be48f630da71ce0c3051d7656d7f4ba57556fd435e49` |
+
+Every decoded payload is exactly 64,800 bytes. Repository copies are split
+into two base64 text parts; the build decodes them and rejects any size or
+SHA-256 mismatch before generating the C include. The expression state machine maps
+Koalagotchi contentment/health and mood to smile, bite, snarl, and asymmetric
+sideways-grin animation sequences without drawing any words on the T114.
