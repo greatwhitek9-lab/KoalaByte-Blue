@@ -11,7 +11,6 @@
 #include "heltec_t114_v2-pinctrl.dtsi"
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include <zephyr/dt-bindings/led/led.h>
-#include <zephyr/dt-bindings/display/panel.h>
 #include <zephyr/dt-bindings/mipi_dbi/mipi_dbi.h>
 #include <dt-bindings/lora/sx126x.h>
 
@@ -116,8 +115,8 @@
 			gctrl = <0x35>;
 			vrhs = <0x12>;
 			vdvs = <0x20>;
-		    colmod = <0x55>;
-            mdac = <0x00>;
+			colmod = <0x55>;
+			mdac = <0x00>;
 			gamma = <0x01>;
 			lcm = <0x2c>;
 			porch-param = [0c 0c 00 33 33];
@@ -128,9 +127,7 @@
 			ram-param = [00 f0];
 			rgb-param = [cd 08 14];
 			mipi-mode = "MIPI_DBI_MODE_SPI_4WIRE";
-		pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
-colmod = <0x55>;
-status = "okay";
+			status = "okay";
 		};
 	};
 
