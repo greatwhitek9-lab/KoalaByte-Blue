@@ -101,7 +101,7 @@ def main() -> int:
         "PIXEL_FORMAT_RGB_565",
         "draw_jungle_frame",
         "draw_centered_banner",
-        'render_loading_banner("LOADING")',
+        'render_loading_banner("KILLERKOALA")',
         "render_killerkoala_mouth",
         "render_menu_status",
     ]:
@@ -138,7 +138,7 @@ def main() -> int:
         "heltec_payload": heltec_payload,
         "esp32_payload": esp32_payload,
         "requirements": [
-            "Heltec T114 renders the jungle loading banner one letter at a time",
+            "Heltec T114 boots through a KILLERKOALA splash while retaining the runtime jungle loading banner",
             "T114 display power is asserted before the ST7789 display driver initializes",
             "ESP32-S3 DualEye keeps pulsing KillerKoala cyber eyes active during loading",
             "Loading text is not drawn over the DualEye eye display",
