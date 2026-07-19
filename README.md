@@ -145,6 +145,9 @@ animation. The shared action clock still advances through seven frames:
 << LOADING >>
 ```
 
+When the action finishes, the T114 leaves Koalagotchi and returns to the
+KillerKoala mouth while DualEye leaves the executing-action label.
+
 ### Button-board fallback
 
 When the K1-K8 GPIO stack cannot initialize, the installer continues and writes `touch_speech_only` mode. Touch, speech, and keyboard controls remain available while GPIO buttons are bypassed.
