@@ -146,7 +146,9 @@ animation. The shared action clock still advances through seven frames:
 ```
 
 When the action finishes, the T114 leaves Koalagotchi and returns to the
-KillerKoala mouth while DualEye leaves the executing-action label.
+full-screen animated KillerKoala mouth while DualEye leaves the
+executing-action label. The mouth contains no status words and continues
+animating while the T114 is idle, even when the Pi and DualEye are disconnected.
 
 ### Button-board fallback
 
