@@ -37,35 +37,45 @@ def build_face_payload(state: str, message: str = "", enabled: bool = True, dura
 
 
 def build_heltec_loading_payload(frame: str, action_title: str = "", duration_ms: int = 1400) -> dict:
-    """Build a compact payload that fits the T114 USB command buffer."""
+    """Build a compact Koalagotchi frame that fits the T114 USB command buffer."""
+
+    frame_index = max(0, sum(1 for ch in str(frame) if ch.isalpha()) - 1)
 
     return {
         "type": "killerkoala_face",
         "enabled": True,
-        "state": "loading",
-        "message": _short(frame, 20),
+        "state": "koalagotchi_action",
+        "message": "",
         "duration_ms": max(250, int(duration_ms)),
-        "display_mode": "jungle_loading_banner",
+        "display_mode": "koalagotchi_action",
         "target_display": "heltec-t114",
         "action_title": _short(action_title, 24),
+        "frame_index": frame_index,
     }
 
 
 def build_esp32_loading_eyes_payload(action_title: str = "", duration_ms: int = 1400) -> dict:
-    payload = build_face_payload("loading", "", duration_ms=duration_ms)
-    payload.update(
-        {
-            "display_mode": "ai_eyes",
-            "target_display": "esp32-s3-dualeye",
-            "action_title": _short(action_title, 48),
-            "preserve_eyes": True,
-            "look": "cyber",
-            "animation": "pulse",
-            "eye_animation": "pulse",
-            "loading_text_on_eyes": False,
-        }
-    )
-    return payload
+    """Use the existing DualEye menu renderer to show the executing action."""
+
+    label = _short(action_title or "KoalaByte action", 72)
+    return {
+        "type": "menu_sync",
+        "source": "pi-companion",
+        "menu_name": "action",
+        "menu_title": "EXECUTING",
+        "event_type": "select",
+        "selected_position": 1,
+        "total_items": 1,
+        "selected_label": label,
+        "selected_command": "executing_action",
+        "selected_group": "KOALABYTE ACTION",
+        "selected_enabled": True,
+        "display_mode": "action_status",
+        "target_display": "esp32-s3-dualeye",
+        "animation": "pulse",
+        "duration_ms": max(250, int(duration_ms)),
+        "loading_text_on_eyes": False,
+    }
 
 
 def _candidate_usb_ports() -> list[str]:
@@ -170,7 +180,7 @@ def emit_face(state: str, message: str = "", *, enabled: bool = True, duration_m
 
 
 def emit_loading_frame(frame: str, action_title: str = "", *, duration_ms: int = 1400) -> dict:
-    """Render loading text on the T114 while keeping the DualEye AI eyes active."""
+    """Play Koalagotchi on T114 while DualEye names the executing action."""
 
     heltec_payload = build_heltec_loading_payload(frame, action_title, duration_ms)
     esp32_payload = build_esp32_loading_eyes_payload(action_title, duration_ms)
@@ -189,8 +199,9 @@ def emit_loading_frame(frame: str, action_title: str = "", *, duration_ms: int =
         "esp32_port": esp32_port,
         "wrote_heltec": wrote_heltec,
         "wrote_esp32": wrote_esp32,
-        "heltec_loading_text": True,
-        "esp32_ai_eyes_active": True,
+        "heltec_loading_text": False,
+        "heltec_koalagotchi_action_active": True,
+        "esp32_action_label_active": True,
         "loading_text_on_esp32": False,
         "disabled": disabled,
     }

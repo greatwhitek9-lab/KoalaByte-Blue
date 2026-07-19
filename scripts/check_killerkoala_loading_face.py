@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import time
@@ -26,6 +27,9 @@ from koalablue.loading_face import (
 )
 
 STATUS_PATH = ROOT / "logs" / "killerkoala_face" / "loading_face_readiness.json"
+BOOT_SPLASH_ASSET = ROOT / "firmware" / "t114-combined-safe" / "assets" / "killerkoala-bootsplash-240x135.rgb565be"
+BOOT_SPLASH_SHA256 = "7e097b1966de7bc9338a825917be4d71480bae226373eb993cf2ac8e5f0dab26"
+BOOT_SPLASH_BYTES = 240 * 135 * 2
 
 
 def main() -> int:
@@ -47,22 +51,26 @@ def main() -> int:
     esp32_payload = build_esp32_loading_eyes_payload("Koala Kan Kommander")
     if heltec_payload.get("target_display") != "heltec-t114":
         failures.append("Heltec loading payload does not target heltec-t114")
-    if heltec_payload.get("display_mode") != "jungle_loading_banner":
-        failures.append("Heltec loading payload does not select jungle_loading_banner")
-    if heltec_payload.get("message") != "<< LOA >>":
-        failures.append("Heltec loading payload does not carry the exact banner frame")
+    if heltec_payload.get("state") != "koalagotchi_action":
+        failures.append("Heltec action payload does not enter Koalagotchi state")
+    if heltec_payload.get("display_mode") != "koalagotchi_action":
+        failures.append("Heltec action payload does not select Koalagotchi animation")
+    if heltec_payload.get("frame_index") != 2:
+        failures.append("Heltec action payload does not carry the Koalagotchi frame index")
+    if heltec_payload.get("message"):
+        failures.append("Heltec Koalagotchi payload should not display the action label")
     if len(json.dumps(heltec_payload, separators=(",", ":"))) >= 256:
         failures.append("Heltec loading payload exceeds the T114 USB command-line budget")
     if esp32_payload.get("target_display") != "esp32-s3-dualeye":
         failures.append("DualEye loading payload does not target esp32-s3-dualeye")
-    if esp32_payload.get("display_mode") != "ai_eyes":
-        failures.append("DualEye loading payload does not keep ai_eyes mode")
-    if esp32_payload.get("preserve_eyes") is not True:
-        failures.append("DualEye loading payload does not preserve the AI eyes")
-    if esp32_payload.get("look") != "cyber":
-        failures.append("DualEye loading payload does not preserve the KillerKoala cyber eye style")
+    if esp32_payload.get("type") != "menu_sync":
+        failures.append("DualEye action payload does not use its existing label renderer")
+    if esp32_payload.get("display_mode") != "action_status":
+        failures.append("DualEye action payload does not select action-status mode")
+    if esp32_payload.get("selected_label") != "Koala Kan Kommander":
+        failures.append("DualEye action payload does not display the executing action")
     if esp32_payload.get("animation") != "pulse":
-        failures.append("DualEye loading payload does not actively pulse the AI eyes")
+        failures.append("DualEye executing-action label is not animated")
     if esp32_payload.get("loading_text_on_eyes") is not False:
         failures.append("DualEye loading payload allows loading text over the AI eyes")
     if esp32_payload.get("message"):
@@ -80,8 +88,9 @@ def main() -> int:
         "emit_loading_frame",
         "build_heltec_loading_payload",
         "build_esp32_loading_eyes_payload",
-        "jungle_loading_banner",
-        "ai_eyes",
+        "frame_index",
+        "selected_label",
+        "action_status",
         "loading_text_on_eyes",
         '"animation": "pulse"',
     ]:
@@ -101,12 +110,25 @@ def main() -> int:
         "PIXEL_FORMAT_RGB_565",
         "draw_jungle_frame",
         "draw_centered_banner",
-        'render_loading_banner("KILLERKOALA")',
+        "killerkoala_boot_splash_rgb565_be",
+        "render_killerkoala_boot_splash",
+        "draw_koalagotchi_action_frame",
+        "render_koalagotchi_action",
         "render_killerkoala_mouth",
         "render_menu_status",
     ]:
         if marker not in renderer_text:
             failures.append(f"T114 display renderer missing marker: {marker}")
+
+    if not BOOT_SPLASH_ASSET.exists():
+        failures.append(f"T114 boot splash asset missing: {BOOT_SPLASH_ASSET.relative_to(ROOT)}")
+    else:
+        boot_splash = BOOT_SPLASH_ASSET.read_bytes()
+        if len(boot_splash) != BOOT_SPLASH_BYTES:
+            failures.append(f"T114 boot splash must be {BOOT_SPLASH_BYTES} bytes, got {len(boot_splash)}")
+        boot_splash_sha256 = hashlib.sha256(boot_splash).hexdigest()
+        if boot_splash_sha256 != BOOT_SPLASH_SHA256:
+            failures.append(f"T114 boot splash SHA-256 mismatch: {boot_splash_sha256}")
 
     power_init = ROOT / "firmware" / "t114-combined-safe" / "src" / "display_power_init.c"
     power_text = power_init.read_text(encoding="utf-8", errors="ignore") if power_init.exists() else ""
@@ -138,9 +160,9 @@ def main() -> int:
         "heltec_payload": heltec_payload,
         "esp32_payload": esp32_payload,
         "requirements": [
-            "Heltec T114 boots through a KILLERKOALA splash while retaining the runtime jungle loading banner",
+            "Heltec T114 boots through the supplied artwork and plays Koalagotchi during actions",
             "T114 display power is asserted before the ST7789 display driver initializes",
-            "ESP32-S3 DualEye keeps pulsing KillerKoala cyber eyes active during loading",
+            "ESP32-S3 DualEye displays the name of every executing menu action",
             "Loading text is not drawn over the DualEye eye display",
             "Loading transport failures do not stop the selected action",
         ],

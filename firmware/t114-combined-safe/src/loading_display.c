@@ -38,6 +38,11 @@ static const struct device *const koalabyte_gpio0 =
     DEVICE_DT_GET(KOALABYTE_GPIO0_NODE);
 
 static uint16_t framebuffer[TFT_WIDTH * TFT_HEIGHT];
+static const uint8_t killerkoala_boot_splash_rgb565_be[] = {
+#include "killerkoala_boot_splash_rgb565.inc"
+};
+BUILD_ASSERT(sizeof(killerkoala_boot_splash_rgb565_be) == sizeof(framebuffer),
+             "KillerKoala boot splash must be exactly 240x135 RGB565");
 static bool display_ready_flag;
 
 static uint16_t rgb565(uint8_t red, uint8_t green, uint8_t blue)
@@ -64,6 +69,20 @@ static void fill_rect(int x, int y, int width, int height, uint16_t color)
     for (int row = y_start; row < y_end; row++) {
         for (int col = x_start; col < x_end; col++) {
             set_pixel(col, row, color);
+        }
+    }
+}
+
+static void fill_circle(int center_x, int center_y, int radius,
+                        uint16_t color)
+{
+    int radius_squared = radius * radius;
+
+    for (int y = -radius; y <= radius; y++) {
+        for (int x = -radius; x <= radius; x++) {
+            if ((x * x) + (y * y) <= radius_squared) {
+                set_pixel(center_x + x, center_y + y, color);
+            }
         }
     }
 }
@@ -303,6 +322,70 @@ static void draw_killerkoala_mouth_frame(const char *state,
     }
 }
 
+static void draw_koalagotchi_action_frame(uint8_t frame_index)
+{
+    const uint16_t background = rgb565(2, 14, 8);
+    const uint16_t deep_green = rgb565(8, 72, 30);
+    const uint16_t leaf_green = rgb565(44, 235, 92);
+    const uint16_t gold = rgb565(245, 188, 48);
+    const uint16_t fur = rgb565(48, 55, 58);
+    const uint16_t fur_light = rgb565(92, 105, 108);
+    const uint16_t nose = rgb565(8, 10, 12);
+    const uint16_t left_eye = rgb565(202, 82, 255);
+    const uint16_t right_eye = rgb565(155, 255, 62);
+    int phase = frame_index % 8U;
+    int travel = phase <= 4 ? phase : 8 - phase;
+    int koala_x = 58 + (travel * 30);
+    int koala_y = 65 + ((phase & 1) ? 2 : 0);
+
+    for (size_t index = 0; index < ARRAY_SIZE(framebuffer); index++) {
+        framebuffer[index] = background;
+    }
+
+    fill_rect(0, 0, TFT_WIDTH, 3, gold);
+    fill_rect(0, TFT_HEIGHT - 3, TFT_WIDTH, 3, gold);
+    fill_rect(0, 0, 3, TFT_HEIGHT, gold);
+    fill_rect(TFT_WIDTH - 3, 0, 3, TFT_HEIGHT, gold);
+    draw_centered_text_at("KOALAGOTCHI", 7, gold);
+
+    fill_rect(18, 99, TFT_WIDTH - 36, 6, rgb565(92, 52, 18));
+    fill_rect(18, 99, TFT_WIDTH - 36, 2, gold);
+    for (int x = 26; x < TFT_WIDTH - 24; x += 34) {
+        draw_leaf(x, 96 + ((x / 34) & 1), leaf_green);
+    }
+
+    fill_circle(koala_x, koala_y + 22, 20, fur);
+    fill_circle(koala_x - 20, koala_y - 13, 13, fur);
+    fill_circle(koala_x + 20, koala_y - 13, 13, fur);
+    fill_circle(koala_x - 20, koala_y - 13, 7, fur_light);
+    fill_circle(koala_x + 20, koala_y - 13, 7, fur_light);
+    fill_circle(koala_x, koala_y, 25, fur);
+
+    if (phase == 3 || phase == 7) {
+        fill_rect(koala_x - 13, koala_y - 7, 9, 2, left_eye);
+        fill_rect(koala_x + 4, koala_y - 7, 9, 2, right_eye);
+    } else {
+        fill_circle(koala_x - 9, koala_y - 7, 4, left_eye);
+        fill_circle(koala_x + 9, koala_y - 7, 4, right_eye);
+        set_pixel(koala_x - 8, koala_y - 8, rgb565(255, 255, 255));
+        set_pixel(koala_x + 10, koala_y - 8, rgb565(255, 255, 255));
+    }
+
+    fill_circle(koala_x, koala_y + 3, 6, nose);
+    fill_rect(koala_x - 1, koala_y + 8, 2, 5, nose);
+    fill_rect(koala_x - 8, koala_y + 13, 7, 2, gold);
+    fill_rect(koala_x + 1, koala_y + 13, 7, 2, gold);
+
+    /* The orbiting boomerang makes each received action frame visibly move. */
+    int boomerang_x = 202 - (travel * 5);
+    int boomerang_y = 42 + ((phase & 1) ? 8 : 0);
+    fill_rect(boomerang_x - 8, boomerang_y, 10, 3, gold);
+    fill_rect(boomerang_x, boomerang_y, 3, 10, gold);
+    fill_rect(boomerang_x + 2, boomerang_y + 7, 8, 3, gold);
+
+    draw_centered_text_at("PLAYING", 115, leaf_green);
+}
+
 static bool configure_board_outputs(void)
 {
     if (!device_is_ready(koalabyte_gpio0)) {
@@ -344,6 +427,28 @@ static void flush_frame(void)
     (void)display_write(display_dev, 0, 0, &descriptor, framebuffer);
 }
 
+void render_killerkoala_boot_splash(void)
+{
+    if (!display_ready_flag) {
+        return;
+    }
+
+    memcpy(framebuffer, killerkoala_boot_splash_rgb565_be,
+           sizeof(framebuffer));
+    flush_frame();
+}
+
+void render_koalagotchi_action(const char *action_title, uint8_t frame_index)
+{
+    ARG_UNUSED(action_title);
+    if (!display_ready_flag) {
+        return;
+    }
+
+    draw_koalagotchi_action_frame(frame_index);
+    flush_frame();
+}
+
 bool loading_display_init(void)
 {
     if (!configure_board_outputs()) {
@@ -367,7 +472,7 @@ bool loading_display_init(void)
     }
 
     display_ready_flag = true;
-    render_loading_banner("KILLERKOALA");
+    render_killerkoala_boot_splash();
     return true;
 }
 

@@ -131,7 +131,9 @@ killerkoala run GreatWhite Reef Report
 
 ### Loading sequence
 
-While a selected action is loading, the KillerKoala face remains active and the jungle-styled banner spells the word one letter at a time:
+While a selected action is executing, the ESP32-S3 DualEye displays the
+action name and status while the Heltec T114 plays the Koalagotchi action
+animation. The shared action clock still advances through seven frames:
 
 ```text
 << L >>

@@ -101,11 +101,15 @@ jobs:
             ${{ env.ZEPHYR_SDK_INSTALL_DIR }}
           key: ${{ steps.ncs-cache.outputs.cache-primary-key }}
 
-      - name: Build T114 mouth and menu runtime
+      - name: Build T114 artwork splash, mouth, and menu runtime
         shell: bash
         run: |
           source logs/nrf_connect_sdk_env.sh
-          grep -Fq 'render_loading_banner("KILLERKOALA")' firmware/t114-combined-safe/src/loading_display.c
+          splash="firmware/t114-combined-safe/assets/killerkoala-bootsplash-240x135.rgb565be"
+          test "$(wc -c < "${splash}")" -eq 64800
+          echo '7e097b1966de7bc9338a825917be4d71480bae226373eb993cf2ac8e5f0dab26  firmware/t114-combined-safe/assets/killerkoala-bootsplash-240x135.rgb565be' | sha256sum -c -
+          grep -Fq 'render_killerkoala_boot_splash' firmware/t114-combined-safe/src/loading_display.c
+          grep -Fq 'render_koalagotchi_action' firmware/t114-combined-safe/src/loading_display.c
           grep -Fq 'render_killerkoala_mouth' firmware/t114-combined-safe/src/loading_display.c
           grep -Fq 'render_menu_status' firmware/t114-combined-safe/src/loading_display.c
           grep -Fq '#define TFT_WIDTH 240' firmware/t114-combined-safe/src/loading_display.c
@@ -159,7 +163,8 @@ jobs:
           grep -Fq 'uart1: uart@40028000' "${dts}"
           grep -Fq 'compatible = "semtech,sx1262"' "${dts}"
           for marker in \
-            'render_loading_banner("KILLERKOALA")' \
+            'render_killerkoala_boot_splash' \
+            'render_koalagotchi_action' \
             'render_killerkoala_mouth' \
             'render_menu_status' \
             'start_ble_primary' \
@@ -182,7 +187,7 @@ jobs:
         run: |
           image_dir="build/t114-combined-safe/zephyr"
           raw="${image_dir}/zephyr.uf2"
-          output="releases/koalabyte-t114-recovery-pr17-v3-right-landscape-239a-ht-n5262.uf2"
+          output="releases/koalabyte-t114-recovery-pr17-v4-art-splash-right-landscape-239a-ht-n5262.uf2"
           mkdir -p releases
           python3 scripts/inspect_uf2.py "${raw}" | tee releases/uf2-raw-metadata.txt
           python3 scripts/patch_uf2_family.py "${raw}" "${output}" 0x239a0071
@@ -211,7 +216,9 @@ jobs:
             echo "vector_relocation=validated"
             echo "display_orientation=landscape_right_90_from_v2"
             echo "display_geometry=240x135_offset_40_53_mdac_0x60"
-            echo "boot_sequence=killerkoala_splash_1200ms_to_visible_idle_mouth"
+            echo "boot_sequence=uploaded_killerkoala_artwork_1200ms_to_visible_idle_mouth"
+            echo "boot_splash_rgb565_sha256=7e097b1966de7bc9338a825917be4d71480bae226373eb993cf2ac8e5f0dab26"
+            echo "koalagotchi_action_mode=heltec_animation_dualeye_action_label"
             echo "normal_profile=usb_ble_gnss_display"
             echo "meshtastic_profile=separate_pi_managed_uf2"
           } > releases/build-provenance.txt
@@ -221,9 +228,9 @@ jobs:
           1. Do not use the earlier KoalaByte-T114-combined-safe-PR17.zip image.
           2. Connect the Heltec T114 directly to the Windows PC with a known data USB-C cable.
           3. Double-press RST quickly. A drive named HT-n5262 should appear.
-          4. Copy koalabyte-t114-recovery-pr17-v3-right-landscape-239a-ht-n5262.uf2 to HT-n5262.
+          4. Copy koalabyte-t114-recovery-pr17-v4-art-splash-right-landscape-239a-ht-n5262.uf2 to HT-n5262.
           5. The drive should disconnect automatically. Do not unplug during the copy.
-          6. Wait 15 seconds. Expect a brief KILLERKOALA splash, then the visible KillerKoala mouth.
+          6. Wait 15 seconds. Expect the supplied KoalaByte Blue artwork, then the visible KillerKoala mouth.
           7. Windows should enumerate a non-Bluetooth USB CDC serial port for VID_2FE3 and PID_0100.
 
           This artifact was rejected unless its vector table and reset handler both fell inside
@@ -233,12 +240,12 @@ jobs:
       - name: Upload hardware-validation artifact
         uses: actions/upload-artifact@v4
         with:
-          name: koalabyte-t114-recovery-pr17-v3-right-landscape-239a-ht-n5262
+          name: koalabyte-t114-recovery-pr17-v4-art-splash-right-landscape-239a-ht-n5262
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 30
           path: |
-            releases/koalabyte-t114-recovery-pr17-v3-right-landscape-239a-ht-n5262.uf2
+            releases/koalabyte-t114-recovery-pr17-v4-art-splash-right-landscape-239a-ht-n5262.uf2
             releases/uf2-raw-metadata.txt
             releases/uf2-patched-metadata.txt
             releases/SHA256SUMS.txt

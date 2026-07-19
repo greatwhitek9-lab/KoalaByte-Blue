@@ -49,8 +49,8 @@ def _status_payload(status: str, reason: str, *, emit_result: dict | None = None
         "right_eye": payload.get("right_eye"),
         "states": EXPECTED_STATES,
         "loading_split": {
-            "heltec": "jungle_loading_banner",
-            "esp32": "ai_eyes",
+            "heltec": "koalagotchi_action",
+            "esp32": "action_status",
             "loading_text_on_esp32": False,
         },
         "esp32_port": esp32_port,
@@ -90,14 +90,20 @@ def validate_protocol() -> list[str]:
 
     heltec_loading = build_heltec_loading_payload("<< LOAD >>", "Readiness Monitors", duration_ms=1400)
     esp32_loading = build_esp32_loading_eyes_payload("Readiness Monitors", duration_ms=1400)
-    if heltec_loading.get("message") != "<< LOAD >>":
-        failures.append("Heltec loading payload lost the exact banner frame")
-    if heltec_loading.get("display_mode") != "jungle_loading_banner":
-        failures.append("Heltec loading payload is not routed to the jungle banner renderer")
+    if heltec_loading.get("state") != "koalagotchi_action":
+        failures.append("Heltec action payload is not routed to Koalagotchi")
+    if heltec_loading.get("display_mode") != "koalagotchi_action":
+        failures.append("Heltec action payload does not select the Koalagotchi renderer")
+    if heltec_loading.get("frame_index") != 3:
+        failures.append("Heltec Koalagotchi payload lost the action frame")
     if len(json.dumps(heltec_loading, separators=(",", ":"))) >= 256:
         failures.append("Heltec loading payload exceeds the T114 USB command-line budget")
-    if esp32_loading.get("display_mode") != "ai_eyes" or esp32_loading.get("preserve_eyes") is not True:
-        failures.append("DualEye loading payload does not preserve the AI eyes")
+    if esp32_loading.get("type") != "menu_sync":
+        failures.append("DualEye executing-action payload is not menu_sync")
+    if esp32_loading.get("display_mode") != "action_status":
+        failures.append("DualEye executing-action payload does not select action status")
+    if esp32_loading.get("selected_label") != "Readiness Monitors":
+        failures.append("DualEye executing-action payload lost the action name")
     if esp32_loading.get("loading_text_on_eyes") is not False or esp32_loading.get("message"):
         failures.append("DualEye loading payload must not draw the loading banner over the eyes")
 
@@ -125,6 +131,9 @@ def validate_protocol() -> list[str]:
                 "TFT_WIDTH",
                 "draw_jungle_frame",
                 "draw_killerkoala_mouth_frame",
+                "draw_koalagotchi_action_frame",
+                "render_killerkoala_boot_splash",
+                "render_koalagotchi_action",
                 "render_menu_status",
             ],
         )
@@ -141,7 +150,7 @@ def validate_protocol() -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate ESP32-S3 eyes and Heltec T114 loading-display face-state sync")
     parser.add_argument("--emit-test", action="store_true", help="Send a short shared wake-state payload to both configured serial targets")
-    parser.add_argument("--emit-loading-test", action="store_true", help="Send one split loading frame: text to T114 and eyes-only to DualEye")
+    parser.add_argument("--emit-loading-test", action="store_true", help="Send one action frame: Koalagotchi to T114 and action label to DualEye")
     parser.add_argument("--strict-ports", action="store_true", help="Fail if configured serial writes do not succeed during emit tests")
     args = parser.parse_args()
 
@@ -159,9 +168,9 @@ def main() -> int:
         loading_result = emit_loading_frame("<< LOAD >>", "loading sync test", duration_ms=1400)
         if args.strict_ports:
             if not loading_result.get("wrote_esp32"):
-                failures.append("strict loading sync: ESP32-S3 eyes did not accept eyes-only payload")
+                failures.append("strict action sync: ESP32-S3 DualEye did not accept the action label")
             if not loading_result.get("wrote_heltec"):
-                failures.append("strict loading sync: Heltec T114 did not accept banner payload")
+                failures.append("strict action sync: Heltec T114 did not accept Koalagotchi")
 
     if failures:
         _write(_status_payload("FACE_MOUTH_SYNC_FAILED", "; ".join(failures), emit_result=emit_result, loading_result=loading_result))
@@ -169,7 +178,7 @@ def main() -> int:
     _write(
         _status_payload(
             "FACE_MOUTH_SYNC_READY",
-            "T114 KILLERKOALA boot splash transitions directly to the visible synchronized mouth, menu labels replace the mouth temporarily, and ESP32-S3 AI eyes remain active",
+            "T114 artwork boot splash transitions to the mouth and plays Koalagotchi during actions while ESP32-S3 DualEye displays the executing action name",
             emit_result=emit_result,
             loading_result=loading_result,
         )
