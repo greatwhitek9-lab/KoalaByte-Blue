@@ -23,6 +23,7 @@ Creates best-effort stable symlinks when udev can identify the devices:
   /dev/koalabyte-esp32-eyes       Backward-compatible ESP32 alias
   /dev/koalabyte-nrf52840         Legacy external nRF52840 compatibility alias
   /dev/koalabyte-nrf-ble          Backward-compatible nRF alias
+  koalabyte-can0.service           Re-run SocketCAN setup when gs_usb CAN appears
 
 The runtime fallback is scripts/discover_koalabyte_ports.py --profile heltec.
 EOF
@@ -62,6 +63,7 @@ esac
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   grep -q "koalabyte-heltec" "${ROOT}/udev/99-koalabyte-blue.rules" 2>/dev/null || true
   grep -q "koalabyte-esp32-dualeye" "${ROOT}/udev/99-koalabyte-blue.rules" 2>/dev/null || true
+  grep -q "koalabyte-can0.service" "${ROOT}/udev/99-koalabyte-blue.rules" 2>/dev/null || true
   echo "KoalaByte udev installer check-only passed."
   exit 0
 fi
@@ -98,6 +100,9 @@ SUBSYSTEM=="tty", ENV{ID_MODEL}=="*ESP32*", SYMLINK+="koalabyte-esp32-dualeye", 
 SUBSYSTEM=="tty", ENV{ID_VENDOR}=="*Espressif*", SYMLINK+="koalabyte-esp32-dualeye", SYMLINK+="koalabyte-esp32-eyes", GROUP="dialout", MODE="0660", TAG+="uaccess"
 SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="koalabyte-esp32-dualeye", SYMLINK+="koalabyte-esp32-eyes", GROUP="dialout", MODE="0660", TAG+="uaccess"
 SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", SYMLINK+="koalabyte-esp32-dualeye", SYMLINK+="koalabyte-esp32-eyes", GROUP="dialout", MODE="0660", TAG+="uaccess"
+
+# InnoMaker USB2CAN native SocketCAN hot-plug activation (stock firmware, gs_usb).
+SUBSYSTEM=="net", KERNEL=="can[0-9]*", DRIVERS=="gs_usb", TAG+="systemd", ENV{SYSTEMD_WANTS}+="koalabyte-can0.service"
 RULESEOF
 
 "${sudo_cmd[@]}" install -m 0644 /tmp/99-koalabyte.rules "${RULES_PATH}"
