@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import sys
@@ -30,6 +31,13 @@ STATUS_PATH = ROOT / "logs" / "killerkoala_face" / "loading_face_readiness.json"
 BOOT_SPLASH_ASSET = ROOT / "firmware" / "t114-combined-safe" / "assets" / "killerkoala-bootsplash-240x135.rgb565be"
 BOOT_SPLASH_SHA256 = "7e097b1966de7bc9338a825917be4d71480bae226373eb993cf2ac8e5f0dab26"
 BOOT_SPLASH_BYTES = 240 * 135 * 2
+MOUTH_ASSET_HASHES = {
+    "killerkoala-cyber-mouth-smile-240x135.rgb565be": "4ac8487889927f12245b7aab18bcbae67a136d435bedfbc12d64b6438b325c0b",
+    "killerkoala-cyber-mouth-happy-240x135.rgb565be": "16753b3a5ae15a9946c7a519203d181ac4c1d21a121f7de6699497bbc96c4f00",
+    "killerkoala-cyber-mouth-bite-240x135.rgb565be": "7473bc86850497c03067fce47f3bd2bdf6166ca0ac1cbc14f19dc579adac93cd",
+    "killerkoala-cyber-mouth-snarl-240x135.rgb565be": "265f944b10b4cab58ee0d84b5e67fbec805a2cd7774829641697a3077f058ed0",
+    "killerkoala-cyber-mouth-sideways-grin-240x135.rgb565be": "2698c29d589abe9b3582be48f630da71ce0c3051d7656d7f4ba57556fd435e49",
+}
 
 
 def main() -> int:
@@ -130,6 +138,25 @@ def main() -> int:
         if boot_splash_sha256 != BOOT_SPLASH_SHA256:
             failures.append(f"T114 boot splash SHA-256 mismatch: {boot_splash_sha256}")
 
+    for filename, expected_hash in MOUTH_ASSET_HASHES.items():
+        prefix = BOOT_SPLASH_ASSET.parent / f"{filename}.b64"
+        parts = [Path(f"{prefix}.part0"), Path(f"{prefix}.part1")]
+        missing = [part for part in parts if not part.exists()]
+        if missing:
+            failures.extend(f"T114 cyber-mouth asset part missing: {part.relative_to(ROOT)}" for part in missing)
+            continue
+        encoded = "".join("".join(part.read_text(encoding="ascii").split()) for part in parts)
+        try:
+            payload_bytes = base64.b64decode(encoded, validate=True)
+        except Exception as exc:
+            failures.append(f"T114 cyber-mouth base64 is invalid for {filename}: {exc}")
+            continue
+        if len(payload_bytes) != BOOT_SPLASH_BYTES:
+            failures.append(f"T114 cyber-mouth asset {filename} must be {BOOT_SPLASH_BYTES} bytes, got {len(payload_bytes)}")
+        digest = hashlib.sha256(payload_bytes).hexdigest()
+        if digest != expected_hash:
+            failures.append(f"T114 cyber-mouth SHA-256 mismatch for {filename}: {digest}")
+
     power_init = ROOT / "firmware" / "t114-combined-safe" / "src" / "display_power_init.c"
     power_text = power_init.read_text(encoding="utf-8", errors="ignore") if power_init.exists() else ""
     for marker in ["SYS_INIT", "POST_KERNEL", "vext_control", "tft_enable", "tft_backlight"]:
@@ -161,6 +188,7 @@ def main() -> int:
         "esp32_payload": esp32_payload,
         "requirements": [
             "Heltec T114 boots through the supplied artwork and plays Koalagotchi during actions",
+            "T114 smile, bite, snarl, and sideways-grin frames follow Koalagotchi contentment and mood",
             "T114 display power is asserted before the ST7789 display driver initializes",
             "ESP32-S3 DualEye displays the name of every executing menu action",
             "Loading text is not drawn over the DualEye eye display",
