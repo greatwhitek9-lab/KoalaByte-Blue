@@ -36,6 +36,34 @@ def build_face_payload(state: str, message: str = "", enabled: bool = True, dura
     }
 
 
+def select_koalagotchi_expression(health: int, mood: str = "") -> str:
+    """Map the shared Koalagotchi health/mood state to a T114 mouth sequence."""
+
+    score = max(0, min(100, int(health)))
+    normalized = " ".join(str(mood or "").lower().split())
+    if score <= 25 or any(word in normalized for word in ("cranky", "angry", "snarl", "hostile")):
+        return "snarl"
+    if any(word in normalized for word in ("eating", "feeding", "chew")):
+        return "bite"
+    if any(word in normalized for word in ("patrolling", "mischief", "boomerang", "sideways")):
+        return "sideways_grin"
+    return "smile"
+
+
+def build_koalagotchi_status_payload(health: int, mood: str = "") -> dict:
+    score = max(0, min(100, int(health)))
+    clean_mood = _short(mood or "calm", 40).lower()
+    return {
+        "type": "koalagotchi_status",
+        "health": score,
+        "contentment": score,
+        "mood": clean_mood,
+        "expression": select_koalagotchi_expression(score, clean_mood),
+        "target_display": "heltec-t114",
+        "source": "pi-companion",
+    }
+
+
 def build_heltec_loading_payload(frame: str, action_title: str = "", duration_ms: int = 1400) -> dict:
     """Build a compact Koalagotchi frame that fits the T114 USB command buffer."""
 
@@ -176,6 +204,25 @@ def emit_face(state: str, message: str = "", *, enabled: bool = True, duration_m
         "disabled": disabled,
     }
     _write_result_log("last_face_command.json", result)
+    return result
+
+
+def emit_koalagotchi_status(health: int, mood: str = "") -> dict:
+    """Drive the T114 cyber-mouth from the shared Koalagotchi state."""
+
+    payload = build_koalagotchi_status_payload(health, mood)
+    _, heltec_port = _resolve_ports()
+    baud = int(os.getenv("KOALABYTE_FACE_BAUD", str(DEFAULT_BAUD)))
+    disabled = bool(os.getenv("KOALABYTE_FACE_DISABLED"))
+    wrote_heltec = False if disabled else _serial_write(heltec_port, baud, payload)
+    result = {
+        "mode": "koalagotchi_mood_mouth",
+        "payload": payload,
+        "heltec_usb_port": heltec_port,
+        "wrote_heltec": wrote_heltec,
+        "disabled": disabled,
+    }
+    _write_result_log("last_koalagotchi_status.json", result)
     return result
 
 
