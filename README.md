@@ -62,7 +62,7 @@ The bootstrapper clones or updates:
 ~/KoalaByte-Blue
 ```
 
-It installs the Pi requirements, validates every menu action, installs or checks the runtime services, flashes the ESP32-S3 and Heltec paths, validates the KillerKoala loading face, checks the K1-K8 fallback, and runs the TwoCan read-only safety gate.
+It installs the Pi requirements, validates every menu action, installs or checks the runtime services, flashes the Heltec T114, preserves the existing ESP32-S3 DualEye firmware, validates loading-to-mouth/menu transitions, configures an attached InnoMaker USB2CAN as persistent SocketCAN, checks the K1-K8 fallback, and runs the TwoCan read-only safety gate. Set `FLASH_ESP32=1` only when an explicit DualEye reflash is intended.
 
 Useful direct checks:
 
@@ -595,11 +595,12 @@ The one-shot installer:
 - validates the KillerKoala loading-face sequence;
 - validates the TwoCan read-only allowlist and no-replay capture parser;
 - prepares and flashes the Heltec combined-safe UF2 profile;
-- flashes the ESP32-S3 DualEye firmware;
+- preserves the existing ESP32-S3 DualEye firmware by default; an explicit reflash requires `FLASH_ESP32=1`;
 - checks face, mouth, menu, and voice bridges;
 - installs stable udev names and boot services where available;
 - records the owned-lab transmit policy;
 - keeps the optional InnoMaker CAN path non-fatal unless strict mode is enabled;
+- preserves InnoMaker factory firmware, configures native SocketCAN, and installs a repeatable boot/hot-plug service when the adapter is detected;
 - runs KoalaByte Doctor and deployability checks.
 
 Status files include:
