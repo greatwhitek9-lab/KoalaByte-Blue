@@ -1,8 +1,16 @@
 from __future__ import annotations
 
 import json
+import os
+import time
 from typing import Any, Dict, Optional
 
+from .ble_event_log import BleEventDeduper, BleEventLog, normalize_ble_event
+from .ble_role_coordinator import (
+    elect_ble_roles,
+    esp32_role_command,
+    write_role_status,
+)
 from .esp32_dualeye_latched_koalagotchi_bridge import (
     ESP32DualEyeVoiceBridge as _LatchedKoalagotchiBridge,
     ESP32DualEyeVoiceEvent,
@@ -23,17 +31,51 @@ def _as_bool(value: Any) -> bool:
 
 
 class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
-    """Local-vocabulary-first bridge with synchronized expressive speech.
+    """Local-vocabulary-first bridge with synchronized speech and BLE failover.
 
     The Waveshare ESP32-S3 owns wake/basic vocabulary and embedded audio. The Pi
-    mirrors those local speech lifecycle events to the Heltec mouth. Unmatched or
-    open-ended requests fall through to TinyLlama, whose Australian male speech is
-    played while both displays animate according to response tone and subject.
+    mirrors local speech lifecycle events to the Heltec mouth. Unmatched or
+    open-ended requests fall through to TinyLlama. The same serial owner performs
+    BLE-node election so the Pi BlueZ adapter is preferred and the ESP32 activates
+    its guarded Heltec fallback role only when the Pi adapter is unavailable.
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._active_expression: Optional[KillerKoalaExpression] = None
+        self._ble_role = ""
+        self._last_ble_role_check = 0.0
+        self._ble_role_interval = max(
+            10.0,
+            float(os.getenv("KOALABYTE_BLE_ROLE_CHECK_SECONDS", "30")),
+        )
+        self._ble_log = BleEventLog("logs/ble_nodes")
+        self._ble_deduper = BleEventDeduper()
+
+    def open(self) -> None:
+        super().open()
+        self._refresh_ble_role(force=True)
+
+    def _refresh_ble_role(self, *, force: bool = False) -> None:
+        now = time.time()
+        if not force and now - self._last_ble_role_check < self._ble_role_interval:
+            return
+        self._last_ble_role_check = now
+        election = elect_ble_roles(requested_by="dualeye_voice_bridge")
+        write_role_status(election)
+        if not force and election.esp32_role == self._ble_role:
+            return
+        self._ble_role = election.esp32_role
+        try:
+            # Serial is the authoritative control path. It prevents an old UDP
+            # peer from leaving the ESP32 in a stale fallback role.
+            self._serial_write_json(esp32_role_command(election))
+        except Exception:
+            pass
+
+    def read_once(self) -> Optional[ESP32DualEyeVoiceEvent]:
+        self._refresh_ble_role()
+        return super().read_once()
 
     def _expression(
         self,
@@ -86,8 +128,6 @@ class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
         duration_ms: int,
         expression: KillerKoalaExpression,
     ) -> Dict[str, Any]:
-        # The T114 line buffer is 256 bytes including framing. Keep enough room
-        # for the terminating newline while retaining the expression contract.
         return cls._fit_t114_line(
             {
                 "type": "killerkoala_face",
@@ -195,10 +235,38 @@ class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
             routed["speech_expression"] = expression.to_payload()
         return routed
 
+    def _record_esp32_ble_event(self, payload: Dict[str, Any]) -> None:
+        normalized_payload = dict(payload)
+        normalized_payload["type"] = "ble_adv_seen"
+        normalized_payload.setdefault("source", "esp32-s3-dualeye")
+        normalized_payload.setdefault("role", self._ble_role or "standby")
+        event = normalize_ble_event(
+            normalized_payload,
+            default_source="esp32-s3-dualeye",
+        )
+        if self._ble_deduper.should_emit(event):
+            self._ble_log.append(event)
+
     def handle_payload(
         self, payload: Dict[str, Any]
     ) -> Optional[ESP32DualEyeVoiceEvent]:
         payload_type = str(payload.get("type") or "").strip().lower()
+        if payload_type in {"ble_seen", "ble_adv_seen"}:
+            self._record_esp32_ble_event(payload)
+            return None
+        if payload_type == "ble_role_status":
+            status = {
+                "type": "ble_role_status",
+                "reported_role": payload.get("role"),
+                "ready": payload.get("ready"),
+                "quarantined": payload.get("quarantined"),
+                "reason": payload.get("reason"),
+                "updated_at": time.time(),
+            }
+            path = self._ble_log.log_dir / "esp32_ble_role_status.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(status, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            return None
         if payload_type == "local_speech_state":
             active = _as_bool(payload.get("active"))
             category = str(payload.get("category") or "").strip().lower()
