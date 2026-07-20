@@ -68,16 +68,34 @@ jobs:
       - name: Validate KillerKoala face and mouth synchronization
         run: PYTHONPATH=pi-companion python scripts/check_killerkoala_face_mouth_sync.py
 
-      - name: Validate KillerKoala core imports
+      - name: Import KillerKoala expression and web modules
+        run: |
+          PYTHONPATH=pi-companion python - <<'PY'
+          from koalablue.killerkoala_expression import classify_response_expression
+          from koalablue.killerkoala_web_research import looks_like_general_question
+          print(classify_response_expression("happy result").tone, looks_like_general_question("why is the sky blue"))
+          PY
+
+      - name: Import KillerKoala companion and voice modules
+        run: |
+          PYTHONPATH=pi-companion python - <<'PY'
+          from koalablue.killerkoala_hybrid_companion import load_config
+          from koalablue.killerkoala_voice_control import parse_voice_command
+          print(load_config().model, parse_voice_command("killerkoala voice commands").module_key)
+          PY
+
+      - name: Import KillerKoala Australian TTS
         run: |
           PYTHONPATH=pi-companion python - <<'PY'
           from koalablue.dualeye_tts import SPOKEN_IDENTITY, WILLIAM_VOICE
+          print(SPOKEN_IDENTITY, WILLIAM_VOICE)
+          PY
+
+      - name: Import KillerKoala synchronized speech bridge
+        run: |
+          PYTHONPATH=pi-companion python - <<'PY'
           from koalablue.esp32_dualeye_speech_synced_bridge import ESP32DualEyeVoiceBridge
-          from koalablue.killerkoala_expression import classify_response_expression
-          from koalablue.killerkoala_hybrid_companion import load_config
-          from koalablue.killerkoala_voice_control import parse_voice_command
-          from koalablue.killerkoala_web_research import looks_like_general_question
-          print(ESP32DualEyeVoiceBridge.__name__, SPOKEN_IDENTITY, WILLIAM_VOICE, load_config().model)
+          print(ESP32DualEyeVoiceBridge.__name__)
           PY
 
       - name: Validate KillerKoala question routing
