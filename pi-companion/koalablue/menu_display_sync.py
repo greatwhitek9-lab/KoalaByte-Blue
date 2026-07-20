@@ -50,10 +50,11 @@ def _display_item_payload(index: int, item: Any, selected_index: int) -> dict[st
 def build_menu_sync_payload(menu: Any, event: Any | None = None) -> dict[str, object]:
     selected = menu.selected_item
     displayed = menu._display_item(selected) if hasattr(menu, "_display_item") else selected
+    scroll_offset = int(getattr(menu, "scroll_offset", 0))
     try:
         visible_items = [
-            _display_item_payload(index, item, menu.selected_index)
-            for index, item in menu.visible_items()
+            _display_item_payload(scroll_offset + index, item, menu.selected_index)
+            for index, item in enumerate(menu.visible_items())
         ]
     except Exception:
         visible_items = []
@@ -65,7 +66,7 @@ def build_menu_sync_payload(menu: Any, event: Any | None = None) -> dict[str, ob
         "selected_index": int(getattr(menu, "selected_index", 0)),
         "selected_position": int(getattr(menu, "selected_index", 0)) + 1,
         "total_items": len(getattr(menu, "items", [])),
-        "scroll_offset": int(getattr(menu, "scroll_offset", 0)),
+        "scroll_offset": scroll_offset,
         "visible_rows": int(getattr(menu, "visible_rows", 0)),
         "selected_label": str(getattr(displayed, "label", "")),
         "selected_command": str(getattr(displayed, "command", "")),
