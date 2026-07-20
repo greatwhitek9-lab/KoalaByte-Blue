@@ -8,7 +8,7 @@ MODE="install"
 
 usage() {
   cat <<'EOF'
-KoalaByte Blue Raspberry Pi bootstrapper
+KoalaByte Blue whole-system bootstrapper
 
 Usage:
   bash install.sh
@@ -21,8 +21,11 @@ Environment:
   KOALABYTE_INSTALL_DIR=$HOME/KoalaByte-Blue
   KOALABYTE_SERVICE_USER=<linux-user>
 
-This bootstrapper clones or updates the repository and invokes the single
-canonical entrypoint: one-shot-install.sh. Peripheral firmware is preserved.
+This bootstrapper clones or updates the selected branch and invokes the single
+canonical entrypoint, one-shot-install.sh. The default one-shot builds and flashes
+the current Heltec T114 UF2 and complete ESP32-S3 image set, then provisions the
+Raspberry Pi runtime, TinyLlama, Mopidy, controls, services, and diagnostics.
+Connect both peripherals before running the default install.
 EOF
 }
 
