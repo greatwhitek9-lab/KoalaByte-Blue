@@ -50,9 +50,9 @@ replace_once(
   left = "#A54BFF";
   right = "#32FF71";
   if (!strcmp(tone, "angry")) {
-    look = "angry"; animation = "glitch"; left = "#FF2B2B"; right = "#FF7A00";
+    look = "angry"; animation = "glitch"; left = "#A54BFF"; right = "#32FF71";
   } else if (!strcmp(tone, "error")) {
-    look = "x"; animation = "glitch"; left = "#FF2B55"; right = "#A54BFF";
+    look = "angry"; animation = "glitch"; left = "#A54BFF"; right = "#32FF71";
   } else if (!strcmp(tone, "happy")) {
     look = "heart"; animation = "pulse"; left = "#32FF71"; right = "#A54BFF";
   } else if (!strcmp(tone, "excited")) {
