@@ -110,27 +110,31 @@ for marker in \
     fi
 done
 
-# Prove the original-art renderer—not the discarded procedural replacement—is
-# the live mouth path in the linked image.
+# Prove the live mouth path uses the approved original texture, generates
+# articulated continuous frames, and retains explicit still-frame exclusion.
 for marker in \
-    original_texture_continuous_warp \
+    original_texture_articulated_jaw_v2 \
     still_frame_cycle \
-    original_killerkoala_smile; do
+    original_killerkoala_smile \
+    grin-cavity-jaw-cheeks-fangs \
+    frame_signature \
+    changed_pixels; do
     if ! strings "${ELF_PATH}" | grep -Fq "${marker}"; then
-        write_status "failed" "T114 original texture renderer marker missing from linked ELF: ${marker}"
-        echo "Missing linked original texture renderer marker: ${marker}" >&2
+        write_status "failed" "T114 articulated original-texture renderer marker missing from linked ELF: ${marker}"
+        echo "Missing linked articulated original-texture renderer marker: ${marker}" >&2
         exit 1
     fi
 done
 
-write_status "built" "T114 firmware built with linked Koalagotchi lifecycle and continuous original-texture mouth renderer."
+write_status "built" "T114 firmware built with linked Koalagotchi lifecycle and visibly articulated continuous original-texture mouth renderer."
 
 echo ""
 echo "======================================"
 echo "Build completed successfully."
 echo "Koalagotchi lifecycle: linked and verified"
-echo "Mouth renderer: original texture continuous warp"
+echo "Mouth renderer: original texture articulated jaw v2"
 echo "Still-frame cycling: disabled"
+echo "Frame-change diagnostics: linked"
 echo "Output directory:"
 echo "  ${BUILD_DIR}"
 echo "======================================"
