@@ -23,8 +23,10 @@ ONE_SHOT = ROOT / "one-shot-install.sh"
 REQUIRED_INSTALLER_MARKERS = (
     "scripts/setup_pi_hardware_stage.sh",
     "--install-runtime-services",
+    "scripts/run_headless_menu.py",
     "scripts/setup_gpio_buttons.py",
     "scripts/discover_koalabyte_ports.py",
+    "scripts/install_power_controls.sh",
     "scripts/install_koalabyte_boot_services.sh",
     "scripts/install_ble_node_manager_service.sh",
     "scripts/install_esp32_dualeye_voice_bridge_service.sh",
@@ -48,11 +50,13 @@ FORBIDDEN_INSTALLER_MARKERS = (
 REQUIRED_FILES = (
     "one-shot-install.sh",
     "install.sh",
+    "scripts/run_headless_menu.py",
     "scripts/setup_pi_hardware_stage.sh",
     "scripts/setup_gpio_buttons.py",
     "scripts/test_gpio_buttons.py",
     "scripts/pi_hardware_doctor.py",
     "scripts/discover_koalabyte_ports.py",
+    "scripts/install_power_controls.sh",
     "scripts/install_koalabyte_udev_rules.sh",
     "scripts/install_koalabyte_boot_services.sh",
     "scripts/install_ble_node_manager_service.sh",
@@ -74,6 +78,7 @@ SHELL_FILES = (
     "one-shot-install.sh",
     "install.sh",
     "scripts/setup_pi_hardware_stage.sh",
+    "scripts/install_power_controls.sh",
     "scripts/install_koalabyte_udev_rules.sh",
     "scripts/install_koalabyte_boot_services.sh",
     "scripts/install_ble_node_manager_service.sh",
@@ -82,6 +87,7 @@ SHELL_FILES = (
 )
 
 PYTHON_FILES = (
+    "scripts/run_headless_menu.py",
     "scripts/setup_gpio_buttons.py",
     "scripts/test_gpio_buttons.py",
     "scripts/pi_hardware_doctor.py",
@@ -161,6 +167,16 @@ def validate_buttons() -> tuple[list[dict[str, object]], list[str]]:
     return rows, failures
 
 
+def validate_power_controls() -> list[str]:
+    failures: list[str] = []
+    path = ROOT / "scripts/install_power_controls.sh"
+    text = path.read_text(encoding="utf-8", errors="ignore") if path.exists() else ""
+    for marker in ("NOPASSWD", "shutdown", "-h now", "reboot", "visudo"):
+        if marker not in text:
+            failures.append(f"restricted power installer missing marker: {marker}")
+    return failures
+
+
 def main() -> int:
     failures: list[str] = []
     STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -193,6 +209,7 @@ def main() -> int:
 
     buttons, button_failures = validate_buttons()
     failures.extend(button_failures)
+    failures.extend(validate_power_controls())
 
     menu_manifest, menu_failures = build_manifest()
     failures.extend(f"menu: {failure}" for failure in menu_failures)
@@ -202,6 +219,8 @@ def main() -> int:
         "status": "ONE_SHOT_CONTROLS_READY" if not failures else "ONE_SHOT_CONTROLS_INCOMPLETE",
         "canonical_installer": "one-shot-install.sh",
         "bootstrapper": "install.sh",
+        "runtime_mode": "headless_pi_os_lite",
+        "restricted_power_controls": True,
         "firmware_flashing": False,
         "can_transmit_during_install": False,
         "button_board": "K1-K8 8-key front-panel module",
