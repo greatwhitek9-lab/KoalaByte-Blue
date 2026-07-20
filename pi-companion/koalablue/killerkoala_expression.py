@@ -31,6 +31,7 @@ _ANGRY = (
 _ERROR = (
     "error", "failed", "failure", "fault", "crash", "broken", "blocked",
     "denied", "exception", "offline", "unavailable", "cannot", "can't",
+    "alarmed", "alarm",
 )
 _CONCERNED = (
     "warning", "careful", "risk", "concern", "unsafe", "uncertain", "unknown",
@@ -112,8 +113,8 @@ def classify_response_expression(
         tone = "neutral"
 
     palette = {
-        "angry": (95, "angry", "glitch", "#FF2B2B", "#FF7A00", "snarl", "hard_emphasis"),
-        "error": (90, "x", "glitch", "#FF2B55", "#A54BFF", "snarl", "alarm_emphasis"),
+        "angry": (95, "angry", "glitch", "#A54BFF", "#32FF71", "snarl", "hard_emphasis"),
+        "error": (100, "angry", "glitch", "#A54BFF", "#32FF71", "snarl", "alarm_emphasis"),
         "concerned": (72, "slit", "pulse", "#FFB000", "#A54BFF", "sideways_grin", "measured_emphasis"),
         "disappointed": (55, "sleepy", "blink", "#5D7CFF", "#A54BFF", "sideways_grin", "slow_measured"),
         "excited": (92, "star", "pulse", "#32FF71", "#FFD84A", "smile", "fast_bright"),
