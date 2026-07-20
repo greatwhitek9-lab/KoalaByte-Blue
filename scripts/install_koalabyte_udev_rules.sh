@@ -62,6 +62,7 @@ esac
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   grep -q "koalabyte-heltec" "${ROOT}/udev/99-koalabyte-blue.rules" 2>/dev/null || true
+  grep -q 'ATTRS{idVendor}=="2fe3"' "${ROOT}/udev/99-koalabyte-blue.rules" 2>/dev/null || true
   grep -q "koalabyte-esp32-dualeye" "${ROOT}/udev/99-koalabyte-blue.rules" 2>/dev/null || true
   grep -q "koalabyte-can0.service" "${ROOT}/udev/99-koalabyte-blue.rules" 2>/dev/null || true
   echo "KoalaByte udev installer check-only passed."
@@ -90,6 +91,8 @@ cat > /tmp/99-koalabyte.rules <<'RULESEOF'
 
 # Heltec Mesh Node T114 / Nordic nRF52840 primary BLE board.
 SUBSYSTEM=="tty", ATTRS{idVendor}=="1915", SYMLINK+="koalabyte-heltec", SYMLINK+="koalabyte-nrf52840", SYMLINK+="koalabyte-nrf-ble", GROUP="dialout", MODE="0660", TAG+="uaccess"
+# Zephyr USB device identity emitted by the combined-safe T114 firmware.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2fe3", ATTRS{idProduct}=="0100", SYMLINK+="koalabyte-heltec", SYMLINK+="koalabyte-heltec-t114", GROUP="dialout", MODE="0660", TAG+="uaccess"
 SUBSYSTEM=="tty", ENV{ID_MODEL}=="*T114*", SYMLINK+="koalabyte-heltec", GROUP="dialout", MODE="0660", TAG+="uaccess"
 SUBSYSTEM=="tty", ENV{ID_MODEL}=="*nRF52840*", SYMLINK+="koalabyte-nrf52840", SYMLINK+="koalabyte-nrf-ble", GROUP="dialout", MODE="0660", TAG+="uaccess"
 SUBSYSTEM=="tty", ENV{ID_MODEL}=="*PCA10059*", SYMLINK+="koalabyte-nrf52840", SYMLINK+="koalabyte-nrf-ble", GROUP="dialout", MODE="0660", TAG+="uaccess"
