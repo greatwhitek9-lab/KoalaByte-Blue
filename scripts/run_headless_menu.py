@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 from koalablue.gpio_buttons import GPIOButtonManager
+from koalablue.killerkoala_error_dig import run_standalone_error_sequence
 from koalablue.menu_display_sync import sync_menu_state
 from scripts.run_menu_screen import make_menu
 
@@ -87,19 +88,30 @@ def main() -> int:
                         selected_label=menu.selected_item.label,
                     )
                 except Exception as exc:
-                    append_event(
-                        {
-                            "type": "menu_action_error",
-                            "command": button_event.command,
-                            "error": str(exc),
-                            "timestamp": time.time(),
+                    error_event: dict[str, object] = {
+                        "type": "menu_action_error",
+                        "command": button_event.command,
+                        "error": str(exc),
+                        "timestamp": time.time(),
+                    }
+                    try:
+                        error_event["error_dig_sequence"] = run_standalone_error_sequence(
+                            button_event.command,
+                            str(exc),
+                        )
+                    except Exception as sequence_exc:
+                        error_event["error_dig_sequence"] = {
+                            "status": "failed_soft",
+                            "error": str(sequence_exc),
+                            "original_error_preserved": True,
                         }
-                    )
+                    append_event(error_event)
                     write_status(
                         "HEADLESS_MENU_ACTION_ERROR",
                         buttons_available=buttons.available,
                         command=button_event.command,
                         error=str(exc),
+                        error_dig_sequence=error_event.get("error_dig_sequence"),
                     )
                 continue
 
