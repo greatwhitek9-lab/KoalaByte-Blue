@@ -48,7 +48,6 @@ REQUIRED_FILES = (
     "scripts/check_full_runtime_dependencies.py",
     "udev/99-koalabyte-blue.rules",
     "systemd/koalabyte-menu.service",
-    "systemd/koalabyte-menu-sync.service",
     "systemd/koalabyte-doctor.service",
 )
 
@@ -115,9 +114,10 @@ def check_markers(failures: list[str]) -> None:
         "flash_t114",
         "verify_prebuilt_firmware_bundle",
         "firmware/prebuilt/manifest.json",
+        "koalabyte-menu-sync.service",
     ):
         if forbidden in installer:
-            failures.append(f"canonical installer contains obsolete firmware path: {forbidden}")
+            failures.append(f"canonical installer contains obsolete path: {forbidden}")
 
     gpio = (ROOT / "pi-companion/koalablue/gpio_buttons.py").read_text(encoding="utf-8", errors="ignore")
     for marker in ("K7", "K8", "requires_hold", "2.5", "3.0", "when_held"):
@@ -179,7 +179,7 @@ def main() -> int:
             print(f"- {failure}", file=sys.stderr)
         return 1
 
-    print("KoalaByte repository readiness passed: one canonical Pi installer, headless runtime, protected K1-K8 controls, restricted power permissions, stable device aliases, and no installer firmware flashing.")
+    print("KoalaByte repository readiness passed: one canonical Pi installer, headless live-sync runtime, protected K1-K8 controls, restricted power permissions, stable device aliases, and no installer firmware flashing.")
     return 0
 
 
