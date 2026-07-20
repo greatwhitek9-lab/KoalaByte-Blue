@@ -50,7 +50,6 @@ SHELL_HELPERS=(
   scripts/install_ble_node_manager_service.sh
   scripts/install_esp32_dualeye_voice_bridge_service.sh
   scripts/configure_pi_audio_output.sh
-  scripts/koalabyte_blue_boot.sh
 )
 
 run_step "Canonical shell syntax" bash -c '
