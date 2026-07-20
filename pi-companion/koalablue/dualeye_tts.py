@@ -8,20 +8,52 @@ import subprocess
 import wave
 
 
+def _espeak_command(executable: str, voice: str, text: str) -> list[str]:
+    return [
+        executable,
+        "--stdout",
+        "-v",
+        voice,
+        "-s",
+        os.getenv("KILLERKOALA_ESPEAK_SPEED", "154"),
+        "-p",
+        os.getenv("KILLERKOALA_ESPEAK_PITCH", "31"),
+        "-a",
+        os.getenv("KILLERKOALA_ESPEAK_AMPLITUDE", "178"),
+        "-g",
+        os.getenv("KILLERKOALA_ESPEAK_GAP", "3"),
+        text,
+    ]
+
+
 def synthesize_pcm16_mono_16k(text: str) -> bytes:
-    """Return raw signed 16-bit little-endian mono PCM at 16 kHz."""
+    """Return local Australian-male speech as signed mono PCM at 16 kHz."""
     executable = shutil.which("espeak-ng") or shutil.which("espeak")
     clean = " ".join(str(text or "").split())
     if not executable or not clean:
         return b""
+
+    preferred = os.getenv("KILLERKOALA_ESPEAK_VOICE", "en-au+m3").strip() or "en-au+m3"
+    voices = list(dict.fromkeys((preferred, "en-au+m3", "en-au+m2", "en-au")))
+    wav_bytes = b""
+    for voice in voices:
+        try:
+            result = subprocess.run(
+                _espeak_command(executable, voice, clean),
+                capture_output=True,
+                timeout=20,
+                check=True,
+            )
+            if result.stdout:
+                wav_bytes = result.stdout
+                break
+        except Exception:
+            continue
+    if not wav_bytes:
+        return b""
+
     try:
-        result = subprocess.run(
-            [executable, "--stdout", "-v", os.getenv("KILLERKOALA_ESPEAK_VOICE", "en-au"), clean],
-            capture_output=True,
-            timeout=20,
-            check=True,
-        )
-        with wave.open(io.BytesIO(result.stdout), "rb") as wav:
+        with wave.open(io.BytesIO(wav_bytes), "rb") as wav:
             data = wav.readframes(wav.getnframes())
             width = wav.getsampwidth()
             channels = wav.getnchannels()
