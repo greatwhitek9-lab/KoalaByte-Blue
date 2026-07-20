@@ -5,12 +5,7 @@ import argparse
 import json
 import time
 
-from koalablue.dualeye_tts import synthesize_pcm16_mono_16k
 from koalablue.esp32_dualeye_voice_bridge import ESP32DualEyeVoiceBridge, default_esp32_port
-
-# Keep response synthesis separately testable while making it the production
-# implementation used by the long-running bridge service.
-ESP32DualEyeVoiceBridge._tts_pcm = lambda self, text: synthesize_pcm16_mono_16k(text)  # type: ignore[method-assign]
 
 
 def main() -> int:
