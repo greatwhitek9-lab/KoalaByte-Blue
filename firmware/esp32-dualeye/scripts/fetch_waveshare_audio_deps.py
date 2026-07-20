@@ -21,6 +21,15 @@ if network_source.exists():
         shutil.rmtree(network_library)
     shutil.copytree(network_source, network_library)
 
+# ESP_SR includes ESP_I2S.h from another framework library. PlatformIO's deep
+# dependency scanner finds ESP_SR but does not reliably propagate that sibling
+# framework-library include directory while compiling ESP_SR itself.
+esp_i2s_source = framework / "libraries" / "ESP_I2S" / "src"
+if esp_i2s_source.exists():
+    env.Append(CPPPATH=[str(esp_i2s_source)])
+else:
+    raise RuntimeError(f"Arduino ESP_I2S headers not found: {esp_i2s_source}")
+
 if not marker.exists():
     print("Fetching pinned Waveshare ES8311/ES7210 drivers")
     stale = lib_root / "waveshare_audio"
@@ -42,7 +51,7 @@ if not marker.exists():
                     raise RuntimeError(f"Missing Waveshare library {library}")
                 for name in names:
                     output = lib_root / library / name[len(prefix):]
-                    output.parent.mkdir(parents=True, exist_ok=True)
+                    output.parent.mkdir(parents=True)
                     with zf.open(name) as src, output.open("wb") as dst:
                         shutil.copyfileobj(src, dst)
     marker.write_text(commit + "\n", encoding="utf-8")
