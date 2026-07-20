@@ -1,0 +1,16 @@
+Import("env")
+
+from pathlib import Path
+
+project = Path(env.subst("$PROJECT_DIR"))
+path = project / "include" / "config.h"
+text = path.read_text(encoding="utf-8")
+old = '#define KOALABLUE_FW_VERSION "0.9.7-dualeye-sensitive-killerkoala-menu"'
+new = '#define KOALABLUE_FW_VERSION "0.9.8-dualeye-two-stage-killerkoala-wake"'
+count = text.count(old)
+if count != 1:
+    raise RuntimeError(
+        f"release-version patch expected exactly one firmware version anchor, found {count}"
+    )
+path.write_text(text.replace(old, new, 1), encoding="utf-8")
+print(f"Stamped DualEye firmware version 0.9.8 two-stage wake: {path}")
