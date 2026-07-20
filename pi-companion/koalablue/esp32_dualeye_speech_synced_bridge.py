@@ -51,7 +51,9 @@ class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
         )
 
     @staticmethod
-    def _merge_expression(payload: Dict[str, Any], expression: KillerKoalaExpression) -> Dict[str, Any]:
+    def _merge_expression(
+        payload: Dict[str, Any], expression: KillerKoalaExpression
+    ) -> Dict[str, Any]:
         payload.update(expression.to_payload())
         payload["expression_source"] = "pi_tone_subject_classifier"
         payload["eyes_visible"] = True
@@ -59,11 +61,56 @@ class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
         payload["speech_animation"] = True
         return payload
 
+    @staticmethod
+    def _compact_heltec_face(
+        state: str,
+        message: str,
+        duration_ms: int,
+        expression: KillerKoalaExpression,
+    ) -> Dict[str, Any]:
+        # The T114 USB command line is capped at 256 bytes. Keep this packet small.
+        return {
+            "type": "killerkoala_face",
+            "enabled": True,
+            "state": str(state or "speaking")[:18],
+            "message": " ".join(str(message).split())[:30],
+            "duration_ms": max(250, min(int(duration_ms), 30000)),
+            "tone": expression.tone[:18],
+            "subject": expression.subject[:18],
+            "mouth_expression": expression.mouth_expression[:18],
+            "speech_motion": expression.speech_motion[:18],
+            "intensity": expression.intensity,
+        }
+
+    @staticmethod
+    def _compact_heltec_speech(
+        active: bool,
+        message: str,
+        expression: KillerKoalaExpression,
+    ) -> Dict[str, Any]:
+        return {
+            "type": "killerkoala_speech",
+            "active": bool(active),
+            "message": " ".join(str(message).split())[:28] if active else "",
+            "tone": expression.tone[:18],
+            "subject": expression.subject[:18],
+            "mouth_expression": expression.mouth_expression[:18],
+            "speech_motion": expression.speech_motion[:18],
+            "intensity": expression.intensity,
+        }
+
+    def _write_heltec(self, payload: Dict[str, Any]) -> None:
+        try:
+            _, heltec_port = _resolve_ports()
+            _serial_write(heltec_port, self.baud, payload)
+        except Exception:
+            pass
+
     def _fanout_face(
         self, state: str, message: str = "", duration_ms: int = 5000
     ) -> None:
         expression = self._expression(state, message)
-        payload = self._merge_expression(
+        esp32_payload = self._merge_expression(
             {
                 "type": "killerkoala_face",
                 "enabled": True,
@@ -78,33 +125,20 @@ class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
             },
             expression,
         )
-        self._write_json(payload)
-        try:
-            _, heltec_port = _resolve_ports()
-            _serial_write(heltec_port, self.baud, payload)
-        except Exception:
-            pass
+        self._write_json(esp32_payload)
+        self._write_heltec(
+            self._compact_heltec_face(state, message, duration_ms, expression)
+        )
 
     def _heltec_speech(
         self, active: bool, message: str = "", channel: str = "pi-ai"
     ) -> None:
-        expression = self._expression("speaking" if active else "idle", message, channel=channel)
-        payload = self._merge_expression(
-            {
-                "type": "killerkoala_speech",
-                "active": bool(active),
-                "message": " ".join(str(message).split())[:48] if active else "",
-                "channel": " ".join(str(channel or "pi-ai").split())[:20].lower(),
-                "target_display": "heltec-t114",
-                "source": "pi-companion",
-            },
-            expression,
+        expression = self._expression(
+            "speaking" if active else "idle", message, channel=channel
         )
-        try:
-            _, heltec_port = _resolve_ports()
-            _serial_write(heltec_port, self.baud, payload)
-        except Exception:
-            pass
+        self._write_heltec(
+            self._compact_heltec_speech(active, message, expression)
+        )
 
     def _play_response(self, text: str, channel: str) -> None:
         self._active_expression = classify_response_expression(
@@ -144,7 +178,6 @@ class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
         payload_type = str(payload.get("type") or "").strip().lower()
         if payload_type == "local_speech_state":
             active = _as_bool(payload.get("active"))
-            channel = str(payload.get("channel") or "esp32-local").strip()
             category = str(payload.get("category") or "").strip().lower()
             message = str(
                 payload.get("message")
@@ -152,24 +185,9 @@ class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
                 or "KillerKoala local response"
             ).strip()
             expression = expression_for_local_category(category, message)
-            local_payload = self._merge_expression(
-                {
-                    "type": "killerkoala_speech",
-                    "active": active,
-                    "message": message[:48] if active else "",
-                    "channel": channel or "esp32-local",
-                    "target_display": "heltec-t114",
-                    "source": "esp32-s3-dualeye",
-                    "local_vocabulary_owner": "waveshare-esp32-s3",
-                    "requires_pi_response": False,
-                },
-                expression,
+            self._write_heltec(
+                self._compact_heltec_speech(active, message, expression)
             )
-            try:
-                _, heltec_port = _resolve_ports()
-                _serial_write(heltec_port, self.baud, local_payload)
-            except Exception:
-                pass
             return None
         return super().handle_payload(payload)
 
