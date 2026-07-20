@@ -34,12 +34,12 @@ jobs:
       - name: Check out exact source
         uses: actions/checkout@v4
 
-      - name: Download verified ESP32 v0.9.8 two-stage wake artifact
+      - name: Download CI-verified ESP32 v0.9.8 static-grammar response-bank artifact
         uses: actions/download-artifact@v4
         with:
           name: koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session
           repository: greatwhitek9-lab/KoalaByte-Blue
-          run-id: 29734326505
+          run-id: 29737267484
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: /tmp/koalabyte-esp32
 
@@ -63,7 +63,7 @@ jobs:
           mkdir -p firmware/prebuilt/esp32 firmware/prebuilt/t114
           cp "${esp32_source}" firmware/prebuilt/esp32/koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session-full-flash.bin
           cp "${t114_source}" firmware/prebuilt/t114/koalabyte-t114-final-original-mouth-continuous-warp-latched-koalagotchi-right-landscape-ht-n5262.uf2
-          test "$(sha256sum firmware/prebuilt/esp32/*.bin | awk '{print $1}')" = "ac87c9689b4582944cf5f94577d0fc40db5ccea03858b946e1070fcf26310618"
+          test "$(sha256sum firmware/prebuilt/esp32/*.bin | awk '{print $1}')" = "42145a1eec50a227ebc3e0e5994bff588eb7480304b19c59b68615b8ff83273a"
           test "$(sha256sum firmware/prebuilt/t114/*.uf2 | awk '{print $1}')" = "c0e0a0d288237c55c629bbc78b8ece19ccaf37bea3356ee07cb206ddaef9d9dd"
 
       - name: Validate wake session and firmware manifest
@@ -115,12 +115,23 @@ jobs:
             - JBL/USB speaker: the installer prefers it for Pi-owned speech when detected.
 
           DualEye wake policy:
-            While sleeping, MultiNet loads only KillerKoala and Hey KillerKoala.
-            A recognized wake phrase opens a ten-second session, changes the eyes to
-            the animated listening state, and loads the complete K1-K8/menu grammar.
-            Commands inside that session do not repeat KillerKoala. Accepted voice,
-            K1-K8, and attached-keyboard input refresh the timer. Timeout restores
-            animated idle eyes and the two-phrase wake-only grammar.
+            MultiNet loads one static 194-phrase grammar once at startup. While sleeping,
+            firmware rejects every detected command except KillerKoala and Hey KillerKoala.
+            A wake phrase opens a ten-second session and changes the eyes to the animated
+            listening state. Accepted voice, K1-K8, and keyboard input refresh the timer.
+            Timeout restores animated idle eyes without stopping or rebuilding MultiNet.
+
+          KillerKoala local response bank:
+            Forty offline Australian/cyberpunk responses are embedded: wake, status, help,
+            acknowledgement, banter, success, error, and Pi escalation. The William neural
+            voice is only the synthesis backend; the spoken identity is always KillerKoala.
+            Per category, the last three clips are excluded from selection, so a line cannot
+            repeat until at least three other unique responses from that category have played.
+
+          Hardware validation note:
+            The static-grammar 40-response image passes CI build and packaging. Physical boot,
+            wake-recognition sensitivity, and response rotation must still be verified on the
+            exact Waveshare DualEye board before this PR leaves draft status.
 
           T114 hardware note:
             The correct original purple/green face is confirmed. Idle mouth movement
