@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import time
@@ -13,7 +14,12 @@ PI_ROOT = ROOT / "pi-companion"
 if str(PI_ROOT) not in sys.path:
     sys.path.insert(0, str(PI_ROOT))
 
-from koalablue.esp32_dualeye_speech_synced_bridge import (  # noqa: E402
+# Keep readiness deterministic and offline. The runtime defaults to TinyLlama,
+# while this check validates the phrase fallback, lifecycle, and anti-repeat path.
+os.environ.setdefault("KILLERKOALA_LLM_MODE", "off")
+os.environ.setdefault("KOALABYTE_ERROR_ALARM_SECONDS", "0.6")
+
+from koalablue.esp32_dualeye_error_dig_bridge import (  # noqa: E402
     ESP32DualEyeVoiceBridge,
 )
 
@@ -87,8 +93,23 @@ def main() -> int:
             failures.append("second completed alarm did not produce exactly one dig")
 
     require_marker(
+        ROOT / "pi-companion/koalablue/killerkoala_error_dig.py",
+        "generate_error_dig",
+        failures,
+    )
+    require_marker(
+        ROOT / "pi-companion/koalablue/esp32_dualeye_error_dig_bridge.py",
+        "raw exception",
+        failures,
+    )
+    require_marker(
+        ROOT / "scripts/run_esp32_dualeye_voice_bridge.py",
+        "esp32_dualeye_error_dig_bridge",
+        failures,
+    )
+    require_marker(
         ROOT / "firmware/esp32-dualeye/scripts/patch_alarm_background.py",
-        "flashing purple/green DualEye alarm background",
+        "flashing purple/green DualEye alarm lifecycle",
         failures,
     )
     require_marker(
@@ -119,7 +140,7 @@ def main() -> int:
             "dualeye_alert_eyes_and_purple_green_background",
             "heltec_alarmed_koalagotchi_and_purple_green_background",
             "explicit_error_clear_to_mouth",
-            "pi_australian_voice_nonrepeating_dig",
+            "pi_generated_australian_voice_nonrepeating_dig",
             "idle_mouth_and_eyes",
         ],
         "first_dig": first_dig,
