@@ -69,6 +69,11 @@ static uint8_t motion_pose_blend;
 static void motion_work_handler(struct k_work *work);
 K_WORK_DELAYABLE_DEFINE(motion_work, motion_work_handler);
 
+static int integer_abs(int value)
+{
+    return value < 0 ? -value : value;
+}
+
 static int triangle_wave(int64_t now, int period_ms, int amplitude)
 {
     int phase = (int)(now % period_ms);
@@ -239,7 +244,7 @@ static void build_warp_region_locked(const char *state)
     update_motion_targets(state, now);
 
     for (int y = WARP_Y0; y <= WARP_Y1; y++) {
-        int y_distance = ABS(y - MOUTH_PIVOT_Y);
+        int y_distance = integer_abs(y - MOUTH_PIVOT_Y);
         int y_extent = y <= MOUTH_PIVOT_Y ?
             (MOUTH_PIVOT_Y - WARP_Y0) : (WARP_Y1 - MOUTH_PIVOT_Y);
         int y_weight = 255 - ((y_distance * 255) / MAX(y_extent, 1));
@@ -248,7 +253,7 @@ static void build_warp_region_locked(const char *state)
 
         for (int x = WARP_X0; x <= WARP_X1; x++) {
             int dx = x - MOUTH_CENTER_X;
-            int x_weight = 255 - ((ABS(dx) * 255) / MOUTH_HALF_WIDTH);
+            int x_weight = 255 - ((integer_abs(dx) * 255) / MOUTH_HALF_WIDTH);
             x_weight = CLAMP(x_weight, 0, 255);
             x_weight = (x_weight * x_weight) / 255;
             int influence = (x_weight * y_weight) / 255;
