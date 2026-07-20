@@ -36,6 +36,8 @@ This installer owns Raspberry Pi provisioning:
   - optional web research for accurate current answers when internet is available
   - male Australian William TTS backend while the persona remains KillerKoala
   - tone/subject-synchronized DualEye expressions and Heltec mouth animation
+  - Heltec-primary BLE with Pi BlueZ preferred and guarded ESP32 fallback
+  - synchronized purple/green error alarms and non-repeating Pi error digs
   - BLE-node, voice-bridge, and doctor services
   - external audio selection
   - optional stock-firmware InnoMaker SocketCAN setup when hardware is present
@@ -52,6 +54,8 @@ Environment:
   STRICT_KILLERKOALA_OLLAMA=0|1
   KILLERKOALA_LLM_MODEL=killerkoala-tinyllama:latest
   KILLERKOALA_WEB_SEARCH=auto|always|off
+  KILLERKOALA_ERROR_SEQUENCE_SECONDS=6.5
+  KOALABYTE_BLE_ROLE_CHECK_SECONDS=30
   BRAVE_SEARCH_API_KEY=<optional private key>
   CAN_INTERFACE=can0
   CAN_BITRATE=500000
@@ -73,7 +77,7 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-mkdir -p "$(dirname "${STATUS_PATH}")" logs/preflight logs/pi_hardware logs/gpio_buttons logs/runtime logs/killerkoala
+mkdir -p "$(dirname "${STATUS_PATH}")" logs/preflight logs/pi_hardware logs/gpio_buttons logs/runtime logs/killerkoala logs/ble_nodes
 
 write_status() {
   local status="$1" step="$2" reason="$3"
@@ -93,6 +97,8 @@ payload = {
     "web_research": "auto_when_internet_available",
     "tts_voice": "en-AU-WilliamNeural",
     "tone_synced_displays": True,
+    "ble_roles": "heltec_primary_pi_bluez_preferred_esp32_guarded_fallback",
+    "error_lifecycle": "purple_green_alarm_then_heltec_mouth_and_pi_dig",
     "ai_setup_skipped": skip_ai == "1",
     "firmware_flashing": False,
     "can_transmit_during_install": False,
@@ -158,8 +164,12 @@ validate_sources() {
     scripts/discover_koalabyte_ports.py \
     scripts/check_one_shot_controls.py \
     scripts/check_killerkoala_ai.py \
+    scripts/check_ble_role_failover.py \
+    scripts/check_killerkoala_error_sequence.py \
     scripts/check_full_runtime_dependencies.py \
     pi-companion/koalablue/gpio_buttons.py \
+    pi-companion/koalablue/ble_role_coordinator.py \
+    pi-companion/koalablue/ble_node_manager.py \
     pi-companion/koalablue/dualeye_tts.py \
     pi-companion/koalablue/killerkoala_expression.py \
     pi-companion/koalablue/killerkoala_web_research.py \
@@ -195,6 +205,8 @@ run_runtime_checks() {
   PYTHONPATH=pi-companion KOALABYTE_MENU_SYNC=0 "${py}" scripts/check_menu_display_sync.py
   PYTHONPATH=pi-companion "${py}" scripts/check_menu_actions.py
   PYTHONPATH=pi-companion "${py}" scripts/check_killerkoala_face_mouth_sync.py
+  PYTHONPATH=pi-companion "${py}" scripts/check_ble_role_failover.py
+  PYTHONPATH=pi-companion "${py}" scripts/check_killerkoala_error_sequence.py
   INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN}" \
     PYTHONPATH=pi-companion "${py}" scripts/check_full_runtime_dependencies.py
 }
@@ -249,7 +261,7 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
     run_step "TinyLlama installer contract" bash scripts/setup_killerkoala_ollama.sh --check-only
   fi
   run_step "Audio readiness" bash scripts/configure_pi_audio_output.sh --check-only
-  write_status "complete" "final_one_shot_check" "Pi installer, local vocabulary routing, TinyLlama/web/TTS contract, synchronized displays, headless controls, restricted power, services, devices, and no-flash policies validated"
+  write_status "complete" "final_one_shot_check" "Pi installer, TinyLlama/web/TTS, synchronized displays, BLE failover source contract, universal error lifecycle source contract, headless controls, restricted power, services, devices, and no-flash policies validated"
   trap - ERR
   echo
   echo "KoalaByte final one-shot check-only passed."
@@ -288,7 +300,7 @@ run_step "Restricted K7/K8 power permissions" \
 run_step "Stable device discovery" run_discovery
 run_step "K1-K8 GPIO initialization" run_button_probe
 run_step "Pi controls and menu contract" run_controls_gate
-run_step "Voice, TinyLlama, web research, and display synchronization checks" run_runtime_checks
+run_step "Voice, BLE failover, TinyLlama, web, error lifecycle, and display checks" run_runtime_checks
 run_step "Runtime service activation" restart_services
 
 if [[ "${SKIP_AUDIO}" != "1" ]]; then
@@ -297,7 +309,7 @@ fi
 
 run_step "Final Pi hardware doctor" run_final_doctor
 
-write_status "complete" "final_one_shot" "Pi packages, headless K1-K8 controls, restricted power permissions, USB aliases, Waveshare local vocabulary, TinyLlama fallback, optional web research, Australian TTS, tone-synchronized displays, audio, menu, BLE, voice, live display sync, diagnostics, and optional SocketCAN responsibilities installed without firmware flashing"
+write_status "complete" "final_one_shot" "Pi packages, headless K1-K8 controls, restricted power permissions, USB aliases, Waveshare local vocabulary, TinyLlama fallback, optional web research, Australian TTS, tone-synchronized displays, Heltec-primary Pi/ESP32 BLE failover, purple-green error alarms, non-repeating error digs, audio, menu, diagnostics, and optional SocketCAN responsibilities installed without firmware flashing"
 trap - ERR
 
 echo
@@ -306,6 +318,8 @@ echo "Status: ${STATUS_PATH}"
 echo "TinyLlama status: logs/killerkoala/ollama_setup_status.json"
 echo "Last AI response: logs/killerkoala/killerkoala_last_companion_response.json"
 echo "Web research: logs/killerkoala/web_research/latest.json"
+echo "BLE roles: logs/ble_nodes/ble_role_election.json"
+echo "Error sequence: logs/killerkoala/error_sequence_readiness.json"
 echo "Device map: logs/preflight/koalabyte_ports.json"
 echo "GPIO status: logs/gpio_buttons/gpio_button_status.json"
 echo "Headless runtime: logs/runtime/headless_menu_status.json"
