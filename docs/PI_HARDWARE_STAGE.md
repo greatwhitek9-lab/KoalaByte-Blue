@@ -1,10 +1,38 @@
-# Raspberry Pi Hardware Stage
+# Raspberry Pi Hardware and Runtime Setup
 
-This stage prepares and validates the Raspberry Pi without reflashing the ESP32-S3 DualEye or Heltec T114 and without running the final one-shot installer.
+The supported Raspberry Pi path is the canonical Pi-only installer:
+
+```bash
+cd ~/KoalaByte-Blue
+KOALABYTE_SERVICE_USER="$(whoami)" bash one-shot-install.sh
+```
+
+It is designed for Raspberry Pi OS Lite. No HDMI display or desktop session is required.
+
+## What the installer configures
+
+- Raspberry Pi system packages
+- `pi-companion/.venv` and Python dependencies
+- K1-K8 GPIO support
+- Stable Heltec and ESP32 USB aliases
+- Headless menu/action/display-sync service
+- BLE node manager service
+- ESP32 voice bridge service
+- Hardware doctor service
+- External audio selection
+- Optional SocketCAN service only when compatible CAN hardware is present
+
+It does not flash the ESP32-S3, Heltec T114, or CAN adapter and does not send CAN frames.
+
+Check without changing the Pi:
+
+```bash
+bash one-shot-install.sh --check-only
+```
 
 ## K1-K8 front-panel board
 
-Use **3.3 V only**. The GPIO inputs use Pi internal pull-ups: idle is HIGH and a pressed key pulls the assigned input LOW.
+Use **3.3 V only**. Inputs use the Pi internal pull-ups: idle is HIGH and a pressed key pulls the input LOW.
 
 | Key | Function | BCM GPIO | Pi physical pin |
 |---|---|---:|---:|
@@ -17,70 +45,22 @@ Use **3.3 V only**. The GPIO inputs use Pi internal pull-ups: idle is HIGH and a
 | K7 | Safe power-off request | 20 | 38 |
 | K8 | Safe reboot request | 16 | 36 |
 
-Board power:
+Power wiring:
 
-- `VCC` -> Pi 3.3 V, physical pin 1 or 17
-- `GND` -> Pi ground, physical pin 39 recommended
-- Never connect the button board VCC to Pi 5 V.
-
-K7 and K8 are protected in the runtime. K7 must be held for 2.5 seconds and K8 must be held for 3 seconds before their commands are emitted. The hardware test script never shuts down or reboots the Pi.
-
-## InnoMaker USB-to-CAN
-
-The adapter is used through Linux SocketCAN. The setup loads `can`, `can_raw`, `can_dev`, and `gs_usb`, waits for a `can*` network interface, sets the requested bitrate, enables automatic bus-off recovery, and installs a systemd/udev hot-plug path.
-
-Default interface and bitrate:
-
-```bash
-CAN_INTERFACE=can0
-CAN_BITRATE=500000
+```text
+VCC -> Pi 3.3 V, physical pin 1 or 17
+GND -> Pi ground, physical pin 39 recommended
 ```
 
-CAN wiring for an authorized bench or vehicle connection:
+Never connect the button-board VCC to Pi 5 V.
 
-- `CAN_H` -> CAN high
-- `CAN_L` -> CAN low
-- `GND` -> common signal ground
-- Connect shield only when the installation design calls for it.
-- Do not add termination blindly. A normal two-ended CAN bus should measure about 60 ohms between CAN_H and CAN_L with power removed.
-
-The setup stage does not transmit CAN frames.
-
-## Stage installation
-
-From the repository root on the Raspberry Pi:
+K7 requires a 2.5-second hold. K8 requires a 3-second hold. Test without executing shutdown or reboot:
 
 ```bash
-git pull
-bash scripts/setup_pi_hardware_stage.sh
+./pi-companion/.venv/bin/python scripts/test_gpio_buttons.py
 ```
 
-This performs the following:
-
-- installs Raspberry Pi system dependencies
-- creates or updates `pi-companion/.venv`
-- installs Python requirements
-- adds the service user to available hardware groups such as `gpio`, `dialout`, `audio`, `video`, `render`, and `plugdev`
-- installs stable KoalaByte USB rules
-- installs the InnoMaker SocketCAN service and `can*` hot-plug rule
-- checks/selects the external audio output
-- produces `logs/pi_hardware/pi_hardware_doctor.json`
-
-It does **not** enable the complete KoalaByte runtime services unless explicitly requested:
-
-```bash
-bash scripts/setup_pi_hardware_stage.sh --install-runtime-services
-```
-
-## Validate the buttons
-
-After rebooting or logging out and back in so the new group memberships apply:
-
-```bash
-pi-companion/.venv/bin/python scripts/test_gpio_buttons.py
-```
-
-Press and release K1 through K8 once. Expected result:
+Expected completion marker:
 
 ```text
 GPIO_ALL_KEYS_PASS
@@ -92,42 +72,69 @@ Report:
 logs/pi_hardware/gpio_button_test.json
 ```
 
-## Validate InnoMaker
+## Headless runtime
 
-Plug in the adapter, then run:
+The Pi menu service runs:
+
+```text
+scripts/run_headless_menu.py
+```
+
+It polls K1-K8, executes the Pi-owned menu actions, and synchronizes menu/action/face state to the ESP32-S3 and T114.
+
+Inspect it with:
+
+```bash
+systemctl status koalabyte-menu.service --no-pager -l
+journalctl -u koalabyte-menu.service -n 100 --no-pager
+cat logs/runtime/headless_menu_status.json
+```
+
+## USB discovery
+
+```bash
+./pi-companion/.venv/bin/python scripts/discover_koalabyte_ports.py \
+  --profile heltec --output-dir logs/preflight
+
+ls -l /dev/koalabyte-* 2>/dev/null || true
+```
+
+Expected aliases when connected:
+
+```text
+/dev/koalabyte-heltec
+/dev/koalabyte-heltec-t114
+/dev/koalabyte-esp32-dualeye
+```
+
+## Optional SocketCAN adapter
+
+SocketCAN support is optional and non-fatal. When a compatible adapter is present, the setup loads `can`, `can_raw`, `can_dev`, and `gs_usb`, then configures the selected `can*` interface.
 
 ```bash
 CAN_INTERFACE=can0 CAN_BITRATE=500000 bash scripts/setup_can0.sh
 ip -details -statistics link show can0
 ```
 
-For a passive receive test on an authorized, correctly wired bus:
+For passive receive-only observation on an authorized, correctly wired bus:
 
 ```bash
 candump can0
 ```
 
-Stop with `Ctrl+C`. `candump` listens only; it does not send frames.
+Do not use `cansend` during installation or initial validation.
 
-## Run the Pi doctor
+## Hardware doctor
 
 ```bash
-pi-companion/.venv/bin/python scripts/pi_hardware_doctor.py --can-interface can0 --gpio-live
+./pi-companion/.venv/bin/python scripts/pi_hardware_doctor.py \
+  --can-interface can0 --gpio-live
 ```
 
-The report inventories:
-
-- Raspberry Pi model, OS, user, and hardware groups
-- K1-K8 pin availability and current electrical states
-- InnoMaker USB/SocketCAN state and kernel modules
-- ALSA/PipeWire/PulseAudio playback and capture devices
-- ESP32 and Heltec stable serial aliases
-- Python modules, host commands, and KoalaByte systemd services
+The doctor inventories the Pi model, OS, service user and groups, K1-K8 states, USB aliases, serial devices, audio devices, Bluetooth, optional SocketCAN state, dependencies, and installed services.
 
 Report:
 
 ```text
 logs/pi_hardware/pi_hardware_doctor.json
 ```
-
-Paste that report when a hardware item is missing or not ready; it is designed to identify the exact next correction without rerunning firmware flashing.
