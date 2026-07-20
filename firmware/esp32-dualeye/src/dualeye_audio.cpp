@@ -7,7 +7,7 @@
 #include "config.h"
 
 namespace {
-constexpr int kSpeakerVolume = 56;
+constexpr int kSpeakerVolume = AUDIO_OUTPUT_VOLUME;
 constexpr int8_t kInputDigitalGainDb = 16;
 I2SClass audioBus;
 es8311_handle_t outputCodec = nullptr;
