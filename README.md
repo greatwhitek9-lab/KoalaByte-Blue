@@ -19,7 +19,7 @@ Use the project only with devices, networks, radios, captures, vehicles, and tes
 The Raspberry Pi owns:
 
 - Headless K1-K8 menu navigation and action execution
-- Menu and status synchronization to the ESP32-S3 and T114
+- Live menu and status synchronization to the ESP32-S3 and T114
 - BLE coordination with the T114
 - ESP32 voice-command escalation and Pi-side STT/AI execution
 - Australian male William TTS output while preserving the spoken identity **KillerKoala**
@@ -65,11 +65,11 @@ The installer configures:
 - `pi-companion/.venv`
 - Hardware groups for the service user
 - Stable Heltec and ESP32 USB aliases
-- Headless menu/K1-K8 service
-- Menu display synchronization service
+- Headless menu, K1-K8, action, and live display-sync service
 - BLE node manager service
 - ESP32 voice bridge service
 - Hardware doctor service
+- Restricted K7/K8 sudoers permission for only `shutdown -h now` and `reboot`
 - External audio selection
 - Optional SocketCAN service only when compatible hardware is present
 
@@ -87,7 +87,7 @@ Service status:
 
 ```bash
 systemctl status koalabyte-menu.service --no-pager -l
-systemctl status koalabyte-menu-sync.service --no-pager -l
+systemctl status koalabyte-doctor.service --no-pager -l
 systemctl status koalabyte-ble-node-manager.service --no-pager -l
 systemctl status koalabyte-dualeye-voice-bridge.service --no-pager -l
 ```
@@ -151,6 +151,7 @@ Expected aliases when connected:
 Run the hardware inventory:
 
 ```bash
+INSTALL_INNOMAKER_CAN=0 \
 ./pi-companion/.venv/bin/python scripts/pi_hardware_doctor.py \
   --can-interface can0 --gpio-live
 ```
@@ -160,7 +161,7 @@ Run the hardware inventory:
 The working peripheral firmware is preserved by default:
 
 - ESP32-S3 DualEye: current static-grammar wake/menu/response runtime
-- Heltec T114: current original-texture articulated mouth and latched Koalagotchi lifecycle
+- Heltec T114: current original-texture articulated mouth v2 and latched Koalagotchi lifecycle
 - InnoMaker or other SocketCAN adapter: stock adapter firmware only
 
 Firmware source remains under:
@@ -183,4 +184,4 @@ bash scripts/check_deployability.sh
 bash one-shot-install.sh --check-only
 ```
 
-The CI contract verifies the headless Pi runtime, K1-K8 protection, menu/action catalog, voice/AI dependencies, display synchronization, USB rules, and no-flash installer policy.
+The CI contract verifies the headless Pi runtime, K1-K8 protection, restricted power controls, menu/action catalog, voice/AI dependencies, live display synchronization, USB rules, and no-flash installer policy.
