@@ -68,6 +68,20 @@ jobs:
       - name: Validate KillerKoala face and mouth synchronization
         run: PYTHONPATH=pi-companion python scripts/check_killerkoala_face_mouth_sync.py
 
+      - name: Validate Heltec BLE role failover
+        run: |
+          PYTHONPATH=pi-companion python scripts/check_ble_role_failover.py || {
+            cat logs/ble_nodes/ble_failover_readiness.json 2>/dev/null || true
+            exit 1
+          }
+
+      - name: Validate universal error alarm and dig sequence
+        run: |
+          PYTHONPATH=pi-companion python scripts/check_killerkoala_error_sequence.py || {
+            cat logs/killerkoala/error_sequence_readiness.json 2>/dev/null || true
+            exit 1
+          }
+
       - name: Import KillerKoala expression and web modules
         run: |
           PYTHONPATH=pi-companion python - <<'PY'
@@ -121,6 +135,8 @@ jobs:
           curious = classify_response_expression("What is the latest firmware release?", event="question")
           assert happy.tone in {"happy", "excited"}, happy
           assert angry.tone in {"angry", "error"}, angry
+          assert angry.left_eye == "#A54BFF", angry
+          assert angry.right_eye == "#32FF71", angry
           assert curious.tone == "curious", curious
           print(happy.to_payload())
           print(angry.to_payload())
