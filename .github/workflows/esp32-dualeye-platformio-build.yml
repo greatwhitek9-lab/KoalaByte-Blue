@@ -7,12 +7,16 @@ on:
     paths:
       - ".github/workflows/esp32-dualeye-platformio-build.yml"
       - "firmware/esp32-dualeye/**"
+      - "scripts/build_whole_system_firmware.sh"
+      - "scripts/flash_esp32_dualeye_current.sh"
       - "scripts/check_dualeye_wake_session.py"
   pull_request:
     branches: [Main, main]
     paths:
       - ".github/workflows/esp32-dualeye-platformio-build.yml"
       - "firmware/esp32-dualeye/**"
+      - "scripts/build_whole_system_firmware.sh"
+      - "scripts/flash_esp32_dualeye_current.sh"
       - "scripts/check_dualeye_wake_session.py"
 
 permissions:
@@ -34,6 +38,14 @@ jobs:
 
       - name: Validate KillerKoala wake-session contract
         run: python scripts/check_dualeye_wake_session.py
+
+      - name: Validate installer-owned ESP32 flash contract
+        run: |
+          bash -n scripts/build_whole_system_firmware.sh
+          bash -n scripts/flash_esp32_dualeye_current.sh
+          grep -Fq '0x00cb0000' scripts/flash_esp32_dualeye_current.sh
+          grep -Fq 'chip_id' scripts/flash_esp32_dualeye_current.sh
+          grep -Fq 'srmodels.bin' scripts/build_whole_system_firmware.sh
 
       - name: Install voice and PlatformIO build tools
         run: |
@@ -58,7 +70,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      - name: Package source-build outputs without a flasher
+      - name: Package installer-owned source-build outputs
         env:
           SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -86,11 +98,13 @@ jobs:
           cat > "${package}/BUILD-PROVENANCE.txt" <<EOF
           source_commit=${SOURCE_COMMIT}
           target=Waveshare ESP32-S3 DualEye 1.28 non-touch
-          runtime_firmware_id=0.9.8-dualeye-static-grammar-40-response-bank
           spoken_identity=KillerKoala
           tts_backend=en-AU-WilliamNeural
-          installer_owned_flash=false
-          generated_flasher=false
+          installer_owned_flash=true
+          canonical_installer=one-shot-install.sh
+          flash_helper=scripts/flash_esp32_dualeye_current.sh
+          complete_image_set=true
+          speech_model_address=0x00cb0000
           EOF
 
           (
