@@ -8,6 +8,8 @@ CHECK_ONLY=0
 SERVICE_USER="${KOALABYTE_SERVICE_USER:-${SUDO_USER:-${USER:-pi}}}"
 SERVICE_GROUP="${KOALABYTE_SERVICE_GROUP:-${SERVICE_USER}}"
 INSTALL_ROOT="${KOALABYTE_SERVICE_ROOT:-/opt/KoalaByte-Blue}"
+SERVICES=(koalabyte-menu.service koalabyte-doctor.service)
+OBSOLETE_SERVICE="koalabyte-menu-sync.service"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -17,9 +19,11 @@ while [[ $# -gt 0 ]]; do
 Install KoalaByte Blue Raspberry Pi boot services.
 
 Services:
-  koalabyte-menu.service      Headless K1-K8/menu/action/display-sync controller
-  koalabyte-menu-sync.service Display-state synchronization support
-  koalabyte-doctor.service    Field diagnostics
+  koalabyte-menu.service   Headless K1-K8/menu/action/live-display-sync controller
+  koalabyte-doctor.service Field diagnostics
+
+The obsolete one-shot koalabyte-menu-sync.service is removed because live
+synchronization is owned by the headless menu runtime.
 EOF
       exit 0
       ;;
@@ -34,7 +38,7 @@ case "${INSTALL_BOOT_SERVICES}" in
   *) echo "Unknown INSTALL_BOOT_SERVICES=${INSTALL_BOOT_SERVICES}" >&2; exit 2 ;;
 esac
 
-for svc in koalabyte-menu.service koalabyte-menu-sync.service koalabyte-doctor.service; do
+for svc in "${SERVICES[@]}"; do
   [[ -f "${REPO_ROOT}/systemd/${svc}" ]] || { echo "Missing service template: systemd/${svc}" >&2; exit 1; }
 done
 
@@ -50,7 +54,7 @@ done
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   bash -n scripts/install_koalabyte_boot_services.sh
   python3 -m py_compile scripts/run_headless_menu.py
-  echo "KoalaByte headless boot service templates are ready."
+  echo "KoalaByte headless menu and doctor service templates are ready."
   exit 0
 fi
 
@@ -88,7 +92,10 @@ if [[ "${REPO_ROOT}" != "${INSTALL_ROOT}" ]]; then
   fi
 fi
 
-for svc in koalabyte-menu.service koalabyte-menu-sync.service koalabyte-doctor.service; do
+"${sudo_cmd[@]}" systemctl disable --now "${OBSOLETE_SERVICE}" >/dev/null 2>&1 || true
+"${sudo_cmd[@]}" rm -f "/etc/systemd/system/${OBSOLETE_SERVICE}"
+
+for svc in "${SERVICES[@]}"; do
   tmp="$(mktemp)"
   sed -e "s#WorkingDirectory=/opt/KoalaByte-Blue#WorkingDirectory=${INSTALL_ROOT}#g" \
       -e "s#/opt/KoalaByte-Blue#${INSTALL_ROOT}#g" \
@@ -100,6 +107,6 @@ for svc in koalabyte-menu.service koalabyte-menu-sync.service koalabyte-doctor.s
 done
 
 "${sudo_cmd[@]}" systemctl daemon-reload
-"${sudo_cmd[@]}" systemctl enable koalabyte-menu.service koalabyte-menu-sync.service koalabyte-doctor.service
+"${sudo_cmd[@]}" systemctl enable "${SERVICES[@]}"
 
-echo "Installed KoalaByte headless menu, display sync, and doctor boot services for ${SERVICE_USER}."
+echo "Installed KoalaByte headless menu/live-sync and doctor services for ${SERVICE_USER}."
