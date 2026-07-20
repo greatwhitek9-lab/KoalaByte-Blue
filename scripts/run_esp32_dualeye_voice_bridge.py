@@ -5,11 +5,16 @@ import argparse
 import json
 import time
 
-from koalablue.esp32_dualeye_ready_bridge import ESP32DualEyeVoiceBridge, default_esp32_port
+from koalablue.esp32_dualeye_local_first_bridge import (
+    ESP32DualEyeVoiceBridge,
+    default_esp32_port,
+)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the integrated ESP32-S3 DualEye voice, execution and audio bridge")
+    parser = argparse.ArgumentParser(
+        description="Run the local-first ESP32-S3 DualEye voice, execution and audio bridge"
+    )
     parser.add_argument("--port", default=default_esp32_port())
     parser.add_argument("--baud", type=int, default=115200)
     parser.add_argument("--udp-port", type=int, default=42110)
@@ -27,7 +32,6 @@ def main() -> int:
         port=args.port,
         baud=args.baud,
         udp_port=args.udp_port,
-        announce_ready=not args.status_only and not provisioning_only,
     )
     if args.status_only:
         bridge.open()
