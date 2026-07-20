@@ -6,6 +6,10 @@ BRANCH="${KOALABYTE_BRANCH:-Main}"
 INSTALL_DIR="${KOALABYTE_INSTALL_DIR:-${HOME}/KoalaByte-Blue}"
 RUN_MODE="install"
 
+# Compatibility contract: one-shot-install.sh delegates comprehensive Pi
+# provisioning to scripts/install_koalabyte_one_shot.sh while owning pinned
+# peripheral flashing and final hardware validation.
+
 usage() {
   cat <<'USAGE'
 KoalaByte Blue V2 Heltec Edition bootstrapper
