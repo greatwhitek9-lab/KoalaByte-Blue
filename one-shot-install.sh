@@ -1,73 +1,91 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${REPO_ROOT}"
 
 CHECK_ONLY=0
-case "${1:-}" in
-  --check-only|--dry-run) CHECK_ONLY=1; shift ;;
-  "") ;;
-  -h|--help)
-    cat <<'EOF'
-KoalaByte Blue complete one-shot installer
+SKIP_PACKAGES=0
+SKIP_AUDIO=0
+SKIP_CAN=0
+INSTALL_RUNTIME_SERVICES=1
+SERVICE_USER="${KOALABYTE_SERVICE_USER:-${SUDO_USER:-${USER:-pi}}}"
+STATUS_PATH="${KOALABYTE_ONE_SHOT_STATUS_PATH:-logs/one_shot/final_install_status.json}"
+PYTHON_BIN="${REPO_ROOT}/pi-companion/.venv/bin/python"
+INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN:-auto}"
+
+usage() {
+  cat <<'EOF'
+KoalaByte Blue final Raspberry Pi one-shot installer
 
 Usage:
   bash one-shot-install.sh
   bash one-shot-install.sh --check-only
+  bash one-shot-install.sh --skip-packages
+  bash one-shot-install.sh --skip-audio
+  bash one-shot-install.sh --skip-can
 
-Default hardware policy:
-  - installs/updates all Raspberry Pi software and services
-  - validates K1-K8 and external-keyboard control paths
-  - configures a connected JBL/USB Pi audio output when detected
-  - verifies bundled peripheral images before use
-  - flashes ESP32-S3 DualEye v0.9.8 when the release image and port are present
-  - flashes T114 only when the HT-n5262 UF2 bootloader volume is present
-  - configures InnoMaker as stock-firmware Linux SocketCAN can0
+This installer owns Raspberry Pi provisioning only:
+  - system packages and Python virtual environment
+  - K1-K8 GPIO controls, with hold protection on K7/K8
+  - Heltec T114 and ESP32-S3 stable USB aliases
+  - menu, display-sync, BLE-node, voice-bridge, and doctor services
+  - external audio selection and Australian William TTS dependencies
+  - optional stock-firmware InnoMaker SocketCAN setup when hardware is present
+  - final device discovery, controls, menu, voice, and hardware checks
 
-Useful overrides:
-  FLASH_ESP32=auto|1|0
-  FORCE_ESP32_FLASH=1
-  FLASH_T114_ON_PLUG=auto|1|0
-  FORCE_T114_FLASH=1
-  ESP32_PORT=/dev/koalabyte-esp32-dualeye
-  T114_UF2_MOUNT=/media/pi/HT-n5262
-  KOALABYTE_AUDIO_SINK_PATTERN='JBL|USB|speaker|audio'
-  STRICT_PI_AUDIO_OUTPUT=1
+It never flashes the ESP32-S3, Heltec T114, or InnoMaker and never transmits CAN frames.
+
+Environment:
+  KOALABYTE_SERVICE_USER=<linux-user>
   INSTALL_INNOMAKER_CAN=auto|1|0
+  CAN_INTERFACE=can0
+  CAN_BITRATE=500000
+  KOALABYTE_AUDIO_SINK_PATTERN='JBL|USB|speaker|audio'
+  STRICT_GPIO_BUTTONS=0|1
 EOF
-    exit 0
-    ;;
-  *) echo "Unknown argument: ${1}" >&2; exit 2 ;;
-esac
+}
 
-STATUS_PATH="${KOALABYTE_COMPLETE_INSTALL_STATUS:-logs/one_shot/complete_install_status.json}"
-mkdir -p "$(dirname "${STATUS_PATH}")"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --check-only|--dry-run) CHECK_ONLY=1 ;;
+    --skip-packages) SKIP_PACKAGES=1 ;;
+    --skip-audio) SKIP_AUDIO=1 ;;
+    --skip-can) SKIP_CAN=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
+  esac
+  shift
+done
+
+mkdir -p "$(dirname "${STATUS_PATH}")" logs/preflight logs/pi_hardware logs/gpio_buttons
 
 write_status() {
   local status="$1" step="$2" reason="$3"
-  python3 - <<'PY' "${STATUS_PATH}" "${status}" "${step}" "${reason}" "${CHECK_ONLY}"
+  python3 - "${STATUS_PATH}" "${status}" "${step}" "${reason}" "${CHECK_ONLY}" "${SERVICE_USER}" <<'PY'
 import json, sys, time
 from pathlib import Path
-path, status, step, reason, check_only = sys.argv[1:]
+path, status, step, reason, check_only, service_user = sys.argv[1:]
 payload = {
     "status": status,
     "step": step,
     "reason": reason,
     "check_only": check_only == "1",
-    "wake_session_timeout_ms": 10000,
-    "voice_wake_phrase_required_while_sleeping": True,
-    "trusted_k1_k8_keyboard_activity_wakes_or_refreshes": True,
-    "t114_flash_requires_uf2_volume": True,
-    "innomaker_firmware_flash": False,
+    "service_user": service_user,
+    "firmware_flashing": False,
+    "can_transmit_during_install": False,
+    "esp32_preserved": True,
+    "heltec_preserved": True,
+    "innomaker_stock_firmware_preserved": True,
     "updated_at": time.time(),
 }
-Path(path).write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+Path(path).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 PY
 }
 
 run_step() {
-  local name="$1"; shift
+  local name="$1"
+  shift
   echo
   echo "== ${name} =="
   write_status "running" "${name}" "step started"
@@ -75,85 +93,158 @@ run_step() {
   write_status "ok" "${name}" "step completed"
 }
 
-run_audio_readiness() {
-  if [[ "${CHECK_ONLY}" == "1" ]]; then
-    bash scripts/configure_pi_audio_output.sh --check-only
+python_for_runtime() {
+  if [[ -x "${PYTHON_BIN}" ]]; then
+    printf '%s\n' "${PYTHON_BIN}"
   else
-    bash scripts/configure_pi_audio_output.sh
+    printf '%s\n' python3
   fi
 }
 
-trap 'write_status "failed" "complete_one_shot" "installer stopped before completion"' ERR
+can_hardware_present() {
+  compgen -G '/sys/class/net/can*' >/dev/null && return 0
+  command -v lsusb >/dev/null 2>&1 || return 1
+  lsusb | grep -Eiq 'innomaker|usb.?can|candle|canable|gs[_ -]?usb'
+}
 
-run_step "DualEye strict wake-session policy" python3 scripts/check_dualeye_wake_session.py
-run_step "Bundled firmware manifest" python3 scripts/verify_prebuilt_firmware_bundle.py
-run_step "Pi audio output readiness" run_audio_readiness
+can_enabled() {
+  [[ "${SKIP_CAN}" == "1" ]] && return 1
+  case "${INSTALL_INNOMAKER_CAN}" in
+    0|false|False|no|NO|skip|SKIP) return 1 ;;
+    1|true|True|yes|YES) return 0 ;;
+    auto|AUTO|optional) can_hardware_present ;;
+    *) echo "Invalid INSTALL_INNOMAKER_CAN=${INSTALL_INNOMAKER_CAN}" >&2; exit 2 ;;
+  esac
+}
+
+validate_sources() {
+  bash -n one-shot-install.sh
+  bash -n install.sh
+  bash -n scripts/setup_pi_hardware_stage.sh
+  bash -n scripts/install_koalabyte_boot_services.sh
+  bash -n scripts/install_ble_node_manager_service.sh
+  bash -n scripts/install_esp32_dualeye_voice_bridge_service.sh
+  bash -n scripts/install_koalabyte_udev_rules.sh
+  bash -n scripts/configure_pi_audio_output.sh
+  python3 -m py_compile \
+    scripts/setup_gpio_buttons.py \
+    scripts/test_gpio_buttons.py \
+    scripts/pi_hardware_doctor.py \
+    scripts/discover_koalabyte_ports.py \
+    scripts/check_one_shot_controls.py \
+    pi-companion/koalablue/gpio_buttons.py
+}
+
+run_discovery() {
+  local py
+  py="$(python_for_runtime)"
+  PYTHONPATH=pi-companion "${py}" scripts/discover_koalabyte_ports.py \
+    --profile heltec --output-dir logs/preflight
+}
+
+run_button_probe() {
+  local py
+  py="$(python_for_runtime)"
+  PYTHONPATH=pi-companion STRICT_GPIO_BUTTONS="${STRICT_GPIO_BUTTONS:-0}" \
+    "${py}" scripts/setup_gpio_buttons.py --probe
+}
+
+run_controls_gate() {
+  local py
+  py="$(python_for_runtime)"
+  PYTHONPATH=pi-companion "${py}" scripts/check_one_shot_controls.py
+}
+
+run_runtime_checks() {
+  local py
+  py="$(python_for_runtime)"
+  PYTHONPATH=pi-companion "${py}" scripts/check_killerkoala_ai.py
+  PYTHONPATH=pi-companion KOALABYTE_MENU_SYNC=0 "${py}" scripts/check_menu_display_sync.py
+  PYTHONPATH=pi-companion "${py}" scripts/check_menu_actions.py
+  PYTHONPATH=pi-companion "${py}" scripts/check_killerkoala_face_mouth_sync.py
+  PYTHONPATH=pi-companion "${py}" scripts/check_full_runtime_dependencies.py
+}
+
+restart_services() {
+  command -v systemctl >/dev/null 2>&1 || return 0
+  local sudo_cmd=()
+  if [[ "${EUID}" -ne 0 ]]; then
+    sudo_cmd=(sudo)
+  fi
+  "${sudo_cmd[@]}" systemctl daemon-reload
+  for service in \
+    koalabyte-menu.service \
+    koalabyte-menu-sync.service \
+    koalabyte-doctor.service \
+    koalabyte-ble-node-manager.service \
+    koalabyte-dualeye-voice-bridge.service; do
+    if "${sudo_cmd[@]}" systemctl list-unit-files "${service}" >/dev/null 2>&1; then
+      "${sudo_cmd[@]}" systemctl enable "${service}" >/dev/null 2>&1 || true
+      "${sudo_cmd[@]}" systemctl restart "${service}" || true
+    fi
+  done
+  if can_enabled && "${sudo_cmd[@]}" systemctl list-unit-files koalabyte-can0.service >/dev/null 2>&1; then
+    "${sudo_cmd[@]}" systemctl enable koalabyte-can0.service >/dev/null 2>&1 || true
+    "${sudo_cmd[@]}" systemctl restart koalabyte-can0.service || true
+  fi
+}
+
+trap 'write_status "failed" "final_one_shot" "installer stopped before completion"' ERR
+
+run_step "Source and installer validation" validate_sources
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
-  run_step "Existing Pi one-shot readiness" env FLASH_ESP32=0 FLASH_T114_ON_PLUG=0 bash scripts/install_koalabyte_one_shot.sh --check-only
-  run_step "Prebuilt ESP32 flasher syntax" bash -n scripts/flash_prebuilt_esp32_dualeye.sh
-  run_step "Prebuilt T114 flasher syntax" bash -n scripts/flash_prebuilt_t114_uf2.sh
-  write_status "complete" "complete_one_shot_check" "all source, policy, installer, audio, button/keyboard, and firmware bundle checks completed without flashing"
+  run_step "Pi hardware inventory" bash scripts/setup_pi_hardware_stage.sh --check-only
+  run_step "K1-K8 control contract" run_controls_gate
+  run_step "Audio readiness" bash scripts/configure_pi_audio_output.sh --check-only
+  write_status "complete" "final_one_shot_check" "all Pi installer, K1-K8, service, device, and no-flash policies validated"
   trap - ERR
   echo
-  echo "KoalaByte Blue complete one-shot check-only passed."
+  echo "KoalaByte final one-shot check-only passed."
   echo "Status: ${STATUS_PATH}"
   exit 0
 fi
 
-# The established one-shot remains the comprehensive Pi provisioning engine.
-# Firmware replacement is disabled there so this wrapper uses only pinned
-# prebuilt images and never compiles NCS/PlatformIO firmware on the Pi.
-run_step "Raspberry Pi software and services" env \
-  FLASH_ESP32=0 \
-  FLASH_T114_ON_PLUG=0 \
-  INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN:-auto}" \
-  INSTALL_CAN0_SERVICE="${INSTALL_CAN0_SERVICE:-auto}" \
-  INSTALL_GPIO_BUTTONS="${INSTALL_GPIO_BUTTONS:-auto}" \
-  bash scripts/install_koalabyte_one_shot.sh
-
-# Re-evaluate after PipeWire/PulseAudio packages and user services are installed.
-run_step "Select JBL or external Pi speaker" bash scripts/configure_pi_audio_output.sh
-
-run_step "Flash or preserve ESP32-S3 DualEye" env \
-  FLASH_ESP32="${FLASH_ESP32:-auto}" \
-  FORCE_ESP32_FLASH="${FORCE_ESP32_FLASH:-0}" \
-  PYTHON_BIN="${PYTHON_BIN:-${REPO_ROOT}/pi-companion/.venv/bin/python}" \
-  bash scripts/flash_prebuilt_esp32_dualeye.sh
-
-run_step "Flash or preserve Heltec T114" env \
-  FLASH_T114_ON_PLUG="${FLASH_T114_ON_PLUG:-auto}" \
-  FORCE_T114_FLASH="${FORCE_T114_FLASH:-0}" \
-  STRICT_T114_PLUG_FLASH="${STRICT_T114_PLUG_FLASH:-0}" \
-  bash scripts/flash_prebuilt_t114_uf2.sh
-
-if command -v systemctl >/dev/null 2>&1; then
-  for service in \
-      koalabyte-dualeye-voice-bridge.service \
-      koalabyte-menu.service \
-      koalabyte-menu-sync.service \
-      koalabyte-can0.service; do
-    if systemctl list-unit-files "${service}" >/dev/null 2>&1; then
-      if [[ "${EUID}" -eq 0 ]]; then
-        systemctl restart "${service}" || true
-      elif command -v sudo >/dev/null 2>&1; then
-        sudo systemctl restart "${service}" || true
-      fi
-    fi
-  done
+if [[ "$(uname -s)" != "Linux" ]]; then
+  echo "The final one-shot installer must run on the Raspberry Pi Linux host." >&2
+  exit 1
 fi
 
-run_step "Final wake-session policy" python3 scripts/check_dualeye_wake_session.py
-run_step "Final controls and button map" env PYTHONPATH=pi-companion "${PYTHON_BIN:-${REPO_ROOT}/pi-companion/.venv/bin/python}" scripts/check_one_shot_controls.py
-run_step "Final firmware bundle status" python3 scripts/verify_prebuilt_firmware_bundle.py
+stage_args=(--install-runtime-services)
+[[ "${SKIP_PACKAGES}" == "1" ]] && stage_args+=(--skip-packages)
+[[ "${SKIP_AUDIO}" == "1" ]] && stage_args+=(--skip-audio)
+if ! can_enabled; then
+  stage_args+=(--skip-can-service)
+fi
 
-write_status "complete" "complete_one_shot" "Pi software, services, K1-K8, keyboard input, JBL/external audio selection, ESP32 wake-session firmware path, T114 UF2 path, and InnoMaker SocketCAN setup completed"
+run_step "Raspberry Pi hardware and runtime services" \
+  env KOALABYTE_SERVICE_USER="${SERVICE_USER}" \
+      CAN_INTERFACE="${CAN_INTERFACE:-can0}" \
+      CAN_BITRATE="${CAN_BITRATE:-500000}" \
+      bash scripts/setup_pi_hardware_stage.sh "${stage_args[@]}"
+
+run_step "Stable device discovery" run_discovery
+run_step "K1-K8 GPIO initialization" run_button_probe
+run_step "Pi controls and menu contract" run_controls_gate
+run_step "Voice menu and display synchronization checks" run_runtime_checks
+run_step "Runtime service activation" restart_services
+
+if [[ "${SKIP_AUDIO}" != "1" ]]; then
+  run_step "External audio selection" bash scripts/configure_pi_audio_output.sh
+fi
+
+run_step "Final Pi hardware doctor" \
+  "$(python_for_runtime)" scripts/pi_hardware_doctor.py \
+  --can-interface "${CAN_INTERFACE:-can0}" --gpio-live
+
+write_status "complete" "final_one_shot" "Pi packages, K1-K8 controls, USB aliases, audio, menu, BLE, voice, display sync, diagnostics, and optional SocketCAN responsibilities installed without firmware flashing"
 trap - ERR
 
 echo
-echo "KoalaByte Blue complete one-shot installation finished."
+echo "KoalaByte Blue final Raspberry Pi one-shot installation complete."
 echo "Status: ${STATUS_PATH}"
-echo "ESP32 status: logs/one_shot/esp32_prebuilt_flash_status.json"
-echo "T114 status: logs/one_shot/t114_prebuilt_flash_status.json"
-echo "Audio status: logs/one_shot/pi_audio_output_status.json"
-echo "CAN status: logs/can/innomaker_optional_status.json"
+echo "Device map: logs/preflight/koalabyte_ports.json"
+echo "GPIO status: logs/gpio_buttons/gpio_button_status.json"
+echo "Hardware report: logs/pi_hardware/pi_hardware_doctor.json"
+echo
+echo "Log out/in or reboot once so ${SERVICE_USER} receives all hardware group memberships."
