@@ -276,27 +276,15 @@ replace_once(
 )
 
 replace_once(
-    """        emitLocalVoiceStatus(\"local_multinet_rearmed_after_timeout\",
-                           \"recognizer remains in always-on command mode\");
-""",
-    """        emitLocalVoiceStatus(\"local_multinet_rearmed_after_timeout\",
-                           wakeSessionActive
-                               ? \"command recognizer active inside wake session\"
-                               : \"sleeping gate active; only killerkoala may open a session\");
-""",
-    "timeout status",
+    "\"recognizer remains in always-on command mode\"",
+    "\"recognizer rearmed; sleeping gate remains active until killerkoala\"",
+    "timeout status text",
 )
 
 replace_once(
-    """    emitLocalVoiceStatus(\"local_multinet_listening\",
-                         \"wake, K1-K8 and full catalog recognition active\");
-""",
-    """    emitLocalVoiceStatus(\"local_multinet_listening\",
-                         wakeSessionActive
-                             ? \"10-second command session active; commands refresh timeout\"
-                             : \"sleeping; ambient commands are discarded until killerkoala\");
-""",
-    "heartbeat status",
+    "\"wake, K1-K8 and full catalog recognition active\"",
+    "\"sleeping gate or active 10-second session; see wake_session_active\"",
+    "heartbeat status text",
 )
 
 replace_once(
