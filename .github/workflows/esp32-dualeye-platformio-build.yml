@@ -10,6 +10,7 @@ on:
     paths:
       - ".github/workflows/esp32-dualeye-platformio-build.yml"
       - "firmware/esp32-dualeye/**"
+      - "scripts/check_dualeye_wake_session.py"
       - "scripts/flash_esp32.sh"
       - "scripts/configure_esp32s3_dualeye_2g4_antenna.sh"
   pull_request:
@@ -20,6 +21,7 @@ on:
     paths:
       - ".github/workflows/esp32-dualeye-platformio-build.yml"
       - "firmware/esp32-dualeye/**"
+      - "scripts/check_dualeye_wake_session.py"
       - "scripts/flash_esp32.sh"
       - "scripts/configure_esp32s3_dualeye_2g4_antenna.sh"
 
@@ -38,6 +40,9 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Validate strict KillerKoala wake session
+        run: python scripts/check_dualeye_wake_session.py
+
       - name: Install Australian voice build tools
         run: |
           sudo apt-get update
@@ -53,13 +58,15 @@ jobs:
           set -o pipefail
           mkdir -p releases
           pio run -d firmware/esp32-dualeye 2>&1 | tee releases/esp32-dualeye-platformio.log
+          grep -F "Generated strict wake-session source" releases/esp32-dualeye-platformio.log
+          grep -F "Generated DualEye wake-session voice/menu catalog" releases/esp32-dualeye-platformio.log
 
       - name: Package full-flash image and Windows flasher
         shell: bash
         run: |
           set -euo pipefail
           build="firmware/esp32-dualeye/.pio/build/esp32s3_dualeye"
-          package="releases/koalabyte-esp32-s3-dualeye-v0.9.7-sensitive-killerkoala-menu"
+          package="releases/koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session"
           mkdir -p "${package}"
 
           boot_app0="$(find "${HOME}/.platformio/packages/framework-arduinoespressif32" -path '*/tools/partitions/boot_app0.bin' -print -quit)"
@@ -78,6 +85,7 @@ jobs:
           cp "${srmodels}" "${package}/srmodels.bin"
           cp "${boot_app0}" "${package}/boot_app0.bin"
           cp releases/esp32-dualeye-platformio.log "${package}/build.log"
+          cp logs/one_shot/dualeye_wake_session_status.json "${package}/wake-session-validation.json"
 
           PACKAGE_DIR="${package}" python - <<'PY'
           import os
@@ -106,7 +114,7 @@ jobs:
           image = bytearray(b"\xFF" * end)
           for offset, payload in payloads:
               image[offset:offset + len(payload)] = payload
-          output = package / "koalabyte-esp32-s3-dualeye-v0.9.7-sensitive-killerkoala-menu-full-flash.bin"
+          output = package / "koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session-full-flash.bin"
           output.write_bytes(image)
           for offset, payload in payloads:
               assert image[offset:offset + len(payload)] == payload
@@ -116,7 +124,7 @@ jobs:
           )
           PY
 
-          cat > "${package}/flash-esp32-dualeye-menu-voice-sync.ps1" <<'POWERSHELL'
+          cat > "${package}/flash-esp32-dualeye-wake-session.ps1" <<'POWERSHELL'
           param(
             [Parameter(Mandatory=$true)]
             [string]$Port,
@@ -125,7 +133,7 @@ jobs:
           )
 
           $ErrorActionPreference = "Stop"
-          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.9.7-sensitive-killerkoala-menu-full-flash.bin"
+          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session-full-flash.bin"
           if (-not (Test-Path $Image)) { throw "Firmware image not found: $Image" }
 
           py -m pip install --user "esptool==4.11.0"
@@ -145,56 +153,59 @@ jobs:
           py -m esptool --chip esp32s3 --port $Port verify_flash 0x0 $Image
           if ($LASTEXITCODE -ne 0) { throw "Firmware verification failed." }
 
-          Write-Host "DualEye v0.9.7 sensitivity/KillerKoala/local-menu flash complete. Press RESET once."
+          Write-Host "DualEye v0.9.8 strict KillerKoala wake-session flash complete. Press RESET once."
           POWERSHELL
 
           cat > "${package}/README-FLASH.txt" <<'README'
-          KoalaByte Blue ESP32-S3 DualEye v0.9.7 sensitivity/KillerKoala/local-menu firmware
+          KoalaByte Blue ESP32-S3 DualEye v0.9.8 strict KillerKoala wake-session firmware
 
           Exact hardware target:
             Waveshare ESP32-S3 DualEye 1.28-inch non-touch variant
             Both GC9A01A round LCD panels remain enabled
 
+          Wake and command policy:
+            - while sleeping, ambient command detections are discarded
+            - say "Killer Koala" or "Hey Killer Koala" to open a command session
+            - the session remains active for 10 seconds
+            - accepted voice commands refresh the 10-second timer
+            - K1-K8 board input and attached-keyboard menu input wake or refresh it
+            - after 10 seconds without accepted input, the menu closes and animated koala eyes return
+            - post-wake commands do not require the wake phrase again
+
+          Post-wake examples:
+            menu
+            open menu
+            back
+            select
+            forward
+            up
+            down
+            K one through K eight
+            launch Koala Kombat Kruisin
+
+          Background-TV protection:
+            A detected "up", "down", "menu", "select", or catalog phrase cannot alter
+            the display while the wake session is inactive. Only KillerKoala can open
+            a voice session. Pi menu_sync generated by K1-K8 or keyboard input is a
+            trusted physical-input path and may wake or refresh the session.
+
           KillerKoala Australian local voice:
             - synthesis backend: en-AU-WilliamNeural
-            - spoken identity is always KillerKoala; it never introduces itself as William
-            - clips are generated at build time and embedded for offline playback
-            - ES8311 output volume is 74 with -12.5 LUFS clip normalization
-            - the continuous-amplifier/static correction remains active
+            - spoken identity remains KillerKoala
+            - clips are embedded for offline wake/basic responses
+            - Pi-generated responses remain on the Pi/JBL speaker path
 
-          Microphone sensitivity:
-            - ES7210 analog gain: maximum 37.5 dB
-            - ES7210 digital gain: +22 dB
-            - complex follow-up speech threshold: 0.010 RMS
-            - normal speaking volume should replace the previous yelling requirement
-
-          Local menu voice:
-            - specific full commands are registered before the short wake phrase
-            - bare local phrases: menu, open menu, back, select, forward, up, down
-            - K1-K8 phrases remain available
-            - every distinct visible menu/submenu label is generated from menu_catalog.py
-            - universal direct form: Killer Koala launch <visible label>
-            - example: Killer Koala launch Koala Kombat Kruisin
-            - menu opening and K1-K6 navigation work without the Raspberry Pi
-            - leaf actions still require the Raspberry Pi for execution
-
-          Expected serial status after audio starts:
-            local_voice_status: es7210_settling
-            local_voice_status: mic_channel_probe_complete
-            local_voice_status: local_multinet_ready
-            local_voice_status: local_multinet_listening
-
-          Local speaker test over serial:
-            {"type":"local_voice_test","category":"wake"}
-
-          Local menu test over serial:
-            {"type":"local_menu_test","menu_name":"main","selected_index":0}
+          Expected serial diagnostics:
+            wake_session_active: true after KillerKoala or trusted physical input
+            wake_session_timeout_ms: 10000
+            voice_command_ignored_sleeping for rejected ambient commands
+            wake_session_closed with ten_second_inactivity_timeout on expiry
 
           Recognizer status request over serial:
             {"type":"local_voice_status_request"}
 
           Windows flash command from this folder:
-            powershell -ExecutionPolicy Bypass -File .\flash-esp32-dualeye-menu-voice-sync.ps1 -Port COM9
+            powershell -ExecutionPolicy Bypass -File .\flash-esp32-dualeye-wake-session.ps1 -Port COM9
 
           Replace COM9 if Windows assigns a different port.
           Disconnect the battery for the first flash and use stable USB power only.
@@ -203,15 +214,15 @@ jobs:
 
           (
             cd "${package}"
-            sha256sum *.bin flash-esp32-dualeye-menu-voice-sync.ps1 README-FLASH.txt build.log > SHA256SUMS.txt
+            sha256sum *.bin flash-esp32-dualeye-wake-session.ps1 README-FLASH.txt build.log wake-session-validation.json > SHA256SUMS.txt
           )
 
       - name: Upload firmware package
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: koalabyte-esp32-s3-dualeye-v0.9.7-sensitive-killerkoala-menu
+          name: koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session
           path: |
-            releases/koalabyte-esp32-s3-dualeye-v0.9.7-sensitive-killerkoala-menu/**
+            releases/koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session/**
             releases/esp32-dualeye-platformio.log
           if-no-files-found: error
