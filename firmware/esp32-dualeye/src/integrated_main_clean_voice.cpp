@@ -2,9 +2,10 @@
 //
 // ESP32-S3 responsibilities:
 //   - always-on English MultiNet phrase recognition
-//   - local Killer Koala wake acknowledgements
-//   - local repetitive/basic status, help, greeting, thanks and banter replies
-//   - fixed menu/submenu command IDs routed to the Raspberry Pi
+//   - natural William Australian wake/basic responses
+//   - local K1-K8 navigation and generated menu/submenu display
+//   - every visible menu label receives one canonical offline phrase
+//   - leaf actions route to the Raspberry Pi by exact catalog command ID
 //   - explicit complex-AI escalation followed by PCM capture for Pi STT/LLM
 //
 // Raw sound never draws AUDIO/MIC overlays and ambient PCM is never forwarded.
@@ -25,6 +26,7 @@
 
 #include <ESP_SR.h>
 #include "local_voice_responses.h"
+#include "generated_voice_menu_catalog.h"
 
 namespace {
 constexpr uint8_t kVoiceStartConsecutiveFrames = 4;
@@ -35,10 +37,10 @@ constexpr uint32_t kComplexCaptureArmTimeoutMs = 9000;
 constexpr uint32_t kSrRetryMs = 5000;
 constexpr uint32_t kSrHeartbeatMs = 15000;
 constexpr float kMicProbeFloor = 0.00045f;
+constexpr uint16_t kNoCatalogIndex = 0xFFFFU;
 
-// MultiNet is intentionally used in command mode as the always-on local phrase
-// detector. This avoids pretending that RMS/VAD is a wake-word detector and does
-// not require a custom Killer Koala WakeNet model.
+// Eight compact local phrases leave the remainder of MultiNet's command table
+// available for K1-K8 and every distinct visible catalog label.
 enum LocalSrCommand : int {
   kCmdWake = 0,
   kCmdLocalStatus,
@@ -47,82 +49,23 @@ enum LocalSrCommand : int {
   kCmdLocalThanks,
   kCmdLocalBanter,
   kCmdComplexAi,
-  kCmdBluezStatus,
-  kCmdBluezInventory,
-  kCmdBluezScan,
-  kCmdBluezAllSafe,
-  kCmdBluezMonitor,
-  kCmdKoalaKapture,
-  kCmdKoalaKry,
-  kCmdKoalaByteLab,
-  kCmdReport,
-  kCmdShutdown,
 };
 
-static const sr_cmd_t kLocalSpeechCommands[] = {
+static const sr_cmd_t kBaseSpeechCommands[] = {
     {kCmdWake, "Killer Koala"},
     {kCmdWake, "Hey Killer Koala"},
-    {kCmdWake, "Killer Koala wake up"},
-
     {kCmdLocalStatus, "Killer Koala status"},
-    {kCmdLocalStatus, "Killer Koala how are you"},
-    {kCmdLocalStatus, "Killer Koala you awake"},
-    {kCmdLocalStatus, "Killer Koala what is the go"},
-    {kCmdLocalStatus, "Killer Koala give me the rundown"},
-
     {kCmdLocalHelp, "Killer Koala help"},
-    {kCmdLocalHelp, "Killer Koala what can you do"},
-    {kCmdLocalHelp, "Killer Koala list commands"},
-
-    {kCmdLocalGreeting, "Killer Koala hello"},
-    {kCmdLocalGreeting, "Killer Koala good morning"},
     {kCmdLocalGreeting, "Killer Koala good day"},
-
     {kCmdLocalThanks, "Killer Koala thank you"},
-    {kCmdLocalThanks, "Killer Koala good job"},
-    {kCmdLocalThanks, "Killer Koala nice work"},
-
-    {kCmdLocalBanter, "Killer Koala tell me something"},
     {kCmdLocalBanter, "Killer Koala say something funny"},
-    {kCmdLocalBanter, "Killer Koala entertain me"},
-
     {kCmdComplexAi, "Killer Koala ask the AI"},
-    {kCmdComplexAi, "Killer Koala complex question"},
-    {kCmdComplexAi, "Killer Koala big brain"},
-
-    {kCmdBluezStatus, "Killer Koala check Bluetooth"},
-    {kCmdBluezStatus, "Killer Koala suss the Bluetooth stack"},
-    {kCmdBluezStatus, "Killer Koala give the radio a squiz"},
-
-    {kCmdBluezInventory, "Killer Koala gear check"},
-    {kCmdBluezInventory, "Killer Koala check the tools"},
-
-    {kCmdBluezScan, "Killer Koala scan Bluetooth"},
-    {kCmdBluezScan, "Killer Koala sweep the air"},
-    {kCmdBluezScan, "Killer Koala sniff the gumtrees"},
-
-    {kCmdBluezAllSafe, "Killer Koala run all safe"},
-    {kCmdBluezAllSafe, "Killer Koala safe nest run"},
-
-    {kCmdBluezMonitor, "Killer Koala monitor Bluetooth"},
-    {kCmdBluezMonitor, "Killer Koala watch the controller"},
-
-    {kCmdKoalaKapture, "Killer Koala Koala Kapture"},
-    {kCmdKoalaKapture, "Killer Koala bag the beacons"},
-
-    {kCmdKoalaKry, "Killer Koala Koala Kry"},
-    {kCmdKoalaKry, "Killer Koala chew through the logs"},
-
-    {kCmdKoalaByteLab, "Killer Koala KoalaByte Lab"},
-    {kCmdKoalaByteLab, "Killer Koala make a lab plan"},
-
-    {kCmdReport, "Killer Koala write report"},
-    {kCmdReport, "Killer Koala summarize session"},
-    {kCmdReport, "Killer Koala wrap it up"},
-
-    {kCmdShutdown, "Killer Koala shutdown"},
-    {kCmdShutdown, "Killer Koala call it a day"},
 };
+constexpr size_t kBaseSpeechCommandCount =
+    sizeof(kBaseSpeechCommands) / sizeof(kBaseSpeechCommands[0]);
+constexpr size_t kAllSpeechCommandCount =
+    kBaseSpeechCommandCount + kGeneratedSpeechCommandCount;
+static sr_cmd_t kAllSpeechCommands[kAllSpeechCommandCount];
 
 volatile int pendingSrCommand = -1;
 volatile int pendingSrPhrase = -1;
@@ -131,6 +74,7 @@ bool srInitAttempted = false;
 bool srReady = false;
 bool srPaused = false;
 bool complexCaptureArmed = false;
+bool generatedMenuActive = false;
 uint32_t complexCaptureArmMs = 0;
 uint32_t srResumeAt = 0;
 uint32_t audioCodecReadyAt = 0;
@@ -144,6 +88,18 @@ uint32_t cleanMicrophoneReadyAt = 0;
 float micProbeLeftRms = 0.0f;
 float micProbeRightRms = 0.0f;
 const char *srInputFormat = "MM";
+char generatedMenuName[32] = "main";
+int generatedMenuSelectedIndex = 0;
+
+void prepareSpeechCommandTable() {
+  size_t outputIndex = 0;
+  for (const auto &command : kBaseSpeechCommands) {
+    kAllSpeechCommands[outputIndex++] = command;
+  }
+  for (const auto &command : kGeneratedSpeechCommands) {
+    kAllSpeechCommands[outputIndex++] = command;
+  }
+}
 
 const char *categoryName(LocalVoiceCategory category) {
   switch (category) {
@@ -167,22 +123,119 @@ const char *commandName(int commandId) {
     case kCmdLocalThanks: return "local_thanks";
     case kCmdLocalBanter: return "local_banter";
     case kCmdComplexAi: return "complex_ai";
-    case kCmdBluezStatus: return "bluez_status";
-    case kCmdBluezInventory: return "bluez_inventory";
-    case kCmdBluezScan: return "bluez_scan";
-    case kCmdBluezAllSafe: return "bluez_all_safe";
-    case kCmdBluezMonitor: return "bluez_monitor";
-    case kCmdKoalaKapture: return "koala_kapture";
-    case kCmdKoalaKry: return "koala_kry";
-    case kCmdKoalaByteLab: return "koalabyte_lab";
-    case kCmdReport: return "report";
-    case kCmdShutdown: return "shutdown";
-    default: return "unknown";
+    default: {
+      const GeneratedVoiceRoute *route = generatedVoiceRouteForId(commandId);
+      return route ? route->command : "unknown";
+    }
   }
 }
 
+const GeneratedMenuCatalogItem *generatedMenuItemAt(const char *menuName,
+                                                     int wantedIndex) {
+  if (!menuName || wantedIndex < 0) return nullptr;
+  int currentIndex = 0;
+  for (const auto &item : kGeneratedMenuCatalog) {
+    if (strcmp(item.menuName, menuName)) continue;
+    if (currentIndex == wantedIndex) return &item;
+    ++currentIndex;
+  }
+  return nullptr;
+}
+
+int generatedMenuItemCount(const char *menuName) {
+  int count = 0;
+  for (const auto &item : kGeneratedMenuCatalog) {
+    if (!strcmp(item.menuName, menuName)) ++count;
+  }
+  return count;
+}
+
+int generatedMenuIndexForCatalogIndex(uint16_t catalogIndex) {
+  if (catalogIndex == kNoCatalogIndex ||
+      catalogIndex >= kGeneratedMenuCatalogCount) {
+    return 0;
+  }
+  const char *menuName = kGeneratedMenuCatalog[catalogIndex].menuName;
+  int menuIndex = 0;
+  for (size_t index = 0; index < kGeneratedMenuCatalogCount; ++index) {
+    if (strcmp(kGeneratedMenuCatalog[index].menuName, menuName)) continue;
+    if (index == catalogIndex) return menuIndex;
+    ++menuIndex;
+  }
+  return 0;
+}
+
+const char *generatedMenuParent(const char *menuName) {
+  if (!menuName || !strcmp(menuName, "main")) return "main";
+  String expected = "submenu:";
+  expected += menuName;
+  for (const auto &item : kGeneratedMenuCatalog) {
+    if (!strcmp(item.command, expected.c_str())) return item.menuName;
+  }
+  return "main";
+}
+
+void populateGeneratedMenuRows() {
+  const int total = generatedMenuItemCount(generatedMenuName);
+  if (total <= 0) {
+    copyText(generatedMenuName, sizeof(generatedMenuName), "main");
+    generatedMenuSelectedIndex = 0;
+  }
+  const int resolvedTotal = max(1, generatedMenuItemCount(generatedMenuName));
+  if (generatedMenuSelectedIndex < 0) generatedMenuSelectedIndex = resolvedTotal - 1;
+  if (generatedMenuSelectedIndex >= resolvedTotal) generatedMenuSelectedIndex = 0;
+
+  const GeneratedMenuCatalogItem *selected =
+      generatedMenuItemAt(generatedMenuName, generatedMenuSelectedIndex);
+  if (!selected) return;
+
+  int windowStart = generatedMenuSelectedIndex - 2;
+  if (windowStart < 0) windowStart = 0;
+  const int maxStart = max(0, resolvedTotal - static_cast<int>(kMenuRowsMax));
+  if (windowStart > maxStart) windowStart = maxStart;
+
+  copyText(menuTitle, sizeof(menuTitle), selected->menuTitle, "Main Canopy");
+  copyText(menuGroup, sizeof(menuGroup), selected->group, "KoalaByte Blue");
+  copyText(selectedLabel, sizeof(selectedLabel), selected->label, "Menu");
+  menuSelectedPosition = generatedMenuSelectedIndex + 1;
+  menuTotalItems = resolvedTotal;
+  menuRowCount = 0;
+
+  for (int offset = 0; offset < static_cast<int>(kMenuRowsMax); ++offset) {
+    const int itemIndex = windowStart + offset;
+    const GeneratedMenuCatalogItem *item =
+        generatedMenuItemAt(generatedMenuName, itemIndex);
+    if (!item) break;
+    MenuRow &row = menuRows[menuRowCount++];
+    copyText(row.label, sizeof(row.label), item->label, "Menu item");
+    row.position = itemIndex + 1;
+    row.selected = itemIndex == generatedMenuSelectedIndex;
+    row.enabled = item->enabled;
+  }
+  generatedMenuActive = true;
+  drawMenuScreen();
+}
+
+void openGeneratedMenu(const char *menuName, int selectedIndex = 0) {
+  copyText(generatedMenuName, sizeof(generatedMenuName), menuName, "main");
+  generatedMenuSelectedIndex = selectedIndex;
+  populateGeneratedMenuRows();
+}
+
+void moveGeneratedMenu(int delta) {
+  if (!generatedMenuActive) {
+    openGeneratedMenu("main");
+    return;
+  }
+  const int total = generatedMenuItemCount(generatedMenuName);
+  if (total <= 0) return;
+  generatedMenuSelectedIndex =
+      (generatedMenuSelectedIndex + delta + total) % total;
+  populateGeneratedMenuRows();
+}
+
 void emitLocalVoiceStatus(const char *status, const char *detail = "") {
-  StaticJsonDocument<896> doc;
+  StaticJsonDocument<1024> doc;
   doc["type"] = "local_voice_status";
   doc["device"] = "esp32-s3-dualeye";
   doc["status"] = status;
@@ -190,6 +243,7 @@ void emitLocalVoiceStatus(const char *status, const char *detail = "") {
   doc["recognizer"] = "arduino-esp-sr-multinet-english";
   doc["wake_phrase"] = "killer koala";
   doc["alternate_wake_phrase"] = "hey killer koala";
+  doc["voice"] = KILLERKOALA_LOCAL_VOICE;
   doc["input_format"] = srInputFormat;
   doc["active_mic_channel"] = activeMicChannel;
   doc["probe_left_rms"] = micProbeLeftRms;
@@ -199,10 +253,11 @@ void emitLocalVoiceStatus(const char *status, const char *detail = "") {
   doc["mic_ready"] = dualEyeMicrophoneReady();
   doc["speaker_ready"] = dualEyeSpeakerReady();
   doc["audio_status"] = dualEyeAudioStatus();
+  doc["multinet_command_count"] = kAllSpeechCommandCount;
+  doc["generated_voice_routes"] = kGeneratedVoiceRouteCount;
+  doc["generated_menu_rows"] = kGeneratedMenuCatalogCount;
   doc["basic_response_owner"] = "esp32-s3";
-  doc["basic_response_speaker"] = "esp32-s3-es8311";
   doc["complex_response_owner"] = "raspberry-pi";
-  doc["complex_response_speaker"] = "raspberry-pi-local-audio";
   doc["ambient_pcm_forwarding"] = false;
   doc["pi_pcm_to_esp32"] = false;
   doc["free_heap"] = ESP.getFreeHeap();
@@ -285,9 +340,7 @@ bool probeMicrophoneChannels() {
 }
 
 void pauseLocalRecognition() {
-  if (srReady && !srPaused) {
-    srPaused = ESP_SR.pause();
-  }
+  if (srReady && !srPaused) srPaused = ESP_SR.pause();
 }
 
 void resumeLocalRecognition() {
@@ -317,7 +370,8 @@ bool playLocalResponse(LocalVoiceCategory category, bool resumeAfter = true) {
   doc["category"] = categoryName(category);
   doc["message"] = selectedText;
   doc["handled_on_device"] = true;
-  doc["audio_source"] = "embedded_en_au_mulaw";
+  doc["audio_source"] = "embedded_en_au_william_neural_mulaw";
+  doc["voice"] = KILLERKOALA_LOCAL_VOICE;
   doc["speaker_owner"] = "esp32-s3";
   doc["speaker_backend"] = "es8311";
   doc["route_to_pi"] = false;
@@ -325,22 +379,26 @@ bool playLocalResponse(LocalVoiceCategory category, bool resumeAfter = true) {
   sendPayload(doc);
 
   showIdleEyes();
-  if (resumeAfter) {
-    srResumeAt = millis() + 100;
-  }
+  if (resumeAfter) srResumeAt = millis() + 100;
   return played;
 }
 
-void emitPiCommand(const char *commandId, const char *phrase) {
-  StaticJsonDocument<768> doc;
+void emitPiCommand(const char *commandId, const char *phrase,
+                   const char *label = "", const char *group = "",
+                   const char *menuName = "") {
+  StaticJsonDocument<1024> doc;
   doc["type"] = "voice_command";
   doc["request_id"] = esp_random();
   doc["phrase"] = phrase;
   doc["command_id"] = commandId;
+  doc["menu_label"] = label;
+  doc["menu_group"] = group;
+  doc["menu_name"] = menuName;
   doc["source"] = "esp32_s3_multinet_local";
   doc["wake_word"] = WAKE_WORD;
   doc["wake_word_detected"] = true;
   doc["local_response_handled"] = false;
+  doc["direct_catalog_command"] = commandId && commandId[0];
   doc["route_to_pi"] = true;
   doc["execution_owner"] = "raspberry-pi";
   doc["response_speaker_owner"] = "raspberry-pi";
@@ -350,6 +408,49 @@ void emitPiCommand(const char *commandId, const char *phrase) {
   clearOverlay();
   setKoalagotchiEyeStyle("cyber", "#A54BFF", "#32FF71", "scan", 100);
   drawKoalagotchiModeScreen("killerkoala", "thinking", 85, 92);
+}
+
+void emitMenuControl(const char *control, const char *commandId,
+                     const char *label, const char *menuName) {
+  StaticJsonDocument<768> doc;
+  doc["type"] = "menu_control";
+  doc["request_id"] = esp_random();
+  doc["control"] = control;
+  doc["command_id"] = commandId;
+  doc["menu_label"] = label;
+  doc["menu_name"] = menuName;
+  doc["source"] = "esp32_s3_multinet_local";
+  doc["wake_word_detected"] = true;
+  doc["handled_on_esp32"] = true;
+  doc["execution_owner"] = "raspberry-pi";
+  sendPayload(doc);
+}
+
+void selectGeneratedMenuItem() {
+  if (!generatedMenuActive) {
+    openGeneratedMenu("main");
+    return;
+  }
+  const GeneratedMenuCatalogItem *item =
+      generatedMenuItemAt(generatedMenuName, generatedMenuSelectedIndex);
+  if (!item) return;
+  if (!item->enabled) {
+    showActionStatus(item->label, "Menu item is disabled", "BLOCKED", 3200);
+    return;
+  }
+
+  if (!strncmp(item->command, "submenu:", 8)) {
+    const char *target = item->command + 8;
+    openGeneratedMenu(target);
+    emitMenuControl("open", item->command, item->label, target);
+    return;
+  }
+
+  showActionStatus(item->label, "Executing on Raspberry Pi", "RUNNING", 5200);
+  String phrase = "killerkoala launch ";
+  phrase += item->label;
+  emitPiCommand(item->command, phrase.c_str(), item->label, item->group,
+                item->menuName);
 }
 
 void armComplexCapture() {
@@ -364,8 +465,20 @@ void armComplexCapture() {
                        "next utterance routes to Raspberry Pi STT and LLM");
 }
 
+bool generatedRouteHandledOnDevice(const GeneratedVoiceRoute *route) {
+  if (!route) return false;
+  if (route->submenu) return true;
+  return !strcmp(route->command, "k1_main_menu") ||
+         !strcmp(route->command, "k2_back") ||
+         !strcmp(route->command, "k3_select") ||
+         !strcmp(route->command, "k4_forward") ||
+         !strcmp(route->command, "k5_up") ||
+         !strcmp(route->command, "k6_down");
+}
+
 void emitDetectedCommand(int commandId, int phraseId) {
-  StaticJsonDocument<640> doc;
+  const GeneratedVoiceRoute *route = generatedVoiceRouteForId(commandId);
+  StaticJsonDocument<768> doc;
   doc["type"] = "local_voice_detected";
   doc["device"] = "esp32-s3-dualeye";
   doc["command_id"] = commandId;
@@ -373,8 +486,82 @@ void emitDetectedCommand(int commandId, int phraseId) {
   doc["phrase_id"] = phraseId;
   doc["input_format"] = srInputFormat;
   doc["active_mic_channel"] = activeMicChannel;
-  doc["handled_on_device"] = commandId <= kCmdLocalBanter;
+  doc["handled_on_device"] = commandId <= kCmdLocalBanter ||
+                              generatedRouteHandledOnDevice(route);
+  if (route) {
+    doc["menu_label"] = route->label;
+    doc["menu_name"] = route->menuName;
+    doc["canonical_phrase"] = route->phrase;
+  }
   sendPayload(doc);
+}
+
+void handleGeneratedVoiceRoute(const GeneratedVoiceRoute &route) {
+  if (!strcmp(route.command, "k1_main_menu")) {
+    openGeneratedMenu("main");
+    emitMenuControl("main_menu", route.command, route.label, "main");
+    return;
+  }
+  if (!strcmp(route.command, "k2_back")) {
+    if (!generatedMenuActive) {
+      openGeneratedMenu("main");
+    } else if (strcmp(generatedMenuName, "main")) {
+      openGeneratedMenu(generatedMenuParent(generatedMenuName));
+    } else {
+      moveGeneratedMenu(-1);
+    }
+    emitMenuControl("back", route.command, route.label, generatedMenuName);
+    return;
+  }
+  if (!strcmp(route.command, "k3_select")) {
+    selectGeneratedMenuItem();
+    emitMenuControl("select", route.command, route.label, generatedMenuName);
+    return;
+  }
+  if (!strcmp(route.command, "k4_forward")) {
+    moveGeneratedMenu(1);
+    emitMenuControl("forward", route.command, route.label, generatedMenuName);
+    return;
+  }
+  if (!strcmp(route.command, "k5_up")) {
+    moveGeneratedMenu(-1);
+    emitMenuControl("up", route.command, route.label, generatedMenuName);
+    return;
+  }
+  if (!strcmp(route.command, "k6_down")) {
+    moveGeneratedMenu(1);
+    emitMenuControl("down", route.command, route.label, generatedMenuName);
+    return;
+  }
+  if (!strcmp(route.command, "k7_power_toggle")) {
+    showActionStatus("Power On/Off", "Safe shutdown requested", "RUNNING", 5200);
+    emitPiCommand("shutdown_confirm", route.phrase, "Power On/Off",
+                  "System / Companion", "main");
+    return;
+  }
+  if (!strcmp(route.command, "k8_reset")) {
+    showActionStatus("Reset / Reboot", "Safe reboot requested", "RUNNING", 5200);
+    emitPiCommand("reset_confirm", route.phrase, "Reset / Reboot",
+                  "System / Companion", "main");
+    return;
+  }
+
+  if (route.submenu && !strncmp(route.command, "submenu:", 8)) {
+    const char *target = route.command + 8;
+    openGeneratedMenu(target);
+    emitMenuControl("open", route.command, route.label, target);
+    return;
+  }
+
+  if (route.catalogIndex != kNoCatalogIndex &&
+      route.catalogIndex < kGeneratedMenuCatalogCount) {
+    copyText(generatedMenuName, sizeof(generatedMenuName), route.menuName, "main");
+    generatedMenuSelectedIndex =
+        generatedMenuIndexForCatalogIndex(route.catalogIndex);
+  }
+  showActionStatus(route.label, "Executing on Raspberry Pi", "RUNNING", 5200);
+  emitPiCommand(route.command, route.phrase, route.label, route.group,
+                route.menuName);
 }
 
 void processLocalCommand(int commandId, int phraseId) {
@@ -401,43 +588,17 @@ void processLocalCommand(int commandId, int phraseId) {
     case kCmdComplexAi:
       armComplexCapture();
       break;
-    case kCmdBluezStatus:
-      emitPiCommand("bluez_status", "killerkoala suss the bluetooth stack");
+    default: {
+      const GeneratedVoiceRoute *route = generatedVoiceRouteForId(commandId);
+      if (route) {
+        handleGeneratedVoiceRoute(*route);
+      } else {
+        emitLocalVoiceStatus("unknown_local_command");
+      }
       break;
-    case kCmdBluezInventory:
-      emitPiCommand("bluez_inventory", "killerkoala gear check");
-      break;
-    case kCmdBluezScan:
-      emitPiCommand("bluez_scan", "killerkoala sweep the air");
-      break;
-    case kCmdBluezAllSafe:
-      emitPiCommand("bluez_all_safe", "killerkoala run all safe");
-      break;
-    case kCmdBluezMonitor:
-      emitPiCommand("bluez_monitor", "killerkoala monitor bluetooth");
-      break;
-    case kCmdKoalaKapture:
-      emitPiCommand("koala_kapture", "killerkoala koala kapture");
-      break;
-    case kCmdKoalaKry:
-      emitPiCommand("koala_kry", "killerkoala koala kry");
-      break;
-    case kCmdKoalaByteLab:
-      emitPiCommand("koalabyte_lab", "killerkoala koalabyte lab");
-      break;
-    case kCmdReport:
-      emitPiCommand("report", "killerkoala write report");
-      break;
-    case kCmdShutdown:
-      emitPiCommand("shutdown", "killerkoala shutdown");
-      break;
-    default:
-      emitLocalVoiceStatus("unknown_local_command");
-      break;
+    }
   }
-  if (!complexCaptureArmed) {
-    ESP_SR.setMode(SR_MODE_COMMAND);
-  }
+  if (!complexCaptureArmed) ESP_SR.setMode(SR_MODE_COMMAND);
 }
 
 void onSrEvent(sr_event_t event, int commandId, int phraseId) {
@@ -483,21 +644,21 @@ void setupLocalRecognition() {
 
   srInitAttempted = true;
   probeMicrophoneChannels();
+  prepareSpeechCommandTable();
   ESP_SR.onEvent(onSrEvent);
-  srReady = ESP_SR.begin(
-      dualEyeAudioBus(), kLocalSpeechCommands,
-      sizeof(kLocalSpeechCommands) / sizeof(kLocalSpeechCommands[0]),
-      SR_CHANNELS_STEREO, SR_MODE_COMMAND, srInputFormat);
+  srReady = ESP_SR.begin(dualEyeAudioBus(), kAllSpeechCommands,
+                         kAllSpeechCommandCount, SR_CHANNELS_STEREO,
+                         SR_MODE_COMMAND, srInputFormat);
   if (srReady) {
     lastSrHeartbeatAt = now;
     emitLocalVoiceStatus(
         "local_multinet_ready",
-        "say Killer Koala slowly and clearly; basic replies stay on the ESP32");
+        "William, K1-K8 and generated menu label recognition are active");
   } else {
     srNextInitAt = now + kSrRetryMs;
     emitLocalVoiceStatus(
         "local_multinet_failed",
-        "retry scheduled; check model partition, microphone and free heap");
+        "retry scheduled; check command count, model partition and microphone");
   }
 }
 
@@ -534,7 +695,7 @@ void serviceLocalRecognition() {
   if (now - lastSrHeartbeatAt >= kSrHeartbeatMs) {
     lastSrHeartbeatAt = now;
     emitLocalVoiceStatus("local_multinet_listening",
-                         "wake and basic command recognition active");
+                         "wake, K1-K8 and full catalog recognition active");
   }
 }
 
@@ -671,7 +832,7 @@ void pollSerial() {
     if (value == '\n') {
       const String line = serialLine;
       serialLine = "";
-      StaticJsonDocument<640> doc;
+      StaticJsonDocument<768> doc;
       if (!deserializeJson(doc, line)) {
         const char *type = doc["type"] | "";
         if (!strcmp(type, "local_voice_test")) {
@@ -681,6 +842,11 @@ void pollSerial() {
         if (!strcmp(type, "local_voice_status_request")) {
           emitLocalVoiceStatus(srReady ? "local_multinet_listening"
                                        : "local_multinet_not_ready");
+          continue;
+        }
+        if (!strcmp(type, "local_menu_test")) {
+          openGeneratedMenu(doc["menu_name"] | "main",
+                            doc["selected_index"] | 0);
           continue;
         }
       }
