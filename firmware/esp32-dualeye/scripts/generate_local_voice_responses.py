@@ -3,6 +3,7 @@ Import("env")
 from pathlib import Path
 import audioop
 import base64
+import re
 import shutil
 import subprocess
 import tempfile
@@ -15,6 +16,8 @@ output = project / "src" / "local_voice_responses_generated.cpp"
 # the synthesis backend, but the spoken companion identity is always KillerKoala.
 # Complex/open-ended responses remain owned by the Raspberry Pi.
 VOICE_NAME = "en-AU-WilliamNeural"
+SPOKEN_IDENTITY = "KillerKoala"
+_DISALLOWED_SPOKEN_IDENTITY = re.compile(r"\bwilliam\b", re.IGNORECASE)
 PHRASES = (
     ("Wake", "Righto, mate. Killer Koala here. What's the play?"),
     ("Wake", "G'day, legend. Killer Koala is awake."),
@@ -35,6 +38,22 @@ PHRASES = (
     ("Banter", "Fair dinkum. The lab is behaving for once."),
     ("Escalate", "Righto, mate. Ask your question and Killer Koala will send it to the big brain."),
 )
+
+for category, text in PHRASES:
+    if _DISALLOWED_SPOKEN_IDENTITY.search(text):
+        raise RuntimeError(
+            f"disallowed spoken identity in {category} response: {text!r}; "
+            f"the voice backend may be William, but the persona must be {SPOKEN_IDENTITY}"
+        )
+
+wake_lines = [text for category, text in PHRASES if category == "Wake"]
+if not wake_lines or any(
+    "killer koala" not in text.lower().replace("killerkoala", "killer koala")
+    for text in wake_lines
+):
+    raise RuntimeError(
+        "every embedded wake response must explicitly identify the companion as KillerKoala"
+    )
 
 edge_tts = shutil.which("edge-tts")
 ffmpeg = shutil.which("ffmpeg")
