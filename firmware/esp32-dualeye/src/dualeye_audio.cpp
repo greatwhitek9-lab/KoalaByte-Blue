@@ -8,7 +8,7 @@
 
 namespace {
 constexpr int kSpeakerVolume = AUDIO_OUTPUT_VOLUME;
-constexpr int8_t kInputDigitalGainDb = 16;
+constexpr int8_t kInputDigitalGainDb = MIC_INPUT_DIGITAL_GAIN_DB;
 I2SClass audioBus;
 es8311_handle_t outputCodec = nullptr;
 es7210_dev_handle_t inputCodec = nullptr;
@@ -91,7 +91,7 @@ bool dualEyeAudioBegin() {
     inputConfig.i2s_format = ES7210_I2S_FMT_I2S;
     inputConfig.bit_width = ES7210_I2S_BITS_16B;
     inputConfig.mic_bias = ES7210_MIC_BIAS_2V87;
-    inputConfig.mic_gain = ES7210_MIC_GAIN_36DB;
+    inputConfig.mic_gain = ES7210_MIC_GAIN_37_5DB;
     inputConfig.flags.tdm_enable = true;
     if (es7210_config_codec(inputCodec, &inputConfig) == ESP_OK &&
         es7210_config_volume(inputCodec, kInputDigitalGainDb) == ESP_OK) {
