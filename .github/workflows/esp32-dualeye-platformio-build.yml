@@ -58,7 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           build="firmware/esp32-dualeye/.pio/build/esp32s3_dualeye"
-          package="releases/koalabyte-esp32-s3-dualeye-v0.9.3-local-ai"
+          package="releases/koalabyte-esp32-s3-dualeye-v0.9.4-wake-channel-fix"
           mkdir -p "${package}"
 
           boot_app0="$(find "${HOME}/.platformio/packages/framework-arduinoespressif32" -path '*/tools/partitions/boot_app0.bin' -print -quit)"
@@ -105,7 +105,7 @@ jobs:
           image = bytearray(b"\xFF" * end)
           for offset, payload in payloads:
               image[offset:offset + len(payload)] = payload
-          output = package / "koalabyte-esp32-s3-dualeye-v0.9.3-local-ai-full-flash.bin"
+          output = package / "koalabyte-esp32-s3-dualeye-v0.9.4-wake-channel-fix-full-flash.bin"
           output.write_bytes(image)
           for offset, payload in payloads:
               assert image[offset:offset + len(payload)] == payload
@@ -124,7 +124,7 @@ jobs:
           )
 
           $ErrorActionPreference = "Stop"
-          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.9.3-local-ai-full-flash.bin"
+          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.9.4-wake-channel-fix-full-flash.bin"
           if (-not (Test-Path $Image)) { throw "Firmware image not found: $Image" }
 
           py -m pip install --user "esptool==4.11.0"
@@ -144,52 +144,51 @@ jobs:
           py -m esptool --chip esp32s3 --port $Port verify_flash 0x0 $Image
           if ($LASTEXITCODE -ne 0) { throw "Firmware verification failed." }
 
-          Write-Host "DualEye v0.9.3 local-AI flash and verification complete. Press RESET once."
+          Write-Host "DualEye v0.9.4 wake-channel fix flash and verification complete. Press RESET once."
           POWERSHELL
 
           cat > "${package}/README-FLASH.txt" <<'README'
-          KoalaByte Blue ESP32-S3 DualEye v0.9.3 local-AI firmware
+          KoalaByte Blue ESP32-S3 DualEye v0.9.4 wake-channel-fix firmware
 
           Exact hardware target:
             Waveshare ESP32-S3 DualEye 1.28-inch non-touch variant
-            Both GC9A01A round LCD panels are enabled on the official shared SPI bus
-            LCD2 is the authoritative right-eye menu and critical-status display
-            LCD1 provides the left-eye action/context display
+            Both GC9A01A round LCD panels remain enabled with the existing eye renderer
             No touch controller or touch panel is expected
 
-          Local-first voice behavior:
-            - Killer Koala and Hey Killer Koala are recognized locally by ESP-SR/MultiNet
-            - wake acknowledgements are embedded in the ESP32 firmware and play locally
-            - status, help, greetings, thanks and short repetitive banter stay on the ESP32
-            - the local Australian response bank rotates clips to reduce immediate repeats
-            - fixed menu/submenu phrases are recognized locally and sent as command IDs to the Pi
-            - say Killer Koala ask the AI before an open-ended or complex question
-            - only that explicitly escalated follow-up utterance is sent to Pi STT/LLM
-            - ambient microphone audio is never forwarded to the Pi
-            - raw microphone activity never draws AUDIO/MIC text or status borders
-            - raw microphone activity never plays a beep
+          Adaptive local voice behavior:
+            - the ES7210 stereo slots are measured at startup
+            - ESP-SR automatically selects MN, NM or MM input mapping
+            - Killer Koala, Hey Killer Koala and Killer Koala wake up are local phrases
+            - wake acknowledgements and basic repetitive replies play on the ESP32 ES8311 speaker
+            - the serial console reports mic channel RMS, selected mapping and recognizer readiness
+            - fixed menu/submenu commands route to the Raspberry Pi as command IDs
+            - only an explicitly escalated follow-up utterance routes to Pi STT/LLM
+            - ambient audio never routes to the Pi and never draws AUDIO/MIC overlays or beeps
 
-          Execution and BLE topology:
-            - Raspberry Pi owns menu/submenu execution and complex LLM responses
-            - Raspberry Pi does not generate startup or wake acknowledgements
-            - ESP32 Bluetooth remains disabled to prevent the observed controller-startup panic
-            - Heltec T114 remains the primary BLE controller
-            - Raspberry Pi remains the Heltec BLE node/peer
-            - ESP32 uses Wi-Fi/UDP with USB CDC provisioning and runtime fallback
+          Split speaker behavior:
+            - ESP32 speaker: local wake acknowledgements and basic on-device replies only
+            - Raspberry Pi speaker: menu results, execution feedback and complex AI responses
+            - Pi-generated PCM is not streamed back to the ESP32 speaker
+            - Heltec mouth and ESP32 eyes can still synchronize while the Pi speaks
+
+          Expected serial status after audio starts:
+            local_voice_status: es7210_settling
+            local_voice_status: mic_channel_probe_complete
+            local_voice_status: local_multinet_ready
+            local_voice_status: local_multinet_listening
+
+          Local speaker test over serial:
+            {"type":"local_voice_test","category":"wake"}
+
+          Recognizer status request over serial:
+            {"type":"local_voice_status_request"}
 
           Windows flash command from this folder:
             powershell -ExecutionPolicy Bypass -File .\flash-esp32-dualeye-menu-voice-sync.ps1 -Port COM9
 
           Replace COM9 if Windows assigns a different port.
           Disconnect the battery for the first flash and use stable USB power only.
-
-          Raspberry Pi service:
-            python scripts/run_esp32_dualeye_voice_bridge.py --port /dev/koalabyte-esp32-dualeye --seconds 31536000
-
-          One-time Wi-Fi provisioning from the Raspberry Pi:
-            python scripts/run_esp32_dualeye_voice_bridge.py --port /dev/koalabyte-esp32-dualeye --wifi-ssid YOUR_SSID --wifi-password YOUR_PASSWORD --pi-host PI_LAN_IP
-
-          Wi-Fi credentials are sent over USB and stored in ESP32 NVS; they are not embedded in this firmware ZIP.
+          Do not use -SkipErase for this release.
           README
 
           (
@@ -201,8 +200,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: koalabyte-esp32-s3-dualeye-v0.9.3-local-ai
+          name: koalabyte-esp32-s3-dualeye-v0.9.4-wake-channel-fix
           path: |
-            releases/koalabyte-esp32-s3-dualeye-v0.9.3-local-ai/**
+            releases/koalabyte-esp32-s3-dualeye-v0.9.4-wake-channel-fix/**
             releases/esp32-dualeye-platformio.log
           if-no-files-found: error
