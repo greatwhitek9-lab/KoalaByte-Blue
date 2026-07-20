@@ -8,6 +8,8 @@ RESTART_MS="${CAN_RESTART_MS:-100}"
 WAIT_SECONDS="${CAN_WAIT_SECONDS:-30}"
 STRICT_CAN_SETUP="${STRICT_CAN_SETUP:-0}"
 OUTPUT_DIR="${CAN_SETUP_OUTPUT_DIR:-${REPO_ROOT}/logs/koala_kan_kommander}"
+LOG_OWNER="${KOALABYTE_SERVICE_USER:-${SUDO_USER:-${USER:-}}}"
+LOG_GROUP="${KOALABYTE_SERVICE_GROUP:-${LOG_OWNER}}"
 
 usage() {
   cat <<'EOF'
@@ -54,11 +56,6 @@ if [[ "${BITRATE}" == "0" ]]; then
   exit 2
 fi
 
-mkdir -p "${OUTPUT_DIR}"
-LOG_JSON="${OUTPUT_DIR}/${INTERFACE}_setup.json"
-LOG_TXT="${OUTPUT_DIR}/${INTERFACE}_setup.log"
-: > "${LOG_TXT}"
-
 if [[ "${EUID}" -eq 0 ]]; then
   sudo_cmd=()
 elif command -v sudo >/dev/null 2>&1; then
@@ -66,6 +63,24 @@ elif command -v sudo >/dev/null 2>&1; then
 else
   sudo_cmd=()
 fi
+
+LOG_JSON="${OUTPUT_DIR}/${INTERFACE}_setup.json"
+LOG_TXT="${OUTPUT_DIR}/${INTERFACE}_setup.log"
+
+prepare_logs() {
+  if [[ -n "${LOG_OWNER}" ]] && id "${LOG_OWNER}" >/dev/null 2>&1 && getent group "${LOG_GROUP}" >/dev/null 2>&1; then
+    "${sudo_cmd[@]}" install -d -m 0775 -o "${LOG_OWNER}" -g "${LOG_GROUP}" "${OUTPUT_DIR}"
+    "${sudo_cmd[@]}" touch "${LOG_TXT}" "${LOG_JSON}"
+    "${sudo_cmd[@]}" chown "${LOG_OWNER}:${LOG_GROUP}" "${LOG_TXT}" "${LOG_JSON}"
+    "${sudo_cmd[@]}" chmod 0664 "${LOG_TXT}" "${LOG_JSON}"
+  else
+    mkdir -p "${OUTPUT_DIR}"
+    touch "${LOG_TXT}" "${LOG_JSON}"
+  fi
+  : > "${LOG_TXT}"
+}
+
+prepare_logs
 
 run_step() {
   local label="$1"
@@ -176,6 +191,11 @@ payload = {
 Path(path).write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 print(json.dumps(payload, sort_keys=True))
 PY
+
+if [[ -n "${LOG_OWNER}" ]] && id "${LOG_OWNER}" >/dev/null 2>&1 && getent group "${LOG_GROUP}" >/dev/null 2>&1; then
+  "${sudo_cmd[@]}" chown "${LOG_OWNER}:${LOG_GROUP}" "${LOG_TXT}" "${LOG_JSON}" || true
+  "${sudo_cmd[@]}" chmod 0664 "${LOG_TXT}" "${LOG_JSON}" || true
+fi
 
 echo "CAN setup artifact: ${LOG_JSON}"
 
