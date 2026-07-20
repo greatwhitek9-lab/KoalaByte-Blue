@@ -10,6 +10,7 @@ from typing import Any, Dict, Mapping, Optional
 
 import httpx
 
+from .dualeye_tts import sanitize_spoken_identity
 from .killerkoala_vocabulary import line_for_event, rank_for_xp
 
 DEFAULT_TRACE_DIR = Path("logs/killerkoala")
@@ -76,6 +77,8 @@ def _safe_context_summary(context: Optional[Mapping[str, Any]]) -> str:
 def _system_prompt() -> str:
     return (
         "You are KillerKoala, the KoalaByte Blue AI cyberpet companion. "
+        "Your identity and spoken name are always KillerKoala. "
+        "William is only the hidden Australian text-to-speech voice backend; never call yourself William or introduce yourself as William. "
         "Voice: gruff, cheeky, cyberpunk, Australian slang and colloquialism, but useful. "
         "Scope: authorized lab diagnostics, defensive or educational Bluetooth workflows, status narration, reports, and companion banter. "
         "Keep replies short, varied, natural, and safety-minded. Do not mention that you are an LLM."
@@ -99,13 +102,14 @@ Requirements:
 - Australian slang or colloquial flavor
 - gruff cyberpunk attitude
 - safe lab-oriented wording
+- identify only as KillerKoala; never say your name is William
 - no Markdown list
 """
 
 
 def _clean_llm_text(text: str, max_chars: int) -> str:
     cleaned = " ".join(text.replace("\r", " ").replace("\n", " ").split())
-    cleaned = cleaned.strip(' "')
+    cleaned = sanitize_spoken_identity(cleaned).strip(' "')
     if len(cleaned) > max_chars:
         cleaned = cleaned[: max_chars - 1].rstrip() + "…"
     return cleaned
@@ -151,7 +155,7 @@ def companion_response(
     config = load_config()
     history_target = history_path if history_path is not None else None
     fallback_state = line_for_event(event, xp=xp, history_path=history_target)
-    phrase_text = fallback_state.selected_text
+    phrase_text = sanitize_spoken_identity(fallback_state.selected_text)
     rank = rank_for_xp(xp)
     llm_requested = should_try_llm(fallback_state.selected_event, flexible, config)
 
@@ -175,6 +179,7 @@ def companion_response(
             fallback_reason = str(exc)
             source = "phrase_engine_fallback"
 
+    text = sanitize_spoken_identity(text)
     response = KillerKoalaCompanionResponse(
         event=fallback_state.selected_event,
         xp=xp,
