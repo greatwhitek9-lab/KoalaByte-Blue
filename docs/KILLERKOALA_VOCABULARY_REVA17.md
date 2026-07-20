@@ -1,122 +1,77 @@
-# RevA17+ KillerKoala Companion Vocabulary
+# RevA42 KillerKoala Local and Pi Vocabulary
 
 ## Purpose
 
-KillerKoala now uses a larger vocabulary engine instead of a short fixed phrase list.
+KillerKoala uses two response tiers. The ESP32-S3 provides immediate, repetitive basic responses without depending on the Raspberry Pi. The Pi remains responsible for large-vocabulary, state-aware and complex responses.
 
-The companion is designed around this split:
+## Architecture
 
 ```text
 ESP32-S3 DualEye:
-  wake word front end
-  short command aliases
-  serial event/status reporting
+  local Killer Koala / Hey Killer Koala phrase recognition
+  embedded Australian wake acknowledgements
+  basic status, help, greeting, thanks and short-banter responses
+  fixed menu/submenu command recognition
+  explicit complex-AI escalation
 
 Raspberry Pi:
+  menu and submenu execution
+  open-ended STT and LLM processing after explicit escalation
   large KillerKoala vocabulary engine
   Aussie/cyberpunk response variation
-  XP and rank tone changes
-  anti-repeat phrase rotation
-  menu/action execution
+  XP, rank, mood, memory and anti-repeat phrase rotation
 ```
 
-The goal is for KillerKoala to sound like a real companion, not a toy that barks the same five phrases.
+Ambient audio is not continuously sent to the Pi. The ESP32 captures a Pi-bound utterance only after an explicit phrase such as `Killer Koala ask the AI`.
 
-## Implementation files
+## ESP32 local response bank
+
+The local bank is generated at firmware build time and embedded in the ESP32 application as compressed audio. It includes rotating phrases for these categories:
+
+```text
+wake
+status
+help
+greeting
+thanks
+banter
+complex-AI escalation
+```
+
+Representative wake responses include:
+
+```text
+Killer Koala is live and ready.
+Happy hunting, mate.
+Righto, mate. I am listening.
+```
+
+The local bank is intentionally compact and repetitive. It prevents network latency for basic interactions and remains available when the Pi is offline.
+
+Implementation files:
+
+```text
+firmware/esp32-dualeye/include/local_voice_responses.h
+firmware/esp32-dualeye/scripts/generate_local_voice_responses.py
+firmware/esp32-dualeye/src/integrated_main_clean_voice.cpp
+firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv
+```
+
+## Pi vocabulary engine
+
+Complex, open-ended, execution-result and state-aware responses continue to use:
 
 ```text
 pi-companion/koalablue/killerkoala_vocabulary.py
-firmware/esp32-dualeye/voice_commands/README.md
-firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv
-scripts/run_killerkoala_voice.py
-pi-companion/config.default.json
-pi-companion/koalablue/menu_catalog.py
+pi-companion/koalablue/killerkoala_hybrid_companion.py
+pi-companion/koalablue/esp32_dualeye_local_first_bridge.py
 ```
 
-## Voice profile
+The Pi vocabulary engine retains Noob, Hacker and Legend rank tones and a recent-history window of 24 selections per event/rank.
 
-```text
-Name: killerkoala
-Accent: Australian male
-Attitude: gruff, cheeky, cyberpunk lab companion with legal-scope discipline
-TTS hint: en-AU male, low pitch, gravelly delivery, confident but not hostile
-Architecture: ESP32-S3 voice front end + Raspberry Pi companion brain
-```
+## Fixed action routing
 
-The repository stores voice metadata, command aliases, and written response text. It does not bundle a commercial voice model or audio files.
-
-## XP ranks
-
-```text
-Noob   = 0+ XP, cautious and rough beginner tone
-Hacker = 75+ XP, sharper and more confident tone
-Legend = 250+ XP, cocky controlled veteran tone
-```
-
-## Anti-repeat behavior
-
-The vocabulary engine now tracks recently used lines per event/rank in:
-
-```text
-logs/killerkoala/killerkoala_phrase_history.json
-```
-
-By default, it avoids recently selected lines from the last 24 selections for that event/rank. If the recent-history window is exhausted, it safely falls back to the full candidate pool.
-
-Use `--no-history` for deterministic previews that do not read or write phrase history.
-
-## Candidate scale
-
-KillerKoala now builds responses from event-specific lines plus Aussie/cyberpunk opener combinations. The manifest includes the candidate counts per event/rank and an estimated total line count.
-
-Write the manifest:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py --manifest
-```
-
-Output:
-
-```text
-logs/killerkoala/killerkoala_vocabulary_manifest.json
-```
-
-## Preview commands
-
-Preview default status response:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py status
-```
-
-Preview a higher-rank scan response:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py scan_start --xp 100
-```
-
-Preview Legend tone:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py bluez_status --xp 300
-```
-
-Preview without updating history:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/run_killerkoala_voice.py scan_complete --xp 100 --no-history
-```
-
-## ESP32-S3 voice-command alias pack
-
-The ESP32-S3 voice front-end plan is recorded in:
-
-```text
-firmware/esp32-dualeye/include/config.h
-firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv
-```
-
-The alias pack maps phrases such as:
+The ESP32 recognizes stable command phrases and sends canonical command IDs to the Pi. Examples:
 
 ```text
 killerkoala give the air a squiz -> bluez_scan
@@ -126,52 +81,20 @@ killerkoala chew through the logs -> koala_kry
 killerkoala call it a day -> shutdown
 ```
 
-The ESP32-S3 should send recognized command IDs or recognized text to the Raspberry Pi. The Pi companion then chooses the long-form KillerKoala response from the large vocabulary engine.
+The ESP32 does not execute those system actions itself. It recognizes and routes them; the Raspberry Pi owns execution.
 
-## Supported events
+## Complex AI routing
 
-```text
-boot
-scan_start
-scan_complete
-device_found
-capture_saved
-error
-level_up
-bluez_status
-ear_tag_tx_lab
-koala_kry
-shutdown
-inquiry_status
-inquiry_help
-```
-
-`ear_tag_tx_lab` is retained as the internal event key for compatibility. User-facing text calls that workflow **KoalaByte Lab**.
-
-Aliases include:
+The user first says one of the explicit escalation phrases:
 
 ```text
-status -> inquiry_status
-help -> inquiry_help
-scan -> scan_start
-bluez -> bluez_status
-capture -> capture_saved
-kry -> koala_kry
-ear_tag -> ear_tag_tx_lab
-shutdown_confirm -> shutdown
-give_it_a_squiz -> bluez_status
-bag_the_beacons -> capture_saved
-chew_the_logs -> koala_kry
+Killer Koala ask the AI
+Killer Koala complex question
+Killer Koala big brain
 ```
 
-## Menu entry
-
-The main menu includes:
-
-```text
-KillerKoala Voice
-```
+The ESP32 answers locally, pauses local recognition, records only the following utterance, and sends it to the Pi. The Pi performs STT and routes the request to menu execution or the larger LLM response tier.
 
 ## Safety scope
 
-KillerKoala vocabulary is for authorized lab narration, local diagnostics, status reactions, companion banter, and defensive workflow guidance. It should not encourage out-of-scope access, device impersonation, disruption, or captured-signal replay.
+KillerKoala vocabulary is for authorized lab narration, local diagnostics, status reactions, companion banter, defensive workflow guidance and approved menu actions. The architecture does not enable continuous ambient-audio forwarding or autonomous out-of-scope execution.
