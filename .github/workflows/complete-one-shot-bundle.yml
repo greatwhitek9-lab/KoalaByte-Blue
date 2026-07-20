@@ -34,12 +34,12 @@ jobs:
       - name: Check out exact source
         uses: actions/checkout@v4
 
-      - name: Download verified ESP32 v0.9.8 artifact
+      - name: Download verified ESP32 v0.9.8 awake-eye artifact
         uses: actions/download-artifact@v4
         with:
           name: koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session
           repository: greatwhitek9-lab/KoalaByte-Blue
-          run-id: 29731789227
+          run-id: 29732676979
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: /tmp/koalabyte-esp32
 
@@ -63,7 +63,7 @@ jobs:
           mkdir -p firmware/prebuilt/esp32 firmware/prebuilt/t114
           cp "${esp32_source}" firmware/prebuilt/esp32/koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session-full-flash.bin
           cp "${t114_source}" firmware/prebuilt/t114/koalabyte-t114-final-original-mouth-continuous-warp-latched-koalagotchi-right-landscape-ht-n5262.uf2
-          test "$(sha256sum firmware/prebuilt/esp32/*.bin | awk '{print $1}')" = "ac9c892a976b18240ea79eb327f63d98a29f5427419aacf6c0a3846f20f5ec74"
+          test "$(sha256sum firmware/prebuilt/esp32/*.bin | awk '{print $1}')" = "3388b87107b620907ccd60c8bfa21cc01286972902426fd3d16bbef05ef2258d"
           test "$(sha256sum firmware/prebuilt/t114/*.uf2 | awk '{print $1}')" = "c0e0a0d288237c55c629bbc78b8ece19ccaf37bea3356ee07cb206ddaef9d9dd"
 
       - name: Validate wake session and firmware manifest
@@ -71,6 +71,7 @@ jobs:
           set -euo pipefail
           python3 scripts/check_dualeye_wake_session.py
           python3 scripts/verify_prebuilt_firmware_bundle.py --strict
+          bash -n install.sh
           bash -n one-shot-install.sh
           bash -n scripts/configure_pi_audio_output.sh
           bash -n scripts/flash_prebuilt_esp32_dualeye.sh
@@ -105,7 +106,8 @@ jobs:
             bash one-shot-install.sh
 
           Connected hardware:
-            - ESP32-S3 DualEye: v0.9.8 is flashed automatically when its port is present.
+            - ESP32-S3 DualEye: v0.9.8 is flashed automatically only after positive
+              identification or when explicitly requested.
             - Heltec T114: the latest UF2 is bundled. It is copied only when the
               HT-n5262 bootloader volume is present. The already-flashed T114 can
               remain connected normally and will be preserved.
@@ -113,10 +115,11 @@ jobs:
             - JBL/USB speaker: the installer prefers it for Pi-owned speech when detected.
 
           DualEye wake policy:
-            Say KillerKoala once to open a ten-second voice session. Commands inside
-            that session do not repeat KillerKoala. Accepted voice commands, K1-K8,
-            and attached-keyboard input refresh the timer. Background TV commands are
-            discarded while sleeping. Timeout closes the menu and restores koala eyes.
+            Say KillerKoala once to open a ten-second voice session. The eyes enter
+            an animated listening/awake state. Commands inside that session do not
+            repeat KillerKoala. Accepted voice commands, K1-K8, and attached-keyboard
+            input refresh the timer. Background TV commands are discarded while
+            sleeping. Timeout closes the menu and restores animated idle koala eyes.
 
           T114 hardware note:
             The correct original purple/green face is confirmed. Idle mouth movement
