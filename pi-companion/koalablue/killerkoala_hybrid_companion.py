@@ -16,9 +16,9 @@ from .killerkoala_vocabulary import line_for_event, rank_for_xp
 DEFAULT_TRACE_DIR = Path("logs/killerkoala")
 DEFAULT_OLLAMA_HOST = "http://127.0.0.1:11434"
 DEFAULT_MODEL = "killerkoala-tinyllama:latest"
-DEFAULT_TIMEOUT_SECONDS = 2.5
-DEFAULT_NUM_PREDICT = 72
-DEFAULT_MAX_RESPONSE_CHARS = 260
+DEFAULT_TIMEOUT_SECONDS = 45.0
+DEFAULT_NUM_PREDICT = 96
+DEFAULT_MAX_RESPONSE_CHARS = 420
 
 
 @dataclass(frozen=True)
@@ -46,12 +46,18 @@ class KillerKoalaCompanionResponse:
     llm_used: bool
     llm_requested: bool
     fallback_reason: str
+    web_searched: bool
+    web_available: bool
+    web_provider: str
+    web_sources: list[dict[str, str]]
+    web_error: str
+    web_research_artifact: str
     generated_at: float
 
 
 def load_config() -> KillerKoalaLLMConfig:
     return KillerKoalaLLMConfig(
-        mode=os.getenv("KILLERKOALA_LLM_MODE", "fast_default").strip().lower(),
+        mode=os.getenv("KILLERKOALA_LLM_MODE", "tinyllama").strip().lower(),
         model=os.getenv("KILLERKOALA_LLM_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL,
         host=os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST).strip().rstrip("/") or DEFAULT_OLLAMA_HOST,
         timeout_seconds=float(os.getenv("KILLERKOALA_LLM_TIMEOUT_SECONDS", str(DEFAULT_TIMEOUT_SECONDS))),
@@ -76,17 +82,45 @@ def _safe_context_summary(context: Optional[Mapping[str, Any]]) -> str:
 
 def _system_prompt() -> str:
     return (
-        "You are KillerKoala, the KoalaByte Blue AI cyberpet companion. "
+        "You are KillerKoala, the KoalaByte Blue local AI cyberpet companion running on a Raspberry Pi. "
         "Your identity and spoken name are always KillerKoala. "
-        "William is only the hidden Australian text-to-speech voice backend; never call yourself William or introduce yourself as William. "
+        "William is only the hidden Australian text-to-speech voice backend; never call yourself William. "
         "Voice: gruff, cheeky, cyberpunk, Australian slang and colloquialism, but useful. "
-        "Scope: authorized lab diagnostics, defensive or educational Bluetooth workflows, status narration, reports, and companion banter. "
-        "Keep replies short, varied, natural, and safety-minded. Do not mention that you are an LLM."
+        "For factual questions, use supplied research evidence, distinguish verified facts from uncertainty, "
+        "and never invent current information. Do not claim to have searched unless research evidence is supplied. "
+        "Keep replies concise, natural, safety-minded, and suitable for speech. Do not mention that you are an LLM."
     )
 
 
-def _build_prompt(event: str, xp: int, rank: str, phrase_engine_text: str, user_text: str = "", context: Optional[Mapping[str, Any]] = None) -> str:
+def _build_prompt(
+    event: str,
+    xp: int,
+    rank: str,
+    phrase_engine_text: str,
+    user_text: str = "",
+    context: Optional[Mapping[str, Any]] = None,
+    web_context: str = "",
+) -> str:
     context_summary = _safe_context_summary(context)
+    if event == "inquiry_question":
+        evidence = web_context or "No web evidence was available. Answer only from stable local knowledge and state when current facts cannot be verified."
+        return f"""Answer the user's question as KillerKoala.
+
+User question: {user_text[:500]}
+Research evidence:
+{evidence[:6000]}
+
+Requirements:
+- answer the question directly
+- use the research evidence when present
+- do not fabricate names, dates, prices, scores, office holders, versions, or current events
+- if evidence is missing or conflicting, say what cannot be verified
+- do not read URLs aloud
+- one spoken response, normally under 70 words
+- Australian flavor without obscuring the answer
+- identify only as KillerKoala; never say your name is William
+- no Markdown list
+"""
     return f"""Rewrite or extend the fallback companion line into one fresh KillerKoala response.
 
 Event: {event}
@@ -123,9 +157,9 @@ def _ollama_generate(config: KillerKoalaLLMConfig, prompt: str) -> str:
         "stream": False,
         "options": {
             "num_predict": config.num_predict,
-            "temperature": 0.85,
+            "temperature": 0.55,
             "top_p": 0.9,
-            "num_ctx": 1024,
+            "num_ctx": 2048,
         },
     }
     with httpx.Client(timeout=config.timeout_seconds) as client:
@@ -138,9 +172,17 @@ def _ollama_generate(config: KillerKoalaLLMConfig, prompt: str) -> str:
 def should_try_llm(event: str, flexible: bool, config: KillerKoalaLLMConfig) -> bool:
     if config.mode in {"off", "disabled", "phrase", "phrase_only"}:
         return False
-    if config.mode in {"force", "force_llm", "llm"}:
-        return True
-    return bool(flexible or event == "banter")
+    return True
+
+
+def _fallback_line(event: str, xp: int, history_path: Optional[str | Path]) -> tuple[str, str]:
+    if event == "inquiry_question":
+        return (
+            "TinyLlama is offline and I can't verify that one right now, mate. Check the Pi network and local AI service, then ask again.",
+            event,
+        )
+    fallback_state = line_for_event(event, xp=xp, history_path=history_path)
+    return sanitize_spoken_identity(fallback_state.selected_text), fallback_state.selected_event
 
 
 def companion_response(
@@ -153,27 +195,60 @@ def companion_response(
     trace_dir: str | Path = DEFAULT_TRACE_DIR,
 ) -> KillerKoalaCompanionResponse:
     config = load_config()
-    history_target = history_path if history_path is not None else None
-    fallback_state = line_for_event(event, xp=xp, history_path=history_target)
-    phrase_text = sanitize_spoken_identity(fallback_state.selected_text)
+    phrase_text, selected_event = _fallback_line(event, xp, history_path)
     rank = rank_for_xp(xp)
-    llm_requested = should_try_llm(fallback_state.selected_event, flexible, config)
+    llm_requested = should_try_llm(selected_event, flexible, config)
 
     source = "phrase_engine"
     text = phrase_text
     fallback_reason = ""
     llm_used = False
+    web_searched = False
+    web_available = False
+    web_provider = "none"
+    web_sources: list[dict[str, str]] = []
+    web_error = ""
+    web_research_artifact = ""
+    web_context = ""
+
+    if selected_event == "inquiry_question":
+        try:
+            from .killerkoala_web_research import research_question
+
+            research = research_question(user_text)
+            web_searched = research.searched
+            web_available = research.internet_available
+            web_provider = research.provider
+            web_sources = [asdict(item) for item in research.sources]
+            web_error = research.error
+            web_research_artifact = research.artifact_path
+            web_context = research.context
+        except Exception as exc:
+            web_error = str(exc)
 
     if llm_requested:
         try:
-            prompt = _build_prompt(fallback_state.selected_event, xp, rank, phrase_text, user_text=user_text, context=context)
+            prompt = _build_prompt(
+                selected_event,
+                xp,
+                rank,
+                phrase_text,
+                user_text=user_text,
+                context=context,
+                web_context=web_context,
+            )
             candidate = _clean_llm_text(_ollama_generate(config, prompt), config.max_response_chars)
             if candidate:
                 text = candidate
-                source = "ollama_lora_optional"
+                if selected_event == "inquiry_question" and web_sources:
+                    source = "tinyllama_web_grounded"
+                elif selected_event == "inquiry_question" and web_searched and not web_available:
+                    source = "tinyllama_offline"
+                else:
+                    source = "tinyllama_local"
                 llm_used = True
             else:
-                fallback_reason = "ollama returned empty response"
+                fallback_reason = "TinyLlama returned an empty response"
                 source = "phrase_engine_fallback"
         except Exception as exc:
             fallback_reason = str(exc)
@@ -181,7 +256,7 @@ def companion_response(
 
     text = sanitize_spoken_identity(text)
     response = KillerKoalaCompanionResponse(
-        event=fallback_state.selected_event,
+        event=selected_event,
         xp=xp,
         rank=rank,
         text=text,
@@ -191,24 +266,32 @@ def companion_response(
         llm_used=llm_used,
         llm_requested=llm_requested,
         fallback_reason=fallback_reason,
+        web_searched=web_searched,
+        web_available=web_available,
+        web_provider=web_provider,
+        web_sources=web_sources,
+        web_error=web_error,
+        web_research_artifact=web_research_artifact,
         generated_at=time.time(),
     )
 
     try:
         root = Path(trace_dir)
         root.mkdir(parents=True, exist_ok=True)
-        (root / "killerkoala_last_companion_response.json").write_text(json.dumps(asdict(response), indent=2, sort_keys=True), encoding="utf-8")
+        (root / "killerkoala_last_companion_response.json").write_text(
+            json.dumps(asdict(response), indent=2, sort_keys=True), encoding="utf-8"
+        )
     except Exception:
         pass
     return response
 
 
 def run_cli() -> int:
-    parser = argparse.ArgumentParser(description="KillerKoala hybrid phrase-first companion preview")
+    parser = argparse.ArgumentParser(description="KillerKoala TinyLlama-first local companion preview")
     parser.add_argument("event", nargs="?", default="status")
     parser.add_argument("--xp", type=int, default=0)
-    parser.add_argument("--text", default="", help="Optional user phrase/context")
-    parser.add_argument("--flexible", action="store_true", help="Allow optional tiny LLM/Ollama banter path")
+    parser.add_argument("--text", default="", help="Optional user phrase or question")
+    parser.add_argument("--flexible", action="store_true", help="Request open-ended local TinyLlama output")
     parser.add_argument("--history-path", default=str(DEFAULT_TRACE_DIR / "killerkoala_phrase_history.json"))
     parser.add_argument("--no-history", action="store_true")
     args = parser.parse_args()
