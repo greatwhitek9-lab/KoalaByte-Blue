@@ -26,10 +26,10 @@ Usage:
 
 This installer owns Raspberry Pi provisioning only:
   - system packages and Python virtual environment
-  - headless K1-K8 menu and action controller for Raspberry Pi OS Lite
+  - headless K1-K8 menu, action, and live display-sync controller for Raspberry Pi OS Lite
   - hold protection and restricted power permissions for K7 shutdown and K8 reboot
   - Heltec T114 and ESP32-S3 stable USB aliases
-  - menu/display synchronization, BLE-node, voice-bridge, and doctor services
+  - BLE-node, voice-bridge, and doctor services
   - external audio selection and Australian William TTS dependencies
   - optional stock-firmware InnoMaker SocketCAN setup when hardware is present
   - final device discovery, controls, menu, voice, and hardware reports
@@ -178,7 +178,6 @@ restart_services() {
   "${sudo_cmd[@]}" systemctl daemon-reload
   for service in \
     koalabyte-menu.service \
-    koalabyte-menu-sync.service \
     koalabyte-doctor.service \
     koalabyte-ble-node-manager.service \
     koalabyte-dualeye-voice-bridge.service; do
@@ -196,7 +195,8 @@ restart_services() {
 run_final_doctor() {
   local rc=0
   set +e
-  "$(python_for_runtime)" scripts/pi_hardware_doctor.py \
+  INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN}" \
+    "$(python_for_runtime)" scripts/pi_hardware_doctor.py \
     --can-interface "${CAN_INTERFACE:-can0}" --gpio-live
   rc=$?
   set -e
@@ -213,7 +213,7 @@ run_step "Repository readiness" python3 scripts/check_repo_readiness.py
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   run_step "Restricted K7/K8 power permissions" env KOALABYTE_SERVICE_USER="${SERVICE_USER}" bash scripts/install_power_controls.sh --check-only
-  run_step "Pi hardware inventory" bash scripts/setup_pi_hardware_stage.sh --check-only
+  run_step "Pi hardware inventory" env INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN}" bash scripts/setup_pi_hardware_stage.sh --check-only
   run_step "K1-K8 control contract" run_controls_gate
   run_step "Audio readiness" bash scripts/configure_pi_audio_output.sh --check-only
   write_status "complete" "final_one_shot_check" "all Pi installer, headless runtime, K1-K8, restricted power, service, device, and no-flash policies validated"
@@ -256,7 +256,7 @@ fi
 
 run_step "Final Pi hardware doctor" run_final_doctor
 
-write_status "complete" "final_one_shot" "Pi packages, headless K1-K8 controls, restricted power permissions, USB aliases, audio, menu, BLE, voice, display sync, diagnostics, and optional SocketCAN responsibilities installed without firmware flashing"
+write_status "complete" "final_one_shot" "Pi packages, headless K1-K8 controls, restricted power permissions, USB aliases, audio, menu, BLE, voice, live display sync, diagnostics, and optional SocketCAN responsibilities installed without firmware flashing"
 trap - ERR
 
 echo
