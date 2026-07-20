@@ -11,61 +11,63 @@ import textwrap
 project = Path(env.subst("$PROJECT_DIR"))
 output = project / "src" / "local_voice_responses_generated.cpp"
 
-# Small, intentionally repetitive on-device bank. Complex or open-ended replies
-# are routed to the Raspberry Pi after the explicit "ask the AI" command.
+# Embedded local replies are generated with Microsoft's natural Australian male
+# William voice, then normalized and compressed to 8 kHz mu-law for flash use.
+# Complex/open-ended responses remain owned by the Raspberry Pi.
+VOICE_NAME = "en-AU-WilliamNeural"
 PHRASES = (
-    ("Wake", "Killer Koala is live and ready."),
-    ("Wake", "Happy hunting, mate."),
-    ("Wake", "Righto, mate. I am listening."),
-    ("Wake", "Killer Koala online. What is the play?"),
-    ("Wake", "Bonza. The claws are awake."),
-    ("Wake", "Too easy. Give me the word."),
-    ("Status", "All systems tidy, mate."),
-    ("Status", "Eyes up, audio ready, and no dramas."),
-    ("Status", "The little blue beast is running clean."),
-    ("Help", "I can answer the basics, or send the heavy work to the Pi."),
-    ("Help", "Ask for status, help, a menu action, or say ask the AI."),
-    ("Greeting", "G day, mate. The canopy is awake."),
-    ("Greeting", "Morning, legend. Let us keep it tidy."),
-    ("Thanks", "No dramas, mate."),
-    ("Thanks", "Too easy. That is what I am here for."),
+    ("Wake", "Righto, mate. William here. What's the play?"),
+    ("Wake", "G'day, legend. Killer Koala is awake."),
+    ("Wake", "Too easy, mate. I'm listening."),
+    ("Wake", "Bonza. William's on deck."),
+    ("Wake", "No dramas, mate. Give me the word."),
+    ("Wake", "Killer Koala online. Let's get cracking."),
+    ("Status", "All systems are sweet as, mate."),
+    ("Status", "The canopy is tidy and the gear is ready."),
+    ("Status", "She's running clean. No dramas."),
+    ("Help", "Say open menu, K one through K eight, or launch any menu item by name."),
+    ("Help", "Tell me to launch a tool, open a submenu, or use the K keys by voice."),
+    ("Greeting", "G'day, mate. Good to hear you."),
+    ("Greeting", "Morning, legend. Let's keep the wheels turning."),
+    ("Thanks", "No worries, mate."),
+    ("Thanks", "Too easy. Happy to help."),
     ("Banter", "Crikey, you do know how to keep a koala busy."),
     ("Banter", "Fair dinkum. The lab is behaving for once."),
-    ("Escalate", "Go on, mate. I will send the next question to the big brain."),
+    ("Escalate", "Righto, mate. Ask your question and I'll send it to the big brain."),
 )
 
-espeak = shutil.which("espeak-ng") or shutil.which("espeak")
+edge_tts = shutil.which("edge-tts")
 ffmpeg = shutil.which("ffmpeg")
-if not espeak or not ffmpeg:
+if not edge_tts or not ffmpeg:
     raise RuntimeError(
-        "ESP32 local voice generation requires espeak/espeak-ng and ffmpeg. "
-        "Install both tools before building firmware."
+        "ESP32 William voice generation requires edge-tts and ffmpeg. "
+        "Install edge-tts==7.2.8 and ffmpeg before building firmware."
     )
 
 clips = []
-with tempfile.TemporaryDirectory(prefix="koalabyte-local-voice-") as temp:
+with tempfile.TemporaryDirectory(prefix="koalabyte-william-voice-") as temp:
     root = Path(temp)
     for index, (category, text) in enumerate(PHRASES):
-        wav = root / f"clip-{index}.wav"
+        media = root / f"clip-{index}.mp3"
         raw = root / f"clip-{index}.raw"
         subprocess.run(
             [
-                espeak,
-                "-v",
-                "en-au+m3",
-                "-s",
-                "165",
-                "-p",
-                "38",
-                "-a",
-                "170",
-                "-w",
-                str(wav),
+                edge_tts,
+                "--voice",
+                VOICE_NAME,
+                "--rate=+4%",
+                "--volume=+18%",
+                "--pitch=-2Hz",
+                "--text",
                 text,
+                "--write-media",
+                str(media),
             ],
             check=True,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=45,
         )
         subprocess.run(
             [
@@ -75,7 +77,9 @@ with tempfile.TemporaryDirectory(prefix="koalabyte-local-voice-") as temp:
                 "error",
                 "-y",
                 "-i",
-                str(wav),
+                str(media),
+                "-af",
+                "highpass=f=75,lowpass=f=3800,loudnorm=I=-14:LRA=7:TP=-1.0",
                 "-ar",
                 "8000",
                 "-ac",
@@ -85,6 +89,7 @@ with tempfile.TemporaryDirectory(prefix="koalabyte-local-voice-") as temp:
                 str(raw),
             ],
             check=True,
+            timeout=45,
         )
         pcm = raw.read_bytes()
         mulaw = audioop.lin2ulaw(pcm, 2)
@@ -99,7 +104,7 @@ with tempfile.TemporaryDirectory(prefix="koalabyte-local-voice-") as temp:
 
 lines = [
     "// Generated by scripts/generate_local_voice_responses.py.",
-    "// Do not edit this file by hand.",
+    "// Voice: en-AU-WilliamNeural. Do not edit this file by hand.",
     '#include "local_voice_responses.h"',
     "#include <mbedtls/base64.h>",
     '#include "dualeye_audio.h"',
@@ -220,6 +225,6 @@ content = "\n".join(lines)
 if not output.exists() or output.read_text(encoding="utf-8") != content:
     output.write_text(content, encoding="utf-8")
 print(
-    f"Generated {len(clips)} ESP32 local response clips "
+    f"Generated {len(clips)} ESP32 William Australian response clips "
     f"({sum(len(clip['base64']) for clip in clips)} base64 characters)"
 )
