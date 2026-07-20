@@ -10,10 +10,8 @@ from .killerkoala_voice_control import (
     DEFAULT_OUTPUT_DIR,
     DEFAULT_XP_PATH,
     execute_module,
-    listen_once,
     module_manifest,
     parse_voice_command,
-    speak,
 )
 from .menu_voice_launcher import build_menu_voice_manifest, route_menu_voice_launch
 
@@ -30,6 +28,44 @@ def _jsonable(value: Any) -> Any:
     return value
 
 
+def speak(text: str) -> bool:
+    """Optional host-side CLI speech preview.
+
+    The deployed voice bridge uses dualeye_tts and the William Australian male
+    backend. This pyttsx3 path is retained only for interactive CLI compatibility.
+    """
+
+    try:
+        import pyttsx3  # type: ignore
+    except Exception:
+        return False
+    try:
+        engine = pyttsx3.init()
+        engine.say(text)
+        engine.runAndWait()
+        return True
+    except Exception:
+        return False
+
+
+def listen_once(timeout: int = 5, phrase_time_limit: int = 8) -> str:
+    """Capture one optional host microphone phrase for the CLI router."""
+
+    try:
+        import speech_recognition as sr  # type: ignore
+    except Exception as exc:
+        raise RuntimeError(
+            "microphone mode requires SpeechRecognition and PyAudio installed on the Pi"
+        ) from exc
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:  # type: ignore[attr-defined]
+        recognizer.adjust_for_ambient_noise(source, duration=0.4)
+        audio = recognizer.listen(
+            source, timeout=timeout, phrase_time_limit=phrase_time_limit
+        )
+    return str(recognizer.recognize_google(audio))
+
+
 def route_voice_phrase(
     phrase: str,
     *,
@@ -40,13 +76,9 @@ def route_voice_phrase(
 ):
     """Route a KillerKoala phrase.
 
-    Menu/submenu launch syntax is checked first:
-
-        killerkoala run <menu item or command>
-        killerkoala open <menu item or command>
-
-    If the phrase is not a menu launch command, it falls back to the existing
-    KillerKoala voice module parser.
+    Explicit menu/submenu launch syntax is checked first. Other recognized basic
+    commands route through the core parser. Open-ended wake-word questions route
+    to the local TinyLlama companion, with web evidence added when available.
     """
 
     menu_result = route_menu_voice_launch(
@@ -59,7 +91,12 @@ def route_voice_phrase(
         return menu_result
 
     parsed = parse_voice_command(phrase, require_wake_word=require_wake_word)
-    return execute_module(parsed, output_dir=output_dir, xp_path=xp_path, force_flexible_banter=force_flexible_banter)
+    return execute_module(
+        parsed,
+        output_dir=output_dir,
+        xp_path=xp_path,
+        force_flexible_banter=force_flexible_banter,
+    )
 
 
 def combined_manifest() -> dict[str, Any]:
@@ -69,19 +106,50 @@ def combined_manifest() -> dict[str, Any]:
         "killerkoala run <menu item or command>",
         "killerkoala open <menu item or command>",
         "killerkoala voice commands",
+        "killerkoala <general question>",
     ]
     return voice
 
 
 def run_cli() -> int:
-    parser = argparse.ArgumentParser(description="killerkoala spoken-command and menu voice router")
-    parser.add_argument("--phrase", default=None, help="Typed spoken phrase, e.g. 'killerkoala open Bluetooth Tools'")
-    parser.add_argument("--listen", action="store_true", help="Listen once from the microphone using optional SpeechRecognition/PyAudio")
-    parser.add_argument("--loop", action="store_true", help="Continuously listen for commands until interrupted")
-    parser.add_argument("--no-wake-required", action="store_true", help="Testing mode: do not require the killerkoala wake word")
-    parser.add_argument("--flexible-banter", action="store_true", help="Allow optional tiny LLM/Ollama LoRA banter path for this response")
-    parser.add_argument("--speak", action="store_true", help="Speak the response if optional pyttsx3 is installed")
-    parser.add_argument("--manifest", action="store_true", help="Write and print supported voice and menu command manifest")
+    parser = argparse.ArgumentParser(
+        description="KillerKoala spoken-command, menu, and TinyLlama question router"
+    )
+    parser.add_argument(
+        "--phrase",
+        default=None,
+        help="Typed phrase, e.g. 'killerkoala why is the sky blue'",
+    )
+    parser.add_argument(
+        "--listen",
+        action="store_true",
+        help="Listen once using optional SpeechRecognition/PyAudio",
+    )
+    parser.add_argument(
+        "--loop",
+        action="store_true",
+        help="Continuously listen until interrupted",
+    )
+    parser.add_argument(
+        "--no-wake-required",
+        action="store_true",
+        help="Testing mode: do not require the KillerKoala wake word",
+    )
+    parser.add_argument(
+        "--flexible-banter",
+        action="store_true",
+        help="Request open-ended local TinyLlama output",
+    )
+    parser.add_argument(
+        "--speak",
+        action="store_true",
+        help="Speak the response through optional CLI pyttsx3",
+    )
+    parser.add_argument(
+        "--manifest",
+        action="store_true",
+        help="Write and print the supported voice/menu manifest",
+    )
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--xp-path", default=str(DEFAULT_XP_PATH))
     args = parser.parse_args()
@@ -93,8 +161,17 @@ def run_cli() -> int:
         out = output_dir / "killerkoala_voice_and_menu_manifest.json"
         out.parent.mkdir(parents=True, exist_ok=True)
         manifest = combined_manifest()
-        out.write_text(json.dumps(_jsonable(manifest), indent=2, sort_keys=True), encoding="utf-8")
-        print(json.dumps({"manifest_path": str(out), "syntax": manifest.get("syntax", [])}, indent=2, sort_keys=True))
+        out.write_text(
+            json.dumps(_jsonable(manifest), indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+        print(
+            json.dumps(
+                {"manifest_path": str(out), "syntax": manifest.get("syntax", [])},
+                indent=2,
+                sort_keys=True,
+            )
+        )
         return 0
 
     def handle_phrase(phrase: str):
