@@ -27,6 +27,7 @@ REQUIRED_FILES = (
     "pi-companion/koalablue/killerkoala_hybrid_companion.py",
     "pi-companion/koalablue/dualeye_tts.py",
     "pi-companion/koalablue/esp32_dualeye_latched_koalagotchi_bridge.py",
+    "scripts/run_headless_menu.py",
     "scripts/setup_pi_hardware_stage.sh",
     "scripts/setup_system_packages.sh",
     "scripts/setup_gpio_buttons.py",
@@ -65,6 +66,7 @@ SHELL_FILES = (
 )
 
 PYTHON_FILES = (
+    "scripts/run_headless_menu.py",
     "scripts/setup_gpio_buttons.py",
     "scripts/test_gpio_buttons.py",
     "scripts/pi_hardware_doctor.py",
@@ -121,6 +123,11 @@ def check_markers(failures: list[str]) -> None:
         if marker not in gpio:
             failures.append(f"GPIO manager missing protected-button marker: {marker}")
 
+    service = (ROOT / "systemd/koalabyte-menu.service").read_text(encoding="utf-8", errors="ignore")
+    for marker in ("run_headless_menu.py", "Restart=always", "WantedBy=multi-user.target"):
+        if marker not in service:
+            failures.append(f"headless menu service missing marker: {marker}")
+
     rules = (ROOT / "udev/99-koalabyte-blue.rules").read_text(encoding="utf-8", errors="ignore")
     for marker in ("2fe3", "0100", "303a", "1001", "koalabyte-heltec", "koalabyte-esp32-dualeye"):
         if marker not in rules:
@@ -166,7 +173,7 @@ def main() -> int:
             print(f"- {failure}", file=sys.stderr)
         return 1
 
-    print("KoalaByte repository readiness passed: one canonical Pi installer, protected K1-K8 controls, stable device aliases, and no installer firmware flashing.")
+    print("KoalaByte repository readiness passed: one canonical Pi installer, headless runtime, protected K1-K8 controls, stable device aliases, and no installer firmware flashing.")
     return 0
 
 
