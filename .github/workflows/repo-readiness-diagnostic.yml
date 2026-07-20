@@ -1,0 +1,50 @@
+name: Repository Readiness Diagnostic
+
+on:
+  pull_request:
+    branches:
+      - Main
+      - main
+    paths:
+      - ".github/workflows/repo-readiness-diagnostic.yml"
+      - "scripts/check_repo_readiness.py"
+      - "one-shot-install.sh"
+      - "scripts/configure_pi_audio_output.sh"
+      - "scripts/flash_prebuilt_esp32_dualeye.sh"
+      - "scripts/flash_prebuilt_t114_uf2.sh"
+      - "scripts/verify_prebuilt_firmware_bundle.py"
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install requirements
+        run: python -m pip install -r pi-companion/requirements.txt
+      - name: Capture readiness output
+        id: readiness
+        continue-on-error: true
+        run: |
+          set +e
+          PYTHONPATH=pi-companion python scripts/check_repo_readiness.py >/tmp/repo-readiness.log 2>&1
+          rc=$?
+          set -e
+          echo "rc=${rc}" >> "${GITHUB_OUTPUT}"
+          cat /tmp/repo-readiness.log
+      - name: Upload readiness output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repo-readiness-diagnostic
+          path: /tmp/repo-readiness.log
+          if-no-files-found: error
+          retention-days: 2
+      - name: Enforce readiness result
+        if: steps.readiness.outputs.rc != '0'
+        run: exit 1
