@@ -66,13 +66,15 @@ KOALABYTE_PRIMARY_BLE_PORT=${PRIMARY_PORT}
 KOALABYTE_HELTEC_USB_PORT=${PRIMARY_PORT}
 KOALABYTE_ESP32_FACE_PORT=${ESP}
 KOALABYTE_PI_BLUEZ_NODE=${PI_BLUEZ}
+KOALABYTE_BLE_MANAGER_OWNS_ESP32=0
+KOALABYTE_BLE_ROLE_CHECK_SECONDS=30
 PYTHON_BIN=${PY}
 KOALABYTE_PORT_ENV_FILE=${ROOT}/logs/preflight/koalabyte_ports.env
 ENVEOF
 
 cat > /tmp/${SERVICE} <<SERVICEEOF
 [Unit]
-Description=KoalaByte BLE Node Manager - Heltec T114 primary controller
+Description=KoalaByte BLE Node Manager - Heltec primary with Pi/ESP32 failover
 After=network-online.target bluetooth.service systemd-udev-settle.service
 Wants=network-online.target bluetooth.service systemd-udev-settle.service
 
@@ -101,7 +103,7 @@ SERVICEEOF
 
 sleep 1
 if "${sudo_cmd[@]}" systemctl is-active --quiet "${SERVICE}"; then
-  echo "KoalaByte BLE node manager service is active as ${SERVICE_USER}."
+  echo "KoalaByte BLE node manager is active: Heltec primary, Pi BlueZ preferred node, ESP32 guarded fallback."
 else
   echo "KoalaByte BLE node manager service installed but is not active yet. Check logs/ble_nodes/service.err or journalctl -u ${SERVICE}." >&2
   [[ "${STRICT_SERVICE}" == "1" ]] && exit 1
