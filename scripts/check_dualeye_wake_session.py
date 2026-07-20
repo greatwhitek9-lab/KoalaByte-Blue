@@ -7,6 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = ROOT / "firmware" / "esp32-dualeye" / "scripts" / "generate_wake_session_source.py"
+AWAKE_PATCH = ROOT / "firmware" / "esp32-dualeye" / "scripts" / "patch_wake_session_awake_eyes.py"
 CATALOG = ROOT / "firmware" / "esp32-dualeye" / "scripts" / "generate_voice_menu_catalog.py"
 PLATFORMIO = ROOT / "firmware" / "esp32-dualeye" / "platformio.ini"
 STATUS = ROOT / "logs" / "one_shot" / "dualeye_wake_session_status.json"
@@ -19,11 +20,12 @@ def require(text: str, marker: str, failures: list[str], label: str) -> None:
 
 def main() -> int:
     failures: list[str] = []
-    for path in (GENERATOR, CATALOG, PLATFORMIO):
+    for path in (GENERATOR, AWAKE_PATCH, CATALOG, PLATFORMIO):
         if not path.exists():
             failures.append(f"missing required file: {path.relative_to(ROOT)}")
 
     generator = GENERATOR.read_text(encoding="utf-8") if GENERATOR.exists() else ""
+    awake_patch = AWAKE_PATCH.read_text(encoding="utf-8") if AWAKE_PATCH.exists() else ""
     catalog = CATALOG.read_text(encoding="utf-8") if CATALOG.exists() else ""
     platformio = PLATFORMIO.read_text(encoding="utf-8") if PLATFORMIO.exists() else ""
 
@@ -36,7 +38,7 @@ def main() -> int:
         "trusted_pi_button_or_keyboard_input",
         "ten_second_inactivity_timeout",
         "trustedPiMenuActivity",
-        "eventType, \\\"state\\\"",
+        "eventType, \"state\"",
         "koalaLegacyHandleCommand",
         "serviceWakeSessionTimeout();",
         "showIdleEyes();",
@@ -45,6 +47,16 @@ def main() -> int:
     ]
     for marker in generator_markers:
         require(generator, marker, failures, "wake-session generator")
+
+    awake_markers = [
+        "void showWakeSessionEyes()",
+        'drawKoalagotchiModeScreen("killerkoala", "listening", 88, 96)',
+        'setKoalagotchiEyeStyle("cyber", "#A54BFF", "#32FF71", "pulse", 100)',
+        "if (wakeSessionActive)",
+        "Patched visible awake-eye session state",
+    ]
+    for marker in awake_markers:
+        require(awake_patch, marker, failures, "awake-eye patch")
 
     catalog_markers = [
         '(100, "k1_main_menu", "Main Menu", "main", "Menu", "K one")',
@@ -59,6 +71,7 @@ def main() -> int:
 
     platformio_markers = [
         "pre:scripts/generate_wake_session_source.py",
+        "pre:scripts/patch_wake_session_awake_eyes.py",
         "-<integrated_main_clean_voice.cpp>",
     ]
     for marker in platformio_markers:
@@ -109,7 +122,8 @@ def main() -> int:
         "accepted_voice_refreshes_session": True,
         "trusted_gpio_and_keyboard_wake_or_refresh": True,
         "ambient_voice_commands_while_sleeping": False,
-        "timeout_display": "animated_koala_eyes",
+        "active_session_display": "animated_listening_koala_eyes",
+        "timeout_display": "animated_idle_koala_eyes",
         "failures": failures,
         "updated_at": time.time(),
     }
