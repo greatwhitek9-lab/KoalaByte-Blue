@@ -98,9 +98,10 @@ for command_id, command, label, menu_name, natural, key_name in controls:
         }
     )
 
-# One canonical phrase per distinct visible label. Repeated labels would be
-# ambiguous to MultiNet, so they intentionally share the first matching route.
-# Back rows are represented by K2 and do not consume extra phrase slots.
+# One canonical "launch" phrase per distinct visible label. Repeated labels
+# would be ambiguous to MultiNet, so they intentionally share the first matching
+# route. A launch phrase opens submenus and executes leaf rows. Back rows are
+# represented by K2 and do not consume extra phrase slots.
 seen_spoken_labels: set[str] = set()
 next_command_id = 200
 for catalog_index, item in enumerate(menu_items):
@@ -114,8 +115,7 @@ for catalog_index, item in enumerate(menu_items):
         continue
     seen_spoken_labels.add(key)
     is_submenu = command.startswith("submenu:")
-    verb = "open" if is_submenu else "launch"
-    phrase = f"Killer Koala {verb} {spoken_label}"
+    phrase = f"Killer Koala launch {spoken_label}"
     speech_commands.append((next_command_id, phrase))
     routes.append(
         {
