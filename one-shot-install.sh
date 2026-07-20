@@ -27,7 +27,7 @@ Usage:
 This installer owns Raspberry Pi provisioning only:
   - system packages and Python virtual environment
   - headless K1-K8 menu and action controller for Raspberry Pi OS Lite
-  - hold protection on K7 shutdown and K8 reboot
+  - hold protection and restricted power permissions for K7 shutdown and K8 reboot
   - Heltec T114 and ESP32-S3 stable USB aliases
   - menu/display synchronization, BLE-node, voice-bridge, and doctor services
   - external audio selection and Australian William TTS dependencies
@@ -122,6 +122,7 @@ validate_sources() {
   bash -n one-shot-install.sh
   bash -n install.sh
   bash -n scripts/setup_pi_hardware_stage.sh
+  bash -n scripts/install_power_controls.sh
   bash -n scripts/install_koalabyte_boot_services.sh
   bash -n scripts/install_ble_node_manager_service.sh
   bash -n scripts/install_esp32_dualeye_voice_bridge_service.sh
@@ -211,10 +212,11 @@ run_step "Source and installer validation" validate_sources
 run_step "Repository readiness" python3 scripts/check_repo_readiness.py
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
+  run_step "Restricted K7/K8 power permissions" env KOALABYTE_SERVICE_USER="${SERVICE_USER}" bash scripts/install_power_controls.sh --check-only
   run_step "Pi hardware inventory" bash scripts/setup_pi_hardware_stage.sh --check-only
   run_step "K1-K8 control contract" run_controls_gate
   run_step "Audio readiness" bash scripts/configure_pi_audio_output.sh --check-only
-  write_status "complete" "final_one_shot_check" "all Pi installer, headless runtime, K1-K8, service, device, and no-flash policies validated"
+  write_status "complete" "final_one_shot_check" "all Pi installer, headless runtime, K1-K8, restricted power, service, device, and no-flash policies validated"
   trap - ERR
   echo
   echo "KoalaByte final one-shot check-only passed."
@@ -240,6 +242,8 @@ run_step "Raspberry Pi hardware and runtime services" \
       CAN_BITRATE="${CAN_BITRATE:-500000}" \
       bash scripts/setup_pi_hardware_stage.sh "${stage_args[@]}"
 
+run_step "Restricted K7/K8 power permissions" \
+  env KOALABYTE_SERVICE_USER="${SERVICE_USER}" bash scripts/install_power_controls.sh
 run_step "Stable device discovery" run_discovery
 run_step "K1-K8 GPIO initialization" run_button_probe
 run_step "Pi controls and menu contract" run_controls_gate
@@ -252,7 +256,7 @@ fi
 
 run_step "Final Pi hardware doctor" run_final_doctor
 
-write_status "complete" "final_one_shot" "Pi packages, headless K1-K8 controls, USB aliases, audio, menu, BLE, voice, display sync, diagnostics, and optional SocketCAN responsibilities installed without firmware flashing"
+write_status "complete" "final_one_shot" "Pi packages, headless K1-K8 controls, restricted power permissions, USB aliases, audio, menu, BLE, voice, display sync, diagnostics, and optional SocketCAN responsibilities installed without firmware flashing"
 trap - ERR
 
 echo
