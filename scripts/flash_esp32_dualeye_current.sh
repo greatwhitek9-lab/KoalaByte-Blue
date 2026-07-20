@@ -91,9 +91,11 @@ if [[ -z "${PORT}" ]]; then
   fi
 fi
 
-if [[ -n "${PORT}" && ! $(probe_esp32s3 "${PORT}"; echo $?) -eq 0 ]]; then
-  echo "Configured port did not identify as ESP32-S3: ${PORT}" >&2
-  PORT=""
+if [[ -n "${PORT}" ]]; then
+  if ! probe_esp32s3 "${PORT}"; then
+    echo "Configured port did not identify as ESP32-S3: ${PORT}" >&2
+    PORT=""
+  fi
 fi
 if [[ -z "${PORT}" ]]; then
   shopt -s nullglob
@@ -119,7 +121,6 @@ if [[ -z "${PORT}" || ! -e "${PORT}" ]]; then
   exit 1
 fi
 
-# Probe one final time immediately before the destructive write.
 if ! probe_esp32s3 "${PORT}"; then
   write_status "identity_failed" "Selected port failed the final ESP32-S3 chip_id probe."
   exit 1
@@ -136,8 +137,6 @@ echo "Flashing verified ESP32-S3 DualEye on ${PORT}..."
   0x00010000 "${ESP32_DIR}/firmware.bin" \
   0x00cb0000 "${ESP32_DIR}/srmodels.bin"
 
-# Wait for the same runtime path or the stable udev alias; never select an
-# unrelated generic serial device during verification.
 deadline=$(( $(date +%s) + WAIT_SECONDS ))
 verify_port=""
 while (( $(date +%s) < deadline )); do
