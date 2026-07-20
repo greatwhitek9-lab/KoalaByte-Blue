@@ -69,7 +69,6 @@ CURRENT_RUNTIME_FILES = (
     "scripts/install_ble_node_manager_service.sh",
     "scripts/install_esp32_dualeye_voice_bridge_service.sh",
     "scripts/configure_pi_audio_output.sh",
-    "scripts/check_repo_readiness.py",
     "scripts/check_one_shot_controls.py",
     "scripts/check_menu_actions.py",
     "scripts/check_menu_display_sync.py",
