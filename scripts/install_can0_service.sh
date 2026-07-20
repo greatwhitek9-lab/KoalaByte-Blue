@@ -13,6 +13,9 @@ CAN_BITRATE="${CAN_BITRATE:-500000}"
 CAN_RESTART_MS="${CAN_RESTART_MS:-100}"
 CAN_WAIT_SECONDS="${CAN_WAIT_SECONDS:-30}"
 STRICT_CAN_SETUP="${STRICT_CAN_SETUP:-0}"
+SERVICE_USER="${KOALABYTE_SERVICE_USER:-${SUDO_USER:-${USER:-pi}}}"
+SERVICE_GROUP="${KOALABYTE_SERVICE_GROUP:-${SERVICE_USER}}"
+LOG_DIR="${ROOT}/logs/koala_kan_kommander"
 
 case "${INSTALL_CAN0_SERVICE}" in
   0|false|False|no|NO|skip|SKIP)
@@ -40,7 +43,17 @@ else
   exit 0
 fi
 
-mkdir -p "${ROOT}/logs/koala_kan_kommander"
+if ! id "${SERVICE_USER}" >/dev/null 2>&1; then
+  echo "KoalaByte CAN service user does not exist: ${SERVICE_USER}" >&2
+  [[ "${STRICT_CAN0_SERVICE}" == "1" ]] && exit 1
+  SERVICE_USER="${SUDO_USER:-${USER:-pi}}"
+  SERVICE_GROUP="${SERVICE_USER}"
+fi
+
+"${sudo_cmd[@]}" install -d -m 0775 -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" "${LOG_DIR}"
+"${sudo_cmd[@]}" touch "${LOG_DIR}/can0_service.log" "${LOG_DIR}/can0_service.err"
+"${sudo_cmd[@]}" chown "${SERVICE_USER}:${SERVICE_GROUP}" "${LOG_DIR}/can0_service.log" "${LOG_DIR}/can0_service.err"
+"${sudo_cmd[@]}" chmod 0664 "${LOG_DIR}/can0_service.log" "${LOG_DIR}/can0_service.err"
 chmod +x "${ROOT}/scripts/run_can0_service.sh" "${ROOT}/scripts/setup_can0.sh"
 
 cat > /tmp/koalabyte-can0.env <<ENVEOF
@@ -49,6 +62,9 @@ CAN_BITRATE=${CAN_BITRATE}
 CAN_RESTART_MS=${CAN_RESTART_MS}
 CAN_WAIT_SECONDS=${CAN_WAIT_SECONDS}
 STRICT_CAN_SETUP=${STRICT_CAN_SETUP}
+KOALABYTE_SERVICE_USER=${SERVICE_USER}
+KOALABYTE_SERVICE_GROUP=${SERVICE_GROUP}
+CAN_SETUP_OUTPUT_DIR=${LOG_DIR}
 KOALABYTE_CAN_ENV_FILE=${ROOT}/logs/preflight/koalabyte_ports.env
 ENVEOF
 
@@ -66,8 +82,8 @@ EnvironmentFile=-${ENV_PATH}
 ExecStart=${ROOT}/scripts/run_can0_service.sh
 TimeoutStartSec=$((CAN_WAIT_SECONDS + 20))
 RemainAfterExit=no
-StandardOutput=append:${ROOT}/logs/koala_kan_kommander/can0_service.log
-StandardError=append:${ROOT}/logs/koala_kan_kommander/can0_service.err
+StandardOutput=append:${LOG_DIR}/can0_service.log
+StandardError=append:${LOG_DIR}/can0_service.err
 
 [Install]
 WantedBy=multi-user.target
@@ -95,5 +111,11 @@ fi
   [[ "${STRICT_CAN0_SERVICE}" == "1" ]] && exit 1
 }
 
+# systemd runs the setup as root, but operators also run setup_can0.sh directly.
+# Restore shared log ownership after the initial service start so both paths work.
+"${sudo_cmd[@]}" chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${LOG_DIR}"
+"${sudo_cmd[@]}" chmod -R u+rwX,g+rwX "${LOG_DIR}"
+
 echo "KoalaByte CAN setup service installed: ${SERVICE}"
 echo "SocketCAN hot-plug rule installed: ${UDEV_RULE_PATH}"
+echo "CAN logs are writable by ${SERVICE_USER}:${SERVICE_GROUP}: ${LOG_DIR}"
