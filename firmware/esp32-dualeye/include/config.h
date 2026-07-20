@@ -16,7 +16,7 @@
 #define KOALA_EXPRESSION_SYNC_COORDINATOR "raspberry-pi"
 #define KOALA_EXPRESSION_SYNC_MODE "pi_fanout"
 #define KOALA_EXPRESSION_SYNC_REQUIRES_BLE 0
-#define KOALA_BLE_ROLE "disabled_on_esp32; heltec_t114_is_ble_controller_and_raspberry_pi_is_its_ble_node"
+#define KOALA_BLE_ROLE "standby_by_default; raspberry_pi_bluez_is_preferred_heltec_node; esp32_is_guarded_fallback"
 #define KOALA_WIFI_ROLE "pi_command_telemetry_and_execution_node"
 #define KOALA_EXECUTION_OWNER "raspberry-pi"
 
@@ -39,10 +39,14 @@
 #define KILLERKOALA_LOCAL_RESPONSE_COUNT 18
 #define KILLERKOALA_LOCAL_VOICE "en-AU-WilliamNeural"
 
-// Bluetooth is intentionally disabled on this ESP32-S3 hardware profile. Physical
-// validation showed a LoadProhibited panic inside controller startup. Heltec T114
-// remains the primary BLE controller and the Raspberry Pi is its BLE node/peer.
-#define ENABLE_LOCAL_BLE_SCAN 0
+// BLE remains off during normal boot because this hardware previously panicked
+// during unrequested controller startup. The Pi BlueZ adapter is the preferred
+// Heltec companion node. The Pi may explicitly command a guarded ESP32 fallback
+// only when BlueZ is unavailable. A persistent NVS pending marker quarantines BLE
+// after a controller-start reset so the eyes cannot enter a reboot loop.
+#define ENABLE_LOCAL_BLE_SCAN 1
+#define ENABLE_ESP32_BLE_FAILOVER 1
+#define KOALA_BLE_NVS_NAMESPACE "koalable"
 #define ENABLE_KOALA_KOMBAT_WIFI_NODE 1
 #define ENABLE_KOALA_KOMBAT_SERIAL_COMMANDS 1
 #define ENABLE_MIC_WAKE 1
@@ -54,8 +58,8 @@
 #define ENABLE_AUDIO_SPEAKER 1
 #define ENABLE_TOUCH_MENU 0
 
-// UINT32_MAX prevents the legacy unguarded staged BLE initializer from running.
-// Wi-Fi, USB CDC, microphone, speaker and local ESP-SR staging remain active.
+// UINT32_MAX prevents unrequested staged BLE startup. BLE can start only through
+// an explicit Pi ble_role=heltec_fallback_ble_node command.
 #define SUBSYSTEM_BLE_START_MS 0xFFFFFFFFUL
 #define SUBSYSTEM_WIFI_START_MS 11000UL
 #define SUBSYSTEM_AUDIO_START_MS 14500UL
