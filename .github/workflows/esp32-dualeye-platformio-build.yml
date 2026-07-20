@@ -53,7 +53,7 @@ jobs:
         run: |
           set -euo pipefail
           build="firmware/esp32-dualeye/.pio/build/esp32s3_dualeye"
-          package="releases/koalabyte-esp32-s3-dualeye-v0.9.0-menu-voice-sync"
+          package="releases/koalabyte-esp32-s3-dualeye-v0.9.1-pi-heltec-ble"
           mkdir -p "${package}"
 
           boot_app0="$(find "${HOME}/.platformio/packages/framework-arduinoespressif32" -path '*/tools/partitions/boot_app0.bin' -print -quit)"
@@ -84,7 +84,7 @@ jobs:
           image = bytearray(b"\xFF" * end)
           for offset, payload in payloads:
               image[offset:offset + len(payload)] = payload
-          output = package / "koalabyte-esp32-s3-dualeye-v0.9.0-menu-voice-sync-full-flash.bin"
+          output = package / "koalabyte-esp32-s3-dualeye-v0.9.1-pi-heltec-ble-full-flash.bin"
           output.write_bytes(image)
           for offset, payload in payloads:
               assert image[offset:offset + len(payload)] == payload
@@ -100,7 +100,7 @@ jobs:
           )
 
           $ErrorActionPreference = "Stop"
-          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.9.0-menu-voice-sync-full-flash.bin"
+          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.9.1-pi-heltec-ble-full-flash.bin"
           if (-not (Test-Path $Image)) { throw "Firmware image not found: $Image" }
 
           py -m pip install --user "esptool==4.11.0"
@@ -120,11 +120,11 @@ jobs:
           py -m esptool --chip esp32s3 --port $Port verify_flash 0x0 $Image
           if ($LASTEXITCODE -ne 0) { throw "Firmware verification failed." }
 
-          Write-Host "DualEye v0.9.0 flash and verification complete. Press RESET once."
+          Write-Host "DualEye v0.9.1 flash and verification complete. Press RESET once."
           POWERSHELL
 
           cat > "${package}/README-FLASH.txt" <<'README'
-          KoalaByte Blue ESP32-S3 DualEye v0.9.0 menu / voice-sync firmware
+          KoalaByte Blue ESP32-S3 DualEye v0.9.1 Pi/Heltec BLE topology firmware
 
           Exact hardware target:
             Waveshare ESP32-S3 DualEye 1.28-inch non-touch variant
@@ -144,12 +144,13 @@ jobs:
             - errors preserve the eyes and flash the purple/green siren state
 
           Integrated nodes and audio:
-            - staged BLE, Wi-Fi and audio initialization prevents the old boot loop
+            - ESP32 Bluetooth initialization is disabled to prevent the observed controller-startup panic
+            - Heltec T114 remains the primary BLE controller
+            - Raspberry Pi is the BLE node/peer controlled by the Heltec
+            - ESP32 uses Wi-Fi/UDP with USB CDC provisioning and runtime fallback
             - ES7210 microphone capture is sent to the Raspberry Pi for wake-word/STT routing
             - ES8311 speaker playback receives local Australian-male response PCM from the Pi
-            - Wi-Fi/UDP Pi node uses USB CDC serial as provisioning and runtime fallback
-            - independent ESP32 BLE advertising and passive-scan telemetry remain enabled
-            - Raspberry Pi owns all menu/submenu execution and independently synchronizes the Heltec
+            - Raspberry Pi owns all menu/submenu execution and independently synchronizes both displays
             - accepted wake phrases: killerkoala and hey killerkoala
 
           Windows flash command from this folder:
@@ -176,8 +177,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: koalabyte-esp32-s3-dualeye-v0.9.0-menu-voice-sync
+          name: koalabyte-esp32-s3-dualeye-v0.9.1-pi-heltec-ble
           path: |
-            releases/koalabyte-esp32-s3-dualeye-v0.9.0-menu-voice-sync/**
+            releases/koalabyte-esp32-s3-dualeye-v0.9.1-pi-heltec-ble/**
             releases/esp32-dualeye-platformio.log
           if-no-files-found: error
