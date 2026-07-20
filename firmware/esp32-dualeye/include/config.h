@@ -1,9 +1,9 @@
 #pragma once
 
-// KillerKoala ESP32-S3 DualEye config RevA42 local-first dual-panel profile.
+// KillerKoala ESP32-S3 DualEye config RevA43 adaptive-mic split-speaker profile.
 // Exact target: verified non-touch ESP32-S3 DualEye 1.28-inch variant.
 
-#define KOALABLUE_FW_VERSION "0.9.3-dualeye-local-ai"
+#define KOALABLUE_FW_VERSION "0.9.4-dualeye-wake-channel-fix"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define WAKE_WORD_ALTERNATE "hey killerkoala"
@@ -17,7 +17,7 @@
 #define KOALA_EXPRESSION_SYNC_MODE "pi_fanout"
 #define KOALA_EXPRESSION_SYNC_REQUIRES_BLE 0
 #define KOALA_BLE_ROLE "disabled_on_esp32; heltec_t114_is_ble_controller_and_raspberry_pi_is_its_ble_node"
-#define KOALA_WIFI_ROLE "pi_command_telemetry_audio_and_execution_node"
+#define KOALA_WIFI_ROLE "pi_command_telemetry_and_execution_node"
 #define KOALA_EXECUTION_OWNER "raspberry-pi"
 
 #define ESP32S3_DUALEYE_EXTERNAL_2G4_ANTENNA 0
@@ -26,13 +26,16 @@
 #define ESP32S3_DUALEYE_2G4_WIRING_PATH "factory onboard ceramic antenna path"
 #define ESP32S3_DUALEYE_VENDOR_SELECTOR_REQUIRED 0
 #define ESP32S3_DUALEYE_BUILTIN_MIC 1
-#define ESP32S3_DUALEYE_MIC_ROLE "ES7210 microphone front end; ESP-SR local phrases plus explicit complex PCM escalation"
-#define ESP32S3_VOICE_FRONTEND_STACK "ESP32-S3 ES7210 + Arduino ESP_SR English MultiNet local-first router"
+#define ESP32S3_DUALEYE_MIC_ROLE "ES7210 adaptive stereo channel probe; ESP-SR local phrases plus explicit complex PCM escalation"
+#define ESP32S3_VOICE_FRONTEND_STACK "ESP32-S3 ES7210 + Arduino ESP_SR English MultiNet adaptive local-first router"
 #define ESP32S3_WAKE_MODEL "always-on local MultiNet phrase detection for killer koala and hey killer koala"
 #define ESP32S3_COMMAND_MODEL "basic responses stay local; fixed menu IDs and complex AI requests route to Raspberry Pi"
 #define ESP32S3_COMMAND_ALIAS_PACK "firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv"
 #define KILLERKOALA_COMPANION_BRAIN "ESP32 local response bank plus Raspberry Pi execution and LLM escalation"
-#define KILLERKOALA_RESPONSE_POLICY "ESP32 speaks wake and repetitive basic responses; Pi handles actions and complex AI"
+#define KILLERKOALA_RESPONSE_POLICY "ESP32 speaker handles local wake and basic replies; Raspberry Pi speaker handles Pi execution and complex AI replies"
+#define ESP32S3_SPEAKER_ROLE "local_wake_and_basic_ai_responses_only"
+#define RASPBERRY_PI_SPEAKER_ROLE "menu_results_execution_feedback_and_complex_ai"
+#define ENABLE_PI_RESPONSE_STREAM_TO_ESP32 0
 #define KILLERKOALA_LOCAL_RESPONSE_COUNT 18
 
 // Bluetooth is intentionally disabled on this ESP32-S3 hardware profile. Physical
