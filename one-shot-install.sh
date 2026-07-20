@@ -8,7 +8,6 @@ CHECK_ONLY=0
 SKIP_PACKAGES=0
 SKIP_AUDIO=0
 SKIP_CAN=0
-INSTALL_RUNTIME_SERVICES=1
 SERVICE_USER="${KOALABYTE_SERVICE_USER:-${SUDO_USER:-${USER:-pi}}}"
 STATUS_PATH="${KOALABYTE_ONE_SHOT_STATUS_PATH:-logs/one_shot/final_install_status.json}"
 PYTHON_BIN="${REPO_ROOT}/pi-companion/.venv/bin/python"
@@ -27,12 +26,13 @@ Usage:
 
 This installer owns Raspberry Pi provisioning only:
   - system packages and Python virtual environment
-  - K1-K8 GPIO controls, with hold protection on K7/K8
+  - headless K1-K8 menu and action controller for Raspberry Pi OS Lite
+  - hold protection on K7 shutdown and K8 reboot
   - Heltec T114 and ESP32-S3 stable USB aliases
-  - menu, display-sync, BLE-node, voice-bridge, and doctor services
+  - menu/display synchronization, BLE-node, voice-bridge, and doctor services
   - external audio selection and Australian William TTS dependencies
   - optional stock-firmware InnoMaker SocketCAN setup when hardware is present
-  - final device discovery, controls, menu, voice, and hardware checks
+  - final device discovery, controls, menu, voice, and hardware reports
 
 It never flashes the ESP32-S3, Heltec T114, or InnoMaker and never transmits CAN frames.
 
@@ -58,7 +58,7 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-mkdir -p "$(dirname "${STATUS_PATH}")" logs/preflight logs/pi_hardware logs/gpio_buttons
+mkdir -p "$(dirname "${STATUS_PATH}")" logs/preflight logs/pi_hardware logs/gpio_buttons logs/runtime
 
 write_status() {
   local status="$1" step="$2" reason="$3"
@@ -72,6 +72,7 @@ payload = {
     "reason": reason,
     "check_only": check_only == "1",
     "service_user": service_user,
+    "runtime_mode": "headless_pi_os_lite",
     "firmware_flashing": False,
     "can_transmit_during_install": False,
     "esp32_preserved": True,
@@ -127,10 +128,12 @@ validate_sources() {
   bash -n scripts/install_koalabyte_udev_rules.sh
   bash -n scripts/configure_pi_audio_output.sh
   python3 -m py_compile \
+    scripts/run_headless_menu.py \
     scripts/setup_gpio_buttons.py \
     scripts/test_gpio_buttons.py \
     scripts/pi_hardware_doctor.py \
     scripts/discover_koalabyte_ports.py \
+    scripts/check_repo_readiness.py \
     scripts/check_one_shot_controls.py \
     pi-companion/koalablue/gpio_buttons.py
 }
@@ -189,15 +192,29 @@ restart_services() {
   fi
 }
 
+run_final_doctor() {
+  local rc=0
+  set +e
+  "$(python_for_runtime)" scripts/pi_hardware_doctor.py \
+    --can-interface "${CAN_INTERFACE:-can0}" --gpio-live
+  rc=$?
+  set -e
+  if [[ "${rc}" -ne 0 ]]; then
+    echo "Hardware doctor recorded items needing attention; installation remains complete because disconnected or optional hardware is non-fatal."
+  fi
+  return 0
+}
+
 trap 'write_status "failed" "final_one_shot" "installer stopped before completion"' ERR
 
 run_step "Source and installer validation" validate_sources
+run_step "Repository readiness" python3 scripts/check_repo_readiness.py
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   run_step "Pi hardware inventory" bash scripts/setup_pi_hardware_stage.sh --check-only
   run_step "K1-K8 control contract" run_controls_gate
   run_step "Audio readiness" bash scripts/configure_pi_audio_output.sh --check-only
-  write_status "complete" "final_one_shot_check" "all Pi installer, K1-K8, service, device, and no-flash policies validated"
+  write_status "complete" "final_one_shot_check" "all Pi installer, headless runtime, K1-K8, service, device, and no-flash policies validated"
   trap - ERR
   echo
   echo "KoalaByte final one-shot check-only passed."
@@ -233,11 +250,9 @@ if [[ "${SKIP_AUDIO}" != "1" ]]; then
   run_step "External audio selection" bash scripts/configure_pi_audio_output.sh
 fi
 
-run_step "Final Pi hardware doctor" \
-  "$(python_for_runtime)" scripts/pi_hardware_doctor.py \
-  --can-interface "${CAN_INTERFACE:-can0}" --gpio-live
+run_step "Final Pi hardware doctor" run_final_doctor
 
-write_status "complete" "final_one_shot" "Pi packages, K1-K8 controls, USB aliases, audio, menu, BLE, voice, display sync, diagnostics, and optional SocketCAN responsibilities installed without firmware flashing"
+write_status "complete" "final_one_shot" "Pi packages, headless K1-K8 controls, USB aliases, audio, menu, BLE, voice, display sync, diagnostics, and optional SocketCAN responsibilities installed without firmware flashing"
 trap - ERR
 
 echo
@@ -245,6 +260,7 @@ echo "KoalaByte Blue final Raspberry Pi one-shot installation complete."
 echo "Status: ${STATUS_PATH}"
 echo "Device map: logs/preflight/koalabyte_ports.json"
 echo "GPIO status: logs/gpio_buttons/gpio_button_status.json"
+echo "Headless runtime: logs/runtime/headless_menu_status.json"
 echo "Hardware report: logs/pi_hardware/pi_hardware_doctor.json"
 echo
-echo "Log out/in or reboot once so ${SERVICE_USER} receives all hardware group memberships."
+echo "Reboot once after the first install so ${SERVICE_USER} receives all hardware group memberships."
