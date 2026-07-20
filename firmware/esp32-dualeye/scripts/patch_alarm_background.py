@@ -71,7 +71,8 @@ replace_once(
   else if (!strcmp(state, "success")) {
 """,
     """  else if (!strcmp(state, "action")) animation = "glitch";
-  else if (!strcmp(state, "error") || !strcmp(state, "alarmed")) {
+  else if (!strcmp(state, "error") || !strcmp(state, "alarmed") ||
+           !strcmp(state, "fault") || !strcmp(state, "exception")) {
     look = "angry";
     animation = "glitch";
     alarmBackgroundActive = true;
@@ -121,14 +122,17 @@ replace_once(
   const char *state = doc["state"] | "idle";
   const char *message = doc["message"] | state;
   const char *tone = doc["tone"] | state;
-  if (!strcmp(state, "error_clear") || !strcmp(state, "alarm_clear")) {
+  if (!strcmp(state, "error_clear") || !strcmp(state, "alarm_clear") ||
+      !strcmp(state, "recovered")) {
     alarmBackgroundActive = false;
     overlayError = false;
     showIdleEyes();
+    emitStatus("error_alarm_cleared_idle_eyes_restored");
     return;
   }
   const bool alarmRequested = doc["alarm_background"] |
       (!strcmp(state, "error") || !strcmp(state, "alarmed") ||
+       !strcmp(state, "fault") || !strcmp(state, "exception") ||
        !strcmp(tone, "error"));
   if (alarmRequested) alarmBackgroundActive = true;
   voiceMode = strcmp(state, "idle") != 0 && strcmp(state, "hidden") != 0;
@@ -137,15 +141,59 @@ replace_once(
 )
 
 replace_once(
+    """    setOverlay(currentAction[0] ? currentAction : "VOICE COMMAND", message, state,
+               !strcmp(state, "error"));
+""",
+    """    setOverlay(currentAction[0] ? currentAction :
+                   (alarmRequested ? "KOALABYTE ALERT" : "VOICE COMMAND"),
+               message, alarmRequested ? "ALARM" : state, alarmRequested);
+""",
+    "alarm overlay state",
+)
+
+replace_once(
     """  applyToneFace(doc, state, message);
   if (!strcmp(state, "success")) faceReturnAt = millis() + 2600;
+  else if (!strcmp(state, "error")) faceReturnAt = millis() + 6000;
 """,
     """  applyToneFace(doc, state, message);
+  if (alarmRequested) {
+    // Guarantee the same cyber purple/green angry expression even when an older
+    // sender supplies only state=alarmed without a tone payload.
+    setKoalagotchiEyeStyle("angry", "#A54BFF", "#32FF71", "glitch", 100);
+    drawKoalagotchiModeScreen("killerkoala", "error", 85, 92);
+    faceReturnAt = 0;
+    emitStatus("error_alarm_latched_waiting_for_pi_clear");
+  } else if (!strcmp(state, "success")) {
+    faceReturnAt = millis() + 2600;
+  }
   drawAlarmBackground(true);
-  if (!strcmp(state, "success")) faceReturnAt = millis() + 2600;
 """,
-    "initial alarm draw",
+    "latched alarm expression and initial draw",
+)
+
+replace_once(
+    """  if (!success) {
+    voiceMode = true;
+    setOverlay(action, message, status, true);
+    setFace("error", message);
+    faceReturnAt = millis() + 6500;
+    return;
+  }
+""",
+    """  if (!success) {
+    voiceMode = true;
+    setOverlay(action, message, "ALARM", true);
+    setFace("error", message);
+    alarmBackgroundActive = true;
+    faceReturnAt = 0;
+    drawAlarmBackground(true);
+    emitStatus("pi_execution_error_alarm_latched");
+    return;
+  }
+""",
+    "execution-result alarm latch",
 )
 
 path.write_text(text, encoding="utf-8")
-print(f"Patched flashing purple/green DualEye alarm background: {path}")
+print(f"Patched flashing purple/green DualEye alarm lifecycle: {path}")
