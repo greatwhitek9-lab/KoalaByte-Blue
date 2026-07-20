@@ -9,6 +9,9 @@ on:
       - "boards/heltec/heltec_t114_v2/**"
       - "firmware/t114-combined-safe/**"
       - "scripts/build_t114_combined_safe.sh"
+      - "scripts/build_whole_system_firmware.sh"
+      - "scripts/flash_t114_current_uf2.sh"
+      - "scripts/enter_t114_uf2_bootloader.sh"
       - "scripts/inspect_uf2.py"
       - "scripts/patch_uf2_family.py"
       - "scripts/verify_uf2_vector.py"
@@ -20,6 +23,9 @@ on:
       - "boards/heltec/heltec_t114_v2/**"
       - "firmware/t114-combined-safe/**"
       - "scripts/build_t114_combined_safe.sh"
+      - "scripts/build_whole_system_firmware.sh"
+      - "scripts/flash_t114_current_uf2.sh"
+      - "scripts/enter_t114_uf2_bootloader.sh"
       - "scripts/inspect_uf2.py"
       - "scripts/patch_uf2_family.py"
       - "scripts/verify_uf2_vector.py"
@@ -88,7 +94,7 @@ jobs:
             ${{ env.ZEPHYR_SDK_INSTALL_DIR }}
           key: ${{ steps.ncs-cache.outputs.cache-primary-key }}
 
-      - name: Validate current articulated-mouth source contract
+      - name: Validate current articulated-mouth and installer source contract
         run: |
           grep -Fq 'Continuous original-art mouth renderer' firmware/t114-combined-safe/src/original_texture_warp_renderer.c
           grep -Fq '#define MOTION_TICK_MS 42' firmware/t114-combined-safe/src/original_texture_warp_renderer.c
@@ -98,6 +104,10 @@ jobs:
           grep -Fq 'action_complete' firmware/t114-combined-safe/src/koalagotchi_lifecycle_wrapper.c
           grep -Fq 'koalagotchi_mode' firmware/t114-combined-safe/src/koalagotchi_lifecycle_wrapper.c
           grep -Fq 'error_clear' firmware/t114-combined-safe/src/koalagotchi_lifecycle_wrapper.c
+          grep -Fq 'GPREGRET = 0x57' firmware/t114-combined-safe/scripts/patch_uf2_bootloader_entry.py
+          grep -Fq 'CONFIG_REBOOT=y' firmware/t114-combined-safe/prj.conf
+          bash -n scripts/flash_t114_current_uf2.sh
+          bash -n scripts/enter_t114_uf2_bootloader.sh
 
       - name: Build current T114 firmware source
         run: |
@@ -109,6 +119,7 @@ jobs:
           cfg="build/t114-combined-safe/zephyr/.config"
           dts="build/t114-combined-safe/zephyr/zephyr.dts"
           grep -Fxq 'CONFIG_BUILD_OUTPUT_UF2=y' "${cfg}"
+          grep -Fxq 'CONFIG_REBOOT=y' "${cfg}"
           grep -Fxq 'CONFIG_FLASH_LOAD_OFFSET=0x26000' "${cfg}"
           grep -Fxq 'CONFIG_USB_CDC_ACM=y' "${cfg}"
           grep -Fxq 'CONFIG_DISPLAY=y' "${cfg}"
@@ -117,12 +128,12 @@ jobs:
           grep -Fq 'width = < 0xf0 >' "${dts}"
           grep -Fq 'height = < 0x87 >' "${dts}"
 
-      - name: Validate current UF2 output
+      - name: Validate current installer-owned UF2 output
         env:
           SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           raw="build/t114-combined-safe/zephyr/zephyr.uf2"
-          output="releases/koalabyte-t114-articulated-mouth-v2-right-landscape-ht-n5262.uf2"
+          output="releases/koalabyte-t114-current.uf2"
           mkdir -p releases
           python3 scripts/inspect_uf2.py "${raw}" | tee releases/uf2-raw-metadata.txt
           python3 scripts/patch_uf2_family.py "${raw}" "${output}" 0x239a0071
@@ -132,6 +143,8 @@ jobs:
             --application-max 0xec000 \
             --family 0x239a0071 | tee releases/vector-validation.txt
           grep -Fq 'Reset handler range valid: true' releases/vector-validation.txt
+          strings build/t114-combined-safe/zephyr/zephyr.elf | grep -Fq 'bootloader_ack'
+          strings build/t114-combined-safe/zephyr/zephyr.elf | grep -Fq 'REBOOT_UF2'
           sha256sum "${output}" | tee releases/SHA256SUMS.txt
           {
             echo "source_commit=${SOURCE_COMMIT}"
@@ -141,17 +154,20 @@ jobs:
             echo "still_frame_cycle=disabled"
             echo "application_offset=0x00026000"
             echo "uf2_family=0x239a0071"
-            echo "installer_owned_flash=false"
+            echo "software_uf2_entry=true"
+            echo "installer_owned_flash=true"
+            echo "canonical_installer=one-shot-install.sh"
+            echo "flash_helper=scripts/flash_t114_current_uf2.sh"
           } > releases/build-provenance.txt
 
       - name: Upload current source-build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: koalabyte-t114-articulated-mouth-v2-right-landscape-ht-n5262
+          name: koalabyte-t114-current-ht-n5262
           if-no-files-found: error
           retention-days: 14
           path: |
-            releases/koalabyte-t114-articulated-mouth-v2-right-landscape-ht-n5262.uf2
+            releases/koalabyte-t114-current.uf2
             releases/uf2-raw-metadata.txt
             releases/SHA256SUMS.txt
             releases/build-provenance.txt
