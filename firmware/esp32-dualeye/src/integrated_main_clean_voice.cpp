@@ -12,11 +12,13 @@
 #define beginUtterance koalaLegacyBeginUtterance
 #define endUtterance koalaLegacyEndUtterance
 #define pollMicrophone koalaLegacyPollMicrophone
+#define pollSerial koalaLegacyPollSerial
 #define setup koalaLegacySetup
 #define loop koalaLegacyLoop
 #include "integrated_main.cpp"
 #undef loop
 #undef setup
+#undef pollSerial
 #undef pollMicrophone
 #undef endUtterance
 #undef beginUtterance
@@ -26,8 +28,13 @@
 
 namespace {
 constexpr uint8_t kVoiceStartConsecutiveFrames = 4;
+constexpr uint8_t kMicProbeBlocks = 8;
+constexpr uint32_t kAudioCodecSettleMs = 550;
 constexpr uint32_t kComplexCaptureWarmupMs = 350;
 constexpr uint32_t kComplexCaptureArmTimeoutMs = 9000;
+constexpr uint32_t kSrRetryMs = 5000;
+constexpr uint32_t kSrHeartbeatMs = 15000;
+constexpr float kMicProbeFloor = 0.00045f;
 
 // MultiNet is intentionally used in command mode as the always-on local phrase
 // detector. This avoids pretending that RMS/VAD is a wake-word detector and does
@@ -55,6 +62,7 @@ enum LocalSrCommand : int {
 static const sr_cmd_t kLocalSpeechCommands[] = {
     {kCmdWake, "Killer Koala"},
     {kCmdWake, "Hey Killer Koala"},
+    {kCmdWake, "Killer Koala wake up"},
 
     {kCmdLocalStatus, "Killer Koala status"},
     {kCmdLocalStatus, "Killer Koala how are you"},
@@ -117,14 +125,25 @@ static const sr_cmd_t kLocalSpeechCommands[] = {
 };
 
 volatile int pendingSrCommand = -1;
+volatile int pendingSrPhrase = -1;
+volatile uint32_t pendingSrTimeoutCount = 0;
 bool srInitAttempted = false;
 bool srReady = false;
 bool srPaused = false;
 bool complexCaptureArmed = false;
 uint32_t complexCaptureArmMs = 0;
 uint32_t srResumeAt = 0;
+uint32_t audioCodecReadyAt = 0;
+uint32_t srNextInitAt = 0;
+uint32_t lastSrHeartbeatAt = 0;
+uint32_t lastAudioWaitStatusAt = 0;
+uint32_t reportedSrTimeoutCount = 0;
 uint8_t cleanVoiceHotFrames = 0;
+uint8_t activeMicChannel = 0;
 uint32_t cleanMicrophoneReadyAt = 0;
+float micProbeLeftRms = 0.0f;
+float micProbeRightRms = 0.0f;
+const char *srInputFormat = "MM";
 
 const char *categoryName(LocalVoiceCategory category) {
   switch (category) {
@@ -139,18 +158,130 @@ const char *categoryName(LocalVoiceCategory category) {
   }
 }
 
+const char *commandName(int commandId) {
+  switch (commandId) {
+    case kCmdWake: return "wake";
+    case kCmdLocalStatus: return "local_status";
+    case kCmdLocalHelp: return "local_help";
+    case kCmdLocalGreeting: return "local_greeting";
+    case kCmdLocalThanks: return "local_thanks";
+    case kCmdLocalBanter: return "local_banter";
+    case kCmdComplexAi: return "complex_ai";
+    case kCmdBluezStatus: return "bluez_status";
+    case kCmdBluezInventory: return "bluez_inventory";
+    case kCmdBluezScan: return "bluez_scan";
+    case kCmdBluezAllSafe: return "bluez_all_safe";
+    case kCmdBluezMonitor: return "bluez_monitor";
+    case kCmdKoalaKapture: return "koala_kapture";
+    case kCmdKoalaKry: return "koala_kry";
+    case kCmdKoalaByteLab: return "koalabyte_lab";
+    case kCmdReport: return "report";
+    case kCmdShutdown: return "shutdown";
+    default: return "unknown";
+  }
+}
+
 void emitLocalVoiceStatus(const char *status, const char *detail = "") {
-  StaticJsonDocument<512> doc;
+  StaticJsonDocument<896> doc;
   doc["type"] = "local_voice_status";
   doc["device"] = "esp32-s3-dualeye";
   doc["status"] = status;
   doc["detail"] = detail;
   doc["recognizer"] = "arduino-esp-sr-multinet-english";
   doc["wake_phrase"] = "killer koala";
+  doc["alternate_wake_phrase"] = "hey killer koala";
+  doc["input_format"] = srInputFormat;
+  doc["active_mic_channel"] = activeMicChannel;
+  doc["probe_left_rms"] = micProbeLeftRms;
+  doc["probe_right_rms"] = micProbeRightRms;
+  doc["sr_ready"] = srReady;
+  doc["sr_timeouts"] = pendingSrTimeoutCount;
+  doc["mic_ready"] = dualEyeMicrophoneReady();
+  doc["speaker_ready"] = dualEyeSpeakerReady();
+  doc["audio_status"] = dualEyeAudioStatus();
   doc["basic_response_owner"] = "esp32-s3";
+  doc["basic_response_speaker"] = "esp32-s3-es8311";
   doc["complex_response_owner"] = "raspberry-pi";
+  doc["complex_response_speaker"] = "raspberry-pi-local-audio";
   doc["ambient_pcm_forwarding"] = false;
+  doc["pi_pcm_to_esp32"] = false;
+  doc["free_heap"] = ESP.getFreeHeap();
   sendPayload(doc);
+}
+
+void calculateStereoRms(const uint8_t *buffer, size_t length, float &left,
+                        float &right) {
+  left = 0.0f;
+  right = 0.0f;
+  if (!buffer || length < 4) return;
+  const int16_t *samples = reinterpret_cast<const int16_t *>(buffer);
+  const size_t frames = length / (sizeof(int16_t) * 2U);
+  if (!frames) return;
+  double leftSum = 0.0;
+  double rightSum = 0.0;
+  for (size_t index = 0; index < frames; ++index) {
+    const float leftSample = samples[index * 2] / 32768.0f;
+    const float rightSample = samples[index * 2 + 1] / 32768.0f;
+    leftSum += leftSample * leftSample;
+    rightSum += rightSample * rightSample;
+  }
+  left = sqrt(leftSum / frames);
+  right = sqrt(rightSum / frames);
+}
+
+bool probeMicrophoneChannels() {
+  double leftSquareSum = 0.0;
+  double rightSquareSum = 0.0;
+  size_t totalFrames = 0;
+
+  for (uint8_t block = 0; block < kMicProbeBlocks; ++block) {
+    const size_t count = dualEyeAudioRead(stereoMic, sizeof(stereoMic));
+    if (count < 4) {
+      delay(20);
+      continue;
+    }
+    const int16_t *samples = reinterpret_cast<const int16_t *>(stereoMic);
+    const size_t frames = count / (sizeof(int16_t) * 2U);
+    for (size_t index = 0; index < frames; ++index) {
+      const float left = samples[index * 2] / 32768.0f;
+      const float right = samples[index * 2 + 1] / 32768.0f;
+      leftSquareSum += left * left;
+      rightSquareSum += right * right;
+    }
+    totalFrames += frames;
+    delay(8);
+  }
+
+  if (!totalFrames) {
+    micProbeLeftRms = 0.0f;
+    micProbeRightRms = 0.0f;
+    srInputFormat = "MM";
+    activeMicChannel = 0;
+    emitLocalVoiceStatus("mic_channel_probe_no_samples",
+                         "ESP-SR will try both stereo slots");
+    return false;
+  }
+
+  micProbeLeftRms = sqrt(leftSquareSum / totalFrames);
+  micProbeRightRms = sqrt(rightSquareSum / totalFrames);
+
+  if (micProbeLeftRms < kMicProbeFloor && micProbeRightRms < kMicProbeFloor) {
+    srInputFormat = "MM";
+    activeMicChannel = micProbeRightRms > micProbeLeftRms ? 1 : 0;
+  } else if (micProbeRightRms > micProbeLeftRms * 1.6f) {
+    srInputFormat = "NM";
+    activeMicChannel = 1;
+  } else if (micProbeLeftRms > micProbeRightRms * 1.6f) {
+    srInputFormat = "MN";
+    activeMicChannel = 0;
+  } else {
+    srInputFormat = "MM";
+    activeMicChannel = micProbeRightRms > micProbeLeftRms ? 1 : 0;
+  }
+
+  emitLocalVoiceStatus("mic_channel_probe_complete",
+                       "adaptive ES7210 channel mapping selected");
+  return true;
 }
 
 void pauseLocalRecognition() {
@@ -180,13 +311,15 @@ bool playLocalResponse(LocalVoiceCategory category, bool resumeAfter = true) {
   const char *selectedText = "";
   const bool played = localVoicePlayResponse(category, &selectedText);
 
-  StaticJsonDocument<640> doc;
+  StaticJsonDocument<768> doc;
   doc["type"] = "local_ai_response";
   doc["device"] = "esp32-s3-dualeye";
   doc["category"] = categoryName(category);
   doc["message"] = selectedText;
   doc["handled_on_device"] = true;
   doc["audio_source"] = "embedded_en_au_mulaw";
+  doc["speaker_owner"] = "esp32-s3";
+  doc["speaker_backend"] = "es8311";
   doc["route_to_pi"] = false;
   doc["played"] = played;
   sendPayload(doc);
@@ -199,7 +332,7 @@ bool playLocalResponse(LocalVoiceCategory category, bool resumeAfter = true) {
 }
 
 void emitPiCommand(const char *commandId, const char *phrase) {
-  StaticJsonDocument<640> doc;
+  StaticJsonDocument<768> doc;
   doc["type"] = "voice_command";
   doc["request_id"] = esp_random();
   doc["phrase"] = phrase;
@@ -210,6 +343,8 @@ void emitPiCommand(const char *commandId, const char *phrase) {
   doc["local_response_handled"] = false;
   doc["route_to_pi"] = true;
   doc["execution_owner"] = "raspberry-pi";
+  doc["response_speaker_owner"] = "raspberry-pi";
+  doc["pi_pcm_to_esp32"] = false;
   sendPayload(doc);
 
   clearOverlay();
@@ -229,7 +364,21 @@ void armComplexCapture() {
                        "next utterance routes to Raspberry Pi STT and LLM");
 }
 
-void processLocalCommand(int commandId) {
+void emitDetectedCommand(int commandId, int phraseId) {
+  StaticJsonDocument<640> doc;
+  doc["type"] = "local_voice_detected";
+  doc["device"] = "esp32-s3-dualeye";
+  doc["command_id"] = commandId;
+  doc["command"] = commandName(commandId);
+  doc["phrase_id"] = phraseId;
+  doc["input_format"] = srInputFormat;
+  doc["active_mic_channel"] = activeMicChannel;
+  doc["handled_on_device"] = commandId <= kCmdLocalBanter;
+  sendPayload(doc);
+}
+
+void processLocalCommand(int commandId, int phraseId) {
+  emitDetectedCommand(commandId, phraseId);
   switch (commandId) {
     case kCmdWake:
       playLocalResponse(LocalVoiceCategory::Wake);
@@ -292,16 +441,18 @@ void processLocalCommand(int commandId) {
 }
 
 void onSrEvent(sr_event_t event, int commandId, int phraseId) {
-  (void)phraseId;
   switch (event) {
     case SR_EVENT_WAKEWORD:
     case SR_EVENT_WAKEWORD_CHANNEL:
+      pendingSrPhrase = phraseId;
       pendingSrCommand = kCmdWake;
       break;
     case SR_EVENT_COMMAND:
+      pendingSrPhrase = phraseId;
       pendingSrCommand = commandId;
       break;
     case SR_EVENT_TIMEOUT:
+      ++pendingSrTimeoutCount;
       ESP_SR.setMode(SR_MODE_COMMAND);
       break;
     default:
@@ -310,21 +461,43 @@ void onSrEvent(sr_event_t event, int commandId, int phraseId) {
 }
 
 void setupLocalRecognition() {
-  if (srInitAttempted || !dualEyeMicrophoneReady() || !dualEyeSpeakerReady()) {
+  const uint32_t now = millis();
+  if (srReady || now < srNextInitAt) return;
+
+  if (!dualEyeMicrophoneReady()) {
+    if (now - lastAudioWaitStatusAt >= 5000) {
+      lastAudioWaitStatusAt = now;
+      emitLocalVoiceStatus("waiting_for_es7210_microphone",
+                           "local recognition has not started");
+    }
     return;
   }
+
+  if (!audioCodecReadyAt) {
+    audioCodecReadyAt = now;
+    emitLocalVoiceStatus("es7210_settling",
+                         "waiting before ESP-SR channel probe");
+    return;
+  }
+  if (now - audioCodecReadyAt < kAudioCodecSettleMs) return;
+
   srInitAttempted = true;
+  probeMicrophoneChannels();
   ESP_SR.onEvent(onSrEvent);
   srReady = ESP_SR.begin(
       dualEyeAudioBus(), kLocalSpeechCommands,
       sizeof(kLocalSpeechCommands) / sizeof(kLocalSpeechCommands[0]),
-      SR_CHANNELS_STEREO, SR_MODE_COMMAND, "MN");
+      SR_CHANNELS_STEREO, SR_MODE_COMMAND, srInputFormat);
   if (srReady) {
-    emitLocalVoiceStatus("local_multinet_ready",
-                         "basic responses stay local; fixed actions and complex AI route to Pi");
+    lastSrHeartbeatAt = now;
+    emitLocalVoiceStatus(
+        "local_multinet_ready",
+        "say Killer Koala slowly and clearly; basic replies stay on the ESP32");
   } else {
-    emitLocalVoiceStatus("local_multinet_failed",
-                         "check ESP-SR model partition and srmodels.bin");
+    srNextInitAt = now + kSrRetryMs;
+    emitLocalVoiceStatus(
+        "local_multinet_failed",
+        "retry scheduled; check model partition, microphone and free heap");
   }
 }
 
@@ -332,9 +505,10 @@ void serviceLocalRecognition() {
   setupLocalRecognition();
   if (!srReady) return;
 
+  const uint32_t now = millis();
   if (dualEyeAudioBusy()) {
     pauseLocalRecognition();
-  } else if (srResumeAt && static_cast<int32_t>(millis() - srResumeAt) >= 0) {
+  } else if (srResumeAt && static_cast<int32_t>(now - srResumeAt) >= 0) {
     srResumeAt = 0;
     resumeLocalRecognition();
   } else if (!complexCaptureArmed) {
@@ -343,8 +517,24 @@ void serviceLocalRecognition() {
 
   const int command = pendingSrCommand;
   if (command >= 0) {
+    const int phrase = pendingSrPhrase;
     pendingSrCommand = -1;
-    processLocalCommand(command);
+    pendingSrPhrase = -1;
+    processLocalCommand(command, phrase);
+  }
+
+  if (reportedSrTimeoutCount != pendingSrTimeoutCount) {
+    reportedSrTimeoutCount = pendingSrTimeoutCount;
+    if (reportedSrTimeoutCount <= 2 || reportedSrTimeoutCount % 10 == 0) {
+      emitLocalVoiceStatus("local_multinet_rearmed_after_timeout",
+                           "recognizer remains in always-on command mode");
+    }
+  }
+
+  if (now - lastSrHeartbeatAt >= kSrHeartbeatMs) {
+    lastSrHeartbeatAt = now;
+    emitLocalVoiceStatus("local_multinet_listening",
+                         "wake and basic command recognition active");
   }
 }
 
@@ -355,15 +545,17 @@ void cleanBeginUtterance(float rms) {
   utteranceSequence = 0;
   utteranceStartMs = lastSpeechMs = millis();
 
-  StaticJsonDocument<512> doc;
+  StaticJsonDocument<640> doc;
   doc["type"] = "audio_utterance_start";
   doc["request_id"] = utteranceId;
   doc["sample_rate"] = AUDIO_INPUT_SAMPLE_RATE;
   doc["channels"] = 1;
   doc["sample_width"] = 2;
   doc["rms"] = rms;
+  doc["source_channel"] = activeMicChannel;
   doc["menu_was_visible"] = menuWasVisibleBeforeUtterance;
   doc["execution_owner"] = "raspberry-pi";
+  doc["response_speaker_owner"] = "raspberry-pi";
   doc["wake_already_confirmed"] = true;
   doc["phrase_prefix"] = "killerkoala";
   doc["capture_purpose"] = "complex_ai";
@@ -374,7 +566,7 @@ void cleanBeginUtterance(float rms) {
 
 void cleanEndUtterance(const char *reason) {
   if (!utteranceActive) return;
-  StaticJsonDocument<384> doc;
+  StaticJsonDocument<448> doc;
   doc["type"] = "audio_utterance_end";
   doc["request_id"] = utteranceId;
   doc["chunks"] = utteranceSequence;
@@ -382,6 +574,7 @@ void cleanEndUtterance(const char *reason) {
   doc["menu_was_visible"] = menuWasVisibleBeforeUtterance;
   doc["wake_already_confirmed"] = true;
   doc["capture_purpose"] = "complex_ai";
+  doc["response_speaker_owner"] = "raspberry-pi";
   sendPayload(doc);
 
   utteranceActive = false;
@@ -409,16 +602,19 @@ void cleanPollMicrophone() {
     return;
   }
 
-  size_t count = dualEyeAudioRead(stereoMic, sizeof(stereoMic));
+  const size_t count = dualEyeAudioRead(stereoMic, sizeof(stereoMic));
   if (count < 4) return;
   if (millis() - cleanMicrophoneReadyAt < kComplexCaptureWarmupMs) return;
 
-  float rms = dualEyeAudioRms16Stereo(stereoMic, count);
+  float leftRms = 0.0f;
+  float rightRms = 0.0f;
+  calculateStereoRms(stereoMic, count, leftRms, rightRms);
+  const float rms = activeMicChannel ? rightRms : leftRms;
   const int16_t *stereo = reinterpret_cast<const int16_t *>(stereoMic);
   int16_t *mono = reinterpret_cast<int16_t *>(monoMic);
-  size_t frames = min(count / 4, sizeof(monoMic) / 2);
+  const size_t frames = min(count / 4, sizeof(monoMic) / 2);
   for (size_t index = 0; index < frames; ++index) {
-    mono[index] = stereo[index * 2];
+    mono[index] = stereo[index * 2 + activeMicChannel];
   }
 
   if (!utteranceActive) {
@@ -447,6 +643,7 @@ void cleanPollMicrophone() {
     doc["sequence"] = utteranceSequence++;
     doc["pcm_s16le_mono_b64"] = base64Buffer;
     doc["rms"] = rms;
+    doc["source_channel"] = activeMicChannel;
     sendPayload(doc);
   }
 
@@ -454,6 +651,44 @@ void cleanPollMicrophone() {
     cleanEndUtterance("max_duration");
   } else if (millis() - lastSpeechMs >= MIC_UTTERANCE_SILENCE_MS) {
     cleanEndUtterance("silence");
+  }
+}
+
+LocalVoiceCategory categoryFromName(const char *name) {
+  if (!name) return LocalVoiceCategory::Wake;
+  if (!strcmp(name, "status")) return LocalVoiceCategory::Status;
+  if (!strcmp(name, "help")) return LocalVoiceCategory::Help;
+  if (!strcmp(name, "greeting")) return LocalVoiceCategory::Greeting;
+  if (!strcmp(name, "thanks")) return LocalVoiceCategory::Thanks;
+  if (!strcmp(name, "banter")) return LocalVoiceCategory::Banter;
+  if (!strcmp(name, "escalate")) return LocalVoiceCategory::Escalate;
+  return LocalVoiceCategory::Wake;
+}
+
+void pollSerial() {
+  while (Serial.available()) {
+    const char value = static_cast<char>(Serial.read());
+    if (value == '\n') {
+      const String line = serialLine;
+      serialLine = "";
+      StaticJsonDocument<640> doc;
+      if (!deserializeJson(doc, line)) {
+        const char *type = doc["type"] | "";
+        if (!strcmp(type, "local_voice_test")) {
+          playLocalResponse(categoryFromName(doc["category"] | "wake"));
+          continue;
+        }
+        if (!strcmp(type, "local_voice_status_request")) {
+          emitLocalVoiceStatus(srReady ? "local_multinet_listening"
+                                       : "local_multinet_not_ready");
+          continue;
+        }
+      }
+      handleCommand(line);
+    } else if (value != '\r') {
+      serialLine += value;
+      if (serialLine.length() > 12288) serialLine = "";
+    }
   }
 }
 }  // namespace
