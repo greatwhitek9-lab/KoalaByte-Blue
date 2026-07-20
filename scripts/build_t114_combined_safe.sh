@@ -42,6 +42,8 @@ cat > "${STATUS_PATH}" <<JSON
     "esp32-s3-dualeye",
     "raspberry-pi-bluez"
   ],
+  "software_uf2_entry": true,
+  "installer_owned_flash": true,
   "safety": "BLE RX/TX and GNSS can run together; LoRa driver guarded until pin validation.",
   "updated_at": $(date +%s)
 }
@@ -94,7 +96,8 @@ if [[ ! -f "${ELF_PATH}" ]]; then
     exit 1
 fi
 
-# Prove the public lifecycle renderer survived archive linking and section GC.
+# Prove the public lifecycle renderer and software-UF2 deployment path survived
+# archive linking and section garbage collection.
 for marker in \
     action_complete \
     koalagotchi_mode \
@@ -102,10 +105,12 @@ for marker in \
     disappointed \
     angry \
     error_clear \
+    bootloader_ack \
+    REBOOT_UF2 \
     REPEATED\ FAILURES; do
     if ! strings "${ELF_PATH}" | grep -Fq "${marker}"; then
-        write_status "failed" "T114 lifecycle marker missing from linked ELF: ${marker}"
-        echo "Missing linked T114 lifecycle marker: ${marker}" >&2
+        write_status "failed" "T114 lifecycle/deployment marker missing from linked ELF: ${marker}"
+        echo "Missing linked T114 marker: ${marker}" >&2
         exit 1
     fi
 done
@@ -126,12 +131,13 @@ for marker in \
     fi
 done
 
-write_status "built" "T114 firmware built with linked Koalagotchi lifecycle and visibly articulated continuous original-texture mouth renderer."
+write_status "built" "T114 firmware built with linked Koalagotchi lifecycle, software UF2 entry, and articulated original-texture mouth renderer."
 
 echo ""
 echo "======================================"
 echo "Build completed successfully."
 echo "Koalagotchi lifecycle: linked and verified"
+echo "Software UF2 entry: linked and verified"
 echo "Mouth renderer: original texture articulated jaw v2"
 echo "Still-frame cycling: disabled"
 echo "Frame-change diagnostics: linked"
