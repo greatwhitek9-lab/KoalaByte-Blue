@@ -38,6 +38,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install local voice build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y espeak-ng ffmpeg
+
       - name: Install PlatformIO
         run: python -m pip install --upgrade pip platformio
 
@@ -53,7 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           build="firmware/esp32-dualeye/.pio/build/esp32s3_dualeye"
-          package="releases/koalabyte-esp32-s3-dualeye-v0.9.2-clean-voice"
+          package="releases/koalabyte-esp32-s3-dualeye-v0.9.3-local-ai"
           mkdir -p "${package}"
 
           boot_app0="$(find "${HOME}/.platformio/packages/framework-arduinoespressif32" -path '*/tools/partitions/boot_app0.bin' -print -quit)"
@@ -61,10 +66,12 @@ jobs:
           test -f "${build}/bootloader.bin"
           test -f "${build}/partitions.bin"
           test -f "${build}/firmware.bin"
+          test -f "${build}/srmodels.bin"
 
           cp "${build}/bootloader.bin" "${package}/bootloader.bin"
           cp "${build}/partitions.bin" "${package}/partitions.bin"
           cp "${build}/firmware.bin" "${package}/firmware.bin"
+          cp "${build}/srmodels.bin" "${package}/srmodels.bin"
           cp "${boot_app0}" "${package}/boot_app0.bin"
           cp releases/esp32-dualeye-platformio.log "${package}/build.log"
 
@@ -78,17 +85,23 @@ jobs:
               (0x8000, package / "partitions.bin"),
               (0xE000, package / "boot_app0.bin"),
               (0x10000, package / "firmware.bin"),
+              (0xD10000, package / "srmodels.bin"),
           ]
           payloads = [(offset, path.read_bytes()) for offset, path in parts]
+          model_size = len((package / "srmodels.bin").read_bytes())
+          if model_size > 0x2E0000:
+              raise SystemExit(f"ESP-SR model is too large for model partition: {model_size}")
           end = max(offset + len(payload) for offset, payload in payloads)
+          if end > 0x1000000:
+              raise SystemExit(f"Combined image exceeds 16 MB flash: {end}")
           image = bytearray(b"\xFF" * end)
           for offset, payload in payloads:
               image[offset:offset + len(payload)] = payload
-          output = package / "koalabyte-esp32-s3-dualeye-v0.9.2-clean-voice-full-flash.bin"
+          output = package / "koalabyte-esp32-s3-dualeye-v0.9.3-local-ai-full-flash.bin"
           output.write_bytes(image)
           for offset, payload in payloads:
               assert image[offset:offset + len(payload)] == payload
-          print(f"Created {output} ({len(image)} bytes)")
+          print(f"Created {output} ({len(image)} bytes); ESP-SR model={model_size} bytes")
           PY
 
           cat > "${package}/flash-esp32-dualeye-menu-voice-sync.ps1" <<'POWERSHELL'
@@ -100,7 +113,7 @@ jobs:
           )
 
           $ErrorActionPreference = "Stop"
-          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.9.2-clean-voice-full-flash.bin"
+          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.9.3-local-ai-full-flash.bin"
           if (-not (Test-Path $Image)) { throw "Firmware image not found: $Image" }
 
           py -m pip install --user "esptool==4.11.0"
@@ -120,40 +133,38 @@ jobs:
           py -m esptool --chip esp32s3 --port $Port verify_flash 0x0 $Image
           if ($LASTEXITCODE -ne 0) { throw "Firmware verification failed." }
 
-          Write-Host "DualEye v0.9.2 flash and verification complete. Press RESET once."
+          Write-Host "DualEye v0.9.3 local-AI flash and verification complete. Press RESET once."
           POWERSHELL
 
           cat > "${package}/README-FLASH.txt" <<'README'
-          KoalaByte Blue ESP32-S3 DualEye v0.9.2 clean voice firmware
+          KoalaByte Blue ESP32-S3 DualEye v0.9.3 local-AI firmware
 
           Exact hardware target:
             Waveshare ESP32-S3 DualEye 1.28-inch non-touch variant
             Both GC9A01A round LCD panels are enabled on the official shared SPI bus
-            LCD2 remains the authoritative right-eye menu and critical-status display
+            LCD2 is the authoritative right-eye menu and critical-status display
             LCD1 provides the left-eye action/context display
-            Missing-LCD1 fallback remains in the firmware architecture
             No touch controller or touch panel is expected
 
-          Clean idle and voice behavior:
-            - cyberpunk koala eyes begin animating after the boot image
+          Local-first voice behavior:
+            - Killer Koala and Hey Killer Koala are recognized locally by ESP-SR/MultiNet
+            - wake acknowledgements are embedded in the ESP32 firmware and play locally
+            - status, help, greetings, thanks and short repetitive banter stay on the ESP32
+            - the local Australian response bank rotates clips to reduce immediate repeats
+            - fixed menu/submenu phrases are recognized locally and sent as command IDs to the Pi
+            - say Killer Koala ask the AI before an open-ended or complex question
+            - only that explicitly escalated follow-up utterance is sent to Pi STT/LLM
+            - ambient microphone audio is never forwarded to the Pi
             - raw microphone activity never draws AUDIO/MIC text or status borders
-            - raw microphone activity never plays a local beep
-            - four consecutive voice-level frames are required before PCM capture starts
-            - microphone startup transients are ignored during a warmup window
-            - only confirmed Pi wake/action/speaking states alter the eye expression
-            - the complete menu still replaces the eyes while the menu is open
-            - errors preserve the eyes and flash the purple/green siren state
+            - raw microphone activity never plays a beep
 
-          Integrated nodes and audio:
+          Execution and BLE topology:
+            - Raspberry Pi owns menu/submenu execution and complex LLM responses
+            - Raspberry Pi does not generate startup or wake acknowledgements
             - ESP32 Bluetooth remains disabled to prevent the observed controller-startup panic
             - Heltec T114 remains the primary BLE controller
-            - Raspberry Pi is the BLE node/peer controlled by the Heltec
+            - Raspberry Pi remains the Heltec BLE node/peer
             - ESP32 uses Wi-Fi/UDP with USB CDC provisioning and runtime fallback
-            - ES7210 microphone capture is sent to the Raspberry Pi for wake-word/STT routing
-            - ES8311 speaker playback receives Australian-male response PCM from the Pi
-            - Pi startup speech rotates through the older KillerKoala vocabulary boot bank
-            - the vocabulary engine retains rank-aware phrasing and anti-repeat history
-            - accepted wake phrases: killerkoala and hey killerkoala
 
           Windows flash command from this folder:
             powershell -ExecutionPolicy Bypass -File .\flash-esp32-dualeye-menu-voice-sync.ps1 -Port COM9
@@ -179,8 +190,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: koalabyte-esp32-s3-dualeye-v0.9.2-clean-voice
+          name: koalabyte-esp32-s3-dualeye-v0.9.3-local-ai
           path: |
-            releases/koalabyte-esp32-s3-dualeye-v0.9.2-clean-voice/**
+            releases/koalabyte-esp32-s3-dualeye-v0.9.3-local-ai/**
             releases/esp32-dualeye-platformio.log
           if-no-files-found: error
