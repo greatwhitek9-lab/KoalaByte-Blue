@@ -31,6 +31,7 @@ jobs:
           echo "bootstrap=$(git rev-parse HEAD:install.sh)"
           echo "headless_menu=$(git rev-parse HEAD:scripts/run_headless_menu.py)"
           echo "gpio=$(git rev-parse HEAD:pi-companion/koalablue/gpio_buttons.py)"
+          echo "power=$(git rev-parse HEAD:scripts/install_power_controls.sh)"
           echo "udev=$(git rev-parse HEAD:udev/99-koalabyte-blue.rules)"
 
       - name: Validate canonical shell helpers
@@ -40,6 +41,7 @@ jobs:
           bash -n scripts/check_deployability.sh
           bash -n scripts/setup_pi_hardware_stage.sh
           bash -n scripts/setup_system_packages.sh
+          bash -n scripts/install_power_controls.sh
           bash -n scripts/install_koalabyte_udev_rules.sh
           bash -n scripts/install_koalabyte_boot_services.sh
           bash -n scripts/install_ble_node_manager_service.sh
@@ -62,14 +64,15 @@ jobs:
           PYTHONPATH=pi-companion python scripts/check_killerkoala_ai.py
           PYTHONPATH=pi-companion python scripts/check_full_runtime_dependencies.py
 
-      - name: Validate headless service and staged hardware check
+      - name: Validate headless services, power controls, and hardware stage
         run: |
+          KOALABYTE_SERVICE_USER="$(id -un)" bash scripts/install_power_controls.sh --check-only
           bash scripts/install_koalabyte_boot_services.sh --check-only
           bash scripts/setup_pi_hardware_stage.sh --check-only
 
       - name: Validate final one-shot and deployability
         run: |
-          bash one-shot-install.sh --check-only
+          KOALABYTE_SERVICE_USER="$(id -un)" bash one-shot-install.sh --check-only
           bash scripts/check_deployability.sh
 
   esp32-firmware-source-build:
