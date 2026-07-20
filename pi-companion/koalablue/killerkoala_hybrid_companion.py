@@ -14,11 +14,13 @@ from .dualeye_tts import sanitize_spoken_identity
 from .killerkoala_vocabulary import line_for_event, rank_for_xp
 
 DEFAULT_TRACE_DIR = Path("logs/killerkoala")
+DEFAULT_CONVERSATION_HISTORY_PATH = DEFAULT_TRACE_DIR / "conversation_history.json"
 DEFAULT_OLLAMA_HOST = "http://127.0.0.1:11434"
 DEFAULT_MODEL = "killerkoala-tinyllama:latest"
 DEFAULT_TIMEOUT_SECONDS = 45.0
-DEFAULT_NUM_PREDICT = 96
-DEFAULT_MAX_RESPONSE_CHARS = 420
+DEFAULT_NUM_PREDICT = 128
+DEFAULT_MAX_RESPONSE_CHARS = 520
+DEFAULT_DIALOGUE_TURNS = 4
 
 
 @dataclass(frozen=True)
@@ -29,6 +31,7 @@ class KillerKoalaLLMConfig:
     timeout_seconds: float
     num_predict: int
     max_response_chars: int
+    dialogue_turns: int
     lora_expected: bool
     lora_training_doc: str
     modelfile_path: str
@@ -46,6 +49,8 @@ class KillerKoalaCompanionResponse:
     llm_used: bool
     llm_requested: bool
     fallback_reason: str
+    conversation_turns_used: int
+    conversation_history_path: str
     web_searched: bool
     web_available: bool
     web_provider: str
@@ -63,6 +68,7 @@ def load_config() -> KillerKoalaLLMConfig:
         timeout_seconds=float(os.getenv("KILLERKOALA_LLM_TIMEOUT_SECONDS", str(DEFAULT_TIMEOUT_SECONDS))),
         num_predict=int(os.getenv("KILLERKOALA_LLM_NUM_PREDICT", str(DEFAULT_NUM_PREDICT))),
         max_response_chars=int(os.getenv("KILLERKOALA_LLM_MAX_CHARS", str(DEFAULT_MAX_RESPONSE_CHARS))),
+        dialogue_turns=max(0, int(os.getenv("KILLERKOALA_DIALOGUE_TURNS", str(DEFAULT_DIALOGUE_TURNS)))),
         lora_expected=os.getenv("KILLERKOALA_LLM_LORA_EXPECTED", "1").strip() not in {"0", "false", "False", "no"},
         lora_training_doc="docs/KILLERKOALA_LORA_TRAINING.md",
         modelfile_path="training/killerkoala_lora/Modelfile.killerkoala-tinyllama",
@@ -73,22 +79,82 @@ def _safe_context_summary(context: Optional[Mapping[str, Any]]) -> str:
     if not context:
         return ""
     allowed: Dict[str, Any] = {}
-    for key in ("module", "module_title", "status", "rank_before", "rank_after", "xp_reward", "error"):
+    for key in (
+        "module",
+        "module_title",
+        "status",
+        "rank_before",
+        "rank_after",
+        "xp_reward",
+        "error",
+        "local_router",
+        "escalation_reason",
+    ):
         if key in context:
             allowed[key] = context[key]
     text = json.dumps(allowed, sort_keys=True) if allowed else ""
-    return text[:500]
+    return text[:700]
+
+
+def _history_path() -> Path:
+    configured = os.getenv("KILLERKOALA_CONVERSATION_HISTORY_PATH", "").strip()
+    return Path(configured) if configured else DEFAULT_CONVERSATION_HISTORY_PATH
+
+
+def _load_conversation(path: Path, turns: int) -> list[dict[str, str]]:
+    if turns <= 0 or not path.exists():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        rows = payload.get("turns", []) if isinstance(payload, dict) else payload
+        clean: list[dict[str, str]] = []
+        if isinstance(rows, list):
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                user = " ".join(str(row.get("user", "")).split())[:500]
+                assistant = " ".join(str(row.get("assistant", "")).split())[:700]
+                if user or assistant:
+                    clean.append({"user": user, "assistant": assistant})
+        return clean[-turns:]
+    except Exception:
+        return []
+
+
+def _save_conversation(path: Path, history: list[dict[str, str]], user_text: str, assistant_text: str) -> None:
+    user = " ".join(str(user_text or "").split())[:500]
+    assistant = " ".join(str(assistant_text or "").split())[:700]
+    if not user and not assistant:
+        return
+    rows = list(history)
+    rows.append({"user": user, "assistant": assistant, "timestamp": str(time.time())})
+    rows = rows[-12:]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"turns": rows}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _format_conversation(history: list[dict[str, str]]) -> str:
+    if not history:
+        return "No prior dialogue context."
+    blocks: list[str] = []
+    for index, row in enumerate(history, 1):
+        blocks.append(
+            f"Turn {index} user: {row.get('user', '')}\n"
+            f"Turn {index} KillerKoala: {row.get('assistant', '')}"
+        )
+    return "\n".join(blocks)[:3600]
 
 
 def _system_prompt() -> str:
     return (
-        "You are KillerKoala, the KoalaByte Blue local AI cyberpet companion running on a Raspberry Pi. "
-        "Your identity and spoken name are always KillerKoala. "
-        "William is only the hidden Australian text-to-speech voice backend; never call yourself William. "
-        "Voice: gruff, cheeky, cyberpunk, Australian slang and colloquialism, but useful. "
-        "For factual questions, use supplied research evidence, distinguish verified facts from uncertainty, "
-        "and never invent current information. Do not claim to have searched unless research evidence is supplied. "
-        "Keep replies concise, natural, safety-minded, and suitable for speech. Do not mention that you are an LLM."
+        "You are KillerKoala, the KoalaByte Blue local conversational cyberpet running on a Raspberry Pi. "
+        "Your identity and spoken name are always KillerKoala. William is only the hidden Australian male "
+        "text-to-speech backend; never call yourself William. Speak with a gruff, cheeky, cyberpunk Australian "
+        "attitude: dry, practical, confident, and conversational rather than robotic. Remember the immediate "
+        "dialogue context, answer follow-ups coherently, vary openings, and avoid repeating catchphrases. "
+        "Use Australian slang lightly so clarity comes first. For factual questions, use supplied research evidence, "
+        "distinguish verified facts from uncertainty, and never invent current information. Do not claim to have "
+        "searched unless research evidence is supplied. Keep replies suitable for speech and do not mention that you are an LLM."
     )
 
 
@@ -100,44 +166,54 @@ def _build_prompt(
     user_text: str = "",
     context: Optional[Mapping[str, Any]] = None,
     web_context: str = "",
+    conversation: Optional[list[dict[str, str]]] = None,
 ) -> str:
     context_summary = _safe_context_summary(context)
+    dialogue = _format_conversation(conversation or [])
     if event == "inquiry_question":
         evidence = web_context or "No web evidence was available. Answer only from stable local knowledge and state when current facts cannot be verified."
-        return f"""Answer the user's question as KillerKoala.
+        return f"""Continue the conversation and answer the user's question as KillerKoala.
 
-User question: {user_text[:500]}
+Recent dialogue:
+{dialogue}
+
+Current user question: {user_text[:600]}
+Safe runtime context: {context_summary}
 Research evidence:
 {evidence[:6000]}
 
 Requirements:
-- answer the question directly
-- use the research evidence when present
+- answer the current question directly and account for follow-up context
+- use research evidence when present
 - do not fabricate names, dates, prices, scores, office holders, versions, or current events
 - if evidence is missing or conflicting, say what cannot be verified
 - do not read URLs aloud
-- one spoken response, normally under 70 words
-- Australian flavor without obscuring the answer
+- normally use 30 to 90 spoken words, but answer fully when more detail is required
+- use a gruff cyberpunk Australian attitude without becoming hostile or unclear
+- vary wording and avoid repeating the same intro or catchphrase
 - identify only as KillerKoala; never say your name is William
-- no Markdown list
+- no Markdown list unless the user explicitly asks for one
 """
-    return f"""Rewrite or extend the fallback companion line into one fresh KillerKoala response.
+    return f"""Continue the conversation as KillerKoala and produce one fresh spoken response.
+
+Recent dialogue:
+{dialogue}
 
 Event: {event}
 XP: {xp}
 Rank: {rank}
-User phrase: {user_text[:180]}
-Safe context: {context_summary}
+Current user phrase: {user_text[:400]}
+Safe runtime context: {context_summary}
 Fallback line: {phrase_engine_text}
 
 Requirements:
-- one response only
-- under 40 words
-- Australian slang or colloquial flavor
-- gruff cyberpunk attitude
-- safe lab-oriented wording
+- respond naturally to the current phrase and recent dialogue
+- normally stay under 60 words
+- use a gruff, cheeky cyberpunk Australian attitude
+- be practical, conversational, and non-repetitive
+- use safe lab-oriented wording where relevant
 - identify only as KillerKoala; never say your name is William
-- no Markdown list
+- no Markdown list unless requested
 """
 
 
@@ -157,8 +233,9 @@ def _ollama_generate(config: KillerKoalaLLMConfig, prompt: str) -> str:
         "stream": False,
         "options": {
             "num_predict": config.num_predict,
-            "temperature": 0.55,
+            "temperature": 0.72,
             "top_p": 0.9,
+            "repeat_penalty": 1.12,
             "num_ctx": 2048,
         },
     }
@@ -198,6 +275,8 @@ def companion_response(
     phrase_text, selected_event = _fallback_line(event, xp, history_path)
     rank = rank_for_xp(xp)
     llm_requested = should_try_llm(selected_event, flexible, config)
+    conversation_path = _history_path()
+    conversation = _load_conversation(conversation_path, config.dialogue_turns)
 
     source = "phrase_engine"
     text = phrase_text
@@ -236,6 +315,7 @@ def companion_response(
                 user_text=user_text,
                 context=context,
                 web_context=web_context,
+                conversation=conversation,
             )
             candidate = _clean_llm_text(_ollama_generate(config, prompt), config.max_response_chars)
             if candidate:
@@ -245,7 +325,7 @@ def companion_response(
                 elif selected_event == "inquiry_question" and web_searched and not web_available:
                     source = "tinyllama_offline"
                 else:
-                    source = "tinyllama_local"
+                    source = "tinyllama_local_conversation"
                 llm_used = True
             else:
                 fallback_reason = "TinyLlama returned an empty response"
@@ -255,6 +335,12 @@ def companion_response(
             source = "phrase_engine_fallback"
 
     text = sanitize_spoken_identity(text)
+    if llm_used and user_text:
+        try:
+            _save_conversation(conversation_path, conversation, user_text, text)
+        except Exception:
+            pass
+
     response = KillerKoalaCompanionResponse(
         event=selected_event,
         xp=xp,
@@ -266,6 +352,8 @@ def companion_response(
         llm_used=llm_used,
         llm_requested=llm_requested,
         fallback_reason=fallback_reason,
+        conversation_turns_used=len(conversation),
+        conversation_history_path=str(conversation_path),
         web_searched=web_searched,
         web_available=web_available,
         web_provider=web_provider,
@@ -287,7 +375,7 @@ def companion_response(
 
 
 def run_cli() -> int:
-    parser = argparse.ArgumentParser(description="KillerKoala TinyLlama-first local companion preview")
+    parser = argparse.ArgumentParser(description="KillerKoala TinyLlama conversational companion preview")
     parser.add_argument("event", nargs="?", default="status")
     parser.add_argument("--xp", type=int, default=0)
     parser.add_argument("--text", default="", help="Optional user phrase or question")
