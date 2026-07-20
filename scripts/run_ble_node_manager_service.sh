@@ -27,7 +27,11 @@ ESP="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-}}"
 mkdir -p "${ROOT}/logs/ble_nodes"
 
 args=("${ROOT}/scripts/run_ble_node_manager.py" --duration 0 --primary-port "${PRIMARY_PORT}" --log-dir "${ROOT}/logs/ble_nodes")
-if [[ -n "${ESP}" ]]; then
+
+# The DualEye voice bridge owns the ESP32 serial port in production and performs
+# Pi/ESP32 BLE role election over that connection. Direct ownership here remains
+# available only for explicit manual diagnostics.
+if [[ "${KOALABYTE_BLE_MANAGER_OWNS_ESP32:-0}" == "1" && -n "${ESP}" ]]; then
   args+=(--esp32-port "${ESP}")
 fi
 if [[ "${KOALABYTE_PI_BLUEZ_NODE:-1}" == "0" ]]; then
