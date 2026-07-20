@@ -88,11 +88,35 @@ west build --no-sysbuild \
     -DBOARD_ROOT="${BOARD_ROOT}" \
     -DKOALABYTE_GNSS_UART_LABEL="${T114_GNSS_UART_LABEL}"
 
-write_status "built" "T114 combined-safe firmware build completed."
+ELF_PATH="${BUILD_DIR}/zephyr/zephyr.elf"
+if [[ ! -f "${ELF_PATH}" ]]; then
+    write_status "failed" "T114 ELF is missing after west build."
+    exit 1
+fi
+
+# Prove the public lifecycle renderer survived archive linking and section GC.
+# These state strings are referenced by the live render_killerkoala_mouth path.
+for marker in \
+    action_complete \
+    koalagotchi_mode \
+    koalagotchi_exit \
+    disappointed \
+    angry \
+    error_clear \
+    REPEATED\ FAILURES; do
+    if ! strings "${ELF_PATH}" | grep -Fq "${marker}"; then
+        write_status "failed" "T114 lifecycle marker missing from linked ELF: ${marker}"
+        echo "Missing linked T114 lifecycle marker: ${marker}" >&2
+        exit 1
+    fi
+done
+
+write_status "built" "T114 combined-safe firmware build completed with linked Koalagotchi lifecycle state machine."
 
 echo ""
 echo "======================================"
 echo "Build completed successfully."
+echo "Lifecycle state machine: linked and verified"
 echo "Output directory:"
 echo "  ${BUILD_DIR}"
 echo "======================================"
