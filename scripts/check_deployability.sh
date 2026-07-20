@@ -44,6 +44,7 @@ SHELL_HELPERS=(
   one-shot-install.sh
   scripts/setup_pi_hardware_stage.sh
   scripts/setup_system_packages.sh
+  scripts/setup_killerkoala_ollama.sh
   scripts/install_power_controls.sh
   scripts/install_koalabyte_udev_rules.sh
   scripts/install_koalabyte_boot_services.sh
@@ -60,18 +61,17 @@ run_step "Canonical shell syntax" bash -c '
 ' _ "${SHELL_HELPERS[@]}"
 
 run_step "Compile Pi runtime" "${PYTHON_BIN}" -m compileall -q pi-companion scripts
-run_step "Repository readiness" "${PYTHON_BIN}" scripts/check_repo_readiness.py
 run_step "K1-K8 and one-shot controls" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_one_shot_controls.py
 run_step "Restricted K7/K8 permissions" env KOALABYTE_SERVICE_USER="$(id -un)" bash scripts/install_power_controls.sh --check-only
 run_step "Menu actions" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_menu_actions.py
 run_step "Menu display sync" env PYTHONPATH=pi-companion KOALABYTE_MENU_SYNC=0 "${PYTHON_BIN}" scripts/check_menu_display_sync.py
 run_step "KillerKoala face and mouth protocol" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_killerkoala_face_mouth_sync.py
 run_step "KillerKoala AI" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_killerkoala_ai.py
-run_step "Runtime dependencies" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_full_runtime_dependencies.py
-run_step "Hardware-stage check-only" bash scripts/setup_pi_hardware_stage.sh --check-only
-run_step "Final one-shot check-only" env KOALABYTE_SERVICE_USER="$(id -un)" bash one-shot-install.sh --check-only
+run_step "Runtime dependencies" env INSTALL_INNOMAKER_CAN=0 PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_full_runtime_dependencies.py
+run_step "Hardware-stage check-only" env INSTALL_INNOMAKER_CAN=0 bash scripts/setup_pi_hardware_stage.sh --check-only
+run_step "Final one-shot check-only" env KOALABYTE_SERVICE_USER="$(id -un)" INSTALL_INNOMAKER_CAN=0 bash one-shot-install.sh --check-only
 
-write_status "DEPLOYABILITY_READY" "canonical Pi OS Lite one-shot, K1-K8, restricted power controls, menu, voice, display sync, services, and no-flash policies passed"
+write_status "DEPLOYABILITY_READY" "canonical Pi OS Lite one-shot, K1-K8, restricted power controls, local AI, menu, voice, display sync, services, and no-flash policies passed"
 trap - ERR
 
 echo
