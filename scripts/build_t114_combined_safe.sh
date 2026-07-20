@@ -95,7 +95,6 @@ if [[ ! -f "${ELF_PATH}" ]]; then
 fi
 
 # Prove the public lifecycle renderer survived archive linking and section GC.
-# These state strings are referenced by the live render_killerkoala_mouth path.
 for marker in \
     action_complete \
     koalagotchi_mode \
@@ -111,12 +110,27 @@ for marker in \
     fi
 done
 
-write_status "built" "T114 combined-safe firmware build completed with linked Koalagotchi lifecycle state machine."
+# Prove the original-art renderer—not the discarded procedural replacement—is
+# the live mouth path in the linked image.
+for marker in \
+    original_texture_continuous_warp \
+    still_frame_cycle \
+    original_killerkoala_smile; do
+    if ! strings "${ELF_PATH}" | grep -Fq "${marker}"; then
+        write_status "failed" "T114 original texture renderer marker missing from linked ELF: ${marker}"
+        echo "Missing linked original texture renderer marker: ${marker}" >&2
+        exit 1
+    fi
+done
+
+write_status "built" "T114 firmware built with linked Koalagotchi lifecycle and continuous original-texture mouth renderer."
 
 echo ""
 echo "======================================"
 echo "Build completed successfully."
-echo "Lifecycle state machine: linked and verified"
+echo "Koalagotchi lifecycle: linked and verified"
+echo "Mouth renderer: original texture continuous warp"
+echo "Still-frame cycling: disabled"
 echo "Output directory:"
 echo "  ${BUILD_DIR}"
 echo "======================================"
