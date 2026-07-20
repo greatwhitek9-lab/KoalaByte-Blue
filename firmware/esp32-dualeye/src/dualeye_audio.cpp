@@ -7,6 +7,8 @@
 #include "config.h"
 
 namespace {
+constexpr int kSpeakerVolume = 56;
+constexpr int8_t kInputDigitalGainDb = 16;
 I2SClass audioBus;
 es8311_handle_t outputCodec = nullptr;
 es7210_dev_handle_t inputCodec = nullptr;
@@ -70,8 +72,7 @@ bool dualEyeAudioBegin() {
     clockConfig.sample_frequency = AUDIO_OUTPUT_SAMPLE_RATE;
     if (es8311_init(outputCodec, &clockConfig, ES8311_RESOLUTION_16,
                     ES8311_RESOLUTION_16) == ESP_OK &&
-        es8311_voice_volume_set(outputCodec, AUDIO_OUTPUT_VOLUME, nullptr) ==
-            ESP_OK &&
+        es8311_voice_volume_set(outputCodec, kSpeakerVolume, nullptr) == ESP_OK &&
         es8311_microphone_config(outputCodec, false) == ESP_OK) {
       es8311_voice_mute(outputCodec, true);
       speakerReady = true;
@@ -93,7 +94,7 @@ bool dualEyeAudioBegin() {
     inputConfig.mic_gain = ES7210_MIC_GAIN_36DB;
     inputConfig.flags.tdm_enable = true;
     if (es7210_config_codec(inputCodec, &inputConfig) == ESP_OK &&
-        es7210_config_volume(inputCodec, AUDIO_INPUT_DIGITAL_GAIN_DB) == ESP_OK) {
+        es7210_config_volume(inputCodec, kInputDigitalGainDb) == ESP_OK) {
       micReady = true;
     }
   }
