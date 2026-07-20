@@ -25,7 +25,7 @@ BUTTONS = {
     "K4": {"number": 4, "pin": 19, "physical_pin": 35, "label": "Move Right / Forward", "command": "move_right"},
     "K5": {"number": 5, "pin": 26, "physical_pin": 37, "label": "Up", "command": "up"},
     "K6": {"number": 6, "pin": 21, "physical_pin": 40, "label": "Down", "command": "down"},
-    "K7": {"number": 7, "pin": 20, "physical_pin": 38, "label": "Power On/Off", "command": "power_toggle", "protected_hold_seconds": 2.5},
+    "K7": {"number": 7, "pin": 20, "physical_pin": 38, "label": "Safe Shutdown", "command": "power_toggle", "protected_hold_seconds": 2.5},
     "K8": {"number": 8, "pin": 16, "physical_pin": 36, "label": "Reset / Reboot", "command": "reset", "protected_hold_seconds": 3.0},
 }
 
@@ -136,7 +136,9 @@ def main() -> int:
         "missing_keys": missing,
         "events": events,
         "duration_seconds": round(time.monotonic() - start, 3),
-        "protected_runtime_actions": {"K7": "hold 2.5 seconds", "K8": "hold 3.0 seconds"},
+        "protected_runtime_actions": {"K7": "hold 2.5 seconds for safe shutdown", "K8": "hold 3.0 seconds for safe reboot"},
+        "default_k7_wiring": {"bcm": 20, "physical_pin": 38, "wake_from_halt": False},
+        "optional_k7_wake_wiring": {"bcm": 3, "physical_pin": 5, "requires_matching_runtime_configuration": True},
         "updated_at": time.time(),
     }
     path = Path(args.report)
