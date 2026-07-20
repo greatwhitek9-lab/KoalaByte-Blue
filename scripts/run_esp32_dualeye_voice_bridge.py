@@ -5,7 +5,7 @@ import argparse
 import json
 import time
 
-from koalablue.esp32_dualeye_local_first_bridge import (
+from koalablue.esp32_dualeye_latched_koalagotchi_bridge import (
     ESP32DualEyeVoiceBridge,
     default_esp32_port,
 )
@@ -13,7 +13,7 @@ from koalablue.esp32_dualeye_local_first_bridge import (
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run the local-first ESP32-S3 DualEye voice, execution and audio bridge"
+        description="Run the local-first ESP32-S3 DualEye voice, execution, XP and latched Koalagotchi bridge"
     )
     parser.add_argument("--port", default=default_esp32_port())
     parser.add_argument("--baud", type=int, default=115200)
