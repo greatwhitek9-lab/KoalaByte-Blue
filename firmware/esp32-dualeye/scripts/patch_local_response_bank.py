@@ -38,16 +38,14 @@ replace_once(
     "category-name switch",
 )
 
-replace_once(
-    "playLocalResponse(LocalVoiceCategory::Greeting);",
-    "playLocalResponse(LocalVoiceCategory::Acknowledgement);",
-    "greeting acknowledgement route",
-)
-replace_once(
-    "playLocalResponse(LocalVoiceCategory::Thanks);",
-    "playLocalResponse(LocalVoiceCategory::Acknowledgement);",
-    "thanks acknowledgement route",
-)
+greeting_count = text.count("LocalVoiceCategory::Greeting")
+thanks_count = text.count("LocalVoiceCategory::Thanks")
+if greeting_count < 1 or thanks_count < 1:
+    raise RuntimeError(
+        f"expected acknowledgement aliases, found greeting={greeting_count}, thanks={thanks_count}"
+    )
+text = text.replace("LocalVoiceCategory::Greeting", "LocalVoiceCategory::Acknowledgement")
+text = text.replace("LocalVoiceCategory::Thanks", "LocalVoiceCategory::Acknowledgement")
 
 replace_once(
     """  doc["generated_menu_rows"] = kGeneratedMenuCatalogCount;
@@ -70,10 +68,9 @@ replace_once(
 )
 
 if "LocalVoiceCategory::Greeting" in text or "LocalVoiceCategory::Thanks" in text:
-    raise RuntimeError("legacy greeting/thanks categories remain after response-bank patch")
+    raise RuntimeError("legacy response aliases remain")
 
 path.write_text(text, encoding="utf-8")
 print(
-    f"Patched 40-clip KillerKoala response taxonomy and three-response "
-    f"anti-repeat diagnostics: {path}"
+    f"Patched 40-clip local response bank: {path}; aliases={greeting_count + thanks_count}"
 )
