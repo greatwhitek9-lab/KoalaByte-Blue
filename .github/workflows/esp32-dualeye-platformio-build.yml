@@ -53,6 +53,15 @@ jobs:
           grep -F 'Generated strict wake-session source' releases/esp32-dualeye-platformio.log
           grep -F 'Generated DualEye wake-session voice/menu catalog' releases/esp32-dualeye-platformio.log
 
+      - name: Upload ESP32 build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32-dualeye-build-diagnostics
+          path: releases/esp32-dualeye-platformio.log
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Package source-build outputs without a flasher
         env:
           SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
