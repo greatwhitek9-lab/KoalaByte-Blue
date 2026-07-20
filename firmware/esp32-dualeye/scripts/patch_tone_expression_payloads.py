@@ -3,7 +3,10 @@ Import("env")
 from pathlib import Path
 
 project = Path(env.subst("$PROJECT_DIR"))
-path = project / "src" / "integrated_main_wake_session.cpp"
+# The wake-session wrapper includes integrated_main.cpp after renaming legacy
+# entrypoints. Face/audio handlers and their state live in the included source,
+# so patch that file before the wrapper is compiled.
+path = project / "src" / "integrated_main.cpp"
 text = path.read_text(encoding="utf-8")
 
 
@@ -145,4 +148,4 @@ replace_once(
 )
 
 path.write_text(text, encoding="utf-8")
-print(f"Patched tone/subject expression retention during Pi speech: {path}")
+print(f"Patched tone/subject expression retention in included DualEye source: {path}")
