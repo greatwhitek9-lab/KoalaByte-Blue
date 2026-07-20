@@ -46,7 +46,6 @@ REQUIRED_FILES = (
     "scripts/check_killerkoala_face_mouth_sync.py",
     "scripts/check_killerkoala_ai.py",
     "scripts/check_full_runtime_dependencies.py",
-    "scripts/koalabyte_blue_boot.sh",
     "udev/99-koalabyte-blue.rules",
     "systemd/koalabyte-menu.service",
     "systemd/koalabyte-menu-sync.service",
@@ -64,7 +63,6 @@ SHELL_FILES = (
     "scripts/install_ble_node_manager_service.sh",
     "scripts/install_esp32_dualeye_voice_bridge_service.sh",
     "scripts/configure_pi_audio_output.sh",
-    "scripts/koalabyte_blue_boot.sh",
 )
 
 PYTHON_FILES = (
