@@ -58,7 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           build="firmware/esp32-dualeye/.pio/build/esp32s3_dualeye"
-          package="releases/koalabyte-esp32-s3-dualeye-v0.9.4-wake-channel-fix"
+          package="releases/koalabyte-esp32-s3-dualeye-v0.9.5-audio-mic-fix"
           mkdir -p "${package}"
 
           boot_app0="$(find "${HOME}/.platformio/packages/framework-arduinoespressif32" -path '*/tools/partitions/boot_app0.bin' -print -quit)"
@@ -105,7 +105,7 @@ jobs:
           image = bytearray(b"\xFF" * end)
           for offset, payload in payloads:
               image[offset:offset + len(payload)] = payload
-          output = package / "koalabyte-esp32-s3-dualeye-v0.9.4-wake-channel-fix-full-flash.bin"
+          output = package / "koalabyte-esp32-s3-dualeye-v0.9.5-audio-mic-fix-full-flash.bin"
           output.write_bytes(image)
           for offset, payload in payloads:
               assert image[offset:offset + len(payload)] == payload
@@ -124,7 +124,7 @@ jobs:
           )
 
           $ErrorActionPreference = "Stop"
-          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.9.4-wake-channel-fix-full-flash.bin"
+          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.9.5-audio-mic-fix-full-flash.bin"
           if (-not (Test-Path $Image)) { throw "Firmware image not found: $Image" }
 
           py -m pip install --user "esptool==4.11.0"
@@ -144,23 +144,30 @@ jobs:
           py -m esptool --chip esp32s3 --port $Port verify_flash 0x0 $Image
           if ($LASTEXITCODE -ne 0) { throw "Firmware verification failed." }
 
-          Write-Host "DualEye v0.9.4 wake-channel fix flash and verification complete. Press RESET once."
+          Write-Host "DualEye v0.9.5 audio and microphone fix flash and verification complete. Press RESET once."
           POWERSHELL
 
           cat > "${package}/README-FLASH.txt" <<'README'
-          KoalaByte Blue ESP32-S3 DualEye v0.9.4 wake-channel-fix firmware
+          KoalaByte Blue ESP32-S3 DualEye v0.9.5 audio-mic-fix firmware
 
           Exact hardware target:
             Waveshare ESP32-S3 DualEye 1.28-inch non-touch variant
             Both GC9A01A round LCD panels remain enabled with the existing eye renderer
             No touch controller or touch panel is expected
 
+          Audio corrections:
+            - the ES8311 amplifier is enabled once per complete utterance instead of once per PCM block
+            - mono speech is mirrored into both I2S slots
+            - codec mute occurs before amplifier shutdown
+            - speaker volume is reduced to prevent small-speaker overdrive
+            - ES7210 input gain is tuned for normal conversational speech
+            - the complex-speech start threshold is reduced while preserving a noise margin
+
           Adaptive local voice behavior:
             - the ES7210 stereo slots are measured at startup
             - ESP-SR automatically selects MN, NM or MM input mapping
             - Killer Koala, Hey Killer Koala and Killer Koala wake up are local phrases
             - wake acknowledgements and basic repetitive replies play on the ESP32 ES8311 speaker
-            - the serial console reports mic channel RMS, selected mapping and recognizer readiness
             - fixed menu/submenu commands route to the Raspberry Pi as command IDs
             - only an explicitly escalated follow-up utterance routes to Pi STT/LLM
             - ambient audio never routes to the Pi and never draws AUDIO/MIC overlays or beeps
@@ -200,8 +207,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: koalabyte-esp32-s3-dualeye-v0.9.4-wake-channel-fix
+          name: koalabyte-esp32-s3-dualeye-v0.9.5-audio-mic-fix
           path: |
-            releases/koalabyte-esp32-s3-dualeye-v0.9.4-wake-channel-fix/**
+            releases/koalabyte-esp32-s3-dualeye-v0.9.5-audio-mic-fix/**
             releases/esp32-dualeye-platformio.log
           if-no-files-found: error
