@@ -1,6 +1,6 @@
 #pragma once
 
-// KillerKoala ESP32-S3 DualEye config RevA31 recovery profile.
+// KillerKoala ESP32-S3 DualEye config RevA32 recovery profile.
 // Exact target: verified non-touch ESP32-S3 DualEye 1.28-inch variant.
 // This recovery build initializes only the known-good LCD2 panel and keeps
 // high-load peripherals disabled until display stability is hardware-verified.
@@ -8,12 +8,22 @@
 #define KOALABLUE_FW_VERSION "0.7.1-dualeye-recovery-realistic-koala-nontouch"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
+#define WAKE_WORD_ALTERNATE "hey killerkoala"
 #define SERIAL_BAUD 115200
 
 #define KOALABLUE_ACTIVE_THEME "killerkoala_realistic_cyber_fur"
 #define KOALABLUE_THEMES_DIR "firmware/esp32-dualeye/themes"
 #define KOALA_RECOVERY_PROFILE 1
 #define KOALA_HAS_TOUCH 0
+
+// The Raspberry Pi is the sole expression/state coordinator. It fans the same
+// canonical face event out to the ESP32-S3 eyes and the Heltec display over
+// each device's Pi connection. BLE is never required for expression syncing.
+#define KOALA_EXPRESSION_SYNC_COORDINATOR "raspberry-pi"
+#define KOALA_EXPRESSION_SYNC_MODE "pi_fanout"
+#define KOALA_EXPRESSION_SYNC_REQUIRES_BLE 0
+#define KOALA_BLE_ROLE "independent_heltec_node_support_not_face_sync"
+#define KOALA_WIFI_ROLE "pi_node_commands_telemetry_and_execution_requests"
 
 #define ESP32S3_DUALEYE_EXTERNAL_2G4_ANTENNA 0
 #define ESP32S3_DUALEYE_2G4_ANTENNA_MODE "onboard_ceramic_default"
@@ -24,11 +34,11 @@
 #define ESP32S3_DUALEYE_BUILTIN_MIC 1
 #define ESP32S3_DUALEYE_MIC_ROLE "Waveshare ES7210 microphone path for KillerKoala wake and short voice-command events"
 #define ESP32S3_VOICE_FRONTEND_STACK "ESP32-S3 DualEye local wake/short-command front end + Raspberry Pi AI router"
-#define ESP32S3_WAKE_MODEL "killerkoala wake phrase over ESP32-S3 DualEye built-in mic event bridge"
-#define ESP32S3_COMMAND_MODEL "short repeatable command phrases bridged over USB CDC serial"
+#define ESP32S3_WAKE_MODEL "killerkoala or hey killerkoala wake phrase over ESP32-S3 DualEye built-in mic event bridge"
+#define ESP32S3_COMMAND_MODEL "short repeatable command phrases bridged to the Raspberry Pi for execution"
 #define ESP32S3_COMMAND_ALIAS_PACK "firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv"
 #define KILLERKOALA_COMPANION_BRAIN "Raspberry Pi large-vocabulary Australian male cyberpunk companion"
-#define KILLERKOALA_RESPONSE_POLICY "anti-repeat rotating Australian terminology; Pi handles complex answers"
+#define KILLERKOALA_RESPONSE_POLICY "anti-repeat rotating Australian terminology; Pi handles complex answers and all menu execution"
 
 // Recovery gate: stabilize the display before re-enabling radios and audio.
 // Touch is permanently disabled because this verified board revision has no
