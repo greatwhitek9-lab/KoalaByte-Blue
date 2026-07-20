@@ -24,7 +24,7 @@ Heltec UF2-first full install:
        bash install.sh --heltec-uf2-first
 
 Modes:
-  install      Clone/update repo, then run the v0.9.8 one-shot wrapper. Default.
+  install      Clone/update repo, then run the complete pinned-firmware one-shot installer. Default.
   check-only   Clone/update repo, prepare the local Python check venv, then run dry-run readiness checks.
   repo-only    Clone/update repo only.
 
@@ -203,13 +203,26 @@ case "${RUN_MODE}" in
   check-only)
     echo "Preparing KoalaByte one-shot dry-run readiness gate..."
     prepare_check_environment
-    echo "Running KoalaByte v0.9.8 one-shot dry-run readiness gate..."
-    bash scripts/install_koalabyte_one_shot_v098.sh --check-only "$@"
+    echo "Running KoalaByte complete one-shot dry-run readiness gate..."
+    bash one-shot-install.sh --check-only
     ;;
   install)
-    echo "Running KoalaByte v0.9.8 one-shot installer..."
+    echo "Running KoalaByte complete pinned-firmware one-shot installer..."
+    for arg in "$@"; do
+      case "${arg}" in
+        --heltec-uf2-first|--t114-uf2-first)
+          export FLASH_T114_ON_PLUG=1
+          export FORCE_T114_FLASH=1
+          export STRICT_T114_PLUG_FLASH=1
+          ;;
+        *)
+          echo "Unknown install argument: ${arg}" >&2
+          exit 2
+          ;;
+      esac
+    done
     T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE:-combined-safe}" \
       FLASH_ESP32="${FLASH_ESP32:-auto}" \
-      bash scripts/install_koalabyte_one_shot_v098.sh "$@"
+      bash one-shot-install.sh
     ;;
 esac
