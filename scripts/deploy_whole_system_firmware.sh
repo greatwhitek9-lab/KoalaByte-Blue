@@ -12,6 +12,7 @@ SKIP_T114=0
 BUNDLE_DIR="${KOALABYTE_FIRMWARE_BUNDLE_DIR:-${ROOT}/releases/koalabyte-blue-current}"
 STATUS_PATH="${KOALABYTE_FIRMWARE_DEPLOY_STATUS:-${ROOT}/logs/deployment/whole_system_deployment_status.json}"
 REQUIRE_ALL="${KOALABYTE_REQUIRE_ALL_PERIPHERALS:-1}"
+DEFER_SERVICE_RESTART="${KOALABYTE_DEFER_SERVICE_RESTART:-0}"
 SERVICES=(
   koalabyte-dualeye-voice-bridge.service
   koalabyte-ble-node-manager.service
@@ -32,7 +33,9 @@ Usage:
   bash scripts/deploy_whole_system_firmware.sh --skip-t114
 
 Default behavior is strict: both the T114 and ESP32 must be connected and both
-must flash successfully. The canonical one-shot installer calls this script.
+must flash successfully. Standalone use restarts the previously stopped runtime
+services. The canonical one-shot sets KOALABYTE_DEFER_SERVICE_RESTART=1 because
+it provisions and starts the final services after flashing.
 EOF
 }
 
@@ -55,10 +58,13 @@ STARTED_AT="$(date +%s)"
 
 write_status() {
   local status="$1" reason="$2"
-  python3 - "${STATUS_PATH}" "${status}" "${CURRENT_STEP}" "${reason}" "${BUNDLE_DIR}" "${SKIP_ESP32}" "${SKIP_T114}" "${STARTED_AT}" <<'PY'
+  python3 - "${STATUS_PATH}" "${status}" "${CURRENT_STEP}" "${reason}" \
+    "${BUNDLE_DIR}" "${SKIP_ESP32}" "${SKIP_T114}" "${STARTED_AT}" \
+    "${DEFER_SERVICE_RESTART}" <<'PY'
 import json, sys, time
 from pathlib import Path
-path, status, step, reason, bundle, skip_esp32, skip_t114, started = sys.argv[1:]
+(path, status, step, reason, bundle, skip_esp32, skip_t114, started,
+ defer_restart) = sys.argv[1:]
 Path(path).write_text(json.dumps({
     "status": status,
     "step": step,
@@ -66,6 +72,7 @@ Path(path).write_text(json.dumps({
     "bundle_dir": bundle,
     "esp32_required": skip_esp32 != "1",
     "t114_required": skip_t114 != "1",
+    "service_restart_deferred": defer_restart == "1",
     "can_transmit": False,
     "started_at": int(started),
     "updated_at": time.time(),
@@ -94,6 +101,7 @@ stop_serial_services() {
 restore_services() {
   local service
   [[ "${CHECK_ONLY}" == "1" || "${BUILD_ONLY}" == "1" ]] && return 0
+  [[ "${DEFER_SERVICE_RESTART}" == "1" ]] && return 0
   for service in "${SERVICES[@]}"; do
     if sudo_systemctl list-unit-files "${service}" >/dev/null 2>&1; then
       sudo_systemctl restart "${service}" >/dev/null 2>&1 || true
@@ -198,5 +206,5 @@ python3 scripts/check_whole_system_deployment.py --post-flash --bundle-dir "${BU
 CURRENT_STEP="complete"
 write_status "complete" "T114 UF2 and complete ESP32-S3 image set were built, checksummed, flashed, and rediscovered."
 trap - ERR
-# The canonical one-shot installs/restarts final services after all Pi provisioning.
+restore_services
 echo "Whole-system peripheral firmware deployment complete."
