@@ -3,7 +3,7 @@
 // KillerKoala ESP32-S3 DualEye config RevA41 integrated dual-panel profile.
 // Exact target: verified non-touch ESP32-S3 DualEye 1.28-inch variant.
 
-#define KOALABLUE_FW_VERSION "0.9.1-dualeye-pi-heltec-ble"
+#define KOALABLUE_FW_VERSION "0.9.2-dualeye-clean-voice"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define WAKE_WORD_ALTERNATE "hey killerkoala"
