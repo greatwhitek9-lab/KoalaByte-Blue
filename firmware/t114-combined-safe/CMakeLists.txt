@@ -5,8 +5,17 @@ project(koalabyte_t114_combined_safe)
 target_sources(app PRIVATE
   src/display_power_init.c
   src/error_alarm_wrapper.c
+  src/koalagotchi_lifecycle_wrapper.c
   src/main.c
   src/loading_display.c
+)
+
+# Preserve the existing procedural cyber-mouth implementation as the inner
+# renderer. The lifecycle wrapper becomes the public linker --wrap target and
+# controls persistent action, Koalagotchi mode, failure emotion, and alarm state.
+set_source_files_properties(src/error_alarm_wrapper.c PROPERTIES
+  COMPILE_DEFINITIONS
+    "__wrap_render_killerkoala_mouth=koala_inner_render_killerkoala_mouth;__wrap_render_menu_status=koala_inner_render_menu_status;__wrap_render_koalagotchi_action=koala_inner_render_koalagotchi_action"
 )
 
 target_link_options(app PRIVATE
