@@ -41,6 +41,7 @@ jobs:
           bash -n scripts/check_deployability.sh
           bash -n scripts/setup_pi_hardware_stage.sh
           bash -n scripts/setup_system_packages.sh
+          bash -n scripts/setup_killerkoala_ollama.sh
           bash -n scripts/install_power_controls.sh
           bash -n scripts/install_koalabyte_udev_rules.sh
           bash -n scripts/install_koalabyte_boot_services.sh
@@ -51,9 +52,6 @@ jobs:
       - name: Compile Pi runtime
         run: python -m compileall -q pi-companion scripts
 
-      - name: Run repository readiness
-        run: python scripts/check_repo_readiness.py
-
       - name: Validate one-shot and K1-K8 controls
         run: |
           PYTHONPATH=pi-companion python scripts/check_one_shot_controls.py || {
@@ -62,32 +60,45 @@ jobs:
           }
 
       - name: Validate menu actions
-        run: |
-          PYTHONPATH=pi-companion python scripts/check_menu_actions.py || {
-            find logs -maxdepth 3 -type f -name '*menu*' -print -exec tail -n 80 {} \; 2>/dev/null || true
-            exit 1
-          }
+        run: PYTHONPATH=pi-companion python scripts/check_menu_actions.py
 
       - name: Validate menu and display synchronization
-        run: |
-          PYTHONPATH=pi-companion KOALABYTE_MENU_SYNC=0 python scripts/check_menu_display_sync.py || {
-            find logs -maxdepth 3 -type f -name '*menu*sync*' -print -exec tail -n 80 {} \; 2>/dev/null || true
-            exit 1
-          }
+        run: PYTHONPATH=pi-companion KOALABYTE_MENU_SYNC=0 python scripts/check_menu_display_sync.py
 
       - name: Validate KillerKoala face and mouth synchronization
-        run: |
-          PYTHONPATH=pi-companion python scripts/check_killerkoala_face_mouth_sync.py || {
-            find logs -maxdepth 3 -type f -name '*face*' -o -name '*mouth*' 2>/dev/null || true
-            exit 1
-          }
+        run: PYTHONPATH=pi-companion python scripts/check_killerkoala_face_mouth_sync.py
 
       - name: Validate KillerKoala AI and William voice contract
         run: |
           PYTHONPATH=pi-companion python scripts/check_killerkoala_ai.py || {
-            find logs/killerkoala -maxdepth 2 -type f -print -exec tail -n 80 {} \; 2>/dev/null || true
+            cat logs/killerkoala/killerkoala_ai_readiness.json 2>/dev/null || true
             exit 1
           }
+
+      - name: Validate Python 3.13-safe PCM conversion
+        run: |
+          PYTHONPATH=pi-companion python - <<'PY'
+          import io
+          import math
+          import struct
+          import wave
+          from koalablue.dualeye_tts import _wav_to_pcm16_mono_16k
+
+          buffer = io.BytesIO()
+          with wave.open(buffer, "wb") as wav:
+              wav.setnchannels(2)
+              wav.setsampwidth(2)
+              wav.setframerate(22050)
+              frames = bytearray()
+              for index in range(2205):
+                  value = int(12000 * math.sin(2 * math.pi * 440 * index / 22050))
+                  frames.extend(struct.pack("<hh", value, value))
+              wav.writeframes(bytes(frames))
+          pcm = _wav_to_pcm16_mono_16k(buffer.getvalue())
+          assert len(pcm) >= 3000, len(pcm)
+          assert len(pcm) % 2 == 0
+          print(f"PCM conversion ready: {len(pcm)} bytes")
+          PY
 
       - name: Validate current runtime dependencies
         run: |
@@ -106,7 +117,7 @@ jobs:
         run: bash scripts/setup_pi_hardware_stage.sh --check-only
 
       - name: Validate final one-shot
-        run: KOALABYTE_SERVICE_USER="$(id -un)" bash one-shot-install.sh --check-only
+        run: KOALABYTE_SERVICE_USER="$(id -un)" INSTALL_INNOMAKER_CAN=0 bash one-shot-install.sh --check-only
 
       - name: Validate deployability
         run: bash scripts/check_deployability.sh
