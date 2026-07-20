@@ -4,64 +4,70 @@
 
 # KoalaByte Blue
 
-KoalaByte Blue is a Raspberry Pi 3B+-coordinated cyberpet and owned-device lab platform. The current runtime combines:
+KoalaByte Blue is a Raspberry Pi 3B+-coordinated cyberpet and authorized-device lab platform. One canonical command now builds, flashes, installs, and verifies the current system:
 
-- **Raspberry Pi OS Lite** as the headless coordinator, K1-K8 menu state machine, action executor, local AI host, web-research host, BLE node, logging host, and report host.
-- **Waveshare ESP32-S3 DualEye** as the animated cyberpunk koala eyes, local KillerKoala wake/menu interface, microphone endpoint, local-response speaker, and Pi Wi-Fi/serial node.
-- **Heltec T114** as the articulated Koalagotchi mouth, primary BLE controller, GNSS node, and LoRa/Meshtastic node.
-- **Eight-key K1-K8 GPIO board** for physical menu navigation and protected system controls.
-- Optional external Pi audio and an optional stock-firmware SocketCAN adapter.
+```bash
+bash one-shot-install.sh
+```
 
-Use the project only with devices, networks, radios, captures, vehicles, and test benches you own or are authorized to assess. The installer does not flash peripheral firmware and does not transmit CAN frames.
+The deployment includes:
 
-## Current runtime contract
+- **Heltec T114 / HT-n5262** — primary BLE controller, GNSS source, guarded LoRa/Meshtastic hooks, articulated KillerKoala mouth, and Koalagotchi action/alarm display.
+- **Waveshare ESP32-S3 DualEye** — wake word, saved local responses, microphone, local speaker, menu/eye display, Pi Wi-Fi/serial node, and guarded BLE fallback.
+- **Raspberry Pi OS Lite** — main brain, K1-K8 menu controller, action executor, Heltec BLE node, Wi-Fi host, TinyLlama AI, optional web research, Australian speech, Mopidy music player, logs, services, and diagnostics.
+- **K1-K8 front-panel board** — physical menu navigation, protected shutdown, and protected reboot.
 
-### Raspberry Pi
+Use the project only with systems, networks, radios, captures, vehicles, and test benches you own or are authorized to assess.
 
-The Pi owns:
-
-- Headless K1-K8 input, menu navigation, action execution, and live display synchronization.
-- BLE coordination with the T114.
-- ESP32 voice-command escalation, Pi-side speech recognition, menu execution, and general-question routing.
-- Local Ollama/TinyLlama conversation through `killerkoala-tinyllama:latest`.
-- Optional web research when a question requires current information and internet access is available.
-- Australian male `en-AU-WilliamNeural` TTS while the spoken identity remains **KillerKoala**.
-- Tone/subject classification for synchronized DualEye expressions and T114 mouth movement.
-- Koalagotchi health, mood, action, completion, failure-streak, and latched error-state fanout.
-- Stable USB aliases, runtime services, diagnostics, logs, and reports.
-
-### ESP32-S3 DualEye
-
-The Waveshare owns:
-
-- The local wake phrases `Killer Koala` and `Hey Killer Koala`.
-- A 10-second post-wake command session that is refreshed by accepted voice commands and trusted Pi button/keyboard activity.
-- Saved local status, help, greeting, thanks, banter, and menu vocabulary.
-- Local embedded responses without requiring TinyLlama or internet access.
-- Complex speech capture when the local vocabulary does not match.
-- Animated eyes that remain visible during local speech, Pi/TinyLlama speech, actions, completion, and errors.
+## Hardware ownership
 
 ### Heltec T114
 
-The T114 owns:
+The T114 is the primary embedded radio/display controller:
 
-- The primary BLE-controller role.
-- GNSS and guarded LoRa/Meshtastic integration.
-- A six-second KillerKoala boot splash followed by the text-free articulated mouth.
-- Smooth irregular idle mouth choreography.
-- Tone-aware speaking sequences for local ESP32 responses and Pi/TinyLlama responses.
-- Koalagotchi action animation while the DualEye names or reports the running action.
+- Primary BLE controller and passive BLE observer.
+- Primary GNSS/NMEA source.
+- Guarded SX1262 LoRa/Meshtastic integration. Direct LoRa driving remains disabled until the exact pin map, region, antenna path, and recovery procedure are physically validated.
+- Six-second KillerKoala boot image.
+- Smooth articulated mouth during idle and speech.
+- Koalagotchi during menu-action execution.
+- Alarmed Koalagotchi with synchronized cyber-purple/cyber-green flashing during errors.
+- Software request for entry into the HT-n5262 UF2 bootloader after the new firmware is installed.
 
-The Pi installer preserves all peripheral firmware. Current source builds remain under `firmware/`, but flashing is a separate physical development/recovery operation.
+### Waveshare ESP32-S3 DualEye
 
-## Canonical installation
+The ESP32-S3 owns the local front-end experience:
 
-There are two supported entrypoints:
+- Wake phrases: `Killer Koala` and `Hey Killer Koala`.
+- Ten-second active voice session, refreshed by accepted speech and trusted K1-K8 events.
+- Saved local greetings, acknowledgements, status, help, banter, error, and generated menu responses.
+- Automatic Pi/TinyLlama escalation when the Waveshare vocabulary does not match.
+- Local microphone capture and local saved-response audio.
+- Animated cyberpunk koala eyes, eyebrows, fur, menu status, action names, results, and speech expressions.
+- Wi-Fi/serial command and telemetry node for the Pi.
+- BLE standby by default. If Pi BlueZ is unavailable, the Pi explicitly elects the ESP32 as the guarded Heltec BLE fallback node. A persistent crash guard prevents repeated BLE-controller boot loops.
 
-- `install.sh` is only the clone/update bootstrapper.
-- `one-shot-install.sh` is the single canonical Raspberry Pi installer.
+### Raspberry Pi
 
-### Clean Raspberry Pi without a checkout
+The Pi is the project’s main brain:
+
+- Executes all menu and voice actions.
+- Owns headless K1-K8 navigation and synchronized display state.
+- Preferred Heltec BLE companion node through BlueZ.
+- Coordinates fallback to ESP32 BLE when the Pi Bluetooth adapter is unavailable.
+- Runs local `killerkoala-tinyllama:latest` through Ollama.
+- Performs web research for current or precision-dependent questions when internet access is available.
+- Maintains short conversational context and the gruff cyberpunk Australian KillerKoala persona.
+- Uses the male Australian `en-AU-WilliamNeural` TTS backend while the spoken identity remains **KillerKoala**.
+- Runs Mopidy for local music, internet-radio presets, and optional streaming extensions.
+- Pauses/ducks music around KillerKoala speech.
+- Owns the universal error lifecycle, service management, logs, diagnostics, and reports.
+
+## Complete one-shot deployment
+
+### Clean Raspberry Pi
+
+Connect the ESP32-S3 and T114 to the Pi, then run:
 
 ```bash
 curl -fsSL -o /tmp/koalabyte-install.sh \
@@ -69,16 +75,18 @@ curl -fsSL -o /tmp/koalabyte-install.sh \
 bash /tmp/koalabyte-install.sh
 ```
 
-The bootstrapper installs Git if necessary, clones or fast-forwards `~/KoalaByte-Blue`, then invokes `one-shot-install.sh`.
+`install.sh` installs Git when necessary, clones or fast-forwards `Main`, and invokes `one-shot-install.sh`.
 
 ### Existing checkout
 
 ```bash
 cd ~/KoalaByte-Blue
+git checkout Main
+git pull --ff-only origin Main
 KOALABYTE_SERVICE_USER="$(whoami)" bash one-shot-install.sh
 ```
 
-### Validate without changing the host
+### Validate without modifying hardware
 
 ```bash
 cd ~/KoalaByte-Blue
@@ -87,88 +95,175 @@ INSTALL_INNOMAKER_CAN=0 \
 bash one-shot-install.sh --check-only
 ```
 
-### Useful options
+### Deployment options
 
 ```bash
 bash one-shot-install.sh --skip-packages
 bash one-shot-install.sh --skip-audio
 bash one-shot-install.sh --skip-can
 bash one-shot-install.sh --skip-ai
+bash one-shot-install.sh --skip-music
+bash one-shot-install.sh --skip-firmware
+bash one-shot-install.sh --firmware-build-only
+bash one-shot-install.sh --use-existing-firmware-bundle
 ```
 
-Useful environment controls:
+The default deployment is strict and requires both peripherals. `--skip-firmware` is the explicit Pi-only maintenance mode.
+
+## One-shot sequence
+
+The canonical installer performs this transaction:
+
+1. Validate shell, Python, menu, AI, music, BLE, display, error, and deployment source contracts.
+2. Install Raspberry Pi packages, Python environment, hardware groups, udev rules, optional SocketCAN support, and audio prerequisites.
+3. Stop services that own ESP32/T114 serial ports.
+4. Discover both peripherals and refuse a complete deployment if either is missing.
+5. Install/update PlatformIO and the nRF Connect SDK/Zephyr toolchain when required.
+6. Build the current ESP32-S3 source and T114 source from the checked-out commit.
+7. Package `releases/koalabyte-blue-current/` with a manifest and SHA-256 checksums.
+8. Validate the complete ESP32 image set and T114 UF2 vector/family/application offset.
+9. Request T114 UF2 bootloader mode, mount the `HT-n5262` volume, copy the current UF2, and wait for the runtime USB alias.
+10. Probe each ESP32 serial candidate with an ESP32-S3 chip-ID command before any destructive write.
+11. Flash the ESP32 bootloader, partition table, OTA data, application, and speech-model image.
+12. Verify ESP32 `node_status` and rediscover both peripherals.
+13. Install TinyLlama, Mopidy, restricted power controls, menu, BLE, voice, display, and diagnostic services.
+14. Run K1-K8, AI, music, BLE failover, error lifecycle, display sync, dependency, and hardware checks.
+15. Enable/restart services and write final status reports.
+
+The InnoMaker/SocketCAN adapter remains on stock firmware. The installer does not transmit CAN frames.
+
+### First T114 upgrade
+
+The newly built T114 firmware supports software entry into UF2 mode. If the currently installed older firmware does not, the same installer pauses and asks for one physical double-tap of the T114 reset button. Leave the installer running; it continues when the `HT-n5262` volume appears.
+
+## Firmware bundle
+
+The generated bundle is:
 
 ```text
-KOALABYTE_SERVICE_USER=<linux-user>
-INSTALL_INNOMAKER_CAN=auto|1|0
-INSTALL_KILLERKOALA_OLLAMA=auto|1|0
-STRICT_KILLERKOALA_OLLAMA=0|1
-KILLERKOALA_LLM_MODEL=killerkoala-tinyllama:latest
-KILLERKOALA_WEB_SEARCH=auto|always|off
-CAN_INTERFACE=can0
-CAN_BITRATE=500000
-KOALABYTE_AUDIO_SINK_PATTERN='JBL|USB|speaker|audio'
-STRICT_GPIO_BUTTONS=0|1
+releases/koalabyte-blue-current/
+├── manifest.json
+├── SHA256SUMS.txt
+├── esp32/
+│   ├── bootloader.bin       @ 0x00000000
+│   ├── partitions.bin       @ 0x00008000
+│   ├── boot_app0.bin        @ 0x0000e000
+│   ├── firmware.bin         @ 0x00010000
+│   └── srmodels.bin         @ 0x00cb0000
+└── t114/
+    ├── koalabyte-t114-current.uf2
+    └── vector-validation.txt
 ```
 
-`INSTALL_KILLERKOALA_OLLAMA=auto` is fail-soft so hardware setup can still complete during an internet or model-download outage. Use `STRICT_KILLERKOALA_OLLAMA=1` when the installation must fail unless Ollama and the KillerKoala TinyLlama model are fully ready.
-
-## One-shot installation sequence
-
-`one-shot-install.sh` performs the following sequence:
-
-1. Validates the canonical shell helpers and compiles the Pi-side Python runtime.
-2. Installs Raspberry Pi OS packages unless `--skip-packages` is used.
-3. Creates or updates `pi-companion/.venv` and installs the runtime dependencies.
-4. Adds the configured service user to available `gpio`, `dialout`, `audio`, `video`, `render`, and `plugdev` groups.
-5. Installs stable ESP32-S3 and T114 udev aliases.
-6. Configures optional stock-firmware SocketCAN only when enabled and compatible hardware is present.
-7. Installs the headless menu/live-sync service, hardware-doctor service, T114 BLE-node manager, and ESP32 voice bridge.
-8. Installs or starts Ollama, pulls `tinyllama:1.1b`, creates `killerkoala-tinyllama:latest`, and runs a short local smoke test unless AI setup is skipped.
-9. Installs restricted sudoers permissions for only the K7 shutdown and K8 reboot commands.
-10. Discovers connected KoalaByte USB devices and writes the stable device map.
-11. Probes K1-K8 GPIO initialization and verifies the protected-button contract.
-12. Runs menu, action, voice, TinyLlama, web-control, TTS, display-sync, and runtime-dependency checks.
-13. Enables/restarts the runtime services and selects the external audio sink unless skipped.
-14. Runs the final hardware doctor and writes the installation status reports.
-15. Requests one reboot after the first installation so new hardware-group memberships take effect.
-
-The installer does **not** flash the ESP32-S3, T114, or InnoMaker adapter and does not send CAN frames.
-
-## Private AI and web settings
-
-The voice-bridge installer creates this root-readable file when absent:
+T114 deployment metadata:
 
 ```text
-/etc/koalabyte-blue/killerkoala.env
+UF2 volume label: HT-n5262
+UF2 family:       0x239a0071
+Application:      0x00026000
 ```
 
-Typical settings:
+## K1-K8 button board
 
-```bash
-KILLERKOALA_WEB_SEARCH=auto
-KILLERKOALA_DIALOGUE_TURNS=4
-# BRAVE_SEARCH_API_KEY=
+Use **3.3 V only**. The Pi internal pull-ups are enabled: idle is HIGH and a press pulls the input LOW.
+
+| Key | Function | Command | BCM | Physical pin | Activation |
+|---|---|---|---:|---:|---|
+| K1 | Main Menu | `main_menu` | 5 | 29 | Press |
+| K2 | Left / Back | `move_left` | 6 | 31 | Press |
+| K3 | Enter / Select | `select` | 13 | 33 | Press |
+| K4 | Right / Forward | `move_right` | 19 | 35 | Press |
+| K5 | Up | `up` | 26 | 37 | Press |
+| K6 | Down | `down` | 21 | 40 | Press |
+| K7 | Safe Shutdown | `power_toggle` | 20 | 38 | Hold 2.5 seconds |
+| K8 | Reset / Reboot | `reset` | 16 | 36 | Hold 3.0 seconds |
+
+```text
+Board VCC -> Pi 3.3 V, physical pin 1 or 17
+Board GND -> Pi GND, physical pin 39 recommended
+K1-K8    -> BCM inputs listed above
 ```
 
-A Brave key is optional. Keyless DuckDuckGo Instant Answer and Wikipedia fallbacks remain available. Do not commit private keys to the repository.
+Never connect the button board to Pi 5 V. Short taps on K7 and K8 do not emit destructive commands.
 
-## First reboot and verification
+The current BCM20 K7 is a safe shutdown input while Linux is running. For a future wake-from-halt/power-control design, the wiring documentation retains GPIO3/physical pin 5 as an optional hardware redesign path; it is not the current default map.
 
-After the first full install:
+## Button and menu sequence
 
-```bash
-sudo reboot
-```
+1. K1 opens the main menu.
+2. K5/K6 move up and down.
+3. K2/K4 move left/back and right/forward where supported.
+4. K3 enters a submenu or executes the selected leaf action.
+5. During execution, the T114 displays Koalagotchi while the DualEye shows the action name and state.
+6. Completion displays the result, updates Koalagotchi health/mood/XP, and returns to navigation.
+7. Hold K7 for safe shutdown or K8 for reboot.
 
-Then verify:
+## Voice and AI sequence
+
+1. Say `Killer Koala` or `Hey Killer Koala`.
+2. The ESP32-S3 opens the active voice session and gives a local saved response.
+3. Saved local vocabulary stays on the Waveshare and does not consume Pi AI resources.
+4. Exact menu/action commands are forwarded to the Pi for execution.
+5. An unmatched local phrase automatically arms full speech capture for the Pi.
+6. The Pi routes general questions to TinyLlama.
+7. Questions requiring fresh or precise facts may receive web-research context when internet access is available.
+8. KillerKoala answers conversationally with recent-turn context and a gruff cyberpunk Australian attitude.
+9. Pi speech uses the Australian male TTS backend.
+10. Tone and subject metadata keep the DualEye and T114 mouth synchronized for the complete response.
+
+## Music player
+
+Mopidy runs on the Pi and exposes its HTTP/MPD interfaces only on localhost by default.
+
+Supported core sources:
+
+- Local files under `/srv/koalabyte-music`.
+- Internet-radio presets from `/etc/koalabyte-blue/music.json`.
+- Optional Mopidy extensions, including user-configured OpenSubsonic/Navidrome or other supported services.
+
+Playback actions are integrated into the same menu, voice, display, and error lifecycle as other Pi actions. Private streaming credentials must remain outside the repository.
+
+## Action and error lifecycle
+
+### Normal action
+
+1. Pi latches the action state.
+2. T114 switches to Koalagotchi action animation.
+3. DualEye displays the action name/state.
+4. Pi executes the action.
+5. Completion/failure updates displays, speech, health, mood, and XP.
+
+### Universal error
+
+1. DualEye keeps alert eyes visible and flashes cyber purple/green behind them.
+2. T114 displays alarmed Koalagotchi with the same alternating purple/green background.
+3. The alarm remains synchronized for the configured hold period.
+4. Pi sends the clear/recovery packet.
+5. T114 returns to the articulated mouth.
+6. Pi speaks a non-repeating KillerKoala dig about the error.
+7. Persistent faults can relatch the alarm until recovery succeeds.
+
+## Normal boot sequence
+
+1. Raspberry Pi network, Bluetooth, udev, and hardware targets become available.
+2. Ollama and Mopidy start when installed.
+3. `koalabyte-menu.service` initializes K1-K8 and owns live display synchronization.
+4. `koalabyte-ble-node-manager.service` establishes Heltec-primary BLE roles.
+5. `koalabyte-dualeye-voice-bridge.service` coordinates local vocabulary, Pi execution, TinyLlama, TTS, music ducking, BLE election, and display expressions.
+6. `koalabyte-doctor.service` records diagnostics.
+7. T114 shows the boot image and transitions to the articulated mouth.
+8. DualEye enters the active cyberpunk eye/menu state.
+
+The obsolete `koalabyte-menu-sync.service` is not used. Display synchronization belongs to the headless menu runtime.
+
+## Verification
 
 ```bash
 cd ~/KoalaByte-Blue
 
 systemctl status ollama.service --no-pager -l
+systemctl status mopidy.service --no-pager -l
 systemctl status koalabyte-menu.service --no-pager -l
-systemctl status koalabyte-doctor.service --no-pager -l
 systemctl status koalabyte-ble-node-manager.service --no-pager -l
 systemctl status koalabyte-dualeye-voice-bridge.service --no-pager -l
 
@@ -177,170 +272,37 @@ systemctl status koalabyte-dualeye-voice-bridge.service --no-pager -l
   --can-interface can0 --gpio-live
 ```
 
-## Boot and runtime sequence
-
-At normal Raspberry Pi boot:
-
-1. Network, Bluetooth, udev, and user-session targets become available.
-2. Ollama starts the local model API when installed.
-3. `koalabyte-menu.service` starts `scripts/run_headless_menu.py` with no HDMI or desktop requirement.
-4. The headless menu initializes K1-K8, opens the main menu, and sends the current menu state to the displays.
-5. `koalabyte-ble-node-manager.service` establishes the Pi/T114 BLE-node relationship.
-6. `koalabyte-dualeye-voice-bridge.service` waits for the stable ESP32 alias, then coordinates local vocabulary, Pi execution, TinyLlama, TTS, and expression packets.
-7. `koalabyte-doctor.service` records field diagnostics.
-8. The T114 shows the KillerKoala splash for approximately six seconds, then enters its articulated-mouth idle sequence.
-
-The obsolete `koalabyte-menu-sync.service` is deliberately removed. Live display synchronization is owned by the headless menu runtime.
-
-## K1-K8 button board
-
-Use **3.3 V only**. The Pi internal pull-ups are enabled: idle is HIGH and a pressed key pulls its GPIO LOW.
-
-| Key | Runtime function | Command | BCM GPIO | Physical pin | Activation |
-|---|---|---|---:|---:|---|
-| K1 | Main Menu | `main_menu` | 5 | 29 | Press |
-| K2 | Move Left / Back | `move_left` (`back` alias) | 6 | 31 | Press |
-| K3 | Enter / Select | `select` | 13 | 33 | Press |
-| K4 | Move Right / Forward | `move_right` (`forward` alias) | 19 | 35 | Press |
-| K5 | Up | `up` | 26 | 37 | Press |
-| K6 | Down | `down` | 21 | 40 | Press |
-| K7 | Safe Shutdown | `power_toggle` | 20 | 38 | Hold 2.5 seconds |
-| K8 | Reset / Reboot | `reset` | 16 | 36 | Hold 3.0 seconds |
-
-Power wiring:
-
-```text
-Button-board VCC -> Pi 3.3 V, physical pin 1 or 17
-Button-board GND -> Pi GND, physical pin 39 recommended
-K1-K8           -> Assigned BCM GPIO inputs in the table above
-```
-
-Never connect the button board to Pi 5 V.
-
-### Button/menu sequence
-
-1. Press K1 to reopen the main menu from any non-destructive runtime state.
-2. Use K5/K6 to move up/down through the current list.
-3. Use K2/K4 for left/back and right/forward navigation where the menu supports it.
-4. Press K3 to enter a submenu or execute the selected leaf action.
-5. During execution, the T114 displays Koalagotchi while the DualEye displays the action state/name.
-6. Hold K7 for 2.5 seconds to request a restricted safe shutdown.
-7. Hold K8 for 3.0 seconds to request a restricted reboot.
-
-A short tap on K7 or K8 does not emit the destructive command.
-
-## KillerKoala voice and AI sequence
-
-1. While sleeping, ambient commands are ignored; say `Killer Koala` or `Hey Killer Koala`.
-2. The ESP32-S3 opens a 10-second wake session and plays a local wake response.
-3. Saved status, help, greeting, thanks, banter, and generated menu phrases are recognized and answered locally on the Waveshare.
-4. Every accepted command or trusted Pi K1-K8/keyboard event refreshes the 10-second session.
-5. If the local Waveshare vocabulary times out during an active session, the ESP32 automatically arms complex audio capture for the Pi instead of returning an unknown-command response.
-6. The Pi transcribes the captured phrase and routes it to an exact menu/action command or to `killerkoala_question`.
-7. General questions use local `killerkoala-tinyllama:latest`; current-information questions may include web evidence when internet access is available.
-8. If TinyLlama is unavailable, KillerKoala returns a local non-destructive fallback response rather than inventing a result.
-9. Pi responses use the configured Australian male William TTS backend, but identity sanitization ensures the character identifies only as KillerKoala.
-10. The Pi classifies the response tone and subject, sends the full expression palette to the DualEye, and sends a compact sub-256-byte mouth packet to the T114.
-11. The eyes and mouth animate for the entire spoken response, then settle back to the current menu, Koalagotchi, or idle state.
-
-Local ESP32 responses are spoken by the Waveshare audio path. Pi/TinyLlama responses are played through the configured Pi audio output. The T114 mouth follows both speech owners.
-
-## Action, completion, and error sequence
-
-1. An exact menu or voice action is latched as `action` before execution begins.
-2. The T114 switches to Koalagotchi action animation while the DualEye reports the executing action.
-3. The Pi runs the action and writes the XP/result state before releasing the display lifecycle.
-4. Success produces `action_complete`, resets the consecutive-failure counter, speaks the result when applicable, and keeps the eyes/mouth synchronized to the result tone.
-5. A normal failed attempt produces a disappointed state; repeated failures progress to angry after the configured failure threshold.
-6. Fault/error results enter a latched alarm state and remain visible until an explicit clear/recovery event is received.
-7. Menu navigation exits persistent Koalagotchi display mode and restores normal navigation state.
-
-## Device discovery
-
-```bash
-cd ~/KoalaByte-Blue
-./pi-companion/.venv/bin/python scripts/discover_koalabyte_ports.py \
-  --profile heltec --output-dir logs/preflight
-
-ls -l /dev/koalabyte-* 2>/dev/null || true
-```
-
-Expected aliases when connected:
-
-```text
-/dev/koalabyte-heltec
-/dev/koalabyte-heltec-t114
-/dev/koalabyte-esp32-dualeye
-```
-
-## Services and status files
-
-Service status:
-
-```bash
-systemctl status koalabyte-menu.service --no-pager -l
-systemctl status koalabyte-doctor.service --no-pager -l
-systemctl status koalabyte-ble-node-manager.service --no-pager -l
-systemctl status koalabyte-dualeye-voice-bridge.service --no-pager -l
-```
-
-Primary status files:
+Primary reports:
 
 ```text
 logs/one_shot/final_install_status.json
-logs/killerkoala/ollama_setup_status.json
-logs/killerkoala/killerkoala_ai_readiness.json
-logs/killerkoala/killerkoala_last_companion_response.json
-logs/killerkoala/web_research/latest.json
-logs/runtime/headless_menu_status.json
-logs/runtime/headless_menu_events.jsonl
+logs/deployment/whole_system_deployment_status.json
+logs/deployment/firmware_build_status.json
+logs/deployment/t114_flash_status.json
+logs/deployment/esp32_flash_status.json
+logs/deployment/whole_system_readiness.json
 logs/preflight/koalabyte_ports.json
 logs/gpio_buttons/gpio_button_status.json
-logs/gpio_buttons/gpio_button_runtime_events.jsonl
+logs/runtime/headless_menu_status.json
+logs/killerkoala/ollama_setup_status.json
+logs/killerkoala/killerkoala_ai_readiness.json
+logs/killerkoala/error_sequence_readiness.json
+logs/music_player/mopidy_setup_status.json
+logs/ble_nodes/ble_role_election.json
 logs/pi_hardware/pi_hardware_doctor.json
 ```
 
-## Firmware policy and source builds
-
-The working peripheral firmware is preserved by the Pi installer:
-
-- ESP32-S3 DualEye: local wake/menu vocabulary, complex-capture fallback, Pi node bridge, and tone-aware eyes.
-- Heltec T114: six-second boot artwork, original-texture articulated mouth, tone-aware speech, BLE/GNSS, and latched Koalagotchi lifecycle.
-- InnoMaker or other SocketCAN adapter: stock adapter firmware only.
-
-Current firmware source:
-
-```text
-firmware/esp32-dualeye/
-firmware/t114-combined-safe/
-```
-
-Dedicated GitHub Actions workflows compile and publish source-build artifacts. They do not create or run an automatic hardware flasher. Physical flashing remains separate from `install.sh` and `one-shot-install.sh`.
-
-## Validation
-
-Repository and installer checks:
+## Development validation
 
 ```bash
-python3 scripts/check_repo_readiness.py
+python3 scripts/check_whole_system_deployment.py --source-only
 PYTHONPATH=pi-companion python3 scripts/check_one_shot_controls.py
+PYTHONPATH=pi-companion python3 scripts/check_music_player.py
 PYTHONPATH=pi-companion python3 scripts/check_killerkoala_ai.py
-PYTHONPATH=pi-companion python3 scripts/check_killerkoala_face_mouth_sync.py
+PYTHONPATH=pi-companion python3 scripts/check_ble_role_failover.py
+PYTHONPATH=pi-companion python3 scripts/check_killerkoala_error_sequence.py
 bash scripts/check_deployability.sh
-KOALABYTE_SERVICE_USER="$(whoami)" \
-INSTALL_INNOMAKER_CAN=0 \
 bash one-shot-install.sh --check-only
 ```
 
-The CI contract verifies:
-
-- Canonical one-shot syntax and check-only execution.
-- Headless Raspberry Pi OS Lite runtime.
-- Correct K1-K8 GPIO mapping and K7/K8 hold protection.
-- Restricted shutdown/reboot permissions.
-- Menu/action catalog and display synchronization.
-- TinyLlama question routing, web controls, KillerKoala identity, and Australian TTS.
-- Tone-aware DualEye/T114 speech synchronization.
-- Stable USB aliases and no-flash/no-CAN-transmit installer policy.
-- Current ESP32-S3 source compilation.
-- Current Heltec T114 articulated-mouth source compilation and UF2 validation.
+Dedicated GitHub Actions workflows compile the current ESP32-S3 and T114 sources and publish the same types of artifacts consumed by the canonical one-shot deployment.
