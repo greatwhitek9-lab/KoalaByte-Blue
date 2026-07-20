@@ -215,16 +215,13 @@ void handleBleRole(JsonDocument &doc) {
     "BLE role handler",
 )
 
+# Insert the BLE role commands immediately before scan_nodes. The node-status
+# branch has changed indentation and gained aliases over time, so using it as a
+# multi-line anchor made this otherwise unrelated patch brittle.
 replace_once(
-    """  } else if (!strcmp(type, "node_status") || !strcmp(type, "mic_status") ||
-              !strcmp(type, "audio_status")) {
-    emitNodeStatus();
-  } else if (!strcmp(type, "scan_nodes")) {
+    """  } else if (!strcmp(type, "scan_nodes")) {
 """,
-    """  } else if (!strcmp(type, "node_status") || !strcmp(type, "mic_status") ||
-              !strcmp(type, "audio_status")) {
-    emitNodeStatus();
-  } else if (!strcmp(type, "ble_role")) {
+    """  } else if (!strcmp(type, "ble_role")) {
     handleBleRole(doc);
   } else if (!strcmp(type, "ble_recovery_clear")) {
     StaticJsonDocument<128> clearDoc;
@@ -232,7 +229,7 @@ replace_once(
     handleBleRole(clearDoc);
   } else if (!strcmp(type, "scan_nodes")) {
 """,
-    "BLE role command routing",
+    "BLE role command routing before scan_nodes",
 )
 
 replace_once(
