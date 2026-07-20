@@ -38,7 +38,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install William voice build tools
+      - name: Install Australian voice build tools
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
@@ -59,7 +59,7 @@ jobs:
         run: |
           set -euo pipefail
           build="firmware/esp32-dualeye/.pio/build/esp32s3_dualeye"
-          package="releases/koalabyte-esp32-s3-dualeye-v0.9.6-william-k1-k8-full-menu"
+          package="releases/koalabyte-esp32-s3-dualeye-v0.9.7-sensitive-killerkoala-menu"
           mkdir -p "${package}"
 
           boot_app0="$(find "${HOME}/.platformio/packages/framework-arduinoespressif32" -path '*/tools/partitions/boot_app0.bin' -print -quit)"
@@ -106,7 +106,7 @@ jobs:
           image = bytearray(b"\xFF" * end)
           for offset, payload in payloads:
               image[offset:offset + len(payload)] = payload
-          output = package / "koalabyte-esp32-s3-dualeye-v0.9.6-william-k1-k8-full-menu-full-flash.bin"
+          output = package / "koalabyte-esp32-s3-dualeye-v0.9.7-sensitive-killerkoala-menu-full-flash.bin"
           output.write_bytes(image)
           for offset, payload in payloads:
               assert image[offset:offset + len(payload)] == payload
@@ -125,7 +125,7 @@ jobs:
           )
 
           $ErrorActionPreference = "Stop"
-          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.9.6-william-k1-k8-full-menu-full-flash.bin"
+          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.9.7-sensitive-killerkoala-menu-full-flash.bin"
           if (-not (Test-Path $Image)) { throw "Firmware image not found: $Image" }
 
           py -m pip install --user "esptool==4.11.0"
@@ -145,40 +145,38 @@ jobs:
           py -m esptool --chip esp32s3 --port $Port verify_flash 0x0 $Image
           if ($LASTEXITCODE -ne 0) { throw "Firmware verification failed." }
 
-          Write-Host "DualEye v0.9.6 William/K1-K8/full-menu flash and verification complete. Press RESET once."
+          Write-Host "DualEye v0.9.7 sensitivity/KillerKoala/local-menu flash complete. Press RESET once."
           POWERSHELL
 
           cat > "${package}/README-FLASH.txt" <<'README'
-          KoalaByte Blue ESP32-S3 DualEye v0.9.6 William/K1-K8/full-menu firmware
+          KoalaByte Blue ESP32-S3 DualEye v0.9.7 sensitivity/KillerKoala/local-menu firmware
 
           Exact hardware target:
             Waveshare ESP32-S3 DualEye 1.28-inch non-touch variant
             Both GC9A01A round LCD panels remain enabled
 
-          William Australian local voice:
-            - exact voice source: en-AU-WilliamNeural
-            - neural clips are generated at build time and embedded for offline playback
-            - Australian slang and varied replies replace the robotic eSpeak response bank
-            - clips are loudness-normalized before 8 kHz mu-law embedding
-            - ES8311 output volume is raised to 68 while preserving the continuous-amplifier fix
+          KillerKoala Australian local voice:
+            - synthesis backend: en-AU-WilliamNeural
+            - spoken identity is always KillerKoala; it never introduces itself as William
+            - clips are generated at build time and embedded for offline playback
+            - ES8311 output volume is 74 with -12.5 LUFS clip normalization
+            - the continuous-amplifier/static correction remains active
 
-          K1-K8 spoken controls:
-            - K1: open menu / main menu
-            - K2: back / previous
-            - K3: select
-            - K4: forward / next
-            - K5: up
-            - K6: down
-            - K7: safe power on/off request
-            - K8: safe reset/reboot request
+          Microphone sensitivity:
+            - ES7210 analog gain: maximum 37.5 dB
+            - ES7210 digital gain: +22 dB
+            - complex follow-up speech threshold: 0.010 RMS
+            - normal speaking volume should replace the previous yelling requirement
 
-          Full menu speech:
+          Local menu voice:
+            - specific full commands are registered before the short wake phrase
+            - bare local phrases: menu, open menu, back, select, forward, up, down
+            - K1-K8 phrases remain available
             - every distinct visible menu/submenu label is generated from menu_catalog.py
-            - submenu phrases use: Killer Koala open <submenu label>
-            - leaf action phrases use: Killer Koala launch <menu item label>
+            - universal direct form: Killer Koala launch <visible label>
             - example: Killer Koala launch Koala Kombat Kruisin
-            - the ESP32 opens and navigates generated menus locally
-            - leaf actions are routed to the Raspberry Pi by exact command ID
+            - menu opening and K1-K6 navigation work without the Raspberry Pi
+            - leaf actions still require the Raspberry Pi for execution
 
           Expected serial status after audio starts:
             local_voice_status: es7210_settling
@@ -212,8 +210,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: koalabyte-esp32-s3-dualeye-v0.9.6-william-k1-k8-full-menu
+          name: koalabyte-esp32-s3-dualeye-v0.9.7-sensitive-killerkoala-menu
           path: |
-            releases/koalabyte-esp32-s3-dualeye-v0.9.6-william-k1-k8-full-menu/**
+            releases/koalabyte-esp32-s3-dualeye-v0.9.7-sensitive-killerkoala-menu/**
             releases/esp32-dualeye-platformio.log
           if-no-files-found: error
