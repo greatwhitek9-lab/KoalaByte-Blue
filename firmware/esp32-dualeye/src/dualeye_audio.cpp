@@ -73,6 +73,7 @@ bool dualEyeMicrophoneReady() { return micReady; }
 bool dualEyeSpeakerReady() { return speakerReady; }
 bool dualEyeAudioBusy() { return playbackActive; }
 const char *dualEyeAudioStatus() { return statusText; }
+I2SClass &dualEyeAudioBus() { return audioBus; }
 
 size_t dualEyeAudioRead(uint8_t *buffer, size_t length) {
   if (!micReady || !buffer || !length || playbackActive || !lockAudio(pdMS_TO_TICKS(30))) return 0;
