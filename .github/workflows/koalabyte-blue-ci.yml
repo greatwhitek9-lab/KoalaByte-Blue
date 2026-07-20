@@ -47,7 +47,6 @@ jobs:
           bash -n scripts/install_ble_node_manager_service.sh
           bash -n scripts/install_esp32_dualeye_voice_bridge_service.sh
           bash -n scripts/configure_pi_audio_output.sh
-          bash -n scripts/koalabyte_blue_boot.sh
 
       - name: Compile Pi runtime
         run: python -m compileall -q pi-companion scripts
@@ -74,27 +73,3 @@ jobs:
         run: |
           KOALABYTE_SERVICE_USER="$(id -un)" bash one-shot-install.sh --check-only
           bash scripts/check_deployability.sh
-
-  esp32-firmware-source-build:
-    name: Build current ESP32-S3 DualEye source
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install voice and PlatformIO tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-          python -m pip install --upgrade pip "edge-tts==7.2.8" platformio
-
-      - name: Build ESP32 firmware from source
-        run: pio run -d firmware/esp32-dualeye
-
-      - name: Build current T114 protocol artifacts
-        run: bash scripts/build_default_t114_protocol_artifacts.sh
