@@ -82,7 +82,12 @@ void applyToneFace(JsonDocument &doc, const char *state, const char *message) {
   const char *animation = doc["eye_animation"] | fallbackAnimation;
   const char *left = doc["left_eye"] | fallbackLeft;
   const char *right = doc["right_eye"] | fallbackRight;
-  int intensity = doc["intensity"] | doc["brightness"] | 100;
+  int intensity = 100;
+  if (doc["intensity"].is<int>()) {
+    intensity = doc["intensity"].as<int>();
+  } else if (doc["brightness"].is<int>()) {
+    intensity = doc["brightness"].as<int>();
+  }
   intensity = constrain(intensity, 20, 100);
 
   copyText(activeSpeechTone, sizeof(activeSpeechTone), tone, "neutral");
