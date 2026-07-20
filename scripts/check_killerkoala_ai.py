@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Validate the current Pi-side KillerKoala AI, voice, and TTS contract.
+"""Validate the current Pi-side KillerKoala AI, voice, web, and TTS contract.
 
-Firmware implementation details are validated by the dedicated ESP32 workflow.
-This gate checks only the Raspberry Pi OS Lite runtime and performs no network
-request, microphone capture, firmware flash, or audio playback.
+Firmware compilation remains owned by the dedicated ESP32/T114 workflows. This
+Pi gate performs no network request, microphone capture, firmware flash, or audio
+playback. It verifies local-vocabulary-first routing, TinyLlama question fallback,
+web-research controls, Australian TTS identity, and tone-expression metadata.
 """
 
 from __future__ import annotations
@@ -30,14 +31,24 @@ for path in (ROOT, PI_ROOT):
 REQUIRED_FILES = (
     "pi-companion/requirements.txt",
     "pi-companion/koalablue/killerkoala_vocabulary.py",
+    "pi-companion/koalablue/killerkoala_expression.py",
+    "pi-companion/koalablue/killerkoala_web_research.py",
     "pi-companion/koalablue/killerkoala_hybrid_companion.py",
     "pi-companion/koalablue/killerkoala_voice_control.py",
     "pi-companion/koalablue/dualeye_tts.py",
     "pi-companion/koalablue/esp32_dualeye_voice_bridge.py",
     "pi-companion/koalablue/esp32_dualeye_latched_koalagotchi_bridge.py",
+    "pi-companion/koalablue/esp32_dualeye_speech_synced_bridge.py",
     "scripts/run_killerkoala_hybrid.py",
     "scripts/run_killerkoala_voice.py",
     "scripts/run_esp32_dualeye_voice_bridge.py",
+    "scripts/setup_killerkoala_ollama.sh",
+    "scripts/install_esp32_dualeye_voice_bridge_service.sh",
+    "training/killerkoala_lora/Modelfile.killerkoala-tinyllama",
+    "firmware/esp32-dualeye/scripts/patch_tinyllama_vocabulary_fallback.py",
+    "firmware/esp32-dualeye/scripts/patch_tone_expression_payloads.py",
+    "firmware/esp32-dualeye/scripts/patch_local_speech_lifecycle.py",
+    "firmware/t114-combined-safe/scripts/generate_tone_aware_main.py",
 )
 
 REQUIRED_IMPORTS = (
@@ -47,10 +58,12 @@ REQUIRED_IMPORTS = (
     "pyttsx3",
     "speech_recognition",
     "koalablue.killerkoala_vocabulary",
+    "koalablue.killerkoala_expression",
+    "koalablue.killerkoala_web_research",
     "koalablue.killerkoala_hybrid_companion",
     "koalablue.killerkoala_voice_control",
     "koalablue.dualeye_tts",
-    "koalablue.esp32_dualeye_latched_koalagotchi_bridge",
+    "koalablue.esp32_dualeye_speech_synced_bridge",
 )
 
 REQUIRED_REQUIREMENTS = (
@@ -98,46 +111,97 @@ def requirement_failures() -> list[str]:
     ]
 
 
+def markers(path: Path, values: tuple[str, ...], label: str) -> list[str]:
+    if not path.exists():
+        return [f"missing {label}: {path.relative_to(ROOT)}"]
+    text = path.read_text(encoding="utf-8", errors="ignore")
+    return [f"{label} missing marker: {value}" for value in values if value not in text]
+
+
 def source_contract_failures() -> list[str]:
     failures: list[str] = []
-    tts_text = (PI_ROOT / "koalablue" / "dualeye_tts.py").read_text(encoding="utf-8", errors="ignore")
-    for marker in (
-        'WILLIAM_VOICE = "en-AU-WilliamNeural"',
-        'SPOKEN_IDENTITY = "KillerKoala"',
-        "sanitize_spoken_identity",
-        "_edge_tts_pcm",
-        "_espeak_pcm",
-    ):
-        if marker not in tts_text:
-            failures.append(f"DualEye TTS contract missing marker: {marker}")
-
-    companion_text = (PI_ROOT / "koalablue" / "killerkoala_hybrid_companion.py").read_text(
-        encoding="utf-8", errors="ignore"
+    failures.extend(
+        markers(
+            PI_ROOT / "koalablue" / "dualeye_tts.py",
+            (
+                'WILLIAM_VOICE = "en-AU-WilliamNeural"',
+                'SPOKEN_IDENTITY = "KillerKoala"',
+                "sanitize_spoken_identity",
+                "_edge_tts_pcm",
+                "_espeak_pcm",
+            ),
+            "DualEye TTS contract",
+        )
     )
-    for marker in (
-        "Your identity and spoken name are always KillerKoala",
-        "William is only the hidden Australian",
-        "text-to-speech backend",
-        "sanitize_spoken_identity",
-    ):
-        if marker not in companion_text:
-            failures.append(f"KillerKoala identity contract missing marker: {marker}")
+    failures.extend(
+        markers(
+            PI_ROOT / "koalablue" / "killerkoala_hybrid_companion.py",
+            (
+                'DEFAULT_MODEL = "killerkoala-tinyllama:latest"',
+                'mode=os.getenv("KILLERKOALA_LLM_MODE", "tinyllama")',
+                "local conversational cyberpet",
+                "William is only the hidden Australian male",
+                "conversation_history.json",
+                "research_question",
+            ),
+            "KillerKoala TinyLlama contract",
+        )
+    )
+    failures.extend(
+        markers(
+            PI_ROOT / "koalablue" / "killerkoala_web_research.py",
+            (
+                "BRAVE_SEARCH_API_KEY",
+                "api.duckduckgo.com",
+                "en.wikipedia.org/w/api.php",
+                "KILLERKOALA_WEB_SEARCH",
+            ),
+            "KillerKoala web-research contract",
+        )
+    )
+    failures.extend(
+        markers(
+            PI_ROOT / "koalablue" / "killerkoala_expression.py",
+            ("class KillerKoalaExpression", '"angry"', '"happy"', '"curious"', '"focused"'),
+            "KillerKoala expression contract",
+        )
+    )
+    failures.extend(
+        markers(
+            ROOT / "training" / "killerkoala_lora" / "Modelfile.killerkoala-tinyllama",
+            (
+                "FROM tinyllama:1.1b",
+                "gruff, cheeky, cyberpunk",
+                "William is only the hidden Australian male",
+            ),
+            "TinyLlama Modelfile",
+        )
+    )
     return failures
 
 
 def safe_smoke() -> dict[str, Any]:
     old_mode = os.environ.get("KILLERKOALA_LLM_MODE")
     old_web = os.environ.get("KILLERKOALA_WEB_SEARCH")
+    old_history = os.environ.get("KILLERKOALA_DIALOGUE_TURNS")
     os.environ["KILLERKOALA_LLM_MODE"] = "off"
     os.environ["KILLERKOALA_WEB_SEARCH"] = "off"
+    os.environ["KILLERKOALA_DIALOGUE_TURNS"] = "0"
     try:
         from koalablue.dualeye_tts import SPOKEN_IDENTITY, WILLIAM_VOICE, sanitize_spoken_identity
-        from koalablue.esp32_dualeye_latched_koalagotchi_bridge import ESP32DualEyeVoiceBridge
-        from koalablue.killerkoala_hybrid_companion import companion_response
-        from koalablue.killerkoala_voice_control import module_manifest, parse_voice_command
+        from koalablue.esp32_dualeye_speech_synced_bridge import ESP32DualEyeVoiceBridge
+        from koalablue.killerkoala_expression import classify_response_expression
+        from koalablue.killerkoala_hybrid_companion import companion_response, load_config
+        from koalablue.killerkoala_voice_control import execute_module, module_manifest, parse_voice_command
+        from koalablue.killerkoala_web_research import looks_like_general_question
 
         manifest = module_manifest()
-        parsed = parse_voice_command("killerkoala voice commands", require_wake_word=True)
+        help_parsed = parse_voice_command("killerkoala voice commands", require_wake_word=True)
+        question_parsed = parse_voice_command(
+            "killerkoala what is the current Raspberry Pi operating system release",
+            require_wake_word=True,
+        )
+        question_result = execute_module(question_parsed, force_flexible_banter=True)
         response = companion_response(
             "status",
             xp=100,
@@ -145,41 +209,51 @@ def safe_smoke() -> dict[str, Any]:
             flexible=False,
             history_path=None,
         )
+        happy = classify_response_expression("Bonza, the action completed successfully.", status="success")
+        angry = classify_response_expression("The system fault is unacceptable and blocked.", status="error")
         sanitized = sanitize_spoken_identity("G'day, I am William.")
+        config = load_config()
         return {
             "wake_word": manifest.get("wake_word"),
             "module_count": len(manifest.get("modules", {})),
             "help_module_present": "killerkoala_help" in manifest.get("modules", {}),
-            "parsed_wake_word_detected": parsed.wake_word_detected,
-            "parsed_module_key": parsed.module_key,
+            "question_module_present": "killerkoala_question" in manifest.get("modules", {}),
+            "help_module_key": help_parsed.module_key,
+            "question_module_key": question_parsed.module_key,
+            "question_detector": looks_like_general_question("what is the latest firmware?"),
+            "question_result_status": question_result.status,
+            "question_fallback_text": question_result.companion_line,
             "companion_source": response.source,
             "companion_text": response.text,
             "companion_rank": response.rank,
+            "default_model": config.model,
             "william_voice_backend": WILLIAM_VOICE,
             "spoken_identity": SPOKEN_IDENTITY,
             "sanitized_identity_sample": sanitized,
-            "latched_bridge_class": ESP32DualEyeVoiceBridge.__name__,
+            "speech_synced_bridge_class": ESP32DualEyeVoiceBridge.__name__,
+            "happy_expression": happy.to_payload(),
+            "angry_expression": angry.to_payload(),
         }
     finally:
-        if old_mode is None:
-            os.environ.pop("KILLERKOALA_LLM_MODE", None)
-        else:
-            os.environ["KILLERKOALA_LLM_MODE"] = old_mode
-        if old_web is None:
-            os.environ.pop("KILLERKOALA_WEB_SEARCH", None)
-        else:
-            os.environ["KILLERKOALA_WEB_SEARCH"] = old_web
+        for name, value in (
+            ("KILLERKOALA_LLM_MODE", old_mode),
+            ("KILLERKOALA_WEB_SEARCH", old_web),
+            ("KILLERKOALA_DIALOGUE_TURNS", old_history),
+        ):
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check current KillerKoala Pi AI and William TTS readiness")
+    parser = argparse.ArgumentParser(description="Check current KillerKoala Pi AI, web, expression, and William TTS readiness")
     parser.add_argument("--strict", action="store_true", help="Require local TTS host commands as well as Python runtime")
     parser.add_argument("--status-path", default=str(STATUS_PATH))
     args = parser.parse_args()
 
     failures: list[str] = []
     warnings: list[str] = []
-
     failures.extend(f"missing current KillerKoala runtime file: {path}" for path in missing_files())
     failures.extend(requirement_failures())
     failures.extend(source_contract_failures())
@@ -197,15 +271,18 @@ def main() -> int:
             else:
                 warnings.append(message)
 
-    smoke: dict[str, Any]
     try:
         smoke = safe_smoke()
         if smoke.get("wake_word") != "killerkoala":
             failures.append("KillerKoala voice manifest wake word is not killerkoala")
-        if not smoke.get("help_module_present"):
-            failures.append("KillerKoala voice manifest is missing killerkoala_help")
-        if not smoke.get("parsed_wake_word_detected") or smoke.get("parsed_module_key") != "killerkoala_help":
-            failures.append("KillerKoala typed voice-help phrase did not route to killerkoala_help")
+        if not smoke.get("help_module_present") or smoke.get("help_module_key") != "killerkoala_help":
+            failures.append("KillerKoala help phrase did not route to killerkoala_help")
+        if not smoke.get("question_module_present") or smoke.get("question_module_key") != "killerkoala_question":
+            failures.append("Open-ended question did not route to killerkoala_question")
+        if not smoke.get("question_detector"):
+            failures.append("General-question detector rejected a current-information question")
+        if smoke.get("default_model") != "killerkoala-tinyllama:latest":
+            failures.append("Default Pi model is not killerkoala-tinyllama:latest")
         if smoke.get("william_voice_backend") != "en-AU-WilliamNeural":
             failures.append("William Neural is not the configured Australian TTS backend")
         if smoke.get("spoken_identity") != "KillerKoala":
@@ -214,6 +291,10 @@ def main() -> int:
             failures.append("backend name William leaked through spoken-identity sanitization")
         if "William" in str(smoke.get("companion_text", "")):
             failures.append("KillerKoala companion response exposed the William backend name")
+        if smoke.get("happy_expression", {}).get("tone") not in {"happy", "excited"}:
+            failures.append("Happy response did not select a happy/excited display expression")
+        if smoke.get("angry_expression", {}).get("tone") not in {"angry", "error"}:
+            failures.append("Angry/error response did not select an angry/error display expression")
     except Exception as exc:
         smoke = {"status": "error", "error": str(exc)}
         failures.append(f"KillerKoala Pi smoke check failed: {exc}")
@@ -221,7 +302,17 @@ def main() -> int:
     payload = {
         "status": "KILLERKOALA_AI_READY" if not failures else "KILLERKOALA_AI_INCOMPLETE",
         "runtime_mode": "headless_pi_os_lite",
-        "firmware_validation_owner": "dedicated ESP32 source workflow",
+        "response_hierarchy": [
+            "waveshare_saved_vocabulary_and_basic_responses",
+            "raspberry_pi_tinyllama_for_unmatched_or_open_ended_requests",
+            "web_research_context_when_internet_is_available",
+            "local_phrase_fallback_if_tinyllama_is_unavailable",
+        ],
+        "primary_pi_model": "killerkoala-tinyllama:latest",
+        "spoken_identity": "KillerKoala",
+        "tts_backend": "en-AU-WilliamNeural",
+        "tone_synced_displays": True,
+        "firmware_validation_owner": "dedicated ESP32 and T114 source workflows",
         "network_request_performed": False,
         "microphone_required": False,
         "audio_playback_performed": False,
