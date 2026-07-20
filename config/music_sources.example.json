@@ -1,0 +1,14 @@
+{
+  "default": "",
+  "favorites": [
+    {
+      "name": "Example internet radio stream",
+      "uri": ""
+    }
+  ],
+  "notes": [
+    "Use a direct HTTP/HTTPS audio stream URI, a Mopidy local URI, or a URI exposed by an installed Mopidy extension.",
+    "Do not commit private service credentials or authenticated stream URLs.",
+    "Set KOALABYTE_MUSIC_DEFAULT_URI to override this file at runtime."
+  ]
+}
