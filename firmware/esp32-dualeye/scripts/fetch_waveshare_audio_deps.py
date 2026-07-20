@@ -10,13 +10,16 @@ archive = f"https://github.com/waveshareteam/ESP32-S3-DualEye-Touch-LCD-1.28/arc
 root = f"ESP32-S3-DualEye-Touch-LCD-1.28-{commit}/example/ESP32-S3-DualEye-LCD-1.28/Arduino-3.2.0/libraries"
 
 framework = Path(env.PioPlatform().get_package_dir("framework-arduinoespressif32"))
-network_include = framework / "libraries" / "Network" / "src"
-if network_include.exists():
-    env.Append(CPPPATH=[str(network_include)])
-    network_shim = lib_root / "arduino_network_headers" / "src"
-    network_shim.mkdir(parents=True, exist_ok=True)
-    for header in network_include.glob("*.h"):
-        shutil.copy2(header, network_shim / header.name)
+network_source = framework / "libraries" / "Network" / "src"
+if network_source.exists():
+    env.Append(CPPPATH=[str(network_source)])
+    # pioarduino 55.x discovers Arduino 3 Network headers for WiFi but omits the
+    # Network source archive from the final link. Mirror the exact framework
+    # source tree into a project library; these are unmodified framework files.
+    network_library = lib_root / "arduino_network_runtime" / "src"
+    if network_library.exists():
+        shutil.rmtree(network_library)
+    shutil.copytree(network_source, network_library)
 
 if not marker.exists():
     print("Fetching pinned Waveshare ES8311/ES7210 drivers")
