@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""Run the Pi-owned KoalaByte menu/control state machine without a local display."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import signal
+import time
+from pathlib import Path
+
+from koalablue.gpio_buttons import GPIOButtonManager
+from koalablue.menu_display_sync import sync_menu_state
+from scripts.run_menu_screen import make_menu
+
+STATUS_PATH = Path("logs/runtime/headless_menu_status.json")
+EVENT_PATH = Path("logs/runtime/headless_menu_events.jsonl")
+
+
+def write_status(status: str, **extra: object) -> None:
+    payload = {
+        "status": status,
+        "mode": "headless_pi_control",
+        "local_graphical_display_required": False,
+        "gpio_buttons": "K1-K8",
+        "updated_at": time.time(),
+        **extra,
+    }
+    STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    STATUS_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def append_event(payload: dict[str, object]) -> None:
+    EVENT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with EVENT_PATH.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, sort_keys=True) + "\n")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Run KoalaByte headless K1-K8 menu and display synchronization")
+    parser.add_argument("--poll-seconds", type=float, default=0.05)
+    args = parser.parse_args()
+
+    stop_requested = False
+
+    def stop_handler(_signum: int, _frame: object) -> None:
+        nonlocal stop_requested
+        stop_requested = True
+
+    signal.signal(signal.SIGINT, stop_handler)
+    signal.signal(signal.SIGTERM, stop_handler)
+
+    menu = make_menu()
+    buttons = GPIOButtonManager(log_path="logs/gpio_buttons/gpio_button_runtime_events.jsonl")
+    buttons.start()
+
+    write_status(
+        "HEADLESS_MENU_STARTING",
+        buttons_available=buttons.available,
+        button_error=buttons.error,
+        selected_label=menu.selected_item.label,
+    )
+    sync_menu_state(menu, menu.reopen_menu("main_menu"))
+
+    try:
+        while not stop_requested:
+            button_event = buttons.get_event(timeout=max(0.01, args.poll_seconds))
+            if button_event is not None:
+                event_payload = {
+                    "type": "gpio_button_dispatch",
+                    "button_number": button_event.number,
+                    "command": button_event.command,
+                    "event_type": button_event.event_type,
+                    "requires_hold": button_event.requires_hold,
+                    "held_seconds": button_event.held_seconds,
+                    "timestamp": time.time(),
+                }
+                append_event(event_payload)
+                try:
+                    menu_event = menu.handle_command(button_event.command)
+                    write_status(
+                        "HEADLESS_MENU_RUNNING",
+                        buttons_available=buttons.available,
+                        last_button=event_payload,
+                        last_menu_event=menu_event.__dict__ if menu_event is not None else None,
+                        display_mode=menu.display_mode,
+                        selected_label=menu.selected_item.label,
+                    )
+                except Exception as exc:
+                    append_event(
+                        {
+                            "type": "menu_action_error",
+                            "command": button_event.command,
+                            "error": str(exc),
+                            "timestamp": time.time(),
+                        }
+                    )
+                    write_status(
+                        "HEADLESS_MENU_ACTION_ERROR",
+                        buttons_available=buttons.available,
+                        command=button_event.command,
+                        error=str(exc),
+                    )
+                continue
+
+            idle_event = menu.check_idle_timeout()
+            if idle_event is not None:
+                write_status(
+                    "HEADLESS_MENU_IDLE_FACE",
+                    buttons_available=buttons.available,
+                    display_mode=menu.display_mode,
+                    last_menu_event=idle_event.__dict__,
+                )
+    finally:
+        buttons.close()
+        write_status("HEADLESS_MENU_STOPPED", buttons_available=False)
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
