@@ -68,15 +68,16 @@ for menu_name in menu_names:
             }
         )
 
-# K1-K8 are the canonical control surface. Two spoken forms are retained for
-# each key so natural navigation and explicit key-name speech both work.
+# K1-K8 remain the canonical control surface. K1-K6 now include short local
+# follow-up phrases so wake-then-command operation works without the Pi. The
+# explicit Killer Koala K-one through K-eight forms remain available.
 controls = [
-    (100, "k1_main_menu", "Main Menu", "main", "Killer Koala open menu", "Killer Koala K one"),
-    (101, "k2_back", "Back", "main", "Killer Koala back", "Killer Koala K two"),
-    (102, "k3_select", "Select", "main", "Killer Koala select", "Killer Koala K three"),
-    (103, "k4_forward", "Forward", "main", "Killer Koala forward", "Killer Koala K four"),
-    (104, "k5_up", "Up", "main", "Killer Koala up", "Killer Koala K five"),
-    (105, "k6_down", "Down", "main", "Killer Koala down", "Killer Koala K six"),
+    (100, "k1_main_menu", "Main Menu", "main", "Menu", "Killer Koala K one"),
+    (101, "k2_back", "Back", "main", "Back", "Killer Koala K two"),
+    (102, "k3_select", "Select", "main", "Select", "Killer Koala K three"),
+    (103, "k4_forward", "Forward", "main", "Forward", "Killer Koala K four"),
+    (104, "k5_up", "Up", "main", "Up", "Killer Koala K five"),
+    (105, "k6_down", "Down", "main", "Down", "Killer Koala K six"),
     (106, "k7_power_toggle", "Power On Off", "main", "Killer Koala power off", "Killer Koala K seven"),
     (107, "k8_reset", "Reset Reboot", "main", "Killer Koala reboot", "Killer Koala K eight"),
 ]
@@ -98,10 +99,12 @@ for command_id, command, label, menu_name, natural, key_name in controls:
         }
     )
 
-# One canonical "launch" phrase per distinct visible label. Repeated labels
-# would be ambiguous to MultiNet, so they intentionally share the first matching
-# route. A launch phrase opens submenus and executes leaf rows. Back rows are
-# represented by K2 and do not consume extra phrase slots.
+# Preserve both natural forms that the user expects for K1.
+speech_commands.append((100, "Open menu"))
+
+# One canonical phrase per distinct visible label. Repeated labels would be
+# ambiguous to MultiNet, so they intentionally share the first matching route.
+# Back rows are represented by K2 and do not consume extra phrase slots.
 seen_spoken_labels: set[str] = set()
 next_command_id = 200
 for catalog_index, item in enumerate(menu_items):
