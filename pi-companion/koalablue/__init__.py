@@ -23,3 +23,12 @@ try:
 except Exception:
     # Optional OBD-II/read-only menu support must not block core package imports.
     pass
+
+try:
+    from .mopidy_player import install_menu_catalog as install_music_player_menu
+
+    install_music_player_menu()
+except Exception:
+    # Music support is optional at import time; a missing service or user config
+    # must never prevent the menu, voice bridge, or diagnostics from starting.
+    pass
