@@ -46,10 +46,11 @@ The following must work with no Raspberry Pi attached:
 
 1. Say `Killer Koala` at normal conversational volume.
 2. Confirm the spoken response identifies itself as KillerKoala and is louder without static.
-3. After the wake response, say `menu`.
-4. Repeat with `open menu`.
-5. Navigate with `down`, `up`, `forward`, `back`, and `select`.
-6. Confirm both eyes retain their intended menu layout and return behavior.
+3. After the wake response finishes, say `menu` or `open menu`.
+4. Navigate with `down`, `up`, `forward`, `back`, and `select`.
+5. Confirm both eyes retain their intended menu layout and return behavior.
+
+The short navigation words are intentionally used as the second stage after the wake response. Complete catalog commands such as `Killer Koala launch Koala Kombat Kruisin` remain registered as one-shot phrases.
 
 Serial diagnostics:
 
