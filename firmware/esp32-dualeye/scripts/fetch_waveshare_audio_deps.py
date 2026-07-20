@@ -9,6 +9,14 @@ marker = vendor / ".waveshare-audio-f16371c"
 archive = f"https://github.com/waveshareteam/ESP32-S3-DualEye-Touch-LCD-1.28/archive/{commit}.zip"
 root = f"ESP32-S3-DualEye-Touch-LCD-1.28-{commit}/example/ESP32-S3-DualEye-LCD-1.28/Arduino-3.2.0/libraries"
 
+# pioarduino 55.x discovers the Arduino 3 Networking library but does not
+# propagate its include path while compiling WiFi itself. Anchor the framework
+# path explicitly; this remains a framework library, not a registry substitute.
+framework = Path(env.PioPlatform().get_package_dir("framework-arduinoespressif32"))
+network_include = framework / "libraries" / "Network" / "src"
+if network_include.exists():
+    env.Append(CPPPATH=[str(network_include)])
+
 if not marker.exists():
     print("Fetching pinned Waveshare ES8311/ES7210 drivers")
     if vendor.exists():
