@@ -5,7 +5,7 @@ import argparse
 import json
 import time
 
-from koalablue.esp32_dualeye_voice_bridge import ESP32DualEyeVoiceBridge, default_esp32_port
+from koalablue.esp32_dualeye_ready_bridge import ESP32DualEyeVoiceBridge, default_esp32_port
 
 
 def main() -> int:
@@ -22,7 +22,13 @@ def main() -> int:
     parser.add_argument("--pi-host", default=None, help="Pi LAN address sent to the ESP32 for UDP callbacks")
     args = parser.parse_args()
 
-    bridge = ESP32DualEyeVoiceBridge(port=args.port, baud=args.baud, udp_port=args.udp_port)
+    provisioning_only = bool(args.wifi_ssid and args.pi_host)
+    bridge = ESP32DualEyeVoiceBridge(
+        port=args.port,
+        baud=args.baud,
+        udp_port=args.udp_port,
+        announce_ready=not args.status_only and not provisioning_only,
+    )
     if args.status_only:
         bridge.open()
         try:
@@ -34,7 +40,7 @@ def main() -> int:
         print(json.dumps(payload, indent=2, sort_keys=True))
         return 0
 
-    if args.wifi_ssid and args.pi_host:
+    if provisioning_only:
         bridge.open()
         try:
             bridge.provision_wifi(args.wifi_ssid, args.wifi_password, args.pi_host, args.udp_port)
