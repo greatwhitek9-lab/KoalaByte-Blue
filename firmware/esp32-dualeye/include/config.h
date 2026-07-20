@@ -1,9 +1,9 @@
 #pragma once
 
-// KillerKoala ESP32-S3 DualEye config RevA45 William/K1-K8/full-menu voice profile.
+// KillerKoala ESP32-S3 DualEye config RevA46 sensitive two-stage voice profile.
 // Exact target: verified non-touch ESP32-S3 DualEye 1.28-inch variant.
 
-#define KOALABLUE_FW_VERSION "0.9.6-dualeye-william-menu-voice"
+#define KOALABLUE_FW_VERSION "0.9.7-dualeye-sensitive-killerkoala-menu"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define WAKE_WORD_ALTERNATE "hey killerkoala"
@@ -31,8 +31,8 @@
 #define ESP32S3_WAKE_MODEL "always-on local MultiNet phrase detection for killer koala and hey killer koala"
 #define ESP32S3_COMMAND_MODEL "K1-K8 plus every visible menu and submenu label are recognized locally; Pi executes leaf actions"
 #define ESP32S3_COMMAND_ALIAS_PACK "generated from pi-companion/koalablue/menu_catalog.py at firmware build time"
-#define KILLERKOALA_COMPANION_BRAIN "ESP32 William response bank plus Raspberry Pi execution and LLM escalation"
-#define KILLERKOALA_RESPONSE_POLICY "ESP32 speaker handles local wake and basic William replies; Raspberry Pi handles execution and complex AI replies"
+#define KILLERKOALA_COMPANION_BRAIN "KillerKoala local response bank plus Raspberry Pi execution and LLM escalation"
+#define KILLERKOALA_RESPONSE_POLICY "ESP32 speaker handles local wake and basic KillerKoala replies; Raspberry Pi handles execution and complex AI replies"
 #define ESP32S3_SPEAKER_ROLE "local_wake_and_basic_ai_responses_only"
 #define RASPBERRY_PI_SPEAKER_ROLE "menu_results_execution_feedback_and_complex_ai"
 #define ENABLE_PI_RESPONSE_STREAM_TO_ESP32 0
@@ -144,13 +144,14 @@
 #define AUDIO_CODEC_ES8311_ADDR 0x18
 #define AUDIO_CODEC_ES7210_ADDR 0x40
 #define AUDIO_MCLK_MULTIPLE 256
-#define AUDIO_OUTPUT_VOLUME 68
+#define AUDIO_OUTPUT_VOLUME 74
+#define MIC_INPUT_DIGITAL_GAIN_DB 22
 #define MIC_I2S_BCLK_PIN AUDIO_I2S_BCLK_PIN
 #define MIC_I2S_WS_PIN AUDIO_I2S_WS_PIN
 #define MIC_I2S_DIN_PIN AUDIO_I2S_DIN_PIN
 #define MIC_SAMPLE_RATE_HZ AUDIO_INPUT_SAMPLE_RATE
 #define MIC_SAMPLE_BLOCK_SAMPLES 320
-#define MIC_WAKE_RMS_THRESHOLD 0.015f
+#define MIC_WAKE_RMS_THRESHOLD 0.010f
 #define MIC_WAKE_COOLDOWN_MS 1800UL
 #define MIC_STATUS_INTERVAL_MS 10000UL
 #define MIC_UTTERANCE_SILENCE_MS 900UL
