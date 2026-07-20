@@ -2,13 +2,34 @@ cmake_minimum_required(VERSION 3.20.0)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(koalabyte_t114_combined_safe)
 
+set(KOALABYTE_TONE_MAIN_SOURCE
+  ${CMAKE_CURRENT_BINARY_DIR}/generated/koalabyte_t114_tone_main.c
+)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated)
+execute_process(
+  COMMAND
+    ${PYTHON_EXECUTABLE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/scripts/generate_tone_aware_main.py
+    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.c
+    --output ${KOALABYTE_TONE_MAIN_SOURCE}
+  RESULT_VARIABLE KOALABYTE_TONE_MAIN_RESULT
+  ERROR_VARIABLE KOALABYTE_TONE_MAIN_ERROR
+)
+if(NOT KOALABYTE_TONE_MAIN_RESULT EQUAL 0)
+  message(FATAL_ERROR
+    "Failed to generate tone-aware T114 main source: ${KOALABYTE_TONE_MAIN_ERROR}"
+  )
+endif()
+set_source_files_properties(${KOALABYTE_TONE_MAIN_SOURCE} PROPERTIES GENERATED TRUE)
+
 target_sources(app PRIVATE
   src/display_power_init.c
   src/koalagotchi_lifecycle_wrapper.c
-  src/main.c
+  ${KOALABYTE_TONE_MAIN_SOURCE}
   src/loading_display.c
   src/original_texture_warp_renderer.c
 )
+target_include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # Direct symbol routing keeps the Koalagotchi lifecycle latch as the public API.
 # loading_display.c still owns boot/menu/action drawing. The normal mouth path is
