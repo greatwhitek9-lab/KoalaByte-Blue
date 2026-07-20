@@ -3,6 +3,7 @@ from __future__ import annotations
 import audioop
 import io
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -11,6 +12,15 @@ from pathlib import Path
 
 
 WILLIAM_VOICE = "en-AU-WilliamNeural"
+SPOKEN_IDENTITY = "KillerKoala"
+_BACKEND_NAME_PATTERN = re.compile(r"\bWilliam\b", re.IGNORECASE)
+
+
+def sanitize_spoken_identity(text: str) -> str:
+    """Keep the William voice backend separate from the KillerKoala persona."""
+
+    clean = " ".join(str(text or "").split())
+    return _BACKEND_NAME_PATTERN.sub(SPOKEN_IDENTITY, clean)
 
 
 def _edge_tts_pcm(text: str) -> bytes:
@@ -138,13 +148,15 @@ def _espeak_pcm(text: str) -> bytes:
 
 
 def synthesize_pcm16_mono_16k(text: str) -> bytes:
-    """Return Australian male speech as signed mono PCM at 16 kHz.
+    """Return KillerKoala speech as signed mono PCM at 16 kHz.
 
-    William Neural is the preferred voice. The legacy local eSpeak path remains
-    a fail-soft fallback for offline Pi operation.
+    William Neural is the preferred Australian male synthesis backend, never the
+    spoken persona. Any accidental backend-name self-reference is rewritten to
+    KillerKoala before audio generation. The legacy eSpeak path remains a
+    fail-soft fallback for offline Pi operation.
     """
 
-    clean = " ".join(str(text or "").split())
+    clean = sanitize_spoken_identity(text)
     if not clean:
         return b""
     return _edge_tts_pcm(clean) or _espeak_pcm(clean)
