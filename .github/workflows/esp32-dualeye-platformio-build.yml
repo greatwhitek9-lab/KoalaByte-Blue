@@ -53,7 +53,7 @@ jobs:
         run: |
           set -euo pipefail
           build="firmware/esp32-dualeye/.pio/build/esp32s3_dualeye"
-          package="releases/koalabyte-esp32-s3-dualeye-v0.7.1-recovery-realistic-koala"
+          package="releases/koalabyte-esp32-s3-dualeye-v0.8.0-integrated-nontouch"
           mkdir -p "${package}"
 
           boot_app0="$(find "${HOME}/.platformio/packages/framework-arduinoespressif32" -path '*/tools/partitions/boot_app0.bin' -print -quit)"
@@ -84,14 +84,14 @@ jobs:
           image = bytearray(b"\xFF" * end)
           for offset, payload in payloads:
               image[offset:offset + len(payload)] = payload
-          output = package / "koalabyte-esp32-s3-dualeye-v0.7.1-recovery-full-flash.bin"
+          output = package / "koalabyte-esp32-s3-dualeye-v0.8.0-integrated-full-flash.bin"
           output.write_bytes(image)
           for offset, payload in payloads:
               assert image[offset:offset + len(payload)] == payload
           print(f"Created {output} ({len(image)} bytes)")
           PY
 
-          cat > "${package}/flash-esp32-dualeye-recovery.ps1" <<'POWERSHELL'
+          cat > "${package}/flash-esp32-dualeye-integrated.ps1" <<'POWERSHELL'
           param(
             [Parameter(Mandatory=$true)]
             [string]$Port,
@@ -100,7 +100,7 @@ jobs:
           )
 
           $ErrorActionPreference = "Stop"
-          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.7.1-recovery-full-flash.bin"
+          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.8.0-integrated-full-flash.bin"
           if (-not (Test-Path $Image)) { throw "Firmware image not found: $Image" }
 
           py -m pip install --user "esptool==4.11.0"
@@ -117,43 +117,60 @@ jobs:
           py -m esptool --chip esp32s3 --port $Port --baud $Baud write_flash -z 0x0 $Image
           if ($LASTEXITCODE -ne 0) { throw "Firmware write failed." }
 
-          Write-Host "Recovery flash complete. Press RESET once and allow the six-second boot animation to finish."
+          py -m esptool --chip esp32s3 --port $Port verify_flash 0x0 $Image
+          if ($LASTEXITCODE -ne 0) { throw "Firmware verification failed." }
+
+          Write-Host "Integrated flash and verification complete. Press RESET once."
           POWERSHELL
 
           cat > "${package}/README-FLASH.txt" <<'README'
-          KoalaByte Blue ESP32-S3 DualEye v0.7.1 recovery firmware
+          KoalaByte Blue ESP32-S3 DualEye v0.8.0 integrated firmware
 
           Exact hardware target:
             Verified non-touch ESP32-S3 DualEye 1.28-inch variant
             Good display: LCD2, front-right / back-left / TF-card side
+            Damaged LCD1 remains disabled
             No touch controller or touch panel is present
 
-          Recovery changes:
-            - initializes LCD2 only; damaged LCD1 is never selected
-            - one shared 200x200 RGB565 framebuffer instead of four canvases
-            - conservative 40 MHz display SPI
-            - Wi-Fi, BLE, microphone and speaker disabled for stability testing
-            - touch support permanently disabled for this non-touch hardware
-            - realistic animated koala face with no clock/tick marks
+          Integrated capabilities:
+            - retains the realistic animated cyberpunk koala eye renderer
+            - staged BLE, Wi-Fi and audio initialization prevents the old boot loop
+            - ES7210 microphone capture over the official Waveshare audio path
+            - ES8311 speaker playback for responses returned by the Raspberry Pi
+            - Wi-Fi/UDP node to the Raspberry Pi with USB serial fallback
+            - independent BLE advertising and passive scan node
+            - all menu and submenu execution is owned by the Raspberry Pi
+            - unsupported voice requests escalate to Raspberry Pi AI
+            - accepted wake phrases: killerkoala and hey killerkoala
+            - Raspberry Pi fans matching face states independently to ESP32 and Heltec
+            - BLE is not required for expression synchronization
 
-          Windows command from this folder:
-            powershell -ExecutionPolicy Bypass -File .\flash-esp32-dualeye-recovery.ps1 -Port COM9
+          Windows flash command from this folder:
+            powershell -ExecutionPolicy Bypass -File .\flash-esp32-dualeye-integrated.ps1 -Port COM9
 
           Replace COM9 if Windows assigns a different port.
-          Disconnect the battery for the recovery flash and use USB power only.
+          Disconnect the battery for the first integrated flash and use USB power only.
+
+          Raspberry Pi service:
+            python scripts/run_esp32_dualeye_voice_bridge.py --port /dev/koalabyte-esp32-dualeye --seconds 31536000
+
+          One-time Wi-Fi provisioning from the Raspberry Pi:
+            python scripts/run_esp32_dualeye_voice_bridge.py --port /dev/koalabyte-esp32-dualeye --wifi-ssid YOUR_SSID --wifi-password YOUR_PASSWORD --pi-host PI_LAN_IP
+
+          Wi-Fi credentials are sent over USB and stored in ESP32 NVS; they are not embedded in this firmware ZIP.
           README
 
           (
             cd "${package}"
-            sha256sum *.bin flash-esp32-dualeye-recovery.ps1 README-FLASH.txt build.log > SHA256SUMS.txt
+            sha256sum *.bin flash-esp32-dualeye-integrated.ps1 README-FLASH.txt build.log > SHA256SUMS.txt
           )
 
       - name: Upload firmware package
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: koalabyte-esp32-s3-dualeye-v0.7.1-recovery-realistic-koala
+          name: koalabyte-esp32-s3-dualeye-v0.8.0-integrated-nontouch
           path: |
-            releases/koalabyte-esp32-s3-dualeye-v0.7.1-recovery-realistic-koala/**
+            releases/koalabyte-esp32-s3-dualeye-v0.8.0-integrated-nontouch/**
             releases/esp32-dualeye-platformio.log
           if-no-files-found: error
