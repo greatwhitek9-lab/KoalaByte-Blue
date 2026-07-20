@@ -10,18 +10,22 @@ target_sources(app PRIVATE
   src/loading_display.c
 )
 
-# Preserve the existing procedural cyber-mouth implementation as the inner
-# renderer. The lifecycle wrapper becomes the public linker --wrap target and
-# controls persistent action, Koalagotchi mode, failure emotion, and alarm state.
+# Direct symbol routing is used instead of linker --wrap because Zephyr places
+# the app objects in one archive and garbage-collects unreferenced wrap symbols.
+# loading_display.c owns the base pixel renderer, error_alarm_wrapper.c remains
+# the inner procedural mouth renderer, and koalagotchi_lifecycle_wrapper.c owns
+# the public render_* symbols called by main.c.
+set_source_files_properties(src/loading_display.c PROPERTIES
+  COMPILE_DEFINITIONS
+    "render_killerkoala_mouth=koala_base_render_killerkoala_mouth;render_menu_status=koala_base_render_menu_status;render_koalagotchi_action=koala_base_render_koalagotchi_action"
+)
 set_source_files_properties(src/error_alarm_wrapper.c PROPERTIES
   COMPILE_DEFINITIONS
-    "__wrap_render_killerkoala_mouth=koala_inner_render_killerkoala_mouth;__wrap_render_menu_status=koala_inner_render_menu_status;__wrap_render_koalagotchi_action=koala_inner_render_koalagotchi_action"
+    "__wrap_render_killerkoala_mouth=koala_inner_render_killerkoala_mouth;__wrap_render_menu_status=koala_inner_render_menu_status;__wrap_render_koalagotchi_action=koala_inner_render_koalagotchi_action;__real_render_killerkoala_mouth=koala_base_render_killerkoala_mouth;__real_render_menu_status=koala_base_render_menu_status;__real_render_koalagotchi_action=koala_base_render_koalagotchi_action"
 )
-
-target_link_options(app PRIVATE
-  -Wl,--wrap=render_killerkoala_mouth
-  -Wl,--wrap=render_menu_status
-  -Wl,--wrap=render_koalagotchi_action
+set_source_files_properties(src/koalagotchi_lifecycle_wrapper.c PROPERTIES
+  COMPILE_DEFINITIONS
+    "__wrap_render_killerkoala_mouth=render_killerkoala_mouth;__wrap_render_menu_status=render_menu_status;__wrap_render_koalagotchi_action=render_koalagotchi_action;__real_render_killerkoala_mouth=koala_base_render_killerkoala_mouth;__real_render_menu_status=koala_base_render_menu_status;__real_render_koalagotchi_action=koala_base_render_koalagotchi_action"
 )
 
 set(KOALABYTE_BOOT_SPLASH_ASSET
