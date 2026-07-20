@@ -10,6 +10,8 @@ FLASH_MODE="${FLASH_ESP32:-auto}"
 FORCE="${FORCE_ESP32_FLASH:-0}"
 BAUD="${ESP32_FLASH_BAUD:-460800}"
 PYTHON_BIN="${PYTHON_BIN:-${REPO_ROOT}/pi-companion/.venv/bin/python}"
+PACKAGE_DIR="${KOALABYTE_ESP32_FIRMWARE_PACKAGE:-}"
+DIRECT_IMAGE="${ESP32_PREBUILT_IMAGE:-}"
 
 mkdir -p "$(dirname "${STATUS_PATH}")" "$(dirname "${STATE_PATH}")"
 
@@ -60,16 +62,27 @@ fi
 relative="$(manifest_value file)"
 expected="$(manifest_value sha256)"
 version="$(manifest_value version)"
-image="${REPO_ROOT}/${relative}"
+basename="$(basename "${relative}")"
+repo_image="${REPO_ROOT}/${relative}"
+image=""
 
-if [[ ! -f "${image}" ]]; then
+if [[ -n "${DIRECT_IMAGE}" ]]; then
+  image="${DIRECT_IMAGE}"
+elif [[ -n "${PACKAGE_DIR}" && -f "${PACKAGE_DIR%/}/${basename}" ]]; then
+  image="${PACKAGE_DIR%/}/${basename}"
+elif [[ -f "${repo_image}" ]]; then
+  image="${repo_image}"
+fi
+
+if [[ -z "${image}" || ! -f "${image}" ]]; then
   if [[ "${FLASH_MODE}" == "auto" || "${FLASH_MODE}" == "AUTO" ]]; then
-    write_status "ESP32_PREBUILT_NOT_INCLUDED" "Source checkout does not contain the release image; preserving connected firmware." "${image}" "${expected}"
+    write_status "ESP32_PREBUILT_NOT_INCLUDED" "Release image not found; preserving connected firmware. Set KOALABYTE_ESP32_FIRMWARE_PACKAGE to the extracted ZIP folder." "${repo_image}" "${expected}"
     exit 0
   fi
-  write_status "ESP32_PREBUILT_MISSING" "Required prebuilt full-flash image is missing." "${image}" "${expected}"
+  write_status "ESP32_PREBUILT_MISSING" "Required prebuilt full-flash image is missing. Set KOALABYTE_ESP32_FIRMWARE_PACKAGE or ESP32_PREBUILT_IMAGE." "${repo_image}" "${expected}"
   exit 1
 fi
+image="$(cd "$(dirname "${image}")" && pwd)/$(basename "${image}")"
 
 if [[ -z "${expected}" || "${expected}" == "PENDING_RELEASE_WORKFLOW" ]]; then
   write_status "ESP32_HASH_UNPINNED" "Manifest does not contain a final image hash." "${image}" "${expected}"
@@ -112,6 +125,27 @@ fi
 if [[ ! -x "${PYTHON_BIN}" ]]; then
   PYTHON_BIN="python3"
 fi
+
+if [[ "${FORCE}" != "1" && ( "${FLASH_MODE}" == "auto" || "${FLASH_MODE}" == "AUTO" ) ]]; then
+  set +e
+  "${PYTHON_BIN}" "${REPO_ROOT}/scripts/probe_esp32_dualeye_version.py" --port "${ESP32_PORT}"
+  probe_rc=$?
+  set -e
+  case "${probe_rc}" in
+    0)
+      write_status "ESP32_CURRENT_BY_PROBE" "Connected firmware reports current v0.9.8 wake-session behavior; no reflash performed." "${image}" "${expected}"
+      exit 0
+      ;;
+    10)
+      echo "Connected ESP32-S3 was positively identified as older than v0.9.8; flashing verified release image."
+      ;;
+    *)
+      write_status "ESP32_VERSION_UNKNOWN_PRESERVED" "Version could not be positively identified; auto policy preserves firmware. Use FLASH_ESP32=1 for an explicit reflash." "${image}" "${expected}"
+      exit 0
+      ;;
+  esac
+fi
+
 "${PYTHON_BIN}" -m pip install --quiet "esptool==4.11.0"
 "${PYTHON_BIN}" -m esptool --chip esp32s3 --port "${ESP32_PORT}" chip_id
 "${PYTHON_BIN}" -m esptool --chip esp32s3 --port "${ESP32_PORT}" erase_flash
