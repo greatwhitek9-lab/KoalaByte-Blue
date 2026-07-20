@@ -83,17 +83,22 @@ jobs:
           from pathlib import Path
 
           package = Path(os.environ["PACKAGE_DIR"])
+          model_offset = 0xCB0000
+          model_partition_size = 0x340000
           parts = [
               (0x0000, package / "bootloader.bin"),
               (0x8000, package / "partitions.bin"),
               (0xE000, package / "boot_app0.bin"),
               (0x10000, package / "firmware.bin"),
-              (0xD10000, package / "srmodels.bin"),
+              (model_offset, package / "srmodels.bin"),
           ]
           payloads = [(offset, path.read_bytes()) for offset, path in parts]
           model_size = len((package / "srmodels.bin").read_bytes())
-          if model_size > 0x2E0000:
-              raise SystemExit(f"ESP-SR model is too large for model partition: {model_size}")
+          if model_size > model_partition_size:
+              raise SystemExit(
+                  f"ESP-SR model is too large for model partition: "
+                  f"{model_size} > {model_partition_size}"
+              )
           end = max(offset + len(payload) for offset, payload in payloads)
           if end > 0x1000000:
               raise SystemExit(f"Combined image exceeds 16 MB flash: {end}")
@@ -104,7 +109,10 @@ jobs:
           output.write_bytes(image)
           for offset, payload in payloads:
               assert image[offset:offset + len(payload)] == payload
-          print(f"Created {output} ({len(image)} bytes); ESP-SR model={model_size} bytes")
+          print(
+              f"Created {output} ({len(image)} bytes); "
+              f"ESP-SR model={model_size} bytes at 0x{model_offset:06X}"
+          )
           PY
 
           cat > "${package}/flash-esp32-dualeye-menu-voice-sync.ps1" <<'POWERSHELL'
