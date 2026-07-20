@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, Optional
 
 from .esp32_dualeye_latched_koalagotchi_bridge import (
@@ -27,7 +28,7 @@ class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
     The Waveshare ESP32-S3 owns wake/basic vocabulary and embedded audio. The Pi
     mirrors those local speech lifecycle events to the Heltec mouth. Unmatched or
     open-ended requests fall through to TinyLlama, whose Australian male speech is
-    streamed back while both displays animate according to response tone/subject.
+    played while both displays animate according to response tone and subject.
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -62,42 +63,64 @@ class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
         return payload
 
     @staticmethod
+    def _fit_t114_line(payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Keep compact USB-CDC JSON below the T114 256-byte input buffer."""
+
+        fitted = dict(payload)
+        for optional_key in ("message", "subject", "speech_motion"):
+            if len(json.dumps(fitted, separators=(",", ":"))) < 255:
+                return fitted
+            if optional_key in fitted:
+                fitted[optional_key] = ""
+        if len(json.dumps(fitted, separators=(",", ":"))) >= 255:
+            fitted.pop("message", None)
+            fitted.pop("subject", None)
+            fitted.pop("speech_motion", None)
+        return fitted
+
+    @classmethod
     def _compact_heltec_face(
+        cls,
         state: str,
         message: str,
         duration_ms: int,
         expression: KillerKoalaExpression,
     ) -> Dict[str, Any]:
-        # The T114 USB command line is capped at 256 bytes. Keep this packet small.
-        return {
-            "type": "killerkoala_face",
-            "enabled": True,
-            "state": str(state or "speaking")[:18],
-            "message": " ".join(str(message).split())[:30],
-            "duration_ms": max(250, min(int(duration_ms), 30000)),
-            "tone": expression.tone[:18],
-            "subject": expression.subject[:18],
-            "mouth_expression": expression.mouth_expression[:18],
-            "speech_motion": expression.speech_motion[:18],
-            "intensity": expression.intensity,
-        }
+        # The T114 line buffer is 256 bytes including framing. Keep enough room
+        # for the terminating newline while retaining the expression contract.
+        return cls._fit_t114_line(
+            {
+                "type": "killerkoala_face",
+                "state": str(state or "speaking")[:18],
+                "message": " ".join(str(message).split())[:18],
+                "duration_ms": max(250, min(int(duration_ms), 30000)),
+                "tone": expression.tone[:14],
+                "subject": expression.subject[:16],
+                "mouth_expression": expression.mouth_expression[:16],
+                "speech_motion": expression.speech_motion[:18],
+                "intensity": expression.intensity,
+            }
+        )
 
-    @staticmethod
+    @classmethod
     def _compact_heltec_speech(
+        cls,
         active: bool,
         message: str,
         expression: KillerKoalaExpression,
     ) -> Dict[str, Any]:
-        return {
-            "type": "killerkoala_speech",
-            "active": bool(active),
-            "message": " ".join(str(message).split())[:28] if active else "",
-            "tone": expression.tone[:18],
-            "subject": expression.subject[:18],
-            "mouth_expression": expression.mouth_expression[:18],
-            "speech_motion": expression.speech_motion[:18],
-            "intensity": expression.intensity,
-        }
+        return cls._fit_t114_line(
+            {
+                "type": "killerkoala_speech",
+                "active": bool(active),
+                "message": " ".join(str(message).split())[:28] if active else "",
+                "tone": expression.tone[:14],
+                "subject": expression.subject[:16],
+                "mouth_expression": expression.mouth_expression[:16],
+                "speech_motion": expression.speech_motion[:18],
+                "intensity": expression.intensity,
+            }
+        )
 
     def _write_heltec(self, payload: Dict[str, Any]) -> None:
         try:
