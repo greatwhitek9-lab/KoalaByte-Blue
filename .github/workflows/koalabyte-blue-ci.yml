@@ -7,8 +7,8 @@ on:
     branches: [Main, main]
 
 jobs:
-  pi-runtime-readiness:
-    name: Check final Pi OS Lite runtime and installer
+  whole-system-readiness:
+    name: Check whole-system one-shot deployment
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -28,29 +28,31 @@ jobs:
         run: |
           echo "HEAD=$(git rev-parse HEAD)"
           echo "installer=$(git rev-parse HEAD:one-shot-install.sh)"
-          echo "bootstrap=$(git rev-parse HEAD:install.sh)"
-          echo "headless_menu=$(git rev-parse HEAD:scripts/run_headless_menu.py)"
+          echo "firmware_deployer=$(git rev-parse HEAD:scripts/deploy_whole_system_firmware.sh)"
+          echo "firmware_builder=$(git rev-parse HEAD:scripts/build_whole_system_firmware.sh)"
           echo "gpio=$(git rev-parse HEAD:pi-companion/koalablue/gpio_buttons.py)"
-          echo "power=$(git rev-parse HEAD:scripts/install_power_controls.sh)"
           echo "udev=$(git rev-parse HEAD:udev/99-koalabyte-blue.rules)"
 
       - name: Validate canonical shell helpers
         run: |
-          bash -n install.sh
-          bash -n one-shot-install.sh
-          bash -n scripts/check_deployability.sh
-          bash -n scripts/setup_pi_hardware_stage.sh
-          bash -n scripts/setup_system_packages.sh
-          bash -n scripts/setup_killerkoala_ollama.sh
-          bash -n scripts/install_power_controls.sh
-          bash -n scripts/install_koalabyte_udev_rules.sh
-          bash -n scripts/install_koalabyte_boot_services.sh
-          bash -n scripts/install_ble_node_manager_service.sh
-          bash -n scripts/install_esp32_dualeye_voice_bridge_service.sh
-          bash -n scripts/configure_pi_audio_output.sh
+          for helper in \
+            install.sh one-shot-install.sh scripts/check_deployability.sh \
+            scripts/setup_pi_hardware_stage.sh scripts/setup_system_packages.sh \
+            scripts/setup_killerkoala_ollama.sh scripts/setup_mopidy_player.sh \
+            scripts/install_power_controls.sh scripts/install_koalabyte_udev_rules.sh \
+            scripts/install_koalabyte_boot_services.sh scripts/install_ble_node_manager_service.sh \
+            scripts/install_esp32_dualeye_voice_bridge_service.sh scripts/configure_pi_audio_output.sh \
+            scripts/build_whole_system_firmware.sh scripts/deploy_whole_system_firmware.sh \
+            scripts/flash_t114_current_uf2.sh scripts/flash_esp32_dualeye_current.sh \
+            scripts/enter_t114_uf2_bootloader.sh; do
+            bash -n "${helper}"
+          done
 
-      - name: Compile Pi runtime
-        run: python -m compileall -q pi-companion scripts
+      - name: Compile Pi and deployment runtime
+        run: python -m compileall -q pi-companion scripts firmware/t114-combined-safe/scripts
+
+      - name: Validate whole-system firmware deployment source
+        run: python scripts/check_whole_system_deployment.py --source-only
 
       - name: Validate one-shot and K1-K8 controls
         run: |
@@ -64,6 +66,13 @@ jobs:
 
       - name: Validate menu and display synchronization
         run: PYTHONPATH=pi-companion KOALABYTE_MENU_SYNC=0 python scripts/check_menu_display_sync.py
+
+      - name: Validate Mopidy music player integration
+        run: |
+          PYTHONPATH=pi-companion python scripts/check_music_player.py || {
+            cat logs/music_player/music_player_readiness.json 2>/dev/null || true
+            exit 1
+          }
 
       - name: Validate KillerKoala face and mouth synchronization
         run: PYTHONPATH=pi-companion python scripts/check_killerkoala_face_mouth_sync.py
@@ -172,7 +181,6 @@ jobs:
           import struct
           import wave
           from koalablue.dualeye_tts import _wav_to_pcm16_mono_16k
-
           buffer = io.BytesIO()
           with wave.open(buffer, "wb") as wav:
               wav.setnchannels(2)
@@ -205,7 +213,7 @@ jobs:
       - name: Validate staged hardware inventory
         run: bash scripts/setup_pi_hardware_stage.sh --check-only
 
-      - name: Validate final one-shot
+      - name: Validate complete one-shot without hardware writes
         run: KOALABYTE_SERVICE_USER="$(id -un)" INSTALL_INNOMAKER_CAN=0 bash one-shot-install.sh --check-only
 
       - name: Validate deployability
