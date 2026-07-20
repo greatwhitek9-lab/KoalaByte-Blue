@@ -34,6 +34,7 @@ REQUIRED_FILES = (
     "scripts/test_gpio_buttons.py",
     "scripts/pi_hardware_doctor.py",
     "scripts/discover_koalabyte_ports.py",
+    "scripts/install_power_controls.sh",
     "scripts/install_koalabyte_udev_rules.sh",
     "scripts/install_koalabyte_boot_services.sh",
     "scripts/install_ble_node_manager_service.sh",
@@ -57,6 +58,7 @@ SHELL_FILES = (
     "one-shot-install.sh",
     "scripts/setup_pi_hardware_stage.sh",
     "scripts/setup_system_packages.sh",
+    "scripts/install_power_controls.sh",
     "scripts/install_koalabyte_udev_rules.sh",
     "scripts/install_koalabyte_boot_services.sh",
     "scripts/install_ble_node_manager_service.sh",
@@ -103,6 +105,7 @@ def check_markers(failures: list[str]) -> None:
         "--install-runtime-services",
         "scripts/setup_gpio_buttons.py",
         "scripts/discover_koalabyte_ports.py",
+        "scripts/install_power_controls.sh",
         "scripts/pi_hardware_doctor.py",
         "firmware_flashing",
         "can_transmit_during_install",
@@ -122,6 +125,11 @@ def check_markers(failures: list[str]) -> None:
     for marker in ("K7", "K8", "requires_hold", "2.5", "3.0", "when_held"):
         if marker not in gpio:
             failures.append(f"GPIO manager missing protected-button marker: {marker}")
+
+    power = (ROOT / "scripts/install_power_controls.sh").read_text(encoding="utf-8", errors="ignore")
+    for marker in ("NOPASSWD", "shutdown", "-h now", "reboot", "visudo"):
+        if marker not in power:
+            failures.append(f"restricted power installer missing marker: {marker}")
 
     service = (ROOT / "systemd/koalabyte-menu.service").read_text(encoding="utf-8", errors="ignore")
     for marker in ("run_headless_menu.py", "Restart=always", "WantedBy=multi-user.target"):
@@ -173,7 +181,7 @@ def main() -> int:
             print(f"- {failure}", file=sys.stderr)
         return 1
 
-    print("KoalaByte repository readiness passed: one canonical Pi installer, headless runtime, protected K1-K8 controls, stable device aliases, and no installer firmware flashing.")
+    print("KoalaByte repository readiness passed: one canonical Pi installer, headless runtime, protected K1-K8 controls, restricted power permissions, stable device aliases, and no installer firmware flashing.")
     return 0
 
 
