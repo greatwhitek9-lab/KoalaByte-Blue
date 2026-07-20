@@ -42,7 +42,7 @@ DEFAULT_BUTTONS: Dict[str, Dict[str, object]] = {
     "button_7": {
         "number": 7,
         "module_key": "K7",
-        "label": "Power On/Off",
+        "label": "Safe Shutdown",
         "pin": 20,
         "physical_pin": 38,
         "press_command": "power_toggle",
@@ -157,8 +157,8 @@ class GPIOButtonManager:
                     buttons_available=True,
                     extra={
                         "protected_buttons": {
-                            "K7": {"command": "power_toggle", "hold_seconds": 2.5},
-                            "K8": {"command": "reset", "hold_seconds": 3.0},
+                            "K7": {"command": "power_toggle", "label": "Safe Shutdown", "hold_seconds": 2.5},
+                            "K8": {"command": "reset", "label": "Reset / Reboot", "hold_seconds": 3.0},
                         }
                     },
                 )
