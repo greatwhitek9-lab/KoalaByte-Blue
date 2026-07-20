@@ -6,6 +6,7 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/sys/util.h>
 
+#include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -141,7 +142,7 @@ struct texture_pose {
     int width;
 };
 
-/* These are deformation targets, not bitmap frame selections. */
+/* These are deformation targets, never bitmap frame selections. */
 static struct texture_pose pose_for_id(uint8_t pose)
 {
     switch (pose) {
@@ -163,22 +164,77 @@ static int lerp_pose_value(int from, int to, uint8_t amount)
     return from + (((to - from) * (int)amount) / 255);
 }
 
+static struct texture_pose lerp_pose(struct texture_pose from,
+                                     struct texture_pose to,
+                                     uint8_t amount)
+{
+    return (struct texture_pose){
+        lerp_pose_value(from.open, to.open, amount),
+        lerp_pose_value(from.curl, to.curl, amount),
+        lerp_pose_value(from.asymmetry, to.asymmetry, amount),
+        lerp_pose_value(from.width, to.width, amount),
+    };
+}
+
+static uint8_t smoothstep_u8(uint32_t elapsed, uint32_t duration)
+{
+    if (duration == 0U || elapsed >= duration) {
+        return UINT8_MAX;
+    }
+    uint32_t x = (elapsed * 255U) / duration;
+    uint32_t eased = (x * x * ((3U * 255U) - (2U * x)) + 32512U) /
+                     65025U;
+    return (uint8_t)MIN(eased, 255U);
+}
+
 static struct texture_pose blended_pose_target(void)
 {
-    struct texture_pose from = pose_for_id(motion_from_pose);
-    struct texture_pose to = pose_for_id(motion_to_pose);
-    return (struct texture_pose){
-        lerp_pose_value(from.open, to.open, motion_pose_blend),
-        lerp_pose_value(from.curl, to.curl, motion_pose_blend),
-        lerp_pose_value(from.asymmetry, to.asymmetry, motion_pose_blend),
-        lerp_pose_value(from.width, to.width, motion_pose_blend),
+    return lerp_pose(pose_for_id(motion_from_pose),
+                     pose_for_id(motion_to_pose), motion_pose_blend);
+}
+
+static struct texture_pose autonomous_idle_pose(int64_t now)
+{
+    /*
+     * One approved texture moves through subtle smile, smirk, bite, and snarl
+     * deformations. Long eased transitions and relaxed smile returns keep idle
+     * motion aligned with the calm eye animation instead of looking like speech.
+     */
+    static const struct texture_pose poses[] = {
+        {2, 4, 0, 0},   /* smile */
+        {3, 6, 5, 1},   /* smirk */
+        {2, 4, 0, 0},   /* smile */
+        {6, 2, 0, -1},  /* gentle bite */
+        {2, 4, 0, 0},   /* smile */
+        {5, -3, 2, 2},  /* restrained snarl */
+        {2, 4, 0, 0},   /* smile */
     };
+    static const uint16_t segment_ms[] = {
+        4200, 2600, 3900, 1800, 4300, 1700, 5200,
+    };
+    uint32_t cycle_ms = 0U;
+    for (size_t index = 0; index < ARRAY_SIZE(segment_ms); index++) {
+        cycle_ms += segment_ms[index];
+    }
+    uint32_t phase = (uint32_t)(now % cycle_ms);
+    for (size_t index = 0; index < ARRAY_SIZE(segment_ms); index++) {
+        uint32_t duration = segment_ms[index];
+        if (phase < duration) {
+            size_t next = (index + 1U) % ARRAY_SIZE(poses);
+            return lerp_pose(poses[index], poses[next],
+                             smoothstep_u8(phase, duration));
+        }
+        phase -= duration;
+    }
+    return poses[0];
 }
 
 static void update_motion_targets(const char *state, int64_t now)
 {
     const char *resolved = state && state[0] ? state : "idle";
-    struct texture_pose pose = blended_pose_target();
+    bool idle = !strcmp(resolved, "idle") || !strcmp(resolved, "listening");
+    struct texture_pose pose = idle ? autonomous_idle_pose(now) :
+                                      blended_pose_target();
     int target_open = pose.open;
     int target_curl = pose.curl;
     int target_asymmetry = pose.asymmetry;
@@ -210,12 +266,12 @@ static void update_motion_targets(const char *state, int64_t now)
         target_curl = MIN(pose.curl, -7);
         target_asymmetry = pose.asymmetry + signed_triangle(now, 1300, 3);
         target_width = MAX(pose.width, 4);
-    } else {
-        /* Autonomous idle breathing and micro-expression movement. */
-        target_open = pose.open + triangle_wave(now, 4300, 3);
-        target_curl = pose.curl + signed_triangle(now, 6800, 2);
+    } else if (idle) {
+        /* Breathing and micro-drift continue through every idle expression. */
+        target_open = pose.open + triangle_wave(now, 4300, 1);
+        target_curl = pose.curl + signed_triangle(now, 6800, 1);
         target_asymmetry = pose.asymmetry +
-                           signed_triangle(now + 400, 5700, 2);
+                           signed_triangle(now + 400, 5700, 1);
         target_width = pose.width + signed_triangle(now, 7600, 1);
     }
 
@@ -308,7 +364,7 @@ static void render_motion_locked(void)
 
     if (!renderer_announced) {
         renderer_announced = true;
-        printk("{\"type\":\"t114_renderer\",\"renderer\":\"original_texture_continuous_warp\",\"still_frame_cycle\":false,\"texture\":\"original_killerkoala_smile\",\"refresh\":\"full_frame_dedicated_thread\",\"tick_ms\":%d,\"display_rc\":%d}\n",
+        printk("{\"type\":\"t114_renderer\",\"renderer\":\"original_texture_continuous_warp\",\"still_frame_cycle\":false,\"texture\":\"original_killerkoala_smile\",\"idle_choreography\":\"smirk-smile-bite-smile-snarl-smile\",\"refresh\":\"full_frame_dedicated_thread\",\"tick_ms\":%d,\"display_rc\":%d}\n",
                MOTION_TICK_MS, last_display_rc);
     } else if (last_display_rc != 0 &&
                (rendered_frames <= 3U || rendered_frames % 120U == 0U)) {
@@ -364,7 +420,9 @@ void koala_original_render_killerkoala_mouth(const char *state,
     motion_to_pose = to_frame_index % 5U;
     motion_pose_blend = blend_amount;
     motion_active = true;
-    render_motion_locked();
+    if (was_inactive) {
+        render_motion_locked();
+    }
     k_mutex_unlock(&motion_mutex);
 
     if (was_inactive) {
