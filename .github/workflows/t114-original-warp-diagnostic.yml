@@ -1,0 +1,97 @@
+name: T114 Original Warp Diagnostic
+
+on:
+  pull_request:
+    branches:
+      - Main
+    paths:
+      - ".github/workflows/t114-original-warp-diagnostic.yml"
+      - "firmware/t114-combined-safe/**"
+      - "scripts/build_t114_combined_safe.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: t114-original-warp-diagnostic-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      NCS_WORKSPACE: ${{ github.workspace }}/.ncs
+      NCS_REVISION: v2.9.0
+      ZEPHYR_SDK_VERSION: 0.16.8
+      ZEPHYR_SDK_INSTALL_DIR: ${{ github.workspace }}/zephyr-sdk-0.16.8
+      INSTALL_NCS_TOOLCHAIN: "1"
+      STRICT_NCS_TOOLCHAIN: "1"
+      SKIP_NCS_UPDATE: "0"
+      VALIDATE_BUILD: "0"
+      T114_BOARD: heltec_t114_v2/nrf52840/uf2
+      T114_BOARD_ROOT: ${{ github.workspace }}
+      T114_COMBINED_APP_DIR: firmware/t114-combined-safe
+      T114_COMBINED_BUILD_DIR: build/t114-combined-safe
+      STRICT_T114_COMBINED_BUILD: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - id: ncs-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.NCS_WORKSPACE }}
+            ${{ env.ZEPHYR_SDK_INSTALL_DIR }}
+          key: t114-ncs-${{ env.NCS_REVISION }}-zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Prepare Python bootstrap
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3-venv
+          python3 -m venv "${RUNNER_TEMP}/ncs-bootstrap"
+          "${RUNNER_TEMP}/ncs-bootstrap/bin/python" -m pip install -q --upgrade pip wheel setuptools west
+          echo "${RUNNER_TEMP}/ncs-bootstrap/bin" >> "${GITHUB_PATH}"
+
+      - name: Prepare NCS
+        env:
+          PYTHON_BIN: ${{ runner.temp }}/ncs-bootstrap/bin/python
+          SKIP_NCS_UPDATE: ${{ steps.ncs-cache.outputs.cache-hit == 'true' && '1' || '0' }}
+        run: bash scripts/setup_nrf_connect_sdk_toolchain.sh >/tmp/t114-toolchain.log 2>&1
+
+      - name: Build and capture diagnostics
+        id: compile
+        continue-on-error: true
+        run: |
+          source logs/nrf_connect_sdk_env.sh
+          set +e
+          bash scripts/build_t114_combined_safe.sh > /tmp/t114-build.log 2>&1
+          rc=$?
+          set -e
+          echo "rc=${rc}" >> "${GITHUB_OUTPUT}"
+          tail -n 250 /tmp/t114-build.log > /tmp/t114-build-tail.log
+          exit 0
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: t114-original-warp-diagnostics
+          if-no-files-found: error
+          retention-days: 3
+          path: |
+            /tmp/t114-build.log
+            /tmp/t114-build-tail.log
+            /tmp/t114-toolchain.log
+            logs/t114_combined_safe_build_status.json
+            build/t114-combined-safe/zephyr/zephyr.map
+            build/t114-combined-safe/zephyr/zephyr.elf
+
+      - name: Enforce build result
+        if: steps.compile.outputs.rc != '0'
+        run: |
+          cat /tmp/t114-build-tail.log
+          exit 1
