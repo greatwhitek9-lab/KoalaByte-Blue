@@ -39,7 +39,7 @@ if not marker.exists():
         destination = lib_root / library
         if destination.exists():
             shutil.rmtree(destination)
-        destination.mkdir(parents=True)
+        destination.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="dualeye-audio-") as temp:
         zip_path = Path(temp) / "waveshare.zip"
         urllib.request.urlretrieve(archive, zip_path)
@@ -51,7 +51,7 @@ if not marker.exists():
                     raise RuntimeError(f"Missing Waveshare library {library}")
                 for name in names:
                     output = lib_root / library / name[len(prefix):]
-                    output.parent.mkdir(parents=True)
+                    output.parent.mkdir(parents=True, exist_ok=True)
                     with zf.open(name) as src, output.open("wb") as dst:
                         shutil.copyfileobj(src, dst)
     marker.write_text(commit + "\n", encoding="utf-8")
