@@ -1,9 +1,9 @@
 #pragma once
 
-// KillerKoala ESP32-S3 DualEye config RevA44 conversational-audio profile.
+// KillerKoala ESP32-S3 DualEye config RevA45 William/K1-K8/full-menu voice profile.
 // Exact target: verified non-touch ESP32-S3 DualEye 1.28-inch variant.
 
-#define KOALABLUE_FW_VERSION "0.9.5-dualeye-audio-mic-fix"
+#define KOALABLUE_FW_VERSION "0.9.6-dualeye-william-menu-voice"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define WAKE_WORD_ALTERNATE "hey killerkoala"
@@ -29,14 +29,15 @@
 #define ESP32S3_DUALEYE_MIC_ROLE "ES7210 adaptive stereo channel probe; ESP-SR local phrases plus explicit complex PCM escalation"
 #define ESP32S3_VOICE_FRONTEND_STACK "ESP32-S3 ES7210 + Arduino ESP_SR English MultiNet adaptive local-first router"
 #define ESP32S3_WAKE_MODEL "always-on local MultiNet phrase detection for killer koala and hey killer koala"
-#define ESP32S3_COMMAND_MODEL "basic responses stay local; fixed menu IDs and complex AI requests route to Raspberry Pi"
-#define ESP32S3_COMMAND_ALIAS_PACK "firmware/esp32-dualeye/voice_commands/killerkoala_multinet_aliases.csv"
-#define KILLERKOALA_COMPANION_BRAIN "ESP32 local response bank plus Raspberry Pi execution and LLM escalation"
-#define KILLERKOALA_RESPONSE_POLICY "ESP32 speaker handles local wake and basic replies; Raspberry Pi speaker handles Pi execution and complex AI replies"
+#define ESP32S3_COMMAND_MODEL "K1-K8 plus every visible menu and submenu label are recognized locally; Pi executes leaf actions"
+#define ESP32S3_COMMAND_ALIAS_PACK "generated from pi-companion/koalablue/menu_catalog.py at firmware build time"
+#define KILLERKOALA_COMPANION_BRAIN "ESP32 William response bank plus Raspberry Pi execution and LLM escalation"
+#define KILLERKOALA_RESPONSE_POLICY "ESP32 speaker handles local wake and basic William replies; Raspberry Pi handles execution and complex AI replies"
 #define ESP32S3_SPEAKER_ROLE "local_wake_and_basic_ai_responses_only"
 #define RASPBERRY_PI_SPEAKER_ROLE "menu_results_execution_feedback_and_complex_ai"
 #define ENABLE_PI_RESPONSE_STREAM_TO_ESP32 0
 #define KILLERKOALA_LOCAL_RESPONSE_COUNT 18
+#define KILLERKOALA_LOCAL_VOICE "en-AU-WilliamNeural"
 
 // Bluetooth is intentionally disabled on this ESP32-S3 hardware profile. Physical
 // validation showed a LoadProhibited panic inside controller startup. Heltec T114
@@ -143,7 +144,7 @@
 #define AUDIO_CODEC_ES8311_ADDR 0x18
 #define AUDIO_CODEC_ES7210_ADDR 0x40
 #define AUDIO_MCLK_MULTIPLE 256
-#define AUDIO_OUTPUT_VOLUME 56
+#define AUDIO_OUTPUT_VOLUME 68
 #define MIC_I2S_BCLK_PIN AUDIO_I2S_BCLK_PIN
 #define MIC_I2S_WS_PIN AUDIO_I2S_WS_PIN
 #define MIC_I2S_DIN_PIN AUDIO_I2S_DIN_PIN
