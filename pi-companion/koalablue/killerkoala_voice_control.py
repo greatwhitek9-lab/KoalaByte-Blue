@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from .killerkoala_hybrid_companion import companion_response
 from .killerkoala_vocabulary import rank_for_xp
-
+from .killerkoala_web_research import clean_question, looks_like_general_question
 
 DEFAULT_XP_PATH = Path("logs/killerkoala/xp_state.json")
 DEFAULT_OUTPUT_DIR = Path("logs/killerkoala_voice")
@@ -95,7 +95,8 @@ VOICE_MODULES: Dict[str, VoiceModuleSpec] = {
     "koala_kapture": VoiceModuleSpec("koala_kapture", "Koala Kapture", ["koala kapture", "kapture", "capture ble", "capture metadata", "metadata capture", "bag the beacons", "save the signals"], 15, "capture_saved", "Run passive BLE metadata capture only."),
     "koala_kry": VoiceModuleSpec("koala_kry", "Koala Kry", ["koala kry", "kry", "offline replay", "replay metadata", "chew through the logs"], 5, "koala_kry", "Replay captured metadata offline only. No RF transmission."),
     "ear_tag_tx_lab": VoiceModuleSpec("ear_tag_tx_lab", "KoalaByte Lab", ["koalabyte lab", "koala byte lab", "ear tag tx lab", "ear tag", "lab beacon plan", "beacon plan"], 5, "ear_tag_tx_lab", "Write a synthetic owned-device BLE advertisement plan artifact."),
-    "killerkoala_help": VoiceModuleSpec("killerkoala_help", "killerkoala Help", ["help", "what can you do", "list commands", "voice commands", "menu voice commands"], 1, "inquiry_help", "Show available voice-controlled modules and menu actions."),
+    "killerkoala_help": VoiceModuleSpec("killerkoala_help", "KillerKoala Help", ["help", "what can you do", "list commands", "voice commands", "menu voice commands"], 1, "inquiry_help", "Show available voice-controlled modules and menu actions."),
+    "killerkoala_question": VoiceModuleSpec("killerkoala_question", "KillerKoala Question", [], 0, "inquiry_question", "Answer a general question through local TinyLlama, using web evidence when internet access is available and useful."),
 }
 
 BASE_MODULE_TO_MENU_COMMAND = {
@@ -218,11 +219,20 @@ def module_manifest() -> Dict[str, Any]:
             "killerkoala launch Eucalyptus GPS Trail",
             "killerkoala open Koala Kan Kommander",
         ],
+        "question_examples": [
+            "killerkoala what is the latest Raspberry Pi OS release",
+            "killerkoala who is the current prime minister of Australia",
+            "killerkoala explain how Bluetooth Low Energy advertising works",
+        ],
         "companion": {
-            "fast_default": "pi-companion/koalablue/killerkoala_vocabulary.py",
-            "optional_flexible_banter": "pi-companion/koalablue/killerkoala_hybrid_companion.py",
+            "primary_local_ai": "TinyLlama through local Ollama",
+            "runtime": "pi-companion/koalablue/killerkoala_hybrid_companion.py",
+            "fallback": "pi-companion/koalablue/killerkoala_vocabulary.py",
+            "web_research": "pi-companion/koalablue/killerkoala_web_research.py",
             "llm_model_env": "KILLERKOALA_LLM_MODEL",
             "default_llm_model": "killerkoala-tinyllama:latest",
+            "web_search_mode_env": "KILLERKOALA_WEB_SEARCH",
+            "brave_search_key_env": "BRAVE_SEARCH_API_KEY",
             "lora_training_doc": "docs/KILLERKOALA_LORA_TRAINING.md",
         },
         "safety": {
@@ -232,6 +242,8 @@ def module_manifest() -> Dict[str, Any]:
             "target_specific_modules_require_owned_device_phrase": True,
             "voice_activation_can_be_tested_with_typed_phrases": True,
             "all_enabled_menu_leaf_actions_voice_launchable": True,
+            "general_questions_supported": True,
+            "web_queries_send_question_text_only": True,
             "manual_prompt_required": False,
         },
     }
@@ -274,7 +286,7 @@ def parse_voice_command(phrase: str, require_wake_word: bool = True) -> ParsedVo
 
     module_key: Optional[str] = None
     for key, spec in VOICE_MODULES.items():
-        if any(_normalize_phrase(alias) in working for alias in spec.phrases):
+        if spec.phrases and any(_normalize_phrase(alias) in working for alias in spec.phrases):
             module_key = key
             break
 
@@ -283,6 +295,9 @@ def parse_voice_command(phrase: str, require_wake_word: bool = True) -> ParsedVo
         menu_action = _resolve_menu_action(working)
         if menu_action is not None:
             module_key = f"menu:{menu_action.command}"
+
+    if module_key is None and looks_like_general_question(working):
+        module_key = "killerkoala_question"
 
     return ParsedVoiceCommand(phrase, normalized, wake_detected, module_key, _extract_target(normalized), _owned_device_ack(normalized), _raw_addresses_ack(normalized), menu_action=menu_action)
 
@@ -377,7 +392,7 @@ def execute_module(parsed: ParsedVoiceCommand, output_dir: Path = DEFAULT_OUTPUT
 
     spec = _spec_for_parsed(parsed)
     if parsed.module_key is None or spec is None:
-        return _blocked_result(parsed, "no supported module or menu action phrase was detected", xp_state, output_dir, xp_path, force_flexible_banter)
+        return _blocked_result(parsed, "no supported module, menu action, or general question was detected", xp_state, output_dir, xp_path, force_flexible_banter)
 
     if parsed.module_key in VOICE_MODULES:
         if spec.target_required and not parsed.target:
@@ -394,7 +409,14 @@ def execute_module(parsed: ParsedVoiceCommand, output_dir: Path = DEFAULT_OUTPUT
         if parsed.module_key == "killerkoala_help":
             manifest_path = output_dir / "killerkoala_voice_modules.json"
             _write_json(manifest_path, module_manifest())
-            payload = {"action": "killerkoala Help", "manifest_path": str(manifest_path)}
+            payload = {"action": "KillerKoala Help", "manifest_path": str(manifest_path)}
+        elif parsed.module_key == "killerkoala_question":
+            payload = {
+                "status": "QUESTION_RECEIVED",
+                "question": clean_question(parsed.raw_phrase),
+                "answer_engine": "killerkoala-tinyllama:latest",
+                "web_search_mode": "auto",
+            }
         else:
             payload = _run_menu_payload(parsed)
             if not _payload_success(payload):
@@ -417,7 +439,17 @@ def execute_module(parsed: ParsedVoiceCommand, output_dir: Path = DEFAULT_OUTPUT
 
     rank_after = rank_for_xp(xp_state.xp)
     event = "level_up" if rank_after != rank_before else spec.event
-    companion = _companion(event, xp_state.xp, parsed, {"module": parsed.module_key, "module_title": spec.title, "status": status_value, "error": error, "xp_reward": xp_reward}, force_flexible=force_flexible_banter)
+    question_mode = parsed.module_key == "killerkoala_question"
+    companion = _companion(
+        event,
+        xp_state.xp,
+        parsed,
+        {"module": parsed.module_key, "module_title": spec.title, "status": status_value, "error": error, "xp_reward": xp_reward},
+        force_flexible=force_flexible_banter or question_mode,
+    )
+
+    if companion.web_research_artifact:
+        artifacts["web_research"] = companion.web_research_artifact
 
     result = VoiceExecutionResult(
         status=status_value,
@@ -442,11 +474,17 @@ def execute_module(parsed: ParsedVoiceCommand, output_dir: Path = DEFAULT_OUTPUT
             "xp_awarded_on_success_only": True,
             "manual_prompt_required": False,
             "voice_menu_action": parsed.menu_action is not None,
+            "general_question": question_mode,
             "companion_source": companion.source,
             "llm_requested": companion.llm_requested,
             "llm_used": companion.llm_used,
             "llm_model": companion.llm_model,
             "llm_fallback_reason": companion.fallback_reason,
+            "web_searched": companion.web_searched,
+            "web_available": companion.web_available,
+            "web_provider": companion.web_provider,
+            "web_source_count": len(companion.web_sources),
+            "web_error": companion.web_error,
         },
         details={"module_result": details, "companion": asdict(companion)},
         error=error,
@@ -456,76 +494,3 @@ def execute_module(parsed: ParsedVoiceCommand, output_dir: Path = DEFAULT_OUTPUT
     result.artifacts["voice_result"] = str(out)
     _write_json(out, asdict(result))
     return result
-
-
-def speak(text: str) -> bool:
-    try:
-        import pyttsx3  # type: ignore
-    except Exception:
-        return False
-    engine = pyttsx3.init()
-    engine.say(text)
-    engine.runAndWait()
-    return True
-
-
-def listen_once(timeout: int = 5, phrase_time_limit: int = 8) -> str:
-    try:
-        import speech_recognition as sr  # type: ignore
-    except Exception as exc:
-        raise RuntimeError("microphone mode requires SpeechRecognition and PyAudio installed on the Pi") from exc
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:  # type: ignore[attr-defined]
-        recognizer.adjust_for_ambient_noise(source, duration=0.4)
-        audio = recognizer.listen(source, timeout=timeout, phrase_time_limit=phrase_time_limit)
-    return str(recognizer.recognize_google(audio))
-
-
-def run_cli() -> int:
-    parser = argparse.ArgumentParser(description="killerkoala spoken-command module and menu-action executor")
-    parser.add_argument("--phrase", default=None, help="Typed spoken phrase for CI/testing, e.g. 'killerkoala run Wi-Fi + BLE Survey'")
-    parser.add_argument("--listen", action="store_true", help="Listen once from the microphone using optional SpeechRecognition/PyAudio")
-    parser.add_argument("--loop", action="store_true", help="Continuously listen for commands until interrupted")
-    parser.add_argument("--no-wake-required", action="store_true", help="Testing mode: do not require the killerkoala wake word")
-    parser.add_argument("--flexible-banter", action="store_true", help="Allow optional tiny LLM/Ollama LoRA banter path for this response")
-    parser.add_argument("--speak", action="store_true", help="Speak the response if optional pyttsx3 is installed")
-    parser.add_argument("--manifest", action="store_true", help="Write and print supported module/menu-action manifest")
-    parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
-    parser.add_argument("--xp-path", default=str(DEFAULT_XP_PATH))
-    args = parser.parse_args()
-
-    output_dir = Path(args.output_dir)
-    xp_path = Path(args.xp_path)
-
-    if args.manifest:
-        out = output_dir / "killerkoala_voice_modules.json"
-        _write_json(out, module_manifest())
-        print(json.dumps({"manifest_path": str(out), "modules": sorted(VOICE_MODULES), "menu_action_count": len(voice_menu_actions())}, indent=2, sort_keys=True))
-        return 0
-
-    def handle_phrase(phrase: str) -> VoiceExecutionResult:
-        parsed = parse_voice_command(phrase, require_wake_word=not args.no_wake_required)
-        result = execute_module(parsed, output_dir=output_dir, xp_path=xp_path, force_flexible_banter=args.flexible_banter)
-        print(json.dumps(_jsonable(result), indent=2, sort_keys=True))
-        if args.speak:
-            speak(result.companion_line)
-        return result
-
-    if args.phrase:
-        handle_phrase(args.phrase)
-        return 0
-
-    if args.listen or args.loop:
-        while True:
-            phrase = listen_once()
-            handle_phrase(phrase)
-            if not args.loop:
-                break
-        return 0
-
-    parser.error("provide --phrase, --listen, --loop, or --manifest")
-    return 2
-
-
-if __name__ == "__main__":
-    raise SystemExit(run_cli())
