@@ -9,11 +9,14 @@ from koalablue.esp32_dualeye_error_dig_bridge import (
     ESP32DualEyeVoiceBridge,
     default_esp32_port,
 )
+from koalablue.music_speech_duck import install_music_speech_ducking
+
+install_music_speech_ducking(ESP32DualEyeVoiceBridge)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run the local-first ESP32-S3 DualEye voice, execution, XP, latched Koalagotchi, and Heltec speech-sync bridge"
+        description="Run the local-first ESP32-S3 DualEye voice, execution, XP, BLE-failover, error-dig, Mopidy-ducking, latched Koalagotchi, and Heltec speech-sync bridge"
     )
     parser.add_argument("--port", default=default_esp32_port())
     parser.add_argument("--baud", type=int, default=115200)
@@ -40,18 +43,38 @@ def main() -> int:
                 bridge.read_once()
         finally:
             bridge.close()
-        payload = {"status": "ESP32_DUALEYE_NODE_STATUS_REQUESTED", "port": args.port, "udp_port": args.udp_port}
+        payload = {
+            "status": "ESP32_DUALEYE_NODE_STATUS_REQUESTED",
+            "port": args.port,
+            "udp_port": args.udp_port,
+        }
         print(json.dumps(payload, indent=2, sort_keys=True))
         return 0
 
     if provisioning_only:
         bridge.open()
         try:
-            bridge.provision_wifi(args.wifi_ssid, args.wifi_password, args.pi_host, args.udp_port)
+            bridge.provision_wifi(
+                args.wifi_ssid,
+                args.wifi_password,
+                args.pi_host,
+                args.udp_port,
+            )
             time.sleep(1.0)
         finally:
             bridge.close()
-        print(json.dumps({"status": "ESP32_DUALEYE_WIFI_PROVISIONED", "ssid": args.wifi_ssid, "pi_host": args.pi_host, "udp_port": args.udp_port}, indent=2, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "status": "ESP32_DUALEYE_WIFI_PROVISIONED",
+                    "ssid": args.wifi_ssid,
+                    "pi_host": args.pi_host,
+                    "udp_port": args.udp_port,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
         return 0
 
     if args.simulate:
@@ -69,7 +92,14 @@ def main() -> int:
                     break
         finally:
             bridge.close()
-        result = {"status": "ESP32_DUALEYE_INTEGRATED_BRIDGE_COMPLETE", "port": args.port, "udp_port": args.udp_port, "routed_count": len(routed), "routed": routed, "updated_at": time.time()}
+        result = {
+            "status": "ESP32_DUALEYE_INTEGRATED_BRIDGE_COMPLETE",
+            "port": args.port,
+            "udp_port": args.udp_port,
+            "routed_count": len(routed),
+            "routed": routed,
+            "updated_at": time.time(),
+        }
     else:
         result = bridge.run(seconds=args.seconds, once=args.once)
     print(json.dumps(result, indent=2, sort_keys=True))
