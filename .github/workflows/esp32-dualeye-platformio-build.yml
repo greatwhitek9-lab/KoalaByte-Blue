@@ -38,13 +38,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install local voice build tools
+      - name: Install William voice build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y espeak-ng ffmpeg
+          sudo apt-get install -y ffmpeg
+          python -m pip install --upgrade pip "edge-tts==7.2.8"
 
       - name: Install PlatformIO
-        run: python -m pip install --upgrade pip platformio
+        run: python -m pip install platformio
 
       - name: Build ESP32-S3 DualEye firmware
         shell: bash
@@ -58,7 +59,7 @@ jobs:
         run: |
           set -euo pipefail
           build="firmware/esp32-dualeye/.pio/build/esp32s3_dualeye"
-          package="releases/koalabyte-esp32-s3-dualeye-v0.9.5-audio-mic-fix"
+          package="releases/koalabyte-esp32-s3-dualeye-v0.9.6-william-k1-k8-full-menu"
           mkdir -p "${package}"
 
           boot_app0="$(find "${HOME}/.platformio/packages/framework-arduinoespressif32" -path '*/tools/partitions/boot_app0.bin' -print -quit)"
@@ -105,7 +106,7 @@ jobs:
           image = bytearray(b"\xFF" * end)
           for offset, payload in payloads:
               image[offset:offset + len(payload)] = payload
-          output = package / "koalabyte-esp32-s3-dualeye-v0.9.5-audio-mic-fix-full-flash.bin"
+          output = package / "koalabyte-esp32-s3-dualeye-v0.9.6-william-k1-k8-full-menu-full-flash.bin"
           output.write_bytes(image)
           for offset, payload in payloads:
               assert image[offset:offset + len(payload)] == payload
@@ -124,7 +125,7 @@ jobs:
           )
 
           $ErrorActionPreference = "Stop"
-          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.9.5-audio-mic-fix-full-flash.bin"
+          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.9.6-william-k1-k8-full-menu-full-flash.bin"
           if (-not (Test-Path $Image)) { throw "Firmware image not found: $Image" }
 
           py -m pip install --user "esptool==4.11.0"
@@ -144,39 +145,40 @@ jobs:
           py -m esptool --chip esp32s3 --port $Port verify_flash 0x0 $Image
           if ($LASTEXITCODE -ne 0) { throw "Firmware verification failed." }
 
-          Write-Host "DualEye v0.9.5 audio and microphone fix flash and verification complete. Press RESET once."
+          Write-Host "DualEye v0.9.6 William/K1-K8/full-menu flash and verification complete. Press RESET once."
           POWERSHELL
 
           cat > "${package}/README-FLASH.txt" <<'README'
-          KoalaByte Blue ESP32-S3 DualEye v0.9.5 audio-mic-fix firmware
+          KoalaByte Blue ESP32-S3 DualEye v0.9.6 William/K1-K8/full-menu firmware
 
           Exact hardware target:
             Waveshare ESP32-S3 DualEye 1.28-inch non-touch variant
-            Both GC9A01A round LCD panels remain enabled with the existing eye renderer
-            No touch controller or touch panel is expected
+            Both GC9A01A round LCD panels remain enabled
 
-          Audio corrections:
-            - the ES8311 amplifier is enabled once per complete utterance instead of once per PCM block
-            - mono speech is mirrored into both I2S slots
-            - codec mute occurs before amplifier shutdown
-            - speaker volume is reduced to prevent small-speaker overdrive
-            - ES7210 input gain is tuned for normal conversational speech
-            - the complex-speech start threshold is reduced while preserving a noise margin
+          William Australian local voice:
+            - exact voice source: en-AU-WilliamNeural
+            - neural clips are generated at build time and embedded for offline playback
+            - Australian slang and varied replies replace the robotic eSpeak response bank
+            - clips are loudness-normalized before 8 kHz mu-law embedding
+            - ES8311 output volume is raised to 68 while preserving the continuous-amplifier fix
 
-          Adaptive local voice behavior:
-            - the ES7210 stereo slots are measured at startup
-            - ESP-SR automatically selects MN, NM or MM input mapping
-            - Killer Koala, Hey Killer Koala and Killer Koala wake up are local phrases
-            - wake acknowledgements and basic repetitive replies play on the ESP32 ES8311 speaker
-            - fixed menu/submenu commands route to the Raspberry Pi as command IDs
-            - only an explicitly escalated follow-up utterance routes to Pi STT/LLM
-            - ambient audio never routes to the Pi and never draws AUDIO/MIC overlays or beeps
+          K1-K8 spoken controls:
+            - K1: open menu / main menu
+            - K2: back / previous
+            - K3: select
+            - K4: forward / next
+            - K5: up
+            - K6: down
+            - K7: safe power on/off request
+            - K8: safe reset/reboot request
 
-          Split speaker behavior:
-            - ESP32 speaker: local wake acknowledgements and basic on-device replies only
-            - Raspberry Pi speaker: menu results, execution feedback and complex AI responses
-            - Pi-generated PCM is not streamed back to the ESP32 speaker
-            - Heltec mouth and ESP32 eyes can still synchronize while the Pi speaks
+          Full menu speech:
+            - every distinct visible menu/submenu label is generated from menu_catalog.py
+            - submenu phrases use: Killer Koala open <submenu label>
+            - leaf action phrases use: Killer Koala launch <menu item label>
+            - example: Killer Koala launch Koala Kombat Kruisin
+            - the ESP32 opens and navigates generated menus locally
+            - leaf actions are routed to the Raspberry Pi by exact command ID
 
           Expected serial status after audio starts:
             local_voice_status: es7210_settling
@@ -186,6 +188,9 @@ jobs:
 
           Local speaker test over serial:
             {"type":"local_voice_test","category":"wake"}
+
+          Local menu test over serial:
+            {"type":"local_menu_test","menu_name":"main","selected_index":0}
 
           Recognizer status request over serial:
             {"type":"local_voice_status_request"}
@@ -207,8 +212,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: koalabyte-esp32-s3-dualeye-v0.9.5-audio-mic-fix
+          name: koalabyte-esp32-s3-dualeye-v0.9.6-william-k1-k8-full-menu
           path: |
-            releases/koalabyte-esp32-s3-dualeye-v0.9.5-audio-mic-fix/**
+            releases/koalabyte-esp32-s3-dualeye-v0.9.6-william-k1-k8-full-menu/**
             releases/esp32-dualeye-platformio.log
           if-no-files-found: error
