@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .ble_event_log import BleEventDeduper, BleEventLog, normalize_ble_event
+from .ble_role_coordinator import elect_ble_roles, write_role_status
 from .gnss_location import write_gnss_status_event, write_primary_t114_fix_event
 
 PRIMARY_USB_PORT_HINTS = (
@@ -29,7 +30,14 @@ DEFAULT_BAUD = 115200
 
 def candidate_usb_ports() -> list[str]:
     ports: list[str] = []
-    for pattern in ("/dev/koalabyte-heltec", "/dev/serial/by-id/*", "/dev/ttyACM*", "/dev/ttyUSB*", "/dev/cu.usbmodem*", "/dev/cu.usbserial*"):
+    for pattern in (
+        "/dev/koalabyte-heltec",
+        "/dev/serial/by-id/*",
+        "/dev/ttyACM*",
+        "/dev/ttyUSB*",
+        "/dev/cu.usbmodem*",
+        "/dev/cu.usbserial*",
+    ):
         ports.extend(sorted(glob.glob(pattern)))
     seen: set[str] = set()
     unique: list[str] = []
@@ -59,7 +67,12 @@ class SerialBleNode:
     def open(self):
         import serial  # type: ignore
 
-        return serial.Serial(self.port, baudrate=self.baud, timeout=self.timeout, write_timeout=0.35)
+        return serial.Serial(
+            self.port,
+            baudrate=self.baud,
+            timeout=self.timeout,
+            write_timeout=0.35,
+        )
 
 
 class PiBluezSecondaryScanner:
@@ -72,7 +85,11 @@ class PiBluezSecondaryScanner:
     def start(self) -> None:
         if not self.enabled or self.thread:
             return
-        self.thread = threading.Thread(target=self._run_thread, name="koalabyte-pi-bluez-node", daemon=True)
+        self.thread = threading.Thread(
+            target=self._run_thread,
+            name="koalabyte-pi-bluez-node",
+            daemon=True,
+        )
         self.thread.start()
 
     def stop(self) -> None:
@@ -84,7 +101,15 @@ class PiBluezSecondaryScanner:
         try:
             asyncio.run(self._run_async())
         except Exception as exc:
-            self.out.put({"type": "node_error", "source": "raspberry-pi-bluez", "role": "secondary", "message": str(exc)})
+            self.out.put(
+                {
+                    "type": "node_error",
+                    "source": "raspberry-pi-bluez",
+                    "role": "heltec_ble_node",
+                    "message": str(exc),
+                    "fallback_requested": "esp32-s3-dualeye",
+                }
+            )
 
     async def _run_async(self) -> None:
         from bleak import BleakScanner  # type: ignore
@@ -93,13 +118,20 @@ class PiBluezSecondaryScanner:
             payload = {
                 "type": "ble_adv_seen",
                 "source": "raspberry-pi-bluez",
-                "role": "secondary",
+                "role": "heltec_ble_node",
                 "transport": "bluez",
                 "addr": getattr(device, "address", ""),
-                "name": getattr(device, "name", None) or getattr(advertisement_data, "local_name", None) or "",
+                "name": getattr(device, "name", None)
+                or getattr(advertisement_data, "local_name", None)
+                or "",
                 "rssi": getattr(advertisement_data, "rssi", None),
-                "service_uuids": list(getattr(advertisement_data, "service_uuids", []) or []),
-                "manufacturer": json.dumps(getattr(advertisement_data, "manufacturer_data", {}) or {}, sort_keys=True),
+                "service_uuids": list(
+                    getattr(advertisement_data, "service_uuids", []) or []
+                ),
+                "manufacturer": json.dumps(
+                    getattr(advertisement_data, "manufacturer_data", {}) or {},
+                    sort_keys=True,
+                ),
                 "active_scan": False,
             }
             self.out.put(payload)
@@ -114,13 +146,13 @@ class PiBluezSecondaryScanner:
 
 
 class BleNodeManager:
-    """Coordinate KoalaByte Blue V2 Heltec Edition BLE and GNSS node roles.
+    """Coordinate Heltec-primary BLE/GNSS with elected Pi-or-ESP32 BLE nodes.
 
-    The Heltec Mesh Node T114 onboard nRF52840 is the primary BLE board and
-    canonical passive BLE source. The same USB CDC JSON stream also carries the
-    Heltec T114 GNSS fix, which is the main GPS source for the device. ESP32-S3
-    DualEye and Raspberry Pi BlueZ are additional BLE nodes used for UI-adjacent
-    observations, enrichment, and fallback checks.
+    The Heltec T114 remains the primary BLE controller and canonical passive BLE
+    source. Raspberry Pi BlueZ is the preferred companion BLE node. If the Pi
+    adapter is absent, powered off, blocked, or disabled, the serial-owning
+    DualEye voice bridge activates the ESP32-S3 guarded fallback node. This class
+    never competes for the ESP32 serial port during normal service operation.
     """
 
     def __init__(
@@ -134,15 +166,36 @@ class BleNodeManager:
         pi_bluez: bool = True,
     ) -> None:
         selected_primary = primary_port or dongle_port or discover_primary_ble_port()
-        self.primary_ble = SerialBleNode("heltec-t114-nrf52840", selected_primary, "primary", baud)
-        self.dongle = self.primary_ble  # Backward-compatible alias for older callers/tests.
-        self.esp32 = SerialBleNode("esp32-s3-dualeye", esp32_port, "secondary", baud) if esp32_port else None
+        self.primary_ble = SerialBleNode(
+            "heltec-t114-nrf52840",
+            selected_primary,
+            "primary_ble_controller",
+            baud,
+        )
+        self.dongle = self.primary_ble
+        # Retained only for explicit manual compatibility. The production service
+        # leaves this unset because the voice bridge owns the ESP32 serial port.
+        self.esp32 = (
+            SerialBleNode("esp32-s3-dualeye", esp32_port, "manual_secondary", baud)
+            if esp32_port
+            else None
+        )
         self.log = BleEventLog(log_dir)
         self.deduper = BleEventDeduper()
         self.secondary_queue: queue.Queue[dict[str, Any]] = queue.Queue()
-        self.pi_bluez = PiBluezSecondaryScanner(self.secondary_queue, enabled=pi_bluez)
+        self.election = elect_ble_roles(requested_by="ble_node_manager")
+        write_role_status(self.election, self.log.log_dir / "ble_role_election.json")
+        self.pi_bluez = PiBluezSecondaryScanner(
+            self.secondary_queue,
+            enabled=pi_bluez and self.election.pi_probe.available,
+        )
 
-    def iter_serial_json(self, nodes: Iterable[SerialBleNode], *, duration_seconds: float | None = None):
+    def iter_serial_json(
+        self,
+        nodes: Iterable[SerialBleNode],
+        *,
+        duration_seconds: float | None = None,
+    ):
         deadline = None if duration_seconds is None else time.time() + duration_seconds
         handles = []
         try:
@@ -151,13 +204,31 @@ class BleNodeManager:
                     try:
                         handles.append((node, node.open()))
                     except Exception as exc:
-                        yield {"type": "node_error", "source": node.name, "role": node.role, "message": str(exc)}
+                        yield {
+                            "type": "node_error",
+                            "source": node.name,
+                            "role": node.role,
+                            "message": str(exc),
+                        }
+            yield self.election.to_payload()
             self.pi_bluez.start()
             while deadline is None or time.time() < deadline:
                 made_progress = False
                 while True:
                     try:
-                        yield self.secondary_queue.get_nowait()
+                        payload = self.secondary_queue.get_nowait()
+                        if (
+                            payload.get("type") == "node_error"
+                            and payload.get("source") == "raspberry-pi-bluez"
+                        ):
+                            # The voice bridge independently polls the same health
+                            # state and owns the command that activates ESP32 BLE.
+                            election = elect_ble_roles(requested_by="bluez_runtime_error")
+                            write_role_status(
+                                election,
+                                self.log.log_dir / "ble_role_election.json",
+                            )
+                        yield payload
                         made_progress = True
                     except queue.Empty:
                         break
@@ -167,7 +238,9 @@ class BleNodeManager:
                         continue
                     made_progress = True
                     try:
-                        payload = json.loads(raw.decode("utf-8", errors="replace").strip())
+                        payload = json.loads(
+                            raw.decode("utf-8", errors="replace").strip()
+                        )
                     except Exception:
                         continue
                     payload.setdefault("source", node.name)
@@ -184,7 +257,11 @@ class BleNodeManager:
                     pass
 
     def _handle_primary_gnss_payload(self, payload: dict[str, Any]) -> None:
-        if payload.get("source") not in {"heltec-t114-nrf52840", "heltec-t114", self.primary_ble.name}:
+        if payload.get("source") not in {
+            "heltec-t114-nrf52840",
+            "heltec-t114",
+            self.primary_ble.name,
+        }:
             return
         if payload.get("type") == "gnss_fix":
             write_primary_t114_fix_event(payload)
@@ -202,11 +279,14 @@ class BleNodeManager:
                 payload = dict(payload)
                 payload["type"] = "ble_adv_seen"
                 payload.setdefault("source", "esp32-s3-dualeye")
-                payload.setdefault("role", "secondary")
+                payload.setdefault("role", "heltec_fallback_ble_node")
             if payload.get("type") != "ble_adv_seen":
                 yield payload
                 continue
-            event = normalize_ble_event(payload, default_source=str(payload.get("source") or "unknown"))
+            event = normalize_ble_event(
+                payload,
+                default_source=str(payload.get("source") or "unknown"),
+            )
             if self.deduper.should_emit(event):
                 self.log.append(event)
                 yield event
