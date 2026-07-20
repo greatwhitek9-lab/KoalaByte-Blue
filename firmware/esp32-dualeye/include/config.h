@@ -3,7 +3,7 @@
 // KillerKoala ESP32-S3 DualEye config RevA41 integrated dual-panel profile.
 // Exact target: verified non-touch ESP32-S3 DualEye 1.28-inch variant.
 
-#define KOALABLUE_FW_VERSION "0.9.0-dualeye-menu-voice-sync"
+#define KOALABLUE_FW_VERSION "0.9.1-dualeye-pi-heltec-ble"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define WAKE_WORD_ALTERNATE "hey killerkoala"
@@ -16,7 +16,7 @@
 #define KOALA_EXPRESSION_SYNC_COORDINATOR "raspberry-pi"
 #define KOALA_EXPRESSION_SYNC_MODE "pi_fanout"
 #define KOALA_EXPRESSION_SYNC_REQUIRES_BLE 0
-#define KOALA_BLE_ROLE "independent_ble_scan_and_telemetry_node_for_pi_heltec_mesh"
+#define KOALA_BLE_ROLE "disabled_on_esp32; heltec_t114_is_ble_controller_and_raspberry_pi_is_its_ble_node"
 #define KOALA_WIFI_ROLE "pi_command_telemetry_audio_and_execution_node"
 #define KOALA_EXECUTION_OWNER "raspberry-pi"
 
@@ -34,7 +34,10 @@
 #define KILLERKOALA_COMPANION_BRAIN "Raspberry Pi large-vocabulary Australian male cyberpunk companion"
 #define KILLERKOALA_RESPONSE_POLICY "ESP32 plays returned local response audio; Pi handles all menu execution and out-of-scope AI"
 
-#define ENABLE_LOCAL_BLE_SCAN 1
+// Bluetooth is intentionally disabled on this ESP32-S3 hardware profile. Physical
+// validation showed a LoadProhibited panic inside controller startup. Heltec T114
+// remains the primary BLE controller and the Raspberry Pi is its BLE node/peer.
+#define ENABLE_LOCAL_BLE_SCAN 0
 #define ENABLE_KOALA_KOMBAT_WIFI_NODE 1
 #define ENABLE_KOALA_KOMBAT_SERIAL_COMMANDS 1
 #define ENABLE_MIC_WAKE 1
@@ -44,7 +47,9 @@
 #define ENABLE_AUDIO_SPEAKER 1
 #define ENABLE_TOUCH_MENU 0
 
-#define SUBSYSTEM_BLE_START_MS 8000UL
+// UINT32_MAX prevents the legacy unguarded staged BLE initializer from running.
+// Wi-Fi, USB CDC, microphone and speaker staging remain active.
+#define SUBSYSTEM_BLE_START_MS 0xFFFFFFFFUL
 #define SUBSYSTEM_WIFI_START_MS 11000UL
 #define SUBSYSTEM_AUDIO_START_MS 14500UL
 #define SUBSYSTEM_READY_MIN_FREE_HEAP 90000UL
