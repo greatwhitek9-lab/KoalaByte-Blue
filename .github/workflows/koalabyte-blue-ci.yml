@@ -68,6 +68,61 @@ jobs:
       - name: Validate KillerKoala face and mouth synchronization
         run: PYTHONPATH=pi-companion python scripts/check_killerkoala_face_mouth_sync.py
 
+      - name: Validate KillerKoala core imports
+        run: |
+          PYTHONPATH=pi-companion python - <<'PY'
+          from koalablue.dualeye_tts import SPOKEN_IDENTITY, WILLIAM_VOICE
+          from koalablue.esp32_dualeye_speech_synced_bridge import ESP32DualEyeVoiceBridge
+          from koalablue.killerkoala_expression import classify_response_expression
+          from koalablue.killerkoala_hybrid_companion import load_config
+          from koalablue.killerkoala_voice_control import parse_voice_command
+          from koalablue.killerkoala_web_research import looks_like_general_question
+          print(ESP32DualEyeVoiceBridge.__name__, SPOKEN_IDENTITY, WILLIAM_VOICE, load_config().model)
+          PY
+
+      - name: Validate KillerKoala question routing
+        run: |
+          PYTHONPATH=pi-companion KILLERKOALA_LLM_MODE=off KILLERKOALA_WEB_SEARCH=off python - <<'PY'
+          from koalablue.killerkoala_voice_control import parse_voice_command
+          from koalablue.killerkoala_web_research import looks_like_general_question, question_needs_web
+          help_command = parse_voice_command("killerkoala voice commands", require_wake_word=True)
+          question = parse_voice_command("killerkoala why is the sky blue", require_wake_word=True)
+          assert help_command.module_key == "killerkoala_help", help_command
+          assert question.module_key == "killerkoala_question", question
+          assert looks_like_general_question("what is the latest firmware?")
+          assert not question_needs_web("what is the latest firmware?")
+          print("question routing ready")
+          PY
+
+      - name: Validate KillerKoala tone expressions
+        run: |
+          PYTHONPATH=pi-companion python - <<'PY'
+          from koalablue.killerkoala_expression import classify_response_expression
+          happy = classify_response_expression("Bonza, the action completed successfully.", status="success")
+          angry = classify_response_expression("The system fault is unacceptable and blocked.", status="error")
+          curious = classify_response_expression("What is the latest firmware release?", event="question")
+          assert happy.tone in {"happy", "excited"}, happy
+          assert angry.tone in {"angry", "error"}, angry
+          assert curious.tone == "curious", curious
+          print(happy.to_payload())
+          print(angry.to_payload())
+          print(curious.to_payload())
+          PY
+
+      - name: Validate KillerKoala identity and TinyLlama model
+        run: |
+          PYTHONPATH=pi-companion KILLERKOALA_LLM_MODE=off KILLERKOALA_DIALOGUE_TURNS=0 python - <<'PY'
+          from koalablue.dualeye_tts import SPOKEN_IDENTITY, WILLIAM_VOICE, sanitize_spoken_identity
+          from koalablue.killerkoala_hybrid_companion import companion_response, load_config
+          assert SPOKEN_IDENTITY == "KillerKoala"
+          assert WILLIAM_VOICE == "en-AU-WilliamNeural"
+          assert load_config().model == "killerkoala-tinyllama:latest"
+          assert "William" not in sanitize_spoken_identity("I am William")
+          response = companion_response("status", user_text="readiness", history_path=None)
+          assert "William" not in response.text
+          print(response.text)
+          PY
+
       - name: Validate KillerKoala AI and William voice contract
         run: |
           PYTHONPATH=pi-companion python scripts/check_killerkoala_ai.py || {
