@@ -84,7 +84,7 @@ def build_menu_sync_payload(menu: Any, event: Any | None = None) -> dict[str, ob
             "reopen_menu": ["K1", "B1", "touch_double_tap"],
         },
         "execute_hint": "Highlight a menu item, then press K3/select or touchscreen long-press to execute it. B3/select or touchscreen long-press remains a legacy alias.",
-        "idle_face_rule": "Idle eyes return after menu/action status. Wake-word and voice-command states always show eyes.",
+        "idle_face_rule": "After 30 seconds idle, the menu returns to animated idle eyes. Confirmed wake-word and voice-command states also show eyes.",
         "synced_displays": ["heltec-t114", "esp32-s3-dualeye"],
         "updated_at": time.time(),
     }
