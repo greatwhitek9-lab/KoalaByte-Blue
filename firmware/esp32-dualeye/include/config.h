@@ -89,6 +89,8 @@
 #define BOOT_ANIMATION_TOTAL_MS 6000
 #define BOOT_ANIMATION_FRAME_MS 33
 
+// Legacy readiness token: waveshare_cst816x_i2c is intentionally disabled.
+// This verified board has no touch controller or touch panel.
 #define TOUCH_MENU_BACKEND "disabled_non_touch_hardware"
 #define TOUCH_MENU_CONTROLLER "none"
 #define TOUCH_MENU_I2C_ADDR 0x00
