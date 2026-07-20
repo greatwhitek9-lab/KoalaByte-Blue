@@ -1,0 +1,25 @@
+{
+  "bundle_version": "2026.07.20-wake-session",
+  "esp32_s3_dualeye": {
+    "file": "firmware/prebuilt/esp32/koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session-full-flash.bin",
+    "sha256": "PENDING_RELEASE_WORKFLOW",
+    "target": "Waveshare ESP32-S3 DualEye 1.28 non-touch",
+    "version": "0.9.8",
+    "wake_session_timeout_ms": 10000,
+    "sleeping_voice_commands_allowed": false,
+    "trusted_gpio_keyboard_activity_wakes_or_refreshes": true
+  },
+  "heltec_t114": {
+    "file": "firmware/prebuilt/t114/koalabyte-t114-final-original-mouth-continuous-warp-latched-koalagotchi-right-landscape-ht-n5262.uf2",
+    "sha256": "c0e0a0d288237c55c629bbc78b8ece19ccaf37bea3356ee07cb206ddaef9d9dd",
+    "source_commit": "f6ac52c743552821287cf002f599f81e01479441",
+    "target": "Heltec T114 HT-n5262 UF2",
+    "uf2_family": "0x239a0071",
+    "application_offset": "0x00026000",
+    "hardware_observation": "Correct original face displays; idle animation remains static and is not physically validated"
+  },
+  "innomaker_usb2can": {
+    "firmware_flash": false,
+    "configuration": "Linux SocketCAN can0 plus koalabyte-can0.service"
+  }
+}
