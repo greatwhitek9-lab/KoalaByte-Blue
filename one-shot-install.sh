@@ -75,11 +75,19 @@ run_step() {
   write_status "ok" "${name}" "step completed"
 }
 
+run_audio_readiness() {
+  if [[ "${CHECK_ONLY}" == "1" ]]; then
+    bash scripts/configure_pi_audio_output.sh --check-only
+  else
+    bash scripts/configure_pi_audio_output.sh
+  fi
+}
+
 trap 'write_status "failed" "complete_one_shot" "installer stopped before completion"' ERR
 
 run_step "DualEye strict wake-session policy" python3 scripts/check_dualeye_wake_session.py
 run_step "Bundled firmware manifest" python3 scripts/verify_prebuilt_firmware_bundle.py
-run_step "Pi audio output readiness" bash scripts/configure_pi_audio_output.sh $([[ "${CHECK_ONLY}" == "1" ]] && echo --check-only)
+run_step "Pi audio output readiness" run_audio_readiness
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   run_step "Existing Pi one-shot readiness" env FLASH_ESP32=0 FLASH_T114_ON_PLUG=0 bash scripts/install_koalabyte_one_shot.sh --check-only
@@ -93,9 +101,9 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
   exit 0
 fi
 
-# The legacy one-shot remains the comprehensive Pi provisioning engine. Firmware
-# replacement is disabled there so this wrapper can use only pinned prebuilt
-# images and avoid building NCS/PlatformIO firmware on the Raspberry Pi.
+# The established one-shot remains the comprehensive Pi provisioning engine.
+# Firmware replacement is disabled there so this wrapper uses only pinned
+# prebuilt images and never compiles NCS/PlatformIO firmware on the Pi.
 run_step "Raspberry Pi software and services" env \
   FLASH_ESP32=0 \
   FLASH_T114_ON_PLUG=0 \
@@ -126,7 +134,11 @@ if command -v systemctl >/dev/null 2>&1; then
       koalabyte-menu-sync.service \
       koalabyte-can0.service; do
     if systemctl list-unit-files "${service}" >/dev/null 2>&1; then
-      sudo systemctl restart "${service}" || true
+      if [[ "${EUID}" -eq 0 ]]; then
+        systemctl restart "${service}" || true
+      elif command -v sudo >/dev/null 2>&1; then
+        sudo systemctl restart "${service}" || true
+      fi
     fi
   done
 fi
