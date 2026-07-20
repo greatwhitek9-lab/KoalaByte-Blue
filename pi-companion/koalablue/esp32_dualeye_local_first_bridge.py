@@ -17,23 +17,27 @@ from .esp32_dualeye_voice_bridge import (
 )
 
 
+_MENU_NAVIGATION_IDS = {
+    "k1_main_menu",
+    "k2_back",
+    "k3_select",
+    "k4_forward",
+    "k5_up",
+    "k6_down",
+}
+
+
 class ESP32DualEyeVoiceBridge(_IntegratedVoiceBridge):
     """Pi bridge for the ESP32 local-first voice architecture.
 
     Basic wake/status/help/greeting/thanks/banter replies are handled and spoken
-    entirely by the ESP32-S3. Fixed menu command IDs and explicitly escalated
-    complex utterances are the only voice work routed here. Responses generated
-    by the Raspberry Pi are played through the Pi's own ALSA/PulseAudio speaker;
-    response PCM is never streamed back to the ESP32 speaker.
+    entirely by the ESP32-S3. K1-K8 and full generated menu labels arrive with
+    exact catalog command IDs, so Pi execution does not depend on re-parsing the
+    speech transcript. Complex utterances remain the only PCM/STT path.
     """
 
     def _play_response(self, text: str, channel: str) -> None:
-        """Play Pi-owned TTS on the Raspberry Pi speaker only.
-
-        Face and mouth state still fan out to the ESP32 and Heltec, but the audio
-        waveform remains local to the Pi. The method is fail-soft so a missing or
-        misconfigured speaker never aborts a completed menu action or AI reply.
-        """
+        """Play Pi-owned TTS on the Raspberry Pi speaker only."""
 
         pcm = self._tts_pcm(text)
         wav_path: Optional[Path] = None
@@ -122,6 +126,101 @@ class ESP32DualEyeVoiceBridge(_IntegratedVoiceBridge):
                 }
             )
             self._heltec_speech(False, "", channel)
+
+    def _route_exact_catalog_command(
+        self, event: ESP32DualEyeVoiceEvent
+    ) -> Optional[Dict[str, Any]]:
+        command_id = str(event.payload.get("command_id") or "").strip()
+        if not command_id:
+            return None
+
+        label = str(event.payload.get("menu_label") or command_id).strip()
+        group = str(event.payload.get("menu_group") or "System / Companion").strip()
+        menu_name = str(event.payload.get("menu_name") or "main").strip()
+
+        if command_id in _MENU_NAVIGATION_IDS or command_id.startswith("submenu:"):
+            result_data: Dict[str, Any] = {
+                "status": "success",
+                "command_id": command_id,
+                "menu_label": label,
+                "menu_name": menu_name,
+                "navigation_only": True,
+                "handled_on_esp32": True,
+            }
+            self._write_json(
+                {
+                    "type": "menu_control_ack",
+                    "request_id": event.request_id,
+                    "status": "success",
+                    "command_id": command_id,
+                    "menu_label": label,
+                    "menu_name": menu_name,
+                    "handled_on_esp32": True,
+                }
+            )
+            self._fanout_face("menu", label, 2200)
+            return {"event": asdict(event), "result": result_data}
+
+        # K7/K8 are translated by the ESP32 to the exact protected menu rows.
+        from .menu_action_runner import run_automated_menu_action
+
+        self._fanout_face("action", label, 8000)
+        try:
+            result = run_automated_menu_action(command_id, label, group)
+            result_data = dict(result) if isinstance(result, dict) else {
+                "status": "success",
+                "result": result,
+            }
+        except Exception as exc:
+            result_data = {"status": "error", "error": str(exc)}
+
+        status = str(result_data.get("status", "error"))
+        success = not any(
+            token in status.upper() for token in ("ERROR", "FAILED", "BLOCKED")
+        )
+        message = str(
+            result_data.get("companion_line")
+            or result_data.get("message")
+            or result_data.get("error")
+            or (f"{label} complete" if success else f"{label} hit a snag")
+        )
+        result_payload = {
+            "type": "pi_execution_result",
+            "request_id": event.request_id,
+            "status": "success" if success else status,
+            "message": message,
+            "action": label,
+            "voice_request": True,
+            "command_id": command_id,
+            "menu_name": menu_name,
+            "result": result_data,
+        }
+        self._write_json(result_payload)
+        self._fanout_face("success" if success else "error", message, 6500)
+        self._play_response(message, "pi-execution")
+        return {"event": asdict(event), "result": result_data}
+
+    def _route_phrase(self, event: ESP32DualEyeVoiceEvent) -> Dict[str, Any]:
+        exact = self._route_exact_catalog_command(event)
+        if exact is not None:
+            return exact
+        return super()._route_phrase(event)
+
+    def handle_payload(
+        self, payload: Dict[str, Any]
+    ) -> Optional[ESP32DualEyeVoiceEvent]:
+        if str(payload.get("type") or "") == "menu_control":
+            event = ESP32DualEyeVoiceEvent(
+                type="menu_control",
+                phrase=str(payload.get("menu_label") or payload.get("control") or ""),
+                source=str(payload.get("source") or "esp32_s3_multinet_local"),
+                request_id=str(payload.get("request_id") or ""),
+                payload=dict(payload),
+            )
+            self.events.put(event)
+            self._log_event(event)
+            return event
+        return super().handle_payload(payload)
 
     def _finish_audio(
         self, payload: Dict[str, Any]
