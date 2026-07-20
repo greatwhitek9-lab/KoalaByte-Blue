@@ -24,6 +24,22 @@ from .killerkoala_expression import (
 from .killerkoala_face_bridge import _resolve_ports, _serial_write
 
 
+ERROR_DIGS = (
+    "Crikey, mate. Even the gum leaves saw that one coming.",
+    "Nice work, legend. You found the one branch marked do not sit here.",
+    "Bonza move. The machine is judging you, and frankly so am I.",
+    "You beauty. Another perfectly avoidable error for the collection.",
+    "Mate, the button was innocent until you got involved.",
+    "That went about as smoothly as a koala on roller skates.",
+    "Outstanding. You turned a simple job into interpretive debugging.",
+    "Righto, champion. Next time try the option that is not on fire.",
+    "The system survived your contribution. Barely.",
+    "Fair dinkum, that error had your fingerprints all over it.",
+    "You found the fault path without even reading the map. Impressive.",
+    "Good effort, mate. Wrong effort, but definitely effort.",
+)
+
+
 def _as_bool(value: Any) -> bool:
     if isinstance(value, bool):
         return value
@@ -31,13 +47,12 @@ def _as_bool(value: Any) -> bool:
 
 
 class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
-    """Local-vocabulary-first bridge with synchronized speech and BLE failover.
+    """Local-vocabulary-first speech, BLE failover, and error coordinator.
 
-    The Waveshare ESP32-S3 owns wake/basic vocabulary and embedded audio. The Pi
-    mirrors local speech lifecycle events to the Heltec mouth. Unmatched or
-    open-ended requests fall through to TinyLlama. The same serial owner performs
-    BLE-node election so the Pi BlueZ adapter is preferred and the ESP32 activates
-    its guarded Heltec fallback role only when the Pi adapter is unavailable.
+    The Waveshare owns wake/basic vocabulary and embedded audio. The Pi mirrors
+    local speech to the T114 mouth, routes open requests to TinyLlama, elects the
+    preferred Pi-or-ESP32 Heltec BLE node, and owns the universal timed error
+    lifecycle across both displays and the Pi Australian voice.
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -51,6 +66,17 @@ class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
         )
         self._ble_log = BleEventLog("logs/ble_nodes")
         self._ble_deduper = BleEventDeduper()
+
+        self._error_sequence_seconds = max(
+            3.0,
+            float(os.getenv("KILLERKOALA_ERROR_SEQUENCE_SECONDS", "6.5")),
+        )
+        self._error_alarm_until = 0.0
+        self._pending_error_dig = ""
+        self._error_dig_history: list[str] = []
+        self._error_sequence_path = (
+            self.failure_state_path.parent / "killerkoala_error_sequence.json"
+        )
 
     def open(self) -> None:
         super().open()
@@ -67,15 +93,128 @@ class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
             return
         self._ble_role = election.esp32_role
         try:
-            # Serial is the authoritative control path. It prevents an old UDP
-            # peer from leaving the ESP32 in a stale fallback role.
             self._serial_write_json(esp32_role_command(election))
         except Exception:
             pass
 
     def read_once(self) -> Optional[ESP32DualEyeVoiceEvent]:
         self._refresh_ble_role()
-        return super().read_once()
+        self._service_error_sequence()
+        event = super().read_once()
+        self._service_error_sequence()
+        return event
+
+    def _select_error_dig(self, action: str, message: str) -> str:
+        recent = set(self._error_dig_history[-6:])
+        seed = abs(hash(f"{action}|{message}|{int(time.time() // 3)}"))
+        for offset in range(len(ERROR_DIGS)):
+            candidate = ERROR_DIGS[(seed + offset) % len(ERROR_DIGS)]
+            if candidate not in recent:
+                self._error_dig_history.append(candidate)
+                self._error_dig_history = self._error_dig_history[-8:]
+                return candidate
+        candidate = ERROR_DIGS[seed % len(ERROR_DIGS)]
+        self._error_dig_history.append(candidate)
+        return candidate
+
+    def _write_error_sequence_status(
+        self,
+        *,
+        status: str,
+        action: str = "",
+        message: str = "",
+        dig: str = "",
+    ) -> None:
+        payload = {
+            "status": status,
+            "action": " ".join(str(action).split())[:96],
+            "message": " ".join(str(message).split())[:160],
+            "dig": " ".join(str(dig).split())[:180],
+            "alarm_until": self._error_alarm_until,
+            "error_sequence_seconds": self._error_sequence_seconds,
+            "dualeye": "alert_eyes_with_flashing_cyber_purple_green_background",
+            "heltec": "alarmed_koalagotchi_with_flashing_cyber_purple_green_background",
+            "completion": "heltec_mouth_then_pi_error_dig",
+            "updated_at": time.time(),
+        }
+        self._error_sequence_path.parent.mkdir(parents=True, exist_ok=True)
+        self._error_sequence_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    def _start_error_sequence(self, action: str, message: str) -> None:
+        resolved_action = " ".join(str(action or "KillerKoala action").split())
+        resolved_message = " ".join(str(message or "system error").split())
+        self._active_error = True
+        self._persistent_koalagotchi_mode = False
+        self._error_alarm_until = time.time() + self._error_sequence_seconds
+        self._pending_error_dig = self._select_error_dig(
+            resolved_action,
+            resolved_message,
+        )
+        self._active_expression = classify_response_expression(
+            f"error alarm {resolved_message}",
+            status="error",
+            event="error_alarm_sequence",
+            context={"action": resolved_action},
+        )
+        try:
+            self._emit_latched_state("alarmed", resolved_message)
+        finally:
+            self._active_expression = None
+        self._save_failure_state(
+            status="alarmed",
+            action=resolved_action,
+            message=resolved_message,
+        )
+        self._write_error_sequence_status(
+            status="alarm_active",
+            action=resolved_action,
+            message=resolved_message,
+            dig=self._pending_error_dig,
+        )
+
+    def _service_error_sequence(self) -> None:
+        if not self._active_error or self._error_alarm_until <= 0:
+            return
+        if time.time() < self._error_alarm_until:
+            return
+
+        dig = self._pending_error_dig or self._select_error_dig("error", "")
+        self._active_error = False
+        self._error_alarm_until = 0.0
+        self._pending_error_dig = ""
+        self._emit_latched_state("error_clear", "alarm sequence complete")
+        self._save_failure_state(status="error_sequence_complete", message=dig)
+        self._write_error_sequence_status(status="speaking_dig", dig=dig)
+
+        # The explicit clear returns the T114 to its normal mouth before speech.
+        # Pi-owned William TTS then animates that mouth and the DualEye together.
+        self._play_response(dig, "pi-error-dig")
+        self._fanout_face("idle", "", duration_ms=1000)
+        self._write_error_sequence_status(status="complete", dig=dig)
+
+    def _show_post_execution_state(
+        self,
+        *,
+        status: str,
+        action: str,
+        message: str,
+        persistent_command: bool = False,
+        result_data: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        data = result_data or {}
+        if self._is_error_result(status, data):
+            self._start_error_sequence(action, message)
+            return "alarmed"
+        return super()._show_post_execution_state(
+            status=status,
+            action=action,
+            message=message,
+            persistent_command=persistent_command,
+            result_data=data,
+        )
 
     def _expression(
         self,
@@ -102,12 +241,13 @@ class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
         payload["eyes_visible"] = True
         payload["mouth_visible"] = True
         payload["speech_animation"] = True
+        payload["alarm_background"] = expression.tone == "error"
+        payload["alarm_colors"] = ["#A54BFF", "#32FF71"]
+        payload["alarm_flash_ms"] = 180
         return payload
 
     @staticmethod
     def _fit_t114_line(payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Keep compact USB-CDC JSON below the T114 256-byte input buffer."""
-
         fitted = dict(payload)
         for optional_key in ("message", "subject", "speech_motion"):
             if len(json.dumps(fitted, separators=(",", ":"))) < 255:
@@ -204,6 +344,9 @@ class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
         )
 
     def _play_response(self, text: str, channel: str) -> None:
+        # Exact menu errors are spoken only after the alarm as a KillerKoala dig.
+        if self._active_error and channel == "pi-execution" and self._pending_error_dig:
+            return
         self._active_expression = classify_response_expression(
             text,
             status="speaking",
@@ -251,11 +394,29 @@ class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
         self, payload: Dict[str, Any]
     ) -> Optional[ESP32DualEyeVoiceEvent]:
         payload_type = str(payload.get("type") or "").strip().lower()
+        payload_status = str(payload.get("status") or "").strip().lower()
+        message = str(
+            payload.get("reason")
+            or payload.get("message")
+            or payload.get("error")
+            or payload_type
+        )
+
+        if payload_type in {
+            "error_clear",
+            "killerkoala_error_clear",
+            "koalagotchi_error_clear",
+        } or payload_status in {"cleared", "resolved", "recovered"}:
+            self._active_error = False
+            self._error_alarm_until = 0.0
+            self._pending_error_dig = ""
+            return super().handle_payload(payload)
+
         if payload_type in {"ble_seen", "ble_adv_seen"}:
             self._record_esp32_ble_event(payload)
             return None
         if payload_type == "ble_role_status":
-            status = {
+            role_status = {
                 "type": "ble_role_status",
                 "reported_role": payload.get("role"),
                 "ready": payload.get("ready"),
@@ -265,19 +426,48 @@ class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
             }
             path = self._ble_log.log_dir / "esp32_ble_role_status.json"
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(status, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            path.write_text(
+                json.dumps(role_status, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            if _as_bool(payload.get("quarantined")) or (
+                _as_bool(payload.get("requested"))
+                and not _as_bool(payload.get("ready"))
+                and "insufficient_heap" not in message
+            ):
+                self._start_error_sequence("ESP32 BLE fallback", message)
             return None
+
+        is_error = (
+            payload_type in {
+                "display_fault",
+                "audio_fault",
+                "system_fault",
+                "node_error",
+                "usb_error",
+                "error",
+            }
+            or payload_type.endswith("_error")
+            or any(token in payload_status for token in ("error", "fault", "exception"))
+        )
+        if is_error:
+            self._start_error_sequence(
+                str(payload.get("action") or payload_type or "system error"),
+                message,
+            )
+            return None
+
         if payload_type == "local_speech_state":
             active = _as_bool(payload.get("active"))
             category = str(payload.get("category") or "").strip().lower()
-            message = str(
+            local_message = str(
                 payload.get("message")
                 or category
                 or "KillerKoala local response"
             ).strip()
-            expression = expression_for_local_category(category, message)
+            expression = expression_for_local_category(category, local_message)
             self._write_heltec(
-                self._compact_heltec_speech(active, message, expression)
+                self._compact_heltec_speech(active, local_message, expression)
             )
             return None
         return super().handle_payload(payload)
