@@ -38,6 +38,7 @@ Path(path).write_text(json.dumps({
     "port": port,
     "bundle_dir": bundle,
     "chip": "esp32s3",
+    "identity_probe_required": True,
     "updated_at": time.time(),
 }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 PY
@@ -61,10 +62,23 @@ if [[ -z "${esptool}" ]]; then
   write_status "missing_esptool" "esptool was not found after PlatformIO setup."
   exit 1
 fi
+if [[ "${esptool}" == *.py ]]; then
+  runner=(python3 "${esptool}")
+else
+  runner=("${esptool}")
+fi
+
+probe_esp32s3() {
+  local candidate="$1" output
+  [[ -e "${candidate}" ]] || return 1
+  output="$("${runner[@]}" --chip esp32s3 --port "${candidate}" \
+    --before default_reset --after no_reset chip_id 2>&1 || true)"
+  grep -Eqi 'ESP32-S3|ESP32S3' <<<"${output}"
+}
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
-  python3 "${esptool}" version >/dev/null 2>&1 || "${esptool}" version >/dev/null 2>&1
-  write_status "check_only_ready" "ESP32 bundle and esptool contract validated."
+  "${runner[@]}" version >/dev/null 2>&1
+  write_status "check_only_ready" "ESP32 bundle, esptool, and chip-identity probe contract validated."
   exit 0
 fi
 
@@ -76,27 +90,43 @@ if [[ -z "${PORT}" ]]; then
     PORT="${ESP32_PORT:-${KOALABYTE_ESP32_FACE_PORT:-${KOALABYTE_ESP32_DUALEYE_BY_ID:-}}}"
   fi
 fi
+
+if [[ -n "${PORT}" && ! $(probe_esp32s3 "${PORT}"; echo $?) -eq 0 ]]; then
+  echo "Configured port did not identify as ESP32-S3: ${PORT}" >&2
+  PORT=""
+fi
 if [[ -z "${PORT}" ]]; then
-  for candidate in /dev/serial/by-id/*Espressif* /dev/serial/by-id/*ESP32* /dev/koalabyte-esp32-dualeye /dev/ttyACM0 /dev/ttyUSB0; do
-    if [[ -e "${candidate}" && "${candidate}" != *heltec* ]]; then
+  shopt -s nullglob
+  candidates=(
+    /dev/koalabyte-esp32-dualeye
+    /dev/serial/by-id/*Espressif*
+    /dev/serial/by-id/*ESP32*
+    /dev/ttyACM*
+    /dev/ttyUSB*
+  )
+  shopt -u nullglob
+  for candidate in "${candidates[@]}"; do
+    [[ "${candidate}" == *heltec* ]] && continue
+    if probe_esp32s3 "${candidate}"; then
       PORT="${candidate}"
       break
     fi
   done
 fi
 if [[ -z "${PORT}" || ! -e "${PORT}" ]]; then
-  write_status "port_missing" "ESP32-S3 upload port was not detected."
-  echo "ESP32-S3 upload port not found. Connect the DualEye and rerun the one-shot." >&2
+  write_status "port_missing" "No serial candidate answered an ESP32-S3 chip_id probe."
+  echo "ESP32-S3 DualEye not found. Connect it, or hold BOOT while starting the one-shot." >&2
   exit 1
 fi
 
-write_status "flashing" "Writing complete current ESP32-S3 image set."
-echo "Flashing ESP32-S3 DualEye on ${PORT}..."
-if [[ "${esptool}" == *.py ]]; then
-  runner=(python3 "${esptool}")
-else
-  runner=("${esptool}")
+# Probe one final time immediately before the destructive write.
+if ! probe_esp32s3 "${PORT}"; then
+  write_status "identity_failed" "Selected port failed the final ESP32-S3 chip_id probe."
+  exit 1
 fi
+
+write_status "flashing" "Writing complete current ESP32-S3 image set after chip identity verification."
+echo "Flashing verified ESP32-S3 DualEye on ${PORT}..."
 "${runner[@]}" --chip esp32s3 --port "${PORT}" --baud "${BAUD}" \
   --before default_reset --after hard_reset write_flash -z \
   --flash_mode qio --flash_freq 80m --flash_size 16MB \
@@ -106,11 +136,12 @@ fi
   0x00010000 "${ESP32_DIR}/firmware.bin" \
   0x00cb0000 "${ESP32_DIR}/srmodels.bin"
 
-# Wait for runtime USB and verify that the new application answers node_status.
+# Wait for the same runtime path or the stable udev alias; never select an
+# unrelated generic serial device during verification.
 deadline=$(( $(date +%s) + WAIT_SECONDS ))
 verify_port=""
 while (( $(date +%s) < deadline )); do
-  for candidate in /dev/koalabyte-esp32-dualeye "${PORT}" /dev/ttyACM0 /dev/ttyUSB0; do
+  for candidate in /dev/koalabyte-esp32-dualeye "${PORT}"; do
     if [[ -n "${candidate}" && -e "${candidate}" ]]; then
       verify_port="${candidate}"
       break 2
@@ -119,7 +150,7 @@ while (( $(date +%s) < deadline )); do
   sleep 1
 done
 if [[ -z "${verify_port}" ]]; then
-  write_status "flashed_unverified" "ESP32 image write completed, but runtime USB did not return."
+  write_status "flashed_unverified" "ESP32 image write completed, but its runtime path did not return."
   exit 1
 fi
 
