@@ -5,9 +5,10 @@ enum class LocalVoiceCategory : uint8_t {
   Wake = 0,
   Status,
   Help,
-  Greeting,
-  Thanks,
+  Acknowledgement,
   Banter,
+  Success,
+  Error,
   Escalate,
   Count
 };
@@ -17,3 +18,5 @@ enum class LocalVoiceCategory : uint8_t {
 bool localVoicePlayResponse(LocalVoiceCategory category,
                             const char **selectedText = nullptr);
 size_t localVoiceResponseCount(LocalVoiceCategory category);
+size_t localVoiceResponseTotalCount();
+uint8_t localVoiceRecentHistoryDepth();
