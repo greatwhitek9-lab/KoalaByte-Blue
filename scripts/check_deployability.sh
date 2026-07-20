@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "${REPO_ROOT}"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${ROOT}"
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 STATUS_PATH="${KOALABYTE_DEPLOYABILITY_STATUS_PATH:-logs/deployability/deployability_status.json}"
-STRICT_DEPLOYABILITY="${STRICT_DEPLOYABILITY:-0}"
-
-mkdir -p "$(dirname "${STATUS_PATH}")" logs/deployability
+mkdir -p "$(dirname "${STATUS_PATH}")"
 
 run_step() {
   local name="$1"
@@ -19,123 +17,73 @@ run_step() {
 }
 
 write_status() {
-  local status="$1"
-  local reason="$2"
-  "${PYTHON_BIN}" - <<'PY' "${STATUS_PATH}" "${status}" "${reason}" "${STRICT_DEPLOYABILITY}"
-import json
-import sys
-import time
+  local status="$1" reason="$2"
+  "${PYTHON_BIN}" - "${STATUS_PATH}" "${status}" "${reason}" <<'PY'
+import json, sys, time
 from pathlib import Path
-
-path, status, reason, strict = sys.argv[1:]
-payload = {
+path, status, reason = sys.argv[1:]
+Path(path).write_text(json.dumps({
     "status": status,
     "reason": reason,
-    "gate": "koalabyte_blue_deployability",
-    "checks": [
-        "shell syntax for deploy/install/flash helpers",
-        "repo readiness",
-        "runtime dependency import coverage",
-        "menu/action readiness",
-        "README complete menu/submenu catalog coverage",
-        "K1-K8 one-shot control readiness",
-        "touch and speech control fallback readiness",
-        "TwoCan read-only submenu and voice/touch/button/keyboard readiness",
-        "first-boot WiFi helper check-only",
-        "system package helper check-only",
-        "ESP32 PlatformIO helper check-only",
-        "Heltec T114 helper check-only",
-        "T114 plug-flash helper check-only",
-        "UF2-first one-shot option check-only",
-        "udev/boot/logrotate helper check-only",
-        "antenna helper check-only",
-        "Heltec hardware preflight profile",
-        "flash_all_components check-only",
-    ],
-    "strict_deployability": strict == "1",
+    "gate": "koalabyte_whole_system_deployability",
+    "canonical_installer": "one-shot-install.sh",
+    "runtime_mode": "headless_pi_os_lite",
+    "restricted_power_controls": True,
+    "firmware_flashing": True,
+    "firmware_targets": ["heltec-t114-uf2", "waveshare-esp32-s3-dualeye"],
+    "music_engine": "mopidy",
+    "can_transmit_during_install": False,
     "updated_at": time.time(),
-}
-Path(path).parent.mkdir(parents=True, exist_ok=True)
-Path(path).write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-print(json.dumps(payload, sort_keys=True))
+}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 PY
 }
 
-trap 'write_status "DEPLOYABILITY_INCOMPLETE" "deployability gate failed before completion"' ERR
+trap 'write_status "DEPLOYABILITY_INCOMPLETE" "deployability gate failed"' ERR
 
 SHELL_HELPERS=(
   install.sh
-  scripts/install_koalabyte_one_shot.sh
-  scripts/install_pi.sh
-  scripts/flash_all_components.sh
-  scripts/flash_esp32.sh
-  scripts/flash_t114_when_plugged.sh
-  scripts/flash_t114_combined_safe.sh
-  scripts/build_t114_combined_safe.sh
-  scripts/flash_heltec_mouth.sh
-  scripts/setup_wifi_first_boot.sh
+  one-shot-install.sh
+  scripts/setup_pi_hardware_stage.sh
   scripts/setup_system_packages.sh
-  scripts/setup_esp32_tools.sh
-  scripts/setup_heltec_t114_tools.sh
-  scripts/setup_nrf_tools.sh
-  scripts/setup_nrf_connect_sdk_toolchain.sh
-  scripts/setup_bluez_gatttool.sh
   scripts/setup_killerkoala_ollama.sh
-  scripts/configure_koalabyte_external_antennas.sh
-  scripts/configure_esp32s3_dualeye_2g4_antenna.sh
-  scripts/configure_t114_2g4_antenna.sh
-  scripts/configure_t114_lora_external_antenna.sh
+  scripts/setup_mopidy_player.sh
+  scripts/install_power_controls.sh
   scripts/install_koalabyte_udev_rules.sh
   scripts/install_koalabyte_boot_services.sh
-  scripts/install_koalabyte_logrotate.sh
-  scripts/koalabyte_doctor.sh
-  scripts/koalabyte_safe_mode.sh
-  scripts/export_koalabyte_logs.sh
-  scripts/build_koalabyte_release_package.sh
+  scripts/install_ble_node_manager_service.sh
+  scripts/install_esp32_dualeye_voice_bridge_service.sh
+  scripts/configure_pi_audio_output.sh
+  scripts/build_whole_system_firmware.sh
+  scripts/deploy_whole_system_firmware.sh
+  scripts/flash_t114_current_uf2.sh
+  scripts/flash_esp32_dualeye_current.sh
+  scripts/enter_t114_uf2_bootloader.sh
 )
 
-run_step "Shell syntax for install and flash helpers" bash -c '
+run_step "Canonical shell syntax" bash -c '
   for helper in "$@"; do
     test -f "${helper}" || { echo "missing helper: ${helper}" >&2; exit 1; }
     bash -n "${helper}"
   done
 ' _ "${SHELL_HELPERS[@]}"
 
-run_step "Compile Python scripts and Pi companion" "${PYTHON_BIN}" -m compileall pi-companion scripts
-run_step "Repo readiness" "${PYTHON_BIN}" scripts/check_repo_readiness.py
-run_step "Runtime dependency coverage" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_full_runtime_dependencies.py
-run_step "Menu action readiness" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_menu_actions.py
-run_step "README complete menu catalog" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_readme_menu_catalog.py
-run_step "Menu display sync readiness" env PYTHONPATH=pi-companion KOALABYTE_MENU_SYNC=0 "${PYTHON_BIN}" scripts/check_menu_display_sync.py
-run_step "K1-K8 one-shot controls" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_one_shot_controls.py
-run_step "Touch and speech control fallback" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_control_mode_fallback.py
-run_step "TwoCan read-only controls" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_twocan_read_only.py
+run_step "Compile Pi and deployment runtime" "${PYTHON_BIN}" -m compileall -q pi-companion scripts
+run_step "Whole-system firmware deployment source" "${PYTHON_BIN}" scripts/check_whole_system_deployment.py --source-only
+run_step "K1-K8 and one-shot controls" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_one_shot_controls.py
+run_step "Restricted K7/K8 permissions" env KOALABYTE_SERVICE_USER="$(id -un)" bash scripts/install_power_controls.sh --check-only
+run_step "Menu actions" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_menu_actions.py
+run_step "Menu display sync" env PYTHONPATH=pi-companion KOALABYTE_MENU_SYNC=0 "${PYTHON_BIN}" scripts/check_menu_display_sync.py
+run_step "KillerKoala face and mouth protocol" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_killerkoala_face_mouth_sync.py
+run_step "KillerKoala AI" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_killerkoala_ai.py
+run_step "Mopidy music player" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_music_player.py
+run_step "BLE failover" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_ble_role_failover.py
+run_step "Universal error sequence" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_killerkoala_error_sequence.py
+run_step "Runtime dependencies" env INSTALL_INNOMAKER_CAN=0 PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_full_runtime_dependencies.py
+run_step "Hardware-stage check-only" env INSTALL_INNOMAKER_CAN=0 bash scripts/setup_pi_hardware_stage.sh --check-only
+run_step "Final whole-system one-shot check-only" env KOALABYTE_SERVICE_USER="$(id -un)" INSTALL_INNOMAKER_CAN=0 bash one-shot-install.sh --check-only
 
-run_step "WiFi first-boot helper check-only" bash scripts/setup_wifi_first_boot.sh --check-only
-run_step "System package helper check-only" bash scripts/setup_system_packages.sh --check-only
-run_step "ESP32 PlatformIO helper check-only" bash scripts/setup_esp32_tools.sh --check-only
-run_step "Heltec T114 helper check-only" bash scripts/setup_heltec_t114_tools.sh --check-only
-run_step "nRF helper check-only" bash scripts/setup_nrf_tools.sh --check-only
-run_step "nRF Connect SDK helper check-only" bash scripts/setup_nrf_connect_sdk_toolchain.sh --check-only
-run_step "BlueZ gatttool helper check-only" bash scripts/setup_bluez_gatttool.sh --check-only
-run_step "KillerKoala Ollama helper check-only" bash scripts/setup_killerkoala_ollama.sh --check-only
-run_step "External antenna helper check-only" bash scripts/configure_koalabyte_external_antennas.sh --check-only
-run_step "ESP32 antenna helper check-only" bash scripts/configure_esp32s3_dualeye_2g4_antenna.sh --check-only
-run_step "T114 plug flash helper check-only" bash scripts/flash_t114_when_plugged.sh --check-only
-run_step "T114 required-UF2 flash helper check-only" env T114_REQUIRE_UF2=1 T114_FLASH_METHOD=uf2 bash scripts/flash_t114_when_plugged.sh --check-only
-run_step "one-shot UF2-first option check-only" bash scripts/install_koalabyte_one_shot.sh --check-only --heltec-uf2-first
-run_step "udev rule helper check-only" bash scripts/install_koalabyte_udev_rules.sh --check-only
-run_step "boot service helper check-only" bash scripts/install_koalabyte_boot_services.sh --check-only
-run_step "logrotate helper check-only" bash scripts/install_koalabyte_logrotate.sh --check-only
-run_step "Heltec profile hardware preflight" "${PYTHON_BIN}" scripts/preflight_all_hardware.py --profile heltec
-run_step "flash_all_components check-only" bash scripts/flash_all_components.sh --check-only
-run_step "one-shot installer check-only" bash scripts/install_koalabyte_one_shot.sh --check-only
-
-if [[ "${STRICT_DEPLOYABILITY}" == "1" ]]; then
-  run_step "strict runtime host-command dependency coverage" env PYTHONPATH=pi-companion STRICT_FULL_RUNTIME_DEPENDENCIES=1 "${PYTHON_BIN}" scripts/check_full_runtime_dependencies.py --strict-commands
-fi
-
+write_status "DEPLOYABILITY_READY" "whole-system firmware ownership, Pi OS Lite runtime, K1-K8, AI, music, BLE, alarms, services, and no-CAN-transmit policies passed"
 trap - ERR
-write_status "DEPLOYABILITY_READY" "install, dependency, menu, README catalog, helper, fallback, TwoCan read-only, and flash dry-run checks passed"
+
 echo
-printf 'KoalaByte deployability gate complete. Status: %s\n' "${STATUS_PATH}"
+printf 'KoalaByte whole-system deployability gate complete. Status: %s\n' "${STATUS_PATH}"

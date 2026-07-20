@@ -17,6 +17,8 @@ class ButtonEvent:
     event_type: str
     timestamp: float
     pin_bcm: int
+    held_seconds: float = 0.0
+    requires_hold: bool = False
 
 
 @dataclass(frozen=True)
@@ -37,13 +39,36 @@ DEFAULT_BUTTONS: Dict[str, Dict[str, object]] = {
     "button_4": {"number": 4, "module_key": "K4", "label": "Move Right / Forward", "pin": 19, "physical_pin": 35, "press_command": "move_right", "alias_command": "forward"},
     "button_5": {"number": 5, "module_key": "K5", "label": "Up", "pin": 26, "physical_pin": 37, "press_command": "up"},
     "button_6": {"number": 6, "module_key": "K6", "label": "Down", "pin": 21, "physical_pin": 40, "press_command": "down"},
-    "button_7": {"number": 7, "module_key": "K7", "label": "Power On/Off", "pin": 20, "physical_pin": 38, "press_command": "power_toggle"},
-    "button_8": {"number": 8, "module_key": "K8", "label": "Reset / Reboot", "pin": 16, "physical_pin": 36, "press_command": "reset"},
+    "button_7": {
+        "number": 7,
+        "module_key": "K7",
+        "label": "Safe Shutdown",
+        "pin": 20,
+        "physical_pin": 38,
+        "press_command": "power_toggle",
+        "requires_hold": True,
+        "hold_seconds": 2.5,
+    },
+    "button_8": {
+        "number": 8,
+        "module_key": "K8",
+        "label": "Reset / Reboot",
+        "pin": 16,
+        "physical_pin": 36,
+        "press_command": "reset",
+        "requires_hold": True,
+        "hold_seconds": 3.0,
+    },
 }
 
 
 class GPIOButtonManager:
-    def __init__(self, buttons: Optional[Dict[str, Dict[str, object]]] = None, log_path: str | Path = "logs/gpio_buttons.jsonl", electrical_mode: ButtonElectricalMode = DEFAULT_ELECTRICAL_MODE) -> None:
+    def __init__(
+        self,
+        buttons: Optional[Dict[str, Dict[str, object]]] = None,
+        log_path: str | Path = "logs/gpio_buttons.jsonl",
+        electrical_mode: ButtonElectricalMode = DEFAULT_ELECTRICAL_MODE,
+    ) -> None:
         self.buttons_config = buttons or DEFAULT_BUTTONS
         self.electrical_mode = electrical_mode
         self.log_path = Path(log_path)
@@ -85,18 +110,41 @@ class GPIOButtonManager:
             self.error = f"gpiozero unavailable: {exc}"
             self._record_touch_speech_fallback(self.error)
             return
+
         try:
             for name, cfg in self.buttons_config.items():
                 pin = int(cfg.get("pin", cfg.get("pin_bcm")))
                 number = int(cfg.get("number", 0))
                 label = str(cfg.get("label", name))
                 press_command = str(cfg.get("press_command", cfg.get("command", name)))
-                hold_seconds = float(cfg.get("hold_seconds", 3.0))
+                requires_hold = bool(cfg.get("requires_hold", number in {7, 8}))
+                hold_seconds = float(cfg.get("hold_seconds", 3.0 if requires_hold else 1.0))
                 bounce_time = float(cfg.get("bounce_time", 0.05))
                 pull_up = bool(cfg.get("pull_up", self.electrical_mode.pull_up))
-                button = Button(pin, pull_up=pull_up, bounce_time=bounce_time, hold_time=hold_seconds)
-                button.when_pressed = self._make_callback(number=number, name=name, label=label, command=press_command, event_type="press", pin=pin)
+
+                button = Button(
+                    pin,
+                    pull_up=pull_up,
+                    bounce_time=bounce_time,
+                    hold_time=hold_seconds,
+                    hold_repeat=False,
+                )
+                callback = self._make_callback(
+                    number=number,
+                    name=name,
+                    label=label,
+                    command=press_command,
+                    event_type="hold" if requires_hold else "press",
+                    pin=pin,
+                    held_seconds=hold_seconds if requires_hold else 0.0,
+                    requires_hold=requires_hold,
+                )
+                if requires_hold:
+                    button.when_held = callback
+                else:
+                    button.when_pressed = callback
                 self._button_objs.append(button)
+
             self.available = True
             self.control_mode = "full_controls"
             try:
@@ -104,9 +152,15 @@ class GPIOButtonManager:
 
                 write_control_mode(
                     "full_controls",
-                    reason="All K1-K8 GPIO inputs initialized successfully.",
+                    reason="All K1-K8 GPIO inputs initialized successfully; K7/K8 destructive commands require a deliberate hold.",
                     source="gpio_button_manager",
                     buttons_available=True,
+                    extra={
+                        "protected_buttons": {
+                            "K7": {"command": "power_toggle", "label": "Safe Shutdown", "hold_seconds": 2.5},
+                            "K8": {"command": "reset", "label": "Reset / Reboot", "hold_seconds": 3.0},
+                        }
+                    },
                 )
             except Exception:
                 pass
@@ -115,11 +169,33 @@ class GPIOButtonManager:
             self.close()
             self._record_touch_speech_fallback(self.error)
 
-    def _make_callback(self, *, number: int, name: str, label: str, command: str, event_type: str, pin: int):
+    def _make_callback(
+        self,
+        *,
+        number: int,
+        name: str,
+        label: str,
+        command: str,
+        event_type: str,
+        pin: int,
+        held_seconds: float,
+        requires_hold: bool,
+    ):
         def _callback() -> None:
-            event = ButtonEvent(number=number, name=name, label=label, command=command, event_type=event_type, timestamp=time.time(), pin_bcm=pin)
+            event = ButtonEvent(
+                number=number,
+                name=name,
+                label=label,
+                command=command,
+                event_type=event_type,
+                timestamp=time.time(),
+                pin_bcm=pin,
+                held_seconds=held_seconds,
+                requires_hold=requires_hold,
+            )
             self.events.put(event)
             self._log(event)
+
         return _callback
 
     def get_event(self, timeout: float = 0.0) -> Optional[ButtonEvent]:
@@ -130,7 +206,23 @@ class GPIOButtonManager:
 
     def _log(self, event: ButtonEvent) -> None:
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"type": "gpio_button", "button_number": event.number, "name": event.name, "label": event.label, "command": event.command, "event_type": event.event_type, "timestamp": event.timestamp, "pin_bcm": event.pin_bcm, "pull_up": self.electrical_mode.pull_up, "idle_state": self.electrical_mode.idle_state, "pressed_state": self.electrical_mode.pressed_state, "wiring": self.electrical_mode.wiring, "control_mode": self.control_mode}
+        payload = {
+            "type": "gpio_button",
+            "button_number": event.number,
+            "name": event.name,
+            "label": event.label,
+            "command": event.command,
+            "event_type": event.event_type,
+            "timestamp": event.timestamp,
+            "pin_bcm": event.pin_bcm,
+            "held_seconds": event.held_seconds,
+            "requires_hold": event.requires_hold,
+            "pull_up": self.electrical_mode.pull_up,
+            "idle_state": self.electrical_mode.idle_state,
+            "pressed_state": self.electrical_mode.pressed_state,
+            "wiring": self.electrical_mode.wiring,
+            "control_mode": self.control_mode,
+        }
         with self.log_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(payload, sort_keys=True) + "\n")
 

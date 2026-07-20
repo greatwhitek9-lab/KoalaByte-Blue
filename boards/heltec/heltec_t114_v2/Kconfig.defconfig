@@ -14,10 +14,18 @@ config HW_STACK_PROTECTION
 config GPIO
 	default y
 
+# This out-of-tree nRF52840 board must select its native Bluetooth
+# controller when an application enables the Bluetooth host. Nordic's
+# in-tree nRF52840 boards provide the same default.
+config BT_CTLR
+	default BT
+
 config USB_DEVICE_REMOTE_WAKEUP
 	default n
 
-source "boards/common/usb/Kconfig.cdc_acm_serial.defconfig"
+# NCS v2.9 predates boards/common/usb/Kconfig.cdc_acm_serial.defconfig.
+# Applications using the UF2 qualifier select the legacy USB CDC ACM stack in
+# their prj.conf.
 
 # Timing in nanoseconds / cycles at 64MHz for led strip
 config DELAY_T0H

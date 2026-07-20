@@ -1,101 +1,179 @@
-name: Build Heltec T114 Combined Safe UF2
+name: Build Current Heltec T114 Articulated Mouth
 
 on:
   workflow_dispatch:
-
-  push:
-    branches:
-      - Main
+  pull_request:
+    branches: [Main, main]
     paths:
-      - "boards/**"
+      - ".github/workflows/t114-combined-safe-build.yml"
+      - "boards/heltec/heltec_t114_v2/**"
       - "firmware/t114-combined-safe/**"
       - "scripts/build_t114_combined_safe.sh"
+      - "scripts/build_whole_system_firmware.sh"
+      - "scripts/flash_t114_current_uf2.sh"
+      - "scripts/enter_t114_uf2_bootloader.sh"
+      - "scripts/inspect_uf2.py"
+      - "scripts/patch_uf2_family.py"
+      - "scripts/verify_uf2_vector.py"
+      - "scripts/setup_nrf_connect_sdk_toolchain.sh"
+  push:
+    branches: [Main, main]
+    paths:
       - ".github/workflows/t114-combined-safe-build.yml"
+      - "boards/heltec/heltec_t114_v2/**"
+      - "firmware/t114-combined-safe/**"
+      - "scripts/build_t114_combined_safe.sh"
+      - "scripts/build_whole_system_firmware.sh"
+      - "scripts/flash_t114_current_uf2.sh"
+      - "scripts/enter_t114_uf2_bootloader.sh"
+      - "scripts/inspect_uf2.py"
+      - "scripts/patch_uf2_family.py"
+      - "scripts/verify_uf2_vector.py"
+      - "scripts/setup_nrf_connect_sdk_toolchain.sh"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: t114-articulated-mouth-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    name: Build and validate current HT-n5262 source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
     env:
-      BOARD: heltec_t114_v2/nrf52840/uf2
-      BOARD_ROOT: ${{ github.workspace }}
+      NCS_WORKSPACE: ${{ github.workspace }}/.ncs
+      NCS_REVISION: v2.9.0
+      ZEPHYR_SDK_VERSION: 0.16.8
+      ZEPHYR_SDK_INSTALL_DIR: ${{ github.workspace }}/zephyr-sdk-0.16.8
+      INSTALL_NCS_TOOLCHAIN: "1"
+      STRICT_NCS_TOOLCHAIN: "1"
+      SKIP_NCS_UPDATE: "0"
+      VALIDATE_BUILD: "0"
+      T114_BOARD: heltec_t114_v2/nrf52840/uf2
+      T114_BOARD_ROOT: ${{ github.workspace }}
+      T114_COMBINED_APP_DIR: firmware/t114-combined-safe
+      T114_COMBINED_BUILD_DIR: build/t114-combined-safe
+      STRICT_T114_COMBINED_BUILD: "1"
 
     steps:
-      - name: Checkout repository
+      - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Install prerequisites
+      - name: Restore NCS and Zephyr SDK cache
+        id: ncs-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.NCS_WORKSPACE }}
+            ${{ env.ZEPHYR_SDK_INSTALL_DIR }}
+          key: t114-ncs-${{ env.NCS_REVISION }}-zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Prepare Python bootstrap
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            git \
-            wget \
-            ninja-build \
-            cmake \
-            gperf \
-            ccache \
-            device-tree-compiler \
-            dfu-util \
-            python3-pip
+          sudo apt-get install -y python3-venv
+          python3 -m venv "${RUNNER_TEMP}/ncs-bootstrap"
+          "${RUNNER_TEMP}/ncs-bootstrap/bin/python" -m pip install --upgrade pip wheel setuptools west
+          echo "${RUNNER_TEMP}/ncs-bootstrap/bin" >> "${GITHUB_PATH}"
 
-      - name: Install west
-        run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install west
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Fetch nRF Connect SDK v3.1.0
-        run: |
-          west init -m https://github.com/nrfconnect/sdk-nrf --mr v3.1.0 ncs
-          cd ncs
-          west update
-          west zephyr-export
-          pip3 install -r zephyr/scripts/requirements.txt
-
-      - name: Install Zephyr SDK
-        run: |
-          cd $HOME
-          wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.0/zephyr-sdk-0.17.0_linux-x86_64.tar.xz
-          tar xf zephyr-sdk-0.17.0_linux-x86_64.tar.xz
-          cd zephyr-sdk-0.17.0
-          ./setup.sh -c
-          echo "ZEPHYR_SDK_INSTALL_DIR=$HOME/zephyr-sdk-0.17.0" >> $GITHUB_ENV
-
-      - name: Verify custom board
-        run: |
-          echo "Repository root:"
-          pwd
-
-          echo
-          echo "Boards directory:"
-          find boards -maxdepth 3 -type d || true
-
-          echo
-          echo "Heltec board:"
-          ls -R boards/heltec/heltec_t114_v2
-
-      - name: Build firmware
+      - name: Install nRF Connect SDK and Zephyr SDK
         env:
-          ZEPHYR_BASE: ${{ github.workspace }}/ncs/zephyr
-          BOARD_ROOT: ${{ github.workspace }}
-          T114_BOARD: heltec_t114_v2/nrf52840/uf2
-          T114_BOARD_ROOT: ${{ github.workspace }}
-        run: |
-          chmod +x scripts/build_t114_combined_safe.sh
-          ./scripts/build_t114_combined_safe.sh
+          PYTHON_BIN: ${{ runner.temp }}/ncs-bootstrap/bin/python
+          SKIP_NCS_UPDATE: ${{ steps.ncs-cache.outputs.cache-hit == 'true' && '1' || '0' }}
+        run: bash scripts/setup_nrf_connect_sdk_toolchain.sh
 
-      - name: Show build output
-        if: always()
-        run: |
-          find build -type f || true
+      - name: Save NCS and Zephyr SDK cache
+        if: steps.ncs-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.NCS_WORKSPACE }}
+            ${{ env.ZEPHYR_SDK_INSTALL_DIR }}
+          key: ${{ steps.ncs-cache.outputs.cache-primary-key }}
 
-      - name: Upload firmware
-        if: success()
+      - name: Validate current articulated-mouth and installer source contract
+        run: |
+          grep -Fq 'Continuous original-art mouth renderer' firmware/t114-combined-safe/src/original_texture_warp_renderer.c
+          grep -Fq '#define MOTION_TICK_MS 42' firmware/t114-combined-safe/src/original_texture_warp_renderer.c
+          grep -Fq 'original_texture_articulated_jaw_v2' firmware/t114-combined-safe/src/original_texture_warp_renderer.c
+          grep -Fq 'still_frame_cycle' firmware/t114-combined-safe/src/original_texture_warp_renderer.c
+          grep -Fq 'grin-cavity-jaw-cheeks-fangs' firmware/t114-combined-safe/src/original_texture_warp_renderer.c
+          grep -Fq 'action_complete' firmware/t114-combined-safe/src/koalagotchi_lifecycle_wrapper.c
+          grep -Fq 'koalagotchi_mode' firmware/t114-combined-safe/src/koalagotchi_lifecycle_wrapper.c
+          grep -Fq 'error_clear' firmware/t114-combined-safe/src/koalagotchi_lifecycle_wrapper.c
+          grep -Fq 'GPREGRET = 0x57' firmware/t114-combined-safe/scripts/patch_uf2_bootloader_entry.py
+          grep -Fq 'CONFIG_REBOOT=y' firmware/t114-combined-safe/prj.conf
+          bash -n scripts/flash_t114_current_uf2.sh
+          bash -n scripts/enter_t114_uf2_bootloader.sh
+
+      - name: Build current T114 firmware source
+        run: |
+          source logs/nrf_connect_sdk_env.sh
+          bash scripts/build_t114_combined_safe.sh
+
+      - name: Verify board and application partition
+        run: |
+          cfg="build/t114-combined-safe/zephyr/.config"
+          dts="build/t114-combined-safe/zephyr/zephyr.dts"
+          grep -Fxq 'CONFIG_BUILD_OUTPUT_UF2=y' "${cfg}"
+          grep -Fxq 'CONFIG_REBOOT=y' "${cfg}"
+          grep -Fxq 'CONFIG_FLASH_LOAD_OFFSET=0x26000' "${cfg}"
+          grep -Fxq 'CONFIG_USB_CDC_ACM=y' "${cfg}"
+          grep -Fxq 'CONFIG_DISPLAY=y' "${cfg}"
+          grep -Fq 'code_partition: partition@26000' "${dts}"
+          grep -Fq 'compatible = "sitronix,st7789v"' "${dts}"
+          grep -Fq 'width = < 0xf0 >' "${dts}"
+          grep -Fq 'height = < 0x87 >' "${dts}"
+
+      - name: Validate current installer-owned UF2 output
+        env:
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          raw="build/t114-combined-safe/zephyr/zephyr.uf2"
+          output="releases/koalabyte-t114-current.uf2"
+          mkdir -p releases
+          python3 scripts/inspect_uf2.py "${raw}" | tee releases/uf2-raw-metadata.txt
+          python3 scripts/patch_uf2_family.py "${raw}" "${output}" 0x239a0071
+          python3 scripts/verify_uf2_vector.py "${output}" \
+            --vector-address 0x26000 \
+            --application-min 0x26000 \
+            --application-max 0xec000 \
+            --family 0x239a0071 | tee releases/vector-validation.txt
+          grep -Fq 'Reset handler range valid: true' releases/vector-validation.txt
+          strings build/t114-combined-safe/zephyr/zephyr.elf | grep -Fq 'bootloader_ack'
+          strings build/t114-combined-safe/zephyr/zephyr.elf | grep -Fq 'REBOOT_UF2'
+          sha256sum "${output}" | tee releases/SHA256SUMS.txt
+          {
+            echo "source_commit=${SOURCE_COMMIT}"
+            echo "board=heltec_t114_v2/nrf52840/uf2"
+            echo "renderer=original_texture_articulated_jaw_v2"
+            echo "motion_tick_ms=42"
+            echo "still_frame_cycle=disabled"
+            echo "application_offset=0x00026000"
+            echo "uf2_family=0x239a0071"
+            echo "software_uf2_entry=true"
+            echo "installer_owned_flash=true"
+            echo "canonical_installer=one-shot-install.sh"
+            echo "flash_helper=scripts/flash_t114_current_uf2.sh"
+          } > releases/build-provenance.txt
+
+      - name: Upload current source-build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: heltec-t114-combined-safe
+          name: koalabyte-t114-current-ht-n5262
+          if-no-files-found: error
+          retention-days: 14
           path: |
-            build/**/*.uf2
-            build/**/*.hex
-            build/**/*.bin
-            build/**/*.elf
+            releases/koalabyte-t114-current.uf2
+            releases/uf2-raw-metadata.txt
+            releases/SHA256SUMS.txt
+            releases/build-provenance.txt
+            releases/vector-validation.txt
+            build/t114-combined-safe/zephyr/zephyr.elf
+            build/t114-combined-safe/zephyr/zephyr.map
+            build/t114-combined-safe/zephyr/.config
+            build/t114-combined-safe/zephyr/zephyr.dts
+            logs/t114_combined_safe_build_status.json

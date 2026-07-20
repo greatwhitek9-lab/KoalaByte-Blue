@@ -21,6 +21,7 @@ resolved against the active apt repositories so one renamed optional package
 does not abort the complete dependency installation.
 
 GreatWhite Reef packet-review support is provided by tshark and wireshark.
+William neural voice conversion uses edge-tts from requirements.txt and ffmpeg.
 EOF
 }
 
@@ -62,6 +63,7 @@ fi
 base_packages=(
   git python3 python3-venv python3-pip python3-dev python3-gpiozero python3-lgpio
   python3-serial python3-dbus python3-gi python3-httpx
+  python3-pocketsphinx pocketsphinx-en-us
   build-essential pkg-config cmake ninja-build gperf ccache device-tree-compiler
   wget curl xz-utils file make gcc g++ libffi-dev libssl-dev usbutils udev kmod
   util-linux parted dosfstools exfatprogs libusb-1.0-0 libusb-1.0-0-dev
@@ -70,7 +72,7 @@ base_packages=(
   network-manager wpasupplicant wireless-tools iw dhcpcd-base
   dnsutils iputils-ping bluetooth bluez bluez-tools rfkill sqlite3 iproute2
   picocom minicom screen can-utils python3-can gpiod
-  espeak-ng espeak alsa-utils libasound2-plugins pulseaudio-utils
+  espeak-ng espeak ffmpeg alsa-utils libasound2-plugins pulseaudio-utils
   portaudio19-dev python3-pyaudio tshark wireshark
 )
 
@@ -131,7 +133,7 @@ echo "Installing/checking Raspberry Pi system packages..."
 "${apt_runner[@]}" install -y "${packages[@]}"
 
 echo "System package setup complete."
-for command in cmake ninja espeak-ng fc-list lsusb udevadm bluetoothctl tshark wireshark aplay glxinfo cansend modprobe; do
+for command in cmake ninja espeak-ng ffmpeg edge-tts pocketsphinx_continuous fc-list lsusb udevadm bluetoothctl tshark wireshark aplay glxinfo cansend modprobe; do
   if command -v "${command}" >/dev/null 2>&1; then
     echo "  ${command}: $(command -v "${command}")"
   fi

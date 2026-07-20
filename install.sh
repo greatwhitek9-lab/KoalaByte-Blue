@@ -1,202 +1,83 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 REPO_URL="${KOALABYTE_REPO_URL:-https://github.com/greatwhitek9-lab/KoalaByte-Blue.git}"
 BRANCH="${KOALABYTE_BRANCH:-Main}"
 INSTALL_DIR="${KOALABYTE_INSTALL_DIR:-${HOME}/KoalaByte-Blue}"
-RUN_MODE="install"
+MODE="install"
 
 usage() {
   cat <<'EOF'
-KoalaByte Blue V2 Heltec Edition bootstrapper
+KoalaByte Blue whole-system bootstrapper
 
-Normal Raspberry Pi 3B+ install from a cloned repo:
+Usage:
   bash install.sh
-
-Fresh Pi download flow:
-  curl -fsSL -o koalabyte-install.sh https://raw.githubusercontent.com/greatwhitek9-lab/KoalaByte-Blue/Main/install.sh
-  bash koalabyte-install.sh
-
-Heltec UF2-first full install:
-  1. Plug in the Heltec T114 by USB-C data cable.
-  2. Press RST twice quickly until the HT-n5262 UF2 volume appears.
-  3. Run:
-       bash install.sh --heltec-uf2-first
-
-Modes:
-  install       Clone/update repo, then run scripts/install_koalabyte_one_shot.sh. Default.
-  check-only   Clone/update repo, prepare the local Python check venv, then run the one-shot dry-run readiness gate.
-  repo-only    Clone/update repo only.
-
-Any extra flags after the mode are passed to scripts/install_koalabyte_one_shot.sh.
-Examples:
-  bash install.sh install --heltec-uf2-first
-  bash install.sh --heltec-uf2-first
   bash install.sh check-only
+  bash install.sh repo-only
 
-Lab transmit profile:
-  The installer does not transmit RF/BLE/CAN traffic during setup.
-  It installs/validates the owned-lab control surface and records the lab-transmit policy.
-  CAN bench transmit remains gated to isolated simulator use through explicit backend flags.
-  RF/BLE workflows remain scoped to owned-device lab controls and passive/readiness paths unless a separate authorized backend implements a bounded action.
-
-Useful environment:
-  KOALABYTE_INSTALL_DIR=$HOME/KoalaByte-Blue
+Environment:
+  KOALABYTE_REPO_URL=https://github.com/greatwhitek9-lab/KoalaByte-Blue.git
   KOALABYTE_BRANCH=Main
-  ESP32_PORT=/dev/ttyUSB0
-  KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0
-  HELTEC_UF2_FIRST=1
-  T114_REQUIRE_UF2=1
-  T114_FLASH_METHOD=uf2
-  T114_PLUG_FLASH_PROFILE=combined-safe|color-mouth|hci-usb|skip
-  INSTALL_INNOMAKER_CAN=optional|0|1
-  STRICT_INNOMAKER_CAN=1
-  KOALABYTE_LAB_PROFILE=owned-lab
-  KOALABYTE_CAN_TRANSMIT_MODE=gated-bench|listen-only|disabled
-  KOALABYTE_RF_BLE_TRANSMIT_MODE=disabled-during-install|passive-only
-  STRICT_LAB_TRANSMIT_POLICY=1
-  CAN_INTERFACE=can0
-  CAN_BITRATE=500000
-  KOALABYTE_ALLOW_DIRTY=1
+  KOALABYTE_INSTALL_DIR=$HOME/KoalaByte-Blue
+  KOALABYTE_SERVICE_USER=<linux-user>
+
+This bootstrapper clones or updates the selected branch and invokes the single
+canonical entrypoint, one-shot-install.sh. The default one-shot builds and flashes
+the current Heltec T114 UF2 and complete ESP32-S3 image set, then provisions the
+Raspberry Pi runtime, TinyLlama, Mopidy, controls, services, and diagnostics.
+Connect both peripherals before running the default install.
 EOF
 }
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  usage
-  exit 0
-fi
-
 case "${1:-install}" in
-  install|check-only|repo-only)
-    RUN_MODE="${1:-install}"
-    shift || true
-    ;;
-  --*)
-    RUN_MODE="install"
-    ;;
-  *)
-    echo "Unknown mode: ${1:-}" >&2
-    usage >&2
-    exit 2
-    ;;
+  install) MODE="install"; shift || true ;;
+  check-only|--check-only|--dry-run) MODE="check-only"; shift || true ;;
+  repo-only) MODE="repo-only"; shift || true ;;
+  -h|--help) usage; exit 0 ;;
+  *) echo "Unknown mode: ${1}" >&2; usage >&2; exit 2 ;;
 esac
 
-apt_install() {
+if [[ $# -gt 0 ]]; then
+  echo "Unexpected arguments: $*" >&2
+  exit 2
+fi
+
+if ! command -v git >/dev/null 2>&1; then
   if command -v apt-get >/dev/null 2>&1; then
     if [[ "${EUID}" -eq 0 ]]; then
       apt-get update
-      apt-get install -y "$@"
-    elif command -v sudo >/dev/null 2>&1; then
-      sudo apt-get update
-      sudo apt-get install -y "$@"
+      apt-get install -y git ca-certificates
     else
-      echo "apt-get exists, but this user is not root and sudo is unavailable." >&2
-      return 1
+      sudo apt-get update
+      sudo apt-get install -y git ca-certificates
     fi
   else
-    return 1
-  fi
-}
-
-ensure_git() {
-  if command -v git >/dev/null 2>&1; then
-    return 0
-  fi
-  echo "git is not installed. Attempting to install it with apt..."
-  if ! apt_install git ca-certificates curl; then
-    echo "git is required. Install git, ca-certificates, and curl, then re-run this bootstrapper." >&2
+    echo "git is required." >&2
     exit 1
   fi
-}
-
-ensure_python_venv() {
-  local python_bin="${PYTHON_BIN:-python3}"
-  if ! command -v "${python_bin}" >/dev/null 2>&1; then
-    echo "Python 3 is required but was not found. Attempting to install python3, python3-venv, and python3-pip with apt..."
-    if ! apt_install python3 python3-venv python3-pip; then
-      echo "Python 3 is required. Install python3, python3-venv, and python3-pip, then re-run this bootstrapper." >&2
-      exit 1
-    fi
-  fi
-  if "${python_bin}" -m venv --help >/dev/null 2>&1; then
-    return 0
-  fi
-  echo "Python venv support is missing. Attempting to install python3-venv and python3-pip with apt..."
-  if ! apt_install python3-venv python3-pip; then
-    echo "python3-venv is required for KoalaByte check/install environments. Install it, then re-run this bootstrapper." >&2
-    exit 1
-  fi
-  if ! "${python_bin}" -m venv --help >/dev/null 2>&1; then
-    echo "Python venv support is still unavailable after package installation." >&2
-    exit 1
-  fi
-}
-
-update_existing_checkout() {
-  cd "${INSTALL_DIR}"
-  if [[ "${KOALABYTE_ALLOW_DIRTY:-0}" != "1" ]]; then
-    if ! git diff --quiet || ! git diff --cached --quiet; then
-      echo "Existing checkout has local changes: ${INSTALL_DIR}" >&2
-      echo "Commit or stash them first, or set KOALABYTE_ALLOW_DIRTY=1." >&2
-      exit 1
-    fi
-  fi
-  git remote set-url origin "${REPO_URL}" || true
-  git fetch --prune origin "${BRANCH}"
-  git checkout "${BRANCH}"
-  git pull --ff-only origin "${BRANCH}"
-}
-
-clone_repo() {
-  mkdir -p "$(dirname "${INSTALL_DIR}")"
-  git clone --depth 1 --branch "${BRANCH}" "${REPO_URL}" "${INSTALL_DIR}"
-}
-
-prepare_check_environment() {
-  cd "${INSTALL_DIR}"
-  local venv_dir="${INSTALL_DIR}/pi-companion/.venv"
-  local python_bin="${PYTHON_BIN:-python3}"
-  if [[ ! -x "${python_bin}" ]] && ! command -v "${python_bin}" >/dev/null 2>&1; then
-    echo "Python 3 is required for check-only mode." >&2
-    exit 1
-  fi
-  if [[ ! -f "${venv_dir}/bin/python" ]]; then
-    echo "Preparing local Python check environment: ${venv_dir}"
-    "${python_bin}" -m venv --system-site-packages "${venv_dir}"
-  fi
-  "${venv_dir}/bin/python" -m pip install --upgrade pip wheel setuptools
-  "${venv_dir}/bin/python" -m pip install -r "${INSTALL_DIR}/pi-companion/requirements.txt"
-  export PYTHON_BIN="${venv_dir}/bin/python"
-}
-
-ensure_git
-ensure_python_venv
-
-if [[ -d "${INSTALL_DIR}/.git" ]]; then
-  echo "Updating existing KoalaByte Blue checkout: ${INSTALL_DIR}"
-  update_existing_checkout
-elif [[ -e "${INSTALL_DIR}" ]]; then
-  echo "Install path exists but is not a git checkout: ${INSTALL_DIR}" >&2
-  echo "Choose a different KOALABYTE_INSTALL_DIR or move the existing path." >&2
-  exit 1
-else
-  echo "Cloning KoalaByte Blue ${BRANCH} into ${INSTALL_DIR}"
-  clone_repo
-  cd "${INSTALL_DIR}"
 fi
 
-case "${RUN_MODE}" in
+if [[ -d "${INSTALL_DIR}/.git" ]]; then
+  git -C "${INSTALL_DIR}" fetch origin
+  git -C "${INSTALL_DIR}" checkout "${BRANCH}"
+  git -C "${INSTALL_DIR}" pull --ff-only origin "${BRANCH}"
+elif [[ -e "${INSTALL_DIR}" ]]; then
+  echo "Install path exists but is not a git repository: ${INSTALL_DIR}" >&2
+  exit 1
+else
+  git clone --branch "${BRANCH}" "${REPO_URL}" "${INSTALL_DIR}"
+fi
+
+cd "${INSTALL_DIR}"
+
+case "${MODE}" in
   repo-only)
-    echo "Repository ready at ${INSTALL_DIR}"
+    echo "Repository ready: ${INSTALL_DIR}"
     ;;
   check-only)
-    echo "Preparing KoalaByte one-shot dry-run readiness gate..."
-    prepare_check_environment
-    echo "Running KoalaByte one-shot dry-run readiness gate..."
-    bash scripts/install_koalabyte_one_shot.sh --check-only "$@"
+    bash one-shot-install.sh --check-only
     ;;
   install)
-    echo "Running KoalaByte one-shot installer..."
-    T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE:-combined-safe}" bash scripts/install_koalabyte_one_shot.sh "$@"
+    bash one-shot-install.sh
     ;;
 esac

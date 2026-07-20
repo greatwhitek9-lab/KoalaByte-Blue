@@ -3,34 +3,32 @@ name: ESP32 DualEye PlatformIO Build
 on:
   workflow_dispatch:
   push:
-    branches:
-      - Main
-      - main
-      - koalabyte-blue-v2-heltec-edition
+    branches: [Main, main]
     paths:
       - ".github/workflows/esp32-dualeye-platformio-build.yml"
       - "firmware/esp32-dualeye/**"
-      - "scripts/flash_esp32.sh"
-      - "scripts/configure_esp32s3_dualeye_2g4_antenna.sh"
+      - "scripts/build_whole_system_firmware.sh"
+      - "scripts/flash_esp32_dualeye_current.sh"
+      - "scripts/check_dualeye_wake_session.py"
   pull_request:
-    branches:
-      - Main
-      - main
-      - koalabyte-blue-v2-heltec-edition
+    branches: [Main, main]
     paths:
       - ".github/workflows/esp32-dualeye-platformio-build.yml"
       - "firmware/esp32-dualeye/**"
-      - "scripts/flash_esp32.sh"
-      - "scripts/configure_esp32s3_dualeye_2g4_antenna.sh"
+      - "scripts/build_whole_system_firmware.sh"
+      - "scripts/flash_esp32_dualeye_current.sh"
+      - "scripts/check_dualeye_wake_session.py"
+
+permissions:
+  contents: read
 
 jobs:
-  esp32-dualeye-platformio-build:
-    name: Run pio build for ESP32-S3 DualEye
+  build:
+    name: Build current ESP32-S3 DualEye source
     runs-on: ubuntu-22.04
     timeout-minutes: 30
-
     steps:
-      - name: Checkout
+      - name: Check out source
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -38,19 +36,86 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install PlatformIO
-        run: python -m pip install --upgrade pip platformio
+      - name: Validate KillerKoala wake-session contract
+        run: python scripts/check_dualeye_wake_session.py
+
+      - name: Validate installer-owned ESP32 flash contract
+        run: |
+          bash -n scripts/build_whole_system_firmware.sh
+          bash -n scripts/flash_esp32_dualeye_current.sh
+          grep -Fq '0x00cb0000' scripts/flash_esp32_dualeye_current.sh
+          grep -Fq 'chip_id' scripts/flash_esp32_dualeye_current.sh
+          grep -Fq 'srmodels.bin' scripts/build_whole_system_firmware.sh
+
+      - name: Install voice and PlatformIO build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python -m pip install --upgrade pip "edge-tts==7.2.8" platformio
 
       - name: Build ESP32-S3 DualEye firmware
-        run: pio run -d firmware/esp32-dualeye
+        run: |
+          set -o pipefail
+          mkdir -p releases
+          pio run -d firmware/esp32-dualeye 2>&1 | tee releases/esp32-dualeye-platformio.log
+          grep -F 'Generated strict wake-session source' releases/esp32-dualeye-platformio.log
+          grep -F 'Generated DualEye wake-session voice/menu catalog' releases/esp32-dualeye-platformio.log
 
-      - name: Upload firmware build outputs
+      - name: Upload ESP32 build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: esp32-dualeye-platformio-build
-          path: |
-            firmware/esp32-dualeye/.pio/build/esp32s3_dualeye/firmware.*
-            firmware/esp32-dualeye/.pio/build/esp32s3_dualeye/*.elf
-            firmware/esp32-dualeye/.pio/build/esp32s3_dualeye/*.map
-          if-no-files-found: ignore
+          name: esp32-dualeye-build-diagnostics
+          path: releases/esp32-dualeye-platformio.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Package installer-owned source-build outputs
+        env:
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          build="firmware/esp32-dualeye/.pio/build/esp32s3_dualeye"
+          package="releases/koalabyte-esp32-s3-dualeye-current-source-build"
+          mkdir -p "${package}"
+
+          boot_app0="$(find "${HOME}/.platformio/packages/framework-arduinoespressif32" -path '*/tools/partitions/boot_app0.bin' -print -quit)"
+          srmodels="$(find "${HOME}/.platformio/packages" -path '*/esp_sr/srmodels.bin' -print -quit)"
+          test -f "${build}/bootloader.bin"
+          test -f "${build}/partitions.bin"
+          test -f "${build}/firmware.bin"
+          test -n "${boot_app0}"
+          test -n "${srmodels}"
+
+          cp "${build}/bootloader.bin" "${package}/bootloader.bin"
+          cp "${build}/partitions.bin" "${package}/partitions.bin"
+          cp "${build}/firmware.bin" "${package}/firmware.bin"
+          cp "${boot_app0}" "${package}/boot_app0.bin"
+          cp "${srmodels}" "${package}/srmodels.bin"
+          cp releases/esp32-dualeye-platformio.log "${package}/build.log"
+          cp logs/one_shot/dualeye_wake_session_status.json "${package}/wake-session-validation.json"
+
+          cat > "${package}/BUILD-PROVENANCE.txt" <<EOF
+          source_commit=${SOURCE_COMMIT}
+          target=Waveshare ESP32-S3 DualEye 1.28 non-touch
+          spoken_identity=KillerKoala
+          tts_backend=en-AU-WilliamNeural
+          installer_owned_flash=true
+          canonical_installer=one-shot-install.sh
+          flash_helper=scripts/flash_esp32_dualeye_current.sh
+          complete_image_set=true
+          speech_model_address=0x00cb0000
+          EOF
+
+          (
+            cd "${package}"
+            sha256sum *.bin build.log wake-session-validation.json BUILD-PROVENANCE.txt > SHA256SUMS.txt
+          )
+
+      - name: Upload current source-build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: koalabyte-esp32-s3-dualeye-current-source-build
+          path: releases/koalabyte-esp32-s3-dualeye-current-source-build/**
+          if-no-files-found: error
+          retention-days: 14

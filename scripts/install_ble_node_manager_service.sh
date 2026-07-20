@@ -8,6 +8,8 @@ ENV_PATH="/etc/default/koalabyte-ble-node-manager"
 INSTALL_SERVICE="${INSTALL_BLE_NODE_MANAGER_SERVICE:-auto}"
 STRICT_SERVICE="${STRICT_BLE_NODE_MANAGER_SERVICE:-0}"
 PY="${PYTHON_BIN:-${ROOT}/pi-companion/.venv/bin/python}"
+SERVICE_USER="${KOALABYTE_SERVICE_USER:-${SUDO_USER:-${USER:-pi}}}"
+SERVICE_GROUP="${KOALABYTE_SERVICE_GROUP:-${SERVICE_USER}}"
 
 if [[ -e /dev/koalabyte-heltec ]]; then
   DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec"
@@ -21,12 +23,8 @@ ESP="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-}}"
 PI_BLUEZ="${KOALABYTE_PI_BLUEZ_NODE:-1}"
 
 case "${INSTALL_SERVICE}" in
-  0|false|False|no|NO|skip|SKIP)
-    echo "Skipping KoalaByte BLE node manager service install by request."
-    exit 0
-    ;;
-  auto|AUTO|1|true|True|yes|YES)
-    ;;
+  0|false|False|no|NO|skip|SKIP) echo "Skipping KoalaByte BLE node manager service install by request."; exit 0 ;;
+  auto|AUTO|1|true|True|yes|YES) ;;
   *) echo "Unknown INSTALL_BLE_NODE_MANAGER_SERVICE value: ${INSTALL_SERVICE}" >&2; exit 2 ;;
 esac
 
@@ -37,20 +35,16 @@ if ! command -v systemctl >/dev/null 2>&1; then
 fi
 
 if [[ ! -x "${PY}" ]]; then
-  if command -v python3 >/dev/null 2>&1; then
-    PY="$(command -v python3)"
-  else
-    echo "No Python executable found for BLE node manager service." >&2
-    [[ "${STRICT_SERVICE}" == "1" ]] && exit 1
-    exit 0
-  fi
+  PY="$(command -v python3 || true)"
 fi
-
-if [[ ! -f "${ROOT}/scripts/run_ble_node_manager.py" ]]; then
-  echo "Missing scripts/run_ble_node_manager.py; cannot install BLE node manager service." >&2
+if [[ -z "${PY}" || ! -x "${PY}" ]]; then
+  echo "No Python executable found for BLE node manager service." >&2
   [[ "${STRICT_SERVICE}" == "1" ]] && exit 1
   exit 0
 fi
+
+[[ -f "${ROOT}/scripts/run_ble_node_manager.py" ]] || { echo "Missing scripts/run_ble_node_manager.py" >&2; exit 1; }
+id "${SERVICE_USER}" >/dev/null 2>&1 || { echo "Service user does not exist: ${SERVICE_USER}" >&2; exit 1; }
 
 if [[ "${EUID}" -eq 0 ]]; then
   sudo_cmd=()
@@ -65,25 +59,31 @@ fi
 mkdir -p "${ROOT}/logs/ble_nodes" "${ROOT}/logs/preflight"
 chmod +x "${ROOT}/scripts/run_ble_node_manager_service.sh"
 PYTHONPATH="${ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}" python3 "${ROOT}/scripts/discover_koalabyte_ports.py" --profile heltec --output-dir "${ROOT}/logs/preflight" || true
+"${sudo_cmd[@]}" chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${ROOT}/logs/ble_nodes" "${ROOT}/logs/preflight" || true
 
 cat > /tmp/koalabyte-ble-node-manager.env <<ENVEOF
 KOALABYTE_PRIMARY_BLE_PORT=${PRIMARY_PORT}
 KOALABYTE_HELTEC_USB_PORT=${PRIMARY_PORT}
 KOALABYTE_ESP32_FACE_PORT=${ESP}
 KOALABYTE_PI_BLUEZ_NODE=${PI_BLUEZ}
+KOALABYTE_BLE_MANAGER_OWNS_ESP32=0
+KOALABYTE_BLE_ROLE_CHECK_SECONDS=30
 PYTHON_BIN=${PY}
 KOALABYTE_PORT_ENV_FILE=${ROOT}/logs/preflight/koalabyte_ports.env
 ENVEOF
 
 cat > /tmp/${SERVICE} <<SERVICEEOF
 [Unit]
-Description=KoalaByte Blue V2 Heltec Edition BLE Node Manager - Heltec T114 nRF52840 primary BLE board
+Description=KoalaByte BLE Node Manager - Heltec primary with Pi/ESP32 failover
 After=network-online.target bluetooth.service systemd-udev-settle.service
 Wants=network-online.target bluetooth.service systemd-udev-settle.service
 
 [Service]
 Type=simple
+User=${SERVICE_USER}
+Group=${SERVICE_GROUP}
 WorkingDirectory=${ROOT}
+Environment=PYTHONPATH=${ROOT}/pi-companion
 EnvironmentFile=-${ENV_PATH}
 ExecStart=${ROOT}/scripts/run_ble_node_manager_service.sh
 Restart=always
@@ -99,11 +99,11 @@ SERVICEEOF
 "${sudo_cmd[@]}" install -m 0644 /tmp/${SERVICE} "${SERVICE_PATH}"
 "${sudo_cmd[@]}" systemctl daemon-reload
 "${sudo_cmd[@]}" systemctl enable "${SERVICE}"
-"${sudo_cmd[@]}" systemctl restart "${SERVICE}"
+"${sudo_cmd[@]}" systemctl restart "${SERVICE}" || true
 
 sleep 1
 if "${sudo_cmd[@]}" systemctl is-active --quiet "${SERVICE}"; then
-  echo "KoalaByte BLE node manager service is active."
+  echo "KoalaByte BLE node manager is active: Heltec primary, Pi BlueZ preferred node, ESP32 guarded fallback."
 else
   echo "KoalaByte BLE node manager service installed but is not active yet. Check logs/ble_nodes/service.err or journalctl -u ${SERVICE}." >&2
   [[ "${STRICT_SERVICE}" == "1" ]] && exit 1

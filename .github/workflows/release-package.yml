@@ -8,11 +8,29 @@ on:
 
 jobs:
   package:
-    name: Build release install package
+    name: Build canonical Pi install package
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Pi runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r pi-companion/requirements.txt
+
+      - name: Validate final installer
+        run: |
+          bash -n install.sh
+          bash -n one-shot-install.sh
+          PYTHONPATH=pi-companion python scripts/check_one_shot_controls.py
+          PYTHONPATH=pi-companion python scripts/check_killerkoala_ai.py
+          INSTALL_INNOMAKER_CAN=0 PYTHONPATH=pi-companion python scripts/check_full_runtime_dependencies.py
 
       - name: Build package folder
         run: |
@@ -23,9 +41,13 @@ jobs:
             --exclude 'dist' \
             --exclude 'exports' \
             --exclude 'logs' \
-            README.md install.sh scripts pi-companion firmware docs production systemd udev logrotate version training .github \
+            --exclude '.venv' \
+            --exclude '__pycache__' \
+            --exclude 'firmware/prebuilt' \
+            README.md install.sh one-shot-install.sh scripts pi-companion firmware docs production systemd udev logrotate version training .github \
             dist/KoalaByte-Blue/
-          test -d dist/KoalaByte-Blue/production
+          test -f dist/KoalaByte-Blue/one-shot-install.sh
+          test ! -e dist/KoalaByte-Blue/firmware/prebuilt/manifest.json
           (cd dist && zip -r KoalaByte-Blue-install-package.zip KoalaByte-Blue >/dev/null)
 
       - name: Upload install package

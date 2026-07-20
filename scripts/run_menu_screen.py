@@ -12,6 +12,11 @@ from typing import Optional
 
 os.environ.setdefault("KOALABYTE_TTS", "1")
 
+from koalablue.killerkoala_error_dig import (
+    error_details,
+    is_error_result,
+    run_standalone_error_sequence,
+)
 from koalablue.loading_face import start_loading_face_sequence
 from koalablue.menu_action_runner import run_automated_menu_action
 from koalablue.menu_catalog import leaf_menu_entries, make_menu_items, submenu_name_from_command
@@ -128,10 +133,42 @@ def run_eucalyptus_mode_action(_item: MenuItem) -> None:
 def run_generic_action(item: MenuItem) -> None:
     loading = start_loading_face_sequence(item.label)
     try:
-        result = run_automated_menu_action(item.command, item.label, item.group)
+        try:
+            raw_result = run_automated_menu_action(item.command, item.label, item.group)
+            result = dict(raw_result) if isinstance(raw_result, dict) else {
+                "status": "AUTOMATED_ACTION_COMPLETE",
+                "result": raw_result,
+            }
+        except Exception as exc:
+            result = {
+                "status": "AUTOMATED_ACTION_ERROR",
+                "command": item.command,
+                "label": item.label,
+                "error": str(exc),
+                "timestamp": time.time(),
+            }
     finally:
         loading.stop()
-    write_result(item, str(result.get("status", "AUTOMATED_ACTION_COMPLETE")), result, "Automated menu action selected from the wrapped interface; no command prompt required.")
+
+    if is_error_result(result):
+        try:
+            result["error_dig_sequence"] = run_standalone_error_sequence(
+                item.label,
+                error_details(result),
+            )
+        except Exception as exc:
+            result["error_dig_sequence"] = {
+                "status": "failed_soft",
+                "error": str(exc),
+                "original_action_preserved": True,
+            }
+
+    write_result(
+        item,
+        str(result.get("status", "AUTOMATED_ACTION_COMPLETE")),
+        result,
+        "Automated menu action selected from the wrapped interface; no command prompt required.",
+    )
 
 
 def register_default_action_handlers(menu: MenuSelectionScreen) -> None:
