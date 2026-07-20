@@ -62,16 +62,19 @@ jobs:
           mkdir -p "${package}"
 
           boot_app0="$(find "${HOME}/.platformio/packages/framework-arduinoespressif32" -path '*/tools/partitions/boot_app0.bin' -print -quit)"
+          srmodels="$(find "${HOME}/.platformio/packages" -path '*/esp_sr/srmodels.bin' -print -quit)"
           test -n "${boot_app0}"
+          test -n "${srmodels}"
           test -f "${build}/bootloader.bin"
           test -f "${build}/partitions.bin"
           test -f "${build}/firmware.bin"
-          test -f "${build}/srmodels.bin"
+          test -f "${srmodels}"
 
+          echo "Packaging ESP-SR model from ${srmodels}"
           cp "${build}/bootloader.bin" "${package}/bootloader.bin"
           cp "${build}/partitions.bin" "${package}/partitions.bin"
           cp "${build}/firmware.bin" "${package}/firmware.bin"
-          cp "${build}/srmodels.bin" "${package}/srmodels.bin"
+          cp "${srmodels}" "${package}/srmodels.bin"
           cp "${boot_app0}" "${package}/boot_app0.bin"
           cp releases/esp32-dualeye-platformio.log "${package}/build.log"
 
