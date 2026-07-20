@@ -7,7 +7,7 @@ INSTALL_DIR="${KOALABYTE_INSTALL_DIR:-${HOME}/KoalaByte-Blue}"
 RUN_MODE="install"
 
 usage() {
-  cat <<'EOF'
+  cat <<'USAGE'
 KoalaByte Blue V2 Heltec Edition bootstrapper
 
 Normal Raspberry Pi 3B+ install from a cloned repo:
@@ -24,27 +24,39 @@ Heltec UF2-first full install:
        bash install.sh --heltec-uf2-first
 
 Modes:
-  install       Clone/update repo, then run scripts/install_koalabyte_one_shot.sh. Default.
-  check-only   Clone/update repo, prepare the local Python check venv, then run the one-shot dry-run readiness gate.
+  install      Clone/update repo, then run the v0.9.8 one-shot wrapper. Default.
+  check-only   Clone/update repo, prepare the local Python check venv, then run dry-run readiness checks.
   repo-only    Clone/update repo only.
 
-Any extra flags after the mode are passed to scripts/install_koalabyte_one_shot.sh.
+Any extra flags after the mode are passed to the one-shot installer.
+
+ESP32-S3 firmware policy:
+  FLASH_ESP32=auto  Positively identify current/older firmware; preserve unknown boards. Default.
+  FLASH_ESP32=0     Always preserve the connected ESP32-S3 firmware.
+  FLASH_ESP32=1     Explicitly flash the hash-verified v0.9.8 full-flash image.
+
+For FLASH_ESP32=1, provide the extracted firmware package through either:
+  KOALABYTE_ESP32_FIRMWARE_PACKAGE=/path/to/koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session
+  ESP32_PREBUILT_IMAGE=/absolute/path/to/koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session-full-flash.bin
+
 Examples:
   bash install.sh install --heltec-uf2-first
-  bash install.sh --heltec-uf2-first
+  FLASH_ESP32=1 ESP32_PORT=/dev/ttyACM0 KOALABYTE_ESP32_FIRMWARE_PACKAGE=$HOME/Downloads/koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session bash install.sh
   bash install.sh check-only
 
 Lab transmit profile:
-  The installer does not transmit RF/BLE/CAN traffic during setup.
-  It installs/validates the owned-lab control surface and records the lab-transmit policy.
+  The installer does not transmit RF, BLE, or CAN traffic during setup.
   CAN bench transmit remains gated to isolated simulator use through explicit backend flags.
-  RF/BLE workflows remain scoped to owned-device lab controls and passive/readiness paths unless a separate authorized backend implements a bounded action.
 
 Useful environment:
   KOALABYTE_INSTALL_DIR=$HOME/KoalaByte-Blue
   KOALABYTE_BRANCH=Main
-  ESP32_PORT=/dev/ttyUSB0
-  KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM0
+  ESP32_PORT=/dev/ttyACM0
+  ESP32_BAUD=460800
+  FLASH_ESP32=auto|0|1
+  KOALABYTE_ESP32_FIRMWARE_PACKAGE=/path/to/extracted/package
+  ESP32_PREBUILT_IMAGE=/absolute/path/to/full-flash.bin
+  KOALABYTE_HELTEC_USB_PORT=/dev/ttyACM1
   HELTEC_UF2_FIRST=1
   T114_REQUIRE_UF2=1
   T114_FLASH_METHOD=uf2
@@ -58,7 +70,7 @@ Useful environment:
   CAN_INTERFACE=can0
   CAN_BITRATE=500000
   KOALABYTE_ALLOW_DIRTY=1
-EOF
+USAGE
 }
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -82,18 +94,17 @@ case "${1:-install}" in
 esac
 
 apt_install() {
-  if command -v apt-get >/dev/null 2>&1; then
-    if [[ "${EUID}" -eq 0 ]]; then
-      apt-get update
-      apt-get install -y "$@"
-    elif command -v sudo >/dev/null 2>&1; then
-      sudo apt-get update
-      sudo apt-get install -y "$@"
-    else
-      echo "apt-get exists, but this user is not root and sudo is unavailable." >&2
-      return 1
-    fi
+  if ! command -v apt-get >/dev/null 2>&1; then
+    return 1
+  fi
+  if [[ "${EUID}" -eq 0 ]]; then
+    apt-get update
+    apt-get install -y "$@"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo apt-get update
+    sudo apt-get install -y "$@"
   else
+    echo "apt-get exists, but this user is not root and sudo is unavailable." >&2
     return 1
   fi
 }
@@ -123,7 +134,7 @@ ensure_python_venv() {
   fi
   echo "Python venv support is missing. Attempting to install python3-venv and python3-pip with apt..."
   if ! apt_install python3-venv python3-pip; then
-    echo "python3-venv is required for KoalaByte check/install environments. Install it, then re-run this bootstrapper." >&2
+    echo "python3-venv is required for KoalaByte check/install environments." >&2
     exit 1
   fi
   if ! "${python_bin}" -m venv --help >/dev/null 2>&1; then
@@ -192,11 +203,13 @@ case "${RUN_MODE}" in
   check-only)
     echo "Preparing KoalaByte one-shot dry-run readiness gate..."
     prepare_check_environment
-    echo "Running KoalaByte one-shot dry-run readiness gate..."
-    bash scripts/install_koalabyte_one_shot.sh --check-only "$@"
+    echo "Running KoalaByte v0.9.8 one-shot dry-run readiness gate..."
+    bash scripts/install_koalabyte_one_shot_v098.sh --check-only "$@"
     ;;
   install)
-    echo "Running KoalaByte one-shot installer..."
-    T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE:-combined-safe}" bash scripts/install_koalabyte_one_shot.sh "$@"
+    echo "Running KoalaByte v0.9.8 one-shot installer..."
+    T114_PLUG_FLASH_PROFILE="${T114_PLUG_FLASH_PROFILE:-combined-safe}" \
+      FLASH_ESP32="${FLASH_ESP32:-auto}" \
+      bash scripts/install_koalabyte_one_shot_v098.sh "$@"
     ;;
 esac
