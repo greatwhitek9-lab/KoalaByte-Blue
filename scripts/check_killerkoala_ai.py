@@ -116,7 +116,8 @@ def source_contract_failures() -> list[str]:
     )
     for marker in (
         "Your identity and spoken name are always KillerKoala",
-        "William is only the hidden Australian text-to-speech voice backend",
+        "William is only the hidden Australian",
+        "text-to-speech backend",
         "sanitize_spoken_identity",
     ):
         if marker not in companion_text:
