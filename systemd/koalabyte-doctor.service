@@ -1,13 +1,14 @@
 [Unit]
-Description=KoalaByte Blue Doctor Check
-After=network-online.target bluetooth.service
+Description=KoalaByte Blue Pi Hardware Doctor
+After=network-online.target bluetooth.service koalabyte-menu.service
 Wants=network-online.target bluetooth.service
 
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/KoalaByte-Blue
 Environment=PYTHONPATH=/opt/KoalaByte-Blue/pi-companion:/opt/KoalaByte-Blue
-ExecStart=/usr/bin/bash /opt/KoalaByte-Blue/scripts/koalabyte_doctor.sh --quick
+Environment=INSTALL_INNOMAKER_CAN=auto
+ExecStart=/opt/KoalaByte-Blue/pi-companion/.venv/bin/python /opt/KoalaByte-Blue/scripts/pi_hardware_doctor.py
 RemainAfterExit=yes
 User=pi
 Group=pi
