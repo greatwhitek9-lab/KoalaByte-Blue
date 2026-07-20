@@ -16,6 +16,8 @@ SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", SYMLINK+="koalabyte-esp32-dualeye", M
 
 # Nordic/Heltec/nRF52840 style USB CDC serial boards.
 SUBSYSTEM=="tty", ATTRS{idVendor}=="1915", SYMLINK+="koalabyte-heltec", MODE="0660", GROUP="dialout", TAG+="uaccess"
+# Zephyr USB device identity used by the combined-safe Heltec T114 firmware.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2fe3", ATTRS{idProduct}=="0100", SYMLINK+="koalabyte-heltec", SYMLINK+="koalabyte-heltec-t114", MODE="0660", GROUP="dialout", TAG+="uaccess"
 SUBSYSTEM=="tty", ATTRS{idVendor}=="239a", SYMLINK+="koalabyte-nrf52840", MODE="0660", GROUP="dialout", TAG+="uaccess"
 
 # InnoMaker USB2CAN exposes a native SocketCAN netdev through gs_usb.
