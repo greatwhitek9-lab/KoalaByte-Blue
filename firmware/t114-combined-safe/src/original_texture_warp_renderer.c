@@ -41,7 +41,7 @@
 static const struct device *const motion_display = DEVICE_DT_GET(DISPLAY_NODE);
 static uint16_t warp_pixels[WARP_WIDTH * WARP_HEIGHT];
 
-static const uint8_t original_killerkoala_face_rgb565_be[] = {
+static const uint8_t original_killerkoala_face_rgb565_be[] __aligned(4) = {
 #include "killerkoala_cyber_mouth_smile_rgb565.inc"
 };
 BUILD_ASSERT(sizeof(original_killerkoala_face_rgb565_be) == ORIGINAL_FRAME_BYTES,
@@ -62,6 +62,9 @@ static int current_open;
 static int current_curl;
 static int current_asymmetry;
 static int current_width;
+static uint8_t motion_from_pose;
+static uint8_t motion_to_pose;
+static uint8_t motion_pose_blend;
 
 static void motion_work_handler(struct k_work *work);
 K_WORK_DELAYABLE_DEFINE(motion_work, motion_work_handler);
@@ -120,53 +123,98 @@ static uint16_t blend_pixel(uint16_t original_be, uint16_t warped_be,
     return sys_cpu_to_be16((uint16_t)((red << 11) | (green << 5) | blue));
 }
 
+struct texture_pose {
+    int open;
+    int curl;
+    int asymmetry;
+    int width;
+};
+
+static struct texture_pose pose_for_id(uint8_t pose)
+{
+    switch (pose) {
+    case 1: /* happy/open */
+        return (struct texture_pose){6, 8, 0, 2};
+    case 2: /* bite */
+        return (struct texture_pose){10, 1, 0, -1};
+    case 3: /* snarl */
+        return (struct texture_pose){8, -7, 2, 4};
+    case 4: /* sideways grin */
+        return (struct texture_pose){4, 4, 7, 2};
+    default: /* smile */
+        return (struct texture_pose){2, 4, 0, 0};
+    }
+}
+
+static int lerp_pose_value(int from, int to, uint8_t amount)
+{
+    return from + (((to - from) * (int)amount) / 255);
+}
+
+static struct texture_pose blended_pose_target(void)
+{
+    struct texture_pose from = pose_for_id(motion_from_pose);
+    struct texture_pose to = pose_for_id(motion_to_pose);
+    return (struct texture_pose){
+        lerp_pose_value(from.open, to.open, motion_pose_blend),
+        lerp_pose_value(from.curl, to.curl, motion_pose_blend),
+        lerp_pose_value(from.asymmetry, to.asymmetry, motion_pose_blend),
+        lerp_pose_value(from.width, to.width, motion_pose_blend),
+    };
+}
+
 static void update_motion_targets(const char *state, int64_t now)
 {
     const char *resolved = state && state[0] ? state : "idle";
-    int target_open = 2;
-    int target_curl = 4;
-    int target_asymmetry = signed_triangle(now + 400, 5700, 2);
-    int target_width = signed_triangle(now, 7600, 1);
+    struct texture_pose pose = blended_pose_target();
+    int target_open = pose.open;
+    int target_curl = pose.curl;
+    int target_asymmetry = pose.asymmetry;
+    int target_width = pose.width;
 
     if (!strcmp(resolved, "speaking")) {
         /*
          * Non-harmonic envelopes mimic syllables, consonants, and pauses.
          * There is no repeating open/closed frame pair.
          */
-        target_open = 4 + triangle_wave(now, 287, 9) +
-                      triangle_wave(now + 83, 173, 6) +
-                      triangle_wave(now + 211, 419, 4);
-        target_curl = signed_triangle(now + 41, 733, 4);
-        target_asymmetry = signed_triangle(now + 97, 1061, 4);
-        target_width = 2 + signed_triangle(now, 617, 2);
+        target_open = MAX(pose.open, 3) + triangle_wave(now, 287, 8) +
+                      triangle_wave(now + 83, 173, 5) +
+                      triangle_wave(now + 211, 419, 3);
+        target_curl = pose.curl + signed_triangle(now + 41, 733, 3);
+        target_asymmetry = pose.asymmetry +
+                           signed_triangle(now + 97, 1061, 3);
+        target_width = pose.width + 2 + signed_triangle(now, 617, 2);
     } else if (!strcmp(resolved, "wake") ||
                !strcmp(resolved, "thinking")) {
-        target_open = 5 + triangle_wave(now, 1600, 4);
-        target_curl = 2 + signed_triangle(now, 2300, 3);
-        target_asymmetry = signed_triangle(now, 1400, 5);
-        target_width = 2;
+        target_open = MAX(pose.open, 4) + triangle_wave(now, 1600, 3);
+        target_curl = pose.curl + signed_triangle(now, 2300, 2);
+        target_asymmetry = pose.asymmetry + signed_triangle(now, 1400, 3);
+        target_width = pose.width + 1;
     } else if (!strcmp(resolved, "success")) {
-        target_open = 3 + triangle_wave(now, 2600, 2);
-        target_curl = 8;
-        target_asymmetry = signed_triangle(now, 4400, 1);
-        target_width = 3;
+        target_open = MAX(pose.open, 2) + triangle_wave(now, 2600, 2);
+        target_curl = MAX(pose.curl, 8);
+        target_asymmetry = pose.asymmetry + signed_triangle(now, 4400, 1);
+        target_width = MAX(pose.width, 3);
     } else if (!strcmp(resolved, "error") ||
                !strcmp(resolved, "angry")) {
-        target_open = 8 + triangle_wave(now, 900, 3);
-        target_curl = -7;
-        target_asymmetry = signed_triangle(now, 1300, 4);
-        target_width = 4;
+        target_open = MAX(pose.open, 8) + triangle_wave(now, 900, 3);
+        target_curl = MIN(pose.curl, -7);
+        target_asymmetry = pose.asymmetry + signed_triangle(now, 1300, 3);
+        target_width = MAX(pose.width, 4);
     } else {
-        /* Idle breathing and micro-expression drift never settle on a still. */
-        target_open = 1 + triangle_wave(now, 4300, 2);
-        target_curl = 4 + signed_triangle(now, 6800, 2);
+        /* Idle pose choreography plus breathing and micro-expression drift. */
+        target_open = pose.open + triangle_wave(now, 4300, 2);
+        target_curl = pose.curl + signed_triangle(now, 6800, 2);
+        target_asymmetry = pose.asymmetry +
+                           signed_triangle(now + 400, 5700, 2);
+        target_width = pose.width + signed_triangle(now, 7600, 1);
     }
 
     current_open = approach(current_open, CLAMP(target_open, 0, 23), 2);
     current_curl = approach(current_curl, CLAMP(target_curl, -9, 10), 1);
     current_asymmetry = approach(current_asymmetry,
-                                 CLAMP(target_asymmetry, -7, 7), 1);
-    current_width = approach(current_width, CLAMP(target_width, -3, 6), 1);
+                                 CLAMP(target_asymmetry, -8, 8), 1);
+    current_width = approach(current_width, CLAMP(target_width, -3, 7), 1);
 }
 
 static void write_base_art_locked(void)
@@ -300,16 +348,15 @@ void koala_original_render_killerkoala_mouth(const char *state,
                                               uint8_t to_frame_index,
                                               uint8_t blend_amount)
 {
-    ARG_UNUSED(from_frame_index);
-    ARG_UNUSED(to_frame_index);
-    ARG_UNUSED(blend_amount);
-
     k_mutex_lock(&motion_mutex, K_FOREVER);
     bool was_inactive = !motion_active;
     snprintf(motion_state, sizeof(motion_state), "%s",
              state && state[0] ? state : "idle");
     snprintf(motion_message, sizeof(motion_message), "%s",
              message && message[0] ? message : "KILLERKOALA");
+    motion_from_pose = from_frame_index % 5U;
+    motion_to_pose = to_frame_index % 5U;
+    motion_pose_blend = blend_amount;
     motion_active = true;
     if (was_inactive) {
         base_art_dirty = true;
