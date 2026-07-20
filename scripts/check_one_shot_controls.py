@@ -45,6 +45,7 @@ FORBIDDEN_INSTALLER_MARKERS = (
     "FORCE_T114_FLASH",
     "verify_prebuilt_firmware_bundle",
     "firmware/prebuilt/manifest.json",
+    "koalabyte-menu-sync.service",
 )
 
 REQUIRED_FILES = (
@@ -69,7 +70,6 @@ REQUIRED_FILES = (
     "pi-companion/koalablue/menu_theme.py",
     "pi-companion/koalablue/menu_action_runner.py",
     "systemd/koalabyte-menu.service",
-    "systemd/koalabyte-menu-sync.service",
     "systemd/koalabyte-doctor.service",
     "udev/99-koalabyte-blue.rules",
 )
@@ -191,7 +191,7 @@ def main() -> int:
             failures.append(f"final one-shot missing marker: {marker}")
     for marker in FORBIDDEN_INSTALLER_MARKERS:
         if marker in installer_text:
-            failures.append(f"final one-shot still contains obsolete flashing path: {marker}")
+            failures.append(f"final one-shot still contains obsolete path: {marker}")
 
     for relative in SHELL_FILES:
         if not (ROOT / relative).exists():
@@ -220,6 +220,7 @@ def main() -> int:
         "canonical_installer": "one-shot-install.sh",
         "bootstrapper": "install.sh",
         "runtime_mode": "headless_pi_os_lite",
+        "live_display_sync_owner": "koalabyte-menu.service",
         "restricted_power_controls": True,
         "firmware_flashing": False,
         "can_transmit_during_install": False,
