@@ -1,25 +1,19 @@
-# KoalaByte Blue stable serial device symlinks
+# KoalaByte Blue stable serial and optional SocketCAN device rules
 # Installed by scripts/install_koalabyte_udev_rules.sh
-#
-# These rules make common ESP32-S3, Heltec, and nRF52840 USB serial boards easier
-# to find from the Pi companion code. Use /dev/serial/by-id for exact matching
-# when multiple boards use the same USB bridge chip.
 
-# ESP32-S3 native USB/JTAG/CDC.
-SUBSYSTEM=="tty", ATTRS{idVendor}=="303a", SYMLINK+="koalabyte-esp32-dualeye", MODE="0660", GROUP="dialout", TAG+="uaccess"
+# ESP32-S3 DualEye native USB JTAG/serial debug unit detected as 303a:1001.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="303a", ATTRS{idProduct}=="1001", SYMLINK+="koalabyte-esp32-dualeye", SYMLINK+="koalabyte-esp32-eyes", MODE="0660", GROUP="dialout", TAG+="uaccess"
+# Compatible Espressif ESP32-S3 native USB fallback.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="303a", ENV{ID_MODEL}=="*ESP32*", SYMLINK+="koalabyte-esp32-dualeye", SYMLINK+="koalabyte-esp32-eyes", MODE="0660", GROUP="dialout", TAG+="uaccess"
+# Common CH340 and CP210x bridge fallbacks.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="koalabyte-esp32-dualeye", SYMLINK+="koalabyte-esp32-eyes", MODE="0660", GROUP="dialout", TAG+="uaccess"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", SYMLINK+="koalabyte-esp32-dualeye", SYMLINK+="koalabyte-esp32-eyes", MODE="0660", GROUP="dialout", TAG+="uaccess"
 
-# Common CH340 USB serial bridge often used by ESP32 dev boards.
-SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="koalabyte-esp32-dualeye", MODE="0660", GROUP="dialout", TAG+="uaccess"
-
-# Common CP210x USB serial bridge often used by ESP32 dev boards.
-SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", SYMLINK+="koalabyte-esp32-dualeye", MODE="0660", GROUP="dialout", TAG+="uaccess"
-
-# Nordic/Heltec/nRF52840 style USB CDC serial boards.
-SUBSYSTEM=="tty", ATTRS{idVendor}=="1915", SYMLINK+="koalabyte-heltec", MODE="0660", GROUP="dialout", TAG+="uaccess"
-# Zephyr USB device identity used by the combined-safe Heltec T114 firmware.
+# Heltec T114 Zephyr USB CDC identity detected as 2fe3:0100.
 SUBSYSTEM=="tty", ATTRS{idVendor}=="2fe3", ATTRS{idProduct}=="0100", SYMLINK+="koalabyte-heltec", SYMLINK+="koalabyte-heltec-t114", MODE="0660", GROUP="dialout", TAG+="uaccess"
+# Nordic/Heltec compatibility identities.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1915", SYMLINK+="koalabyte-heltec", MODE="0660", GROUP="dialout", TAG+="uaccess"
 SUBSYSTEM=="tty", ATTRS{idVendor}=="239a", SYMLINK+="koalabyte-nrf52840", MODE="0660", GROUP="dialout", TAG+="uaccess"
 
-# InnoMaker USB2CAN exposes a native SocketCAN netdev through gs_usb.
-# Re-run the oneshot setup whenever the adapter appears; its stock firmware is preserved.
+# Optional stock-firmware gs_usb SocketCAN adapter hot-plug activation.
 SUBSYSTEM=="net", KERNEL=="can[0-9]*", DRIVERS=="gs_usb", TAG+="systemd", ENV{SYSTEMD_WANTS}+="koalabyte-can0.service"
