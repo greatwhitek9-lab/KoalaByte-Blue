@@ -22,30 +22,30 @@ ONE_SHOT = ROOT / "one-shot-install.sh"
 
 REQUIRED_INSTALLER_MARKERS = (
     "scripts/setup_pi_hardware_stage.sh",
+    "scripts/deploy_whole_system_firmware.sh",
+    "scripts/build_whole_system_firmware.sh",
+    "scripts/flash_t114_current_uf2.sh",
+    "scripts/flash_esp32_dualeye_current.sh",
+    "scripts/setup_mopidy_player.sh",
     "--install-runtime-services",
-    "scripts/run_headless_menu.py",
     "scripts/setup_gpio_buttons.py",
     "scripts/discover_koalabyte_ports.py",
     "scripts/install_power_controls.sh",
-    "scripts/install_koalabyte_boot_services.sh",
     "scripts/install_ble_node_manager_service.sh",
     "scripts/install_esp32_dualeye_voice_bridge_service.sh",
-    "scripts/configure_pi_audio_output.sh",
     "scripts/pi_hardware_doctor.py",
     "firmware_flashing",
+    "KOALABYTE_REQUIRE_ALL_PERIPHERALS",
     "can_transmit_during_install",
     "INSTALL_INNOMAKER_CAN",
     "--check-only",
 )
 
 FORBIDDEN_INSTALLER_MARKERS = (
-    "flash_esp32",
-    "flash_t114",
-    "FORCE_ESP32_FLASH",
-    "FORCE_T114_FLASH",
     "verify_prebuilt_firmware_bundle",
     "firmware/prebuilt/manifest.json",
     "koalabyte-menu-sync.service",
+    "scripts/install_koalabyte_one_shot.sh",
 )
 
 REQUIRED_FILES = (
@@ -63,12 +63,21 @@ REQUIRED_FILES = (
     "scripts/install_ble_node_manager_service.sh",
     "scripts/install_esp32_dualeye_voice_bridge_service.sh",
     "scripts/configure_pi_audio_output.sh",
+    "scripts/setup_mopidy_player.sh",
+    "scripts/build_whole_system_firmware.sh",
+    "scripts/deploy_whole_system_firmware.sh",
+    "scripts/flash_t114_current_uf2.sh",
+    "scripts/flash_esp32_dualeye_current.sh",
+    "scripts/enter_t114_uf2_bootloader.sh",
+    "scripts/check_whole_system_deployment.py",
     "scripts/check_menu_actions.py",
     "scripts/check_menu_display_sync.py",
     "scripts/check_killerkoala_face_mouth_sync.py",
+    "scripts/check_music_player.py",
     "pi-companion/koalablue/gpio_buttons.py",
-    "pi-companion/koalablue/menu_theme.py",
     "pi-companion/koalablue/menu_action_runner.py",
+    "pi-companion/koalablue/music_player.py",
+    "pi-companion/koalablue/mopidy_player.py",
     "systemd/koalabyte-menu.service",
     "systemd/koalabyte-doctor.service",
     "udev/99-koalabyte-blue.rules",
@@ -84,6 +93,12 @@ SHELL_FILES = (
     "scripts/install_ble_node_manager_service.sh",
     "scripts/install_esp32_dualeye_voice_bridge_service.sh",
     "scripts/configure_pi_audio_output.sh",
+    "scripts/setup_mopidy_player.sh",
+    "scripts/build_whole_system_firmware.sh",
+    "scripts/deploy_whole_system_firmware.sh",
+    "scripts/flash_t114_current_uf2.sh",
+    "scripts/flash_esp32_dualeye_current.sh",
+    "scripts/enter_t114_uf2_bootloader.sh",
 )
 
 PYTHON_FILES = (
@@ -92,7 +107,11 @@ PYTHON_FILES = (
     "scripts/test_gpio_buttons.py",
     "scripts/pi_hardware_doctor.py",
     "scripts/discover_koalabyte_ports.py",
+    "scripts/check_whole_system_deployment.py",
+    "scripts/check_music_player.py",
     "pi-companion/koalablue/gpio_buttons.py",
+    "pi-companion/koalablue/music_player.py",
+    "pi-companion/koalablue/mopidy_player.py",
 )
 
 
@@ -115,34 +134,23 @@ def validate_buttons() -> tuple[list[dict[str, object]], list[str]]:
         numbers.add(number)
         pins.add(pin)
         commands.add(command)
-        rows.append(
-            {
-                "id": key,
-                "number": number,
-                "module_key": cfg.get("module_key", f"K{number}"),
-                "label": cfg.get("label"),
-                "pin_bcm": pin,
-                "physical_pin": cfg.get("physical_pin"),
-                "command": command,
-                "requires_hold": bool(cfg.get("requires_hold", False)),
-                "hold_seconds": float(cfg.get("hold_seconds", 0.0)),
-            }
-        )
+        rows.append({
+            "id": key,
+            "number": number,
+            "module_key": cfg.get("module_key", f"K{number}"),
+            "label": cfg.get("label"),
+            "pin_bcm": pin,
+            "physical_pin": cfg.get("physical_pin"),
+            "command": command,
+            "requires_hold": bool(cfg.get("requires_hold", False)),
+            "hold_seconds": float(cfg.get("hold_seconds", 0.0)),
+        })
 
     if numbers != set(range(1, 9)):
         failures.append(f"K1-K8 numbering is incomplete: {sorted(numbers)}")
     if len(pins) != 8:
         failures.append("K1-K8 GPIO pins are not unique")
-    expected = {
-        "main_menu",
-        "move_left",
-        "select",
-        "move_right",
-        "up",
-        "down",
-        "power_toggle",
-        "reset",
-    }
+    expected = {"main_menu", "move_left", "select", "move_right", "up", "down", "power_toggle", "reset"}
     missing = expected - commands
     if missing:
         failures.append(f"K1-K8 commands missing: {sorted(missing)}")
@@ -163,7 +171,6 @@ def validate_buttons() -> tuple[list[dict[str, object]], list[str]]:
         failures.append("K1-K8 idle state must be HIGH")
     if DEFAULT_ELECTRICAL_MODE.pressed_state != "LOW":
         failures.append("K1-K8 pressed state must be LOW")
-
     return rows, failures
 
 
@@ -183,7 +190,7 @@ def main() -> int:
 
     for relative in REQUIRED_FILES:
         if not (ROOT / relative).exists():
-            failures.append(f"missing required Pi runtime file: {relative}")
+            failures.append(f"missing required whole-system file: {relative}")
 
     installer_text = ONE_SHOT.read_text(encoding="utf-8") if ONE_SHOT.exists() else ""
     for marker in REQUIRED_INSTALLER_MARKERS:
@@ -210,7 +217,6 @@ def main() -> int:
     buttons, button_failures = validate_buttons()
     failures.extend(button_failures)
     failures.extend(validate_power_controls())
-
     menu_manifest, menu_failures = build_manifest()
     failures.extend(f"menu: {failure}" for failure in menu_failures)
     failures.extend(validate_protocol())
@@ -222,7 +228,10 @@ def main() -> int:
         "runtime_mode": "headless_pi_os_lite",
         "live_display_sync_owner": "koalabyte-menu.service",
         "restricted_power_controls": True,
-        "firmware_flashing": False,
+        "firmware_flashing": True,
+        "firmware_targets": ["heltec-t114-uf2", "waveshare-esp32-s3-dualeye"],
+        "firmware_build_source": "current_checkout",
+        "music_engine": "mopidy",
         "can_transmit_during_install": False,
         "button_board": "K1-K8 8-key front-panel module",
         "buttons": buttons,
