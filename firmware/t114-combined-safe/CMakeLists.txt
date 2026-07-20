@@ -5,6 +5,9 @@ project(koalabyte_t114_combined_safe)
 set(KOALABYTE_TONE_MAIN_SOURCE
   ${CMAKE_CURRENT_BINARY_DIR}/generated/koalabyte_t114_tone_main.c
 )
+set(KOALABYTE_FINAL_MAIN_SOURCE
+  ${CMAKE_CURRENT_BINARY_DIR}/generated/koalabyte_t114_deployable_main.c
+)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated)
 execute_process(
   COMMAND
@@ -20,12 +23,26 @@ if(NOT KOALABYTE_TONE_MAIN_RESULT EQUAL 0)
     "Failed to generate tone-aware T114 main source: ${KOALABYTE_TONE_MAIN_ERROR}"
   )
 endif()
-set_source_files_properties(${KOALABYTE_TONE_MAIN_SOURCE} PROPERTIES GENERATED TRUE)
+execute_process(
+  COMMAND
+    ${PYTHON_EXECUTABLE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/scripts/patch_uf2_bootloader_entry.py
+    --source ${KOALABYTE_TONE_MAIN_SOURCE}
+    --output ${KOALABYTE_FINAL_MAIN_SOURCE}
+  RESULT_VARIABLE KOALABYTE_BOOTLOADER_PATCH_RESULT
+  ERROR_VARIABLE KOALABYTE_BOOTLOADER_PATCH_ERROR
+)
+if(NOT KOALABYTE_BOOTLOADER_PATCH_RESULT EQUAL 0)
+  message(FATAL_ERROR
+    "Failed to add T114 software UF2 entry: ${KOALABYTE_BOOTLOADER_PATCH_ERROR}"
+  )
+endif()
+set_source_files_properties(${KOALABYTE_FINAL_MAIN_SOURCE} PROPERTIES GENERATED TRUE)
 
 target_sources(app PRIVATE
   src/display_power_init.c
   src/koalagotchi_lifecycle_wrapper.c
-  ${KOALABYTE_TONE_MAIN_SOURCE}
+  ${KOALABYTE_FINAL_MAIN_SOURCE}
   src/loading_display.c
   src/original_texture_warp_renderer.c
 )
