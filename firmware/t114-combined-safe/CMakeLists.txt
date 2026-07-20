@@ -4,8 +4,13 @@ project(koalabyte_t114_combined_safe)
 
 target_sources(app PRIVATE
   src/display_power_init.c
+  src/error_alarm_wrapper.c
   src/main.c
   src/loading_display.c
+)
+
+target_link_options(app PRIVATE
+  -Wl,--wrap=render_killerkoala_mouth
 )
 
 set(KOALABYTE_BOOT_SPLASH_ASSET
