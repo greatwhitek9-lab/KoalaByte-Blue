@@ -1,9 +1,9 @@
 #pragma once
 
-// KillerKoala ESP32-S3 DualEye config RevA43 adaptive-mic split-speaker profile.
+// KillerKoala ESP32-S3 DualEye config RevA44 conversational-audio profile.
 // Exact target: verified non-touch ESP32-S3 DualEye 1.28-inch variant.
 
-#define KOALABLUE_FW_VERSION "0.9.4-dualeye-wake-channel-fix"
+#define KOALABLUE_FW_VERSION "0.9.5-dualeye-audio-mic-fix"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define WAKE_WORD_ALTERNATE "hey killerkoala"
@@ -143,13 +143,13 @@
 #define AUDIO_CODEC_ES8311_ADDR 0x18
 #define AUDIO_CODEC_ES7210_ADDR 0x40
 #define AUDIO_MCLK_MULTIPLE 256
-#define AUDIO_OUTPUT_VOLUME 72
+#define AUDIO_OUTPUT_VOLUME 56
 #define MIC_I2S_BCLK_PIN AUDIO_I2S_BCLK_PIN
 #define MIC_I2S_WS_PIN AUDIO_I2S_WS_PIN
 #define MIC_I2S_DIN_PIN AUDIO_I2S_DIN_PIN
 #define MIC_SAMPLE_RATE_HZ AUDIO_INPUT_SAMPLE_RATE
 #define MIC_SAMPLE_BLOCK_SAMPLES 320
-#define MIC_WAKE_RMS_THRESHOLD 0.030f
+#define MIC_WAKE_RMS_THRESHOLD 0.015f
 #define MIC_WAKE_COOLDOWN_MS 1800UL
 #define MIC_STATUS_INTERVAL_MS 10000UL
 #define MIC_UTTERANCE_SILENCE_MS 900UL
