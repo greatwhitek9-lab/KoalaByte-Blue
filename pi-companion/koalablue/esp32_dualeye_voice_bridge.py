@@ -15,6 +15,7 @@ from dataclasses import asdict, dataclass, field, is_dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from .dualeye_tts import synthesize_pcm16_mono_16k
 from .killerkoala_hybrid_companion import companion_response
 from .killerkoala_voice_control import DEFAULT_OUTPUT_DIR, DEFAULT_XP_PATH, parse_voice_command
 from .killerkoala_voice_router import route_voice_phrase
@@ -244,25 +245,7 @@ class ESP32DualEyeVoiceBridge:
             return ""
 
     def _tts_pcm(self, text: str) -> bytes:
-        executable = shutil.which("espeak-ng") or shutil.which("espeak")
-        if not executable or not text.strip():
-            return b""
-        try:
-            result = subprocess.run([executable, "--stdout", "-v", os.getenv("KILLERKOALA_ESPEAK_VOICE", "en-au"), text], capture_output=True, timeout=20, check=True)
-            with wave.open(Path(tempfile.mkstemp(suffix=".wav")[1]).as_posix(), "wb"):
-                pass
-            import io
-            with wave.open(io.BytesIO(result.stdout), "rb") as wav:
-                data = wav.readframes(wav.getnframes())
-                if wav.getnchannels() > 1:
-                    data = audioop.tomono(data, wav.getsampwidth(), 0.5, 0.5)
-                if wav.getsampwidth() != 2:
-                    data = audioop.lin2lin(data, wav.getsampwidth(), 2)
-                if wav.getframerate() != 16000:
-                    data, _ = audioop.ratecv(data, 2, 1, wav.getframerate(), 16000, None)
-                return data
-        except Exception:
-            return b""
+        return synthesize_pcm16_mono_16k(text)
 
     def _play_response(self, text: str, channel: str) -> None:
         pcm = self._tts_pcm(text)
