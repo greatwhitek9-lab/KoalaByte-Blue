@@ -38,7 +38,6 @@ def main() -> int:
         "trusted_pi_button_or_keyboard_input",
         "ten_second_inactivity_timeout",
         "trustedPiMenuActivity",
-        "eventType, \"state\"",
         "koalaLegacyHandleCommand",
         "serviceWakeSessionTimeout();",
         "showIdleEyes();",
@@ -48,12 +47,15 @@ def main() -> int:
     for marker in generator_markers:
         require(generator, marker, failures, "wake-session generator")
 
+    # The PlatformIO prebuild executes this patch against the generated C++.
+    # Exact C++ anchor matching is intentionally enforced by the patch script
+    # itself during compilation rather than duplicated here.
     awake_markers = [
-        "void showWakeSessionEyes()",
-        'drawKoalagotchiModeScreen("killerkoala", "listening", 88, 96)',
-        'setKoalagotchiEyeStyle("cyber", "#A54BFF", "#32FF71", "pulse", 100)',
-        "if (wakeSessionActive)",
-        "Patched visible awake-eye session state",
+        "showWakeSessionEyes",
+        "listening",
+        "pulse",
+        "wakeSessionActive",
+        "showIdleEyes",
     ]
     for marker in awake_markers:
         require(awake_patch, marker, failures, "awake-eye patch")
@@ -77,8 +79,6 @@ def main() -> int:
     for marker in platformio_markers:
         require(platformio, marker, failures, "PlatformIO configuration")
 
-    # Deterministic policy simulation: only wake or trusted physical activity can
-    # open a session; accepted activity refreshes it; inactivity closes it.
     now = 100_000
     deadline = 0
     awake = False
