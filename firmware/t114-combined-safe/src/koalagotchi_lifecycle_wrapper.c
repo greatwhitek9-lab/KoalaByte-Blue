@@ -13,14 +13,15 @@
 #include "loading_display.h"
 
 /*
- * Outer lifecycle wrapper for the existing procedural display renderer.
+ * Outer lifecycle wrapper for the T114 display renderers.
  *
- * The inner renderer continues to own the current cyber-mouth design. This
- * wrapper owns only display lifetime and Koalagotchi emotion/alarm overlays:
+ * The continuous single-texture mouth renderer owns idle and speaking motion.
+ * This wrapper owns display lifetime and Koalagotchi emotion/alarm overlays:
  *   - executing actions remain visible until action_complete/xp_logged
  *   - explicit Koalagotchi mode remains visible until koalagotchi_exit
  *   - failed attempts latch disappointed, then angry after repeated failures
- *   - active errors latch alarmed Koalagotchi with purple/green flashing
+ *   - active errors latch an alerted Koalagotchi over flashing cyber purple and
+ *     green background panels while keeping the character visible
  *   - error state only clears on an explicit error_clear command
  */
 
@@ -29,7 +30,7 @@
 #define DISPLAY_NODE DT_CHOSEN(zephyr_display)
 #define DISPLAY_WIDTH 240
 #define DISPLAY_HEIGHT 135
-#define OVERLAY_MAX_PIXELS (DISPLAY_WIDTH * 8)
+#define OVERLAY_MAX_PIXELS (DISPLAY_WIDTH * 32)
 
 static const struct device *const lifecycle_display = DEVICE_DT_GET(DISPLAY_NODE);
 static uint16_t overlay_pixels[OVERLAY_MAX_PIXELS];
@@ -50,7 +51,7 @@ static bool alarm_green_phase;
 static uint8_t lifecycle_frame;
 static char lifecycle_message[96] = "KOALAGOTCHI";
 
-/* Renamed at compile time from the existing procedural wrapper. */
+/* Renamed at compile time from the existing display wrapper. */
 void koala_inner_render_killerkoala_mouth(const char *state,
                                           const char *message,
                                           uint8_t from_frame_index,
@@ -103,6 +104,29 @@ static void overlay_rect(int x, int y, int width, int height, uint16_t color)
                         &descriptor, overlay_pixels);
 }
 
+static void overlay_alarm_background(bool green_phase)
+{
+    uint16_t purple = lifecycle_rgb565_be(177, 71, 255);
+    uint16_t green = lifecycle_rgb565_be(70, 255, 112);
+    uint16_t active = green_phase ? green : purple;
+    uint16_t opposite = green_phase ? purple : green;
+
+    /*
+     * Flash the background around, rather than over, the moving Koalagotchi.
+     * The protected center window keeps the character, eyes, and alert pose
+     * visible while the large edge panels alternate purple and green.
+     */
+    overlay_rect(0, 0, DISPLAY_WIDTH, 24, active);
+    overlay_rect(0, DISPLAY_HEIGHT - 24, DISPLAY_WIDTH, 24, opposite);
+    overlay_rect(0, 24, 22, DISPLAY_HEIGHT - 48, opposite);
+    overlay_rect(DISPLAY_WIDTH - 22, 24, 22, DISPLAY_HEIGHT - 48, active);
+
+    for (int x = 24; x < DISPLAY_WIDTH - 24; x += 32) {
+        overlay_rect(x, 0, 16, 7, opposite);
+        overlay_rect(x + 16, DISPLAY_HEIGHT - 7, 16, 7, active);
+    }
+}
+
 static void overlay_alarm_border(bool green_phase)
 {
     uint16_t purple = lifecycle_rgb565_be(177, 71, 255);
@@ -116,9 +140,8 @@ static void overlay_alarm_border(bool green_phase)
     overlay_rect(0, 7, 7, DISPLAY_HEIGHT - 14, active);
     overlay_rect(DISPLAY_WIDTH - 7, 7, 7, DISPLAY_HEIGHT - 14, opposite);
 
-    /* Visible alarm marks while leaving Koalagotchi unobscured. */
-    overlay_rect(112, 18, 7, 19, white);
-    overlay_rect(112, 41, 7, 7, active);
+    overlay_rect(112, 3, 7, 12, white);
+    overlay_rect(112, 17, 7, 6, active);
 }
 
 static void koalagotchi_position(uint8_t frame, int *x, int *y)
@@ -168,6 +191,29 @@ static void overlay_angry(uint8_t frame)
     overlay_rect(MIN(DISPLAY_WIDTH - 11, x + 1), MIN(DISPLAY_HEIGHT - 2, y + 13), 11, 2, green);
 }
 
+static void overlay_alerted(uint8_t frame, bool green_phase)
+{
+    uint16_t purple = lifecycle_rgb565_be(210, 62, 255);
+    uint16_t green = lifecycle_rgb565_be(70, 255, 112);
+    uint16_t white = lifecycle_rgb565_be(245, 248, 240);
+    uint16_t active = green_phase ? green : purple;
+    uint16_t opposite = green_phase ? purple : green;
+    int x;
+    int y;
+    koalagotchi_position(frame, &x, &y);
+
+    /* Alerted eyes and tense brows remain attached to the moving Koalagotchi. */
+    overlay_angry(frame);
+    overlay_rect(MAX(0, x - 14), MAX(0, y - 9), 10, 5, white);
+    overlay_rect(MIN(DISPLAY_WIDTH - 10, x + 4), MAX(0, y - 9), 10, 5, white);
+    overlay_rect(MAX(0, x - 10), MAX(0, y - 8), 3, 4, active);
+    overlay_rect(MIN(DISPLAY_WIDTH - 3, x + 7), MAX(0, y - 8), 3, 4, opposite);
+
+    /* Small alternating cheek indicators read as a cyber warning state. */
+    overlay_rect(MAX(0, x - 22), MIN(DISPLAY_HEIGHT - 4, y + 7), 7, 4, active);
+    overlay_rect(MIN(DISPLAY_WIDTH - 7, x + 15), MIN(DISPLAY_HEIGHT - 4, y + 7), 7, 4, opposite);
+}
+
 static void render_latched_locked(void)
 {
     __real_render_koalagotchi_action(lifecycle_message, lifecycle_frame);
@@ -177,6 +223,8 @@ static void render_latched_locked(void)
     } else if (latch_mode == KOALAGOTCHI_LATCH_ANGRY) {
         overlay_angry(lifecycle_frame);
     } else if (latch_mode == KOALAGOTCHI_LATCH_ALARMED) {
+        overlay_alarm_background(alarm_green_phase);
+        overlay_alerted(lifecycle_frame, alarm_green_phase);
         overlay_alarm_border(alarm_green_phase);
     }
 }
