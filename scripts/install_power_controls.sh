@@ -38,9 +38,6 @@ if [[ -z "${shutdown_bin}" || -z "${reboot_bin}" ]]; then
   exit 1
 fi
 
-shutdown_bin="$(readlink -f "${shutdown_bin}")"
-reboot_bin="$(readlink -f "${reboot_bin}")"
-
 rule="${SERVICE_USER} ALL=(root) NOPASSWD: ${shutdown_bin} -h now, ${reboot_bin}"
 
 tmp="$(mktemp)"
