@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import audioop
 import io
 import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import wave
+from array import array
 from pathlib import Path
 
 
@@ -104,6 +105,79 @@ def _espeak_command(executable: str, voice: str, text: str) -> list[str]:
     ]
 
 
+def _decode_pcm_samples(data: bytes, sample_width: int) -> list[int]:
+    """Decode little-endian PCM to signed 16-bit-scale integer samples."""
+
+    if sample_width == 1:
+        return [(value - 128) << 8 for value in data]
+    if sample_width == 2:
+        samples = array("h")
+        samples.frombytes(data)
+        if sys.byteorder != "little":
+            samples.byteswap()
+        return list(samples)
+    if sample_width in {3, 4}:
+        samples: list[int] = []
+        shift = 8 if sample_width == 3 else 16
+        for offset in range(0, len(data) - sample_width + 1, sample_width):
+            value = int.from_bytes(data[offset : offset + sample_width], "little", signed=True)
+            samples.append(max(-32768, min(32767, value >> shift)))
+        return samples
+    return []
+
+
+def _mono_samples(samples: list[int], channels: int) -> list[int]:
+    if channels <= 1:
+        return samples
+    mono: list[int] = []
+    usable = len(samples) - (len(samples) % channels)
+    for offset in range(0, usable, channels):
+        frame = samples[offset : offset + channels]
+        mono.append(int(sum(frame) / channels))
+    return mono
+
+
+def _resample_linear(samples: list[int], source_rate: int, target_rate: int = 16000) -> list[int]:
+    if not samples or source_rate <= 0:
+        return []
+    if source_rate == target_rate:
+        return samples
+    output_length = max(1, int(round(len(samples) * target_rate / source_rate)))
+    scale = source_rate / target_rate
+    output: list[int] = []
+    last_index = len(samples) - 1
+    for output_index in range(output_length):
+        position = output_index * scale
+        left = min(int(position), last_index)
+        right = min(left + 1, last_index)
+        fraction = position - left
+        value = int(round(samples[left] + (samples[right] - samples[left]) * fraction))
+        output.append(max(-32768, min(32767, value)))
+    return output
+
+
+def _wav_to_pcm16_mono_16k(wav_bytes: bytes) -> bytes:
+    """Convert uncompressed WAV bytes without the removed Python 3.13 audioop module."""
+
+    try:
+        with wave.open(io.BytesIO(wav_bytes), "rb") as wav:
+            if wav.getcomptype() != "NONE":
+                return b""
+            data = wav.readframes(wav.getnframes())
+            width = wav.getsampwidth()
+            channels = wav.getnchannels()
+            rate = wav.getframerate()
+        samples = _decode_pcm_samples(data, width)
+        samples = _mono_samples(samples, channels)
+        samples = _resample_linear(samples, rate, 16000)
+        packed = array("h", samples)
+        if sys.byteorder != "little":
+            packed.byteswap()
+        return packed.tobytes()
+    except Exception:
+        return b""
+
+
 def _espeak_pcm(text: str) -> bytes:
     executable = shutil.which("espeak-ng") or shutil.which("espeak")
     if not executable:
@@ -111,7 +185,6 @@ def _espeak_pcm(text: str) -> bytes:
 
     preferred = os.getenv("KILLERKOALA_ESPEAK_VOICE", "en-au+m3").strip() or "en-au+m3"
     voices = list(dict.fromkeys((preferred, "en-au+m3", "en-au+m2", "en-au")))
-    wav_bytes = b""
     for voice in voices:
         try:
             result = subprocess.run(
@@ -121,30 +194,12 @@ def _espeak_pcm(text: str) -> bytes:
                 check=True,
             )
             if result.stdout:
-                wav_bytes = result.stdout
-                break
+                pcm = _wav_to_pcm16_mono_16k(result.stdout)
+                if pcm:
+                    return pcm
         except Exception:
             continue
-    if not wav_bytes:
-        return b""
-
-    try:
-        with wave.open(io.BytesIO(wav_bytes), "rb") as wav:
-            data = wav.readframes(wav.getnframes())
-            width = wav.getsampwidth()
-            channels = wav.getnchannels()
-            rate = wav.getframerate()
-        if channels > 1:
-            data = audioop.tomono(data, width, 0.5, 0.5)
-            channels = 1
-        if width != 2:
-            data = audioop.lin2lin(data, width, 2)
-            width = 2
-        if rate != 16000:
-            data, _ = audioop.ratecv(data, width, channels, rate, 16000, None)
-        return data
-    except Exception:
-        return b""
+    return b""
 
 
 def synthesize_pcm16_mono_16k(text: str) -> bytes:
