@@ -158,13 +158,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install local voice build tools
+      - name: Install William voice build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y espeak-ng ffmpeg
+          sudo apt-get install -y ffmpeg
+          python -m pip install --upgrade pip "edge-tts==7.2.8"
 
       - name: Install PlatformIO
-        run: python -m pip install --upgrade pip platformio
+        run: python -m pip install platformio
 
       - name: Build ESP32 firmware
         run: pio run -d firmware/esp32-dualeye
