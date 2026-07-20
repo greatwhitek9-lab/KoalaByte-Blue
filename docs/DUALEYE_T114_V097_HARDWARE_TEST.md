@@ -70,12 +70,22 @@ Serial diagnostics:
 6. Trigger a controlled error and confirm the purple/green alarm remains active on both displays.
 7. Confirm T114 BLE and GNSS status continue over USB CDC.
 
+## Validated build artifacts
+
+- ESP32 workflow artifact: `koalabyte-esp32-s3-dualeye-v0.9.7-sensitive-killerkoala-menu`.
+- ESP32 artifact ZIP SHA-256: `c782c29ed2b80e7bda4037894753c77a0ae841c7c009f39dc4ebbbc9b616d061`.
+- ESP32 full-flash SHA-256: `9d106d3e84d0393ce5322cde55c1692f213fbce92e2c9c9f5ced61df5b22a790`.
+- T114 CI artifact ZIP SHA-256: `d5189925fb7ae3ffb668e33c04c6860d00436f586f6f5e54831203351cbbb63e`.
+- T114 UF2 SHA-256: `462daeb09782df4838aac380f06c890603df90aac826080d817354fd7663f36e`.
+
 ## Build validation
 
-The release gate requires:
+Validated on July 20, 2026:
 
-- ESP32 PlatformIO build, packaging, and artifact upload success.
-- Repository CI success for ESP32, Pi dependencies, installer checks, and menu tests.
-- T114 NCS/Zephyr build success.
-- T114 partition, controller, display, UF2 family, and reset-vector validation success.
-- SHA-256 verification of both distributed packages.
+- ESP32 PlatformIO build, packaging, and artifact upload passed.
+- Repository CI passed for ESP32, Pi dependencies, installer checks, and menu tests.
+- T114 NCS/Zephyr build passed.
+- T114 partition, controller, display, UF2 family, and reset-vector validation passed.
+- SHA-256 verification passed for both distributed packages.
+
+Physical microphone pickup, loudness, display appearance, and USB fanout remain the final hardware acceptance tests.
