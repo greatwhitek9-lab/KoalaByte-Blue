@@ -1,9 +1,9 @@
 #pragma once
 
-// KillerKoala ESP32-S3 DualEye config RevA40 integrated profile.
+// KillerKoala ESP32-S3 DualEye config RevA41 integrated dual-panel profile.
 // Exact target: verified non-touch ESP32-S3 DualEye 1.28-inch variant.
 
-#define KOALABLUE_FW_VERSION "0.8.0-dualeye-integrated-nontouch"
+#define KOALABLUE_FW_VERSION "0.9.0-dualeye-menu-voice-sync"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define WAKE_WORD_ALTERNATE "hey killerkoala"
@@ -16,7 +16,7 @@
 #define KOALA_EXPRESSION_SYNC_COORDINATOR "raspberry-pi"
 #define KOALA_EXPRESSION_SYNC_MODE "pi_fanout"
 #define KOALA_EXPRESSION_SYNC_REQUIRES_BLE 0
-#define KOALA_BLE_ROLE "independent_ble_scan_and_telemetry_node"
+#define KOALA_BLE_ROLE "independent_ble_scan_and_telemetry_node_for_pi_heltec_mesh"
 #define KOALA_WIFI_ROLE "pi_command_telemetry_audio_and_execution_node"
 #define KOALA_EXECUTION_OWNER "raspberry-pi"
 
@@ -75,12 +75,12 @@
 #define DISPLAY_LCD2_ROTATION 3
 #define DISPLAY_INVERT_COLOR 1
 #define DISPLAY_SPI_SCLK_HZ 40000000UL
-#define KOALA_LCD1_ENABLED 0
+#define KOALA_LCD1_ENABLED 1
 #define KOALA_LCD2_ENABLED 1
 #define KOALA_PRIMARY_DISPLAY 2
 #define KOALA_PRIMARY_DISPLAY_POSITION "front_right_back_left"
-#define KOALA_CRITICAL_UI_PRIMARY_ONLY 1
-#define KOALA_TEXT_INPUT_PRIMARY_ONLY 1
+#define KOALA_CRITICAL_UI_PRIMARY_ONLY 0
+#define KOALA_TEXT_INPUT_PRIMARY_ONLY 0
 #define KOALA_MIRROR_ACTION_ANIMATIONS 1
 #define KOALA_ALLOW_MISSING_LCD1 1
 #define KOALA_ACTIVE_TOUCH_DISPLAY 0
