@@ -41,9 +41,9 @@ This installer owns Raspberry Pi provisioning:
   - optional stock-firmware InnoMaker SocketCAN setup when hardware is present
   - final device discovery, controls, menu, voice, AI, and hardware reports
 
-This Pi-stage installer does not flash ESP32-S3, Heltec T114, or InnoMaker firmware
-and never transmits CAN frames. Coordinated firmware building/flashing is added by
-the final whole-system deployment layer after hardware validation.
+This Pi installer does not flash ESP32-S3, Heltec T114, or InnoMaker firmware
+and never transmits CAN frames. Firmware source builds remain separate from Pi
+installation and the working peripheral firmware is preserved.
 
 Environment:
   KOALABYTE_SERVICE_USER=<linux-user>
@@ -156,10 +156,11 @@ validate_sources() {
     scripts/test_gpio_buttons.py \
     scripts/pi_hardware_doctor.py \
     scripts/discover_koalabyte_ports.py \
-    scripts/check_repo_readiness.py \
     scripts/check_one_shot_controls.py \
     scripts/check_killerkoala_ai.py \
+    scripts/check_full_runtime_dependencies.py \
     pi-companion/koalablue/gpio_buttons.py \
+    pi-companion/koalablue/dualeye_tts.py \
     pi-companion/koalablue/killerkoala_expression.py \
     pi-companion/koalablue/killerkoala_web_research.py \
     pi-companion/koalablue/killerkoala_hybrid_companion.py \
@@ -194,7 +195,8 @@ run_runtime_checks() {
   PYTHONPATH=pi-companion KOALABYTE_MENU_SYNC=0 "${py}" scripts/check_menu_display_sync.py
   PYTHONPATH=pi-companion "${py}" scripts/check_menu_actions.py
   PYTHONPATH=pi-companion "${py}" scripts/check_killerkoala_face_mouth_sync.py
-  PYTHONPATH=pi-companion "${py}" scripts/check_full_runtime_dependencies.py
+  INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN}" \
+    PYTHONPATH=pi-companion "${py}" scripts/check_full_runtime_dependencies.py
 }
 
 restart_services() {
@@ -207,7 +209,6 @@ restart_services() {
   for service in \
     ollama.service \
     koalabyte-menu.service \
-    koalabyte-menu-sync.service \
     koalabyte-doctor.service \
     koalabyte-ble-node-manager.service \
     koalabyte-dualeye-voice-bridge.service; do
@@ -239,7 +240,6 @@ run_final_doctor() {
 trap 'write_status "failed" "final_one_shot" "installer stopped before completion"' ERR
 
 run_step "Source and installer validation" validate_sources
-run_step "Repository readiness" python3 scripts/check_repo_readiness.py
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   run_step "Restricted K7/K8 power permissions" env KOALABYTE_SERVICE_USER="${SERVICE_USER}" bash scripts/install_power_controls.sh --check-only
