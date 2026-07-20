@@ -22,7 +22,7 @@ NODE_ROLES = {
         gnss=True,
         lora=True,
         ble_primary=True,
-        role="primary BLE board plus GNSS and LoRa; not a Wi-Fi node",
+        role="primary BLE board plus GNSS and LoRa; display state comes directly from the Raspberry Pi",
     ),
     "raspberry-pi": KoalaKombatNodeRole(
         node_id="raspberry-pi",
@@ -31,7 +31,7 @@ NODE_ROLES = {
         gnss=False,
         lora=False,
         ble_primary=False,
-        role="main Wi-Fi board and BLE support node",
+        role="main Wi-Fi board, execution/AI brain, and canonical expression-state coordinator",
     ),
     "esp32-s3-dualeye": KoalaKombatNodeRole(
         node_id="esp32-s3-dualeye",
@@ -40,7 +40,7 @@ NODE_ROLES = {
         gnss=False,
         lora=False,
         ble_primary=False,
-        role="Wi-Fi survey node and BLE support node",
+        role="Pi-facing Wi-Fi command/telemetry node and independent BLE support node; BLE is not used for expression sync",
     ),
 }
 
@@ -49,6 +49,9 @@ def node_role_manifest() -> dict[str, object]:
     return {
         "primary_ble_node": "heltec-t114-nrf52840",
         "main_wifi_node": "raspberry-pi",
+        "expression_state_coordinator": "raspberry-pi",
+        "expression_sync_transport": "pi_fanout_to_each_connected_display",
+        "expression_sync_requires_esp32_heltec_ble_link": False,
         "wifi_nodes": [node_id for node_id, role in NODE_ROLES.items() if role.wifi],
         "ble_nodes": [node_id for node_id, role in NODE_ROLES.items() if role.ble],
         "ble_support_nodes": [node_id for node_id, role in NODE_ROLES.items() if role.ble and not role.ble_primary],
@@ -56,7 +59,7 @@ def node_role_manifest() -> dict[str, object]:
         "lora_nodes": [node_id for node_id, role in NODE_ROLES.items() if role.lora],
         "roles": {node_id: asdict(role) for node_id, role in NODE_ROLES.items()},
         "heltec_t114_has_wifi": False,
-        "policy": "Koala Kombat Kruisin uses the nRF52840 on the Heltec T114 as the primary BLE node, the Pi and ESP32-S3 DualEye as BLE support nodes, the Pi as the main Wi-Fi node, and the ESP32-S3 DualEye as the only extra Wi-Fi survey node. The Heltec T114 is BLE/GNSS/LoRa only.",
+        "policy": "The Raspberry Pi is the canonical execution and expression coordinator. It sends matching state events independently to the ESP32-S3 DualEye and Heltec T114 over their Pi connections. ESP32 BLE remains an independent support-node function and is never required for display synchronization. The Heltec T114 remains BLE/GNSS/LoRa only, while the ESP32-S3 DualEye is the extra Pi-facing Wi-Fi node.",
     }
 
 
