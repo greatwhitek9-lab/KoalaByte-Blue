@@ -54,22 +54,59 @@ jobs:
       - name: Run repository readiness
         run: python scripts/check_repo_readiness.py
 
-      - name: Validate controls, menu, voice, and display synchronization
+      - name: Validate one-shot and K1-K8 controls
         run: |
-          PYTHONPATH=pi-companion python scripts/check_one_shot_controls.py
-          PYTHONPATH=pi-companion python scripts/check_menu_actions.py
-          PYTHONPATH=pi-companion KOALABYTE_MENU_SYNC=0 python scripts/check_menu_display_sync.py
-          PYTHONPATH=pi-companion python scripts/check_killerkoala_face_mouth_sync.py
-          PYTHONPATH=pi-companion python scripts/check_killerkoala_ai.py
-          PYTHONPATH=pi-companion python scripts/check_full_runtime_dependencies.py
+          PYTHONPATH=pi-companion python scripts/check_one_shot_controls.py || {
+            cat logs/one_shot/control_surface_status.json 2>/dev/null || true
+            exit 1
+          }
 
-      - name: Validate headless services, power controls, and hardware stage
+      - name: Validate menu actions
         run: |
-          KOALABYTE_SERVICE_USER="$(id -un)" bash scripts/install_power_controls.sh --check-only
-          bash scripts/install_koalabyte_boot_services.sh --check-only
-          bash scripts/setup_pi_hardware_stage.sh --check-only
+          PYTHONPATH=pi-companion python scripts/check_menu_actions.py || {
+            find logs -maxdepth 3 -type f -name '*menu*' -print -exec tail -n 80 {} \; 2>/dev/null || true
+            exit 1
+          }
 
-      - name: Validate final one-shot and deployability
+      - name: Validate menu and display synchronization
         run: |
-          KOALABYTE_SERVICE_USER="$(id -un)" bash one-shot-install.sh --check-only
-          bash scripts/check_deployability.sh
+          PYTHONPATH=pi-companion KOALABYTE_MENU_SYNC=0 python scripts/check_menu_display_sync.py || {
+            find logs -maxdepth 3 -type f -name '*menu*sync*' -print -exec tail -n 80 {} \; 2>/dev/null || true
+            exit 1
+          }
+
+      - name: Validate KillerKoala face and mouth synchronization
+        run: |
+          PYTHONPATH=pi-companion python scripts/check_killerkoala_face_mouth_sync.py || {
+            find logs -maxdepth 3 -type f -name '*face*' -o -name '*mouth*' 2>/dev/null || true
+            exit 1
+          }
+
+      - name: Validate KillerKoala AI and William voice contract
+        run: |
+          PYTHONPATH=pi-companion python scripts/check_killerkoala_ai.py || {
+            find logs/killerkoala -maxdepth 2 -type f -print -exec tail -n 80 {} \; 2>/dev/null || true
+            exit 1
+          }
+
+      - name: Validate current runtime dependencies
+        run: |
+          PYTHONPATH=pi-companion python scripts/check_full_runtime_dependencies.py || {
+            cat logs/one_shot/full_runtime_dependencies.json 2>/dev/null || true
+            exit 1
+          }
+
+      - name: Validate restricted K7/K8 power controls
+        run: KOALABYTE_SERVICE_USER="$(id -un)" bash scripts/install_power_controls.sh --check-only
+
+      - name: Validate headless boot services
+        run: bash scripts/install_koalabyte_boot_services.sh --check-only
+
+      - name: Validate staged hardware inventory
+        run: bash scripts/setup_pi_hardware_stage.sh --check-only
+
+      - name: Validate final one-shot
+        run: KOALABYTE_SERVICE_USER="$(id -un)" bash one-shot-install.sh --check-only
+
+      - name: Validate deployability
+        run: bash scripts/check_deployability.sh
