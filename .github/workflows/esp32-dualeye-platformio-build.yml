@@ -3,36 +3,32 @@ name: ESP32 DualEye PlatformIO Build
 on:
   workflow_dispatch:
   push:
-    branches:
-      - Main
-      - main
-      - koalabyte-blue-v2-heltec-edition
+    branches: [Main, main]
     paths:
       - ".github/workflows/esp32-dualeye-platformio-build.yml"
       - "firmware/esp32-dualeye/**"
       - "scripts/check_dualeye_wake_session.py"
-      - "scripts/flash_esp32.sh"
-      - "scripts/configure_esp32s3_dualeye_2g4_antenna.sh"
   pull_request:
-    branches:
-      - Main
-      - main
-      - koalabyte-blue-v2-heltec-edition
+    branches: [Main, main]
     paths:
       - ".github/workflows/esp32-dualeye-platformio-build.yml"
       - "firmware/esp32-dualeye/**"
       - "scripts/check_dualeye_wake_session.py"
-      - "scripts/flash_esp32.sh"
-      - "scripts/configure_esp32s3_dualeye_2g4_antenna.sh"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: esp32-dualeye-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  esp32-dualeye-platformio-build:
-    name: Run pio build for ESP32-S3 DualEye
+  build:
+    name: Build current ESP32-S3 DualEye source
     runs-on: ubuntu-22.04
     timeout-minutes: 30
-
     steps:
-      - name: Checkout
+      - name: Check out source
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -40,189 +36,67 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Validate strict KillerKoala wake session
+      - name: Validate KillerKoala wake-session contract
         run: python scripts/check_dualeye_wake_session.py
 
-      - name: Install Australian voice build tools
+      - name: Install voice and PlatformIO build tools
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-          python -m pip install --upgrade pip "edge-tts==7.2.8"
-
-      - name: Install PlatformIO
-        run: python -m pip install platformio
+          python -m pip install --upgrade pip "edge-tts==7.2.8" platformio
 
       - name: Build ESP32-S3 DualEye firmware
-        shell: bash
         run: |
           set -o pipefail
           mkdir -p releases
           pio run -d firmware/esp32-dualeye 2>&1 | tee releases/esp32-dualeye-platformio.log
-          grep -F "Generated strict wake-session source" releases/esp32-dualeye-platformio.log
-          grep -F "Generated DualEye wake-session voice/menu catalog" releases/esp32-dualeye-platformio.log
+          grep -F 'Generated strict wake-session source' releases/esp32-dualeye-platformio.log
+          grep -F 'Generated DualEye wake-session voice/menu catalog' releases/esp32-dualeye-platformio.log
 
-      - name: Package full-flash image and Windows flasher
-        shell: bash
+      - name: Package source-build outputs without a flasher
+        env:
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           build="firmware/esp32-dualeye/.pio/build/esp32s3_dualeye"
-          package="releases/koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session"
+          package="releases/koalabyte-esp32-s3-dualeye-current-source-build"
           mkdir -p "${package}"
 
           boot_app0="$(find "${HOME}/.platformio/packages/framework-arduinoespressif32" -path '*/tools/partitions/boot_app0.bin' -print -quit)"
           srmodels="$(find "${HOME}/.platformio/packages" -path '*/esp_sr/srmodels.bin' -print -quit)"
-          test -n "${boot_app0}"
-          test -n "${srmodels}"
           test -f "${build}/bootloader.bin"
           test -f "${build}/partitions.bin"
           test -f "${build}/firmware.bin"
-          test -f "${srmodels}"
+          test -n "${boot_app0}"
+          test -n "${srmodels}"
 
-          echo "Packaging ESP-SR model from ${srmodels}"
           cp "${build}/bootloader.bin" "${package}/bootloader.bin"
           cp "${build}/partitions.bin" "${package}/partitions.bin"
           cp "${build}/firmware.bin" "${package}/firmware.bin"
-          cp "${srmodels}" "${package}/srmodels.bin"
           cp "${boot_app0}" "${package}/boot_app0.bin"
+          cp "${srmodels}" "${package}/srmodels.bin"
           cp releases/esp32-dualeye-platformio.log "${package}/build.log"
           cp logs/one_shot/dualeye_wake_session_status.json "${package}/wake-session-validation.json"
 
-          PACKAGE_DIR="${package}" python - <<'PY'
-          import os
-          from pathlib import Path
-
-          package = Path(os.environ["PACKAGE_DIR"])
-          model_offset = 0xCB0000
-          model_partition_size = 0x340000
-          parts = [
-              (0x0000, package / "bootloader.bin"),
-              (0x8000, package / "partitions.bin"),
-              (0xE000, package / "boot_app0.bin"),
-              (0x10000, package / "firmware.bin"),
-              (model_offset, package / "srmodels.bin"),
-          ]
-          payloads = [(offset, path.read_bytes()) for offset, path in parts]
-          model_size = len((package / "srmodels.bin").read_bytes())
-          if model_size > model_partition_size:
-              raise SystemExit(
-                  f"ESP-SR model is too large for model partition: "
-                  f"{model_size} > {model_partition_size}"
-              )
-          end = max(offset + len(payload) for offset, payload in payloads)
-          if end > 0x1000000:
-              raise SystemExit(f"Combined image exceeds 16 MB flash: {end}")
-          image = bytearray(b"\xFF" * end)
-          for offset, payload in payloads:
-              image[offset:offset + len(payload)] = payload
-          output = package / "koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session-full-flash.bin"
-          output.write_bytes(image)
-          for offset, payload in payloads:
-              assert image[offset:offset + len(payload)] == payload
-          print(
-              f"Created {output} ({len(image)} bytes); "
-              f"ESP-SR model={model_size} bytes at 0x{model_offset:06X}"
-          )
-          PY
-
-          cat > "${package}/flash-esp32-dualeye-wake-session.ps1" <<'POWERSHELL'
-          param(
-            [Parameter(Mandatory=$true)]
-            [string]$Port,
-            [int]$Baud = 460800,
-            [switch]$SkipErase
-          )
-
-          $ErrorActionPreference = "Stop"
-          $Image = Join-Path $PSScriptRoot "koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session-full-flash.bin"
-          if (-not (Test-Path $Image)) { throw "Firmware image not found: $Image" }
-
-          py -m pip install --user "esptool==4.11.0"
-          if ($LASTEXITCODE -ne 0) { throw "Unable to install esptool." }
-
-          py -m esptool --chip esp32s3 --port $Port chip_id
-          if ($LASTEXITCODE -ne 0) { throw "ESP32-S3 not responding on $Port. Enter download mode and retry." }
-
-          if (-not $SkipErase) {
-            py -m esptool --chip esp32s3 --port $Port erase_flash
-            if ($LASTEXITCODE -ne 0) { throw "Flash erase failed." }
-          }
-
-          py -m esptool --chip esp32s3 --port $Port --baud $Baud write_flash -z 0x0 $Image
-          if ($LASTEXITCODE -ne 0) { throw "Firmware write failed." }
-
-          py -m esptool --chip esp32s3 --port $Port verify_flash 0x0 $Image
-          if ($LASTEXITCODE -ne 0) { throw "Firmware verification failed." }
-
-          Write-Host "DualEye v0.9.8 strict KillerKoala wake-session flash complete. Press RESET once."
-          POWERSHELL
-
-          cat > "${package}/README-FLASH.txt" <<'README'
-          KoalaByte Blue ESP32-S3 DualEye v0.9.8 strict KillerKoala wake-session firmware
-
-          Exact hardware target:
-            Waveshare ESP32-S3 DualEye 1.28-inch non-touch variant
-            Both GC9A01A round LCD panels remain enabled
-
-          Wake and command policy:
-            - while sleeping, ambient command detections are discarded
-            - say "Killer Koala" or "Hey Killer Koala" to open a command session
-            - the session remains active for 10 seconds
-            - accepted voice commands refresh the 10-second timer
-            - K1-K8 board input and attached-keyboard menu input wake or refresh it
-            - after 10 seconds without accepted input, the menu closes and animated koala eyes return
-            - post-wake commands do not require the wake phrase again
-
-          Post-wake examples:
-            menu
-            open menu
-            back
-            select
-            forward
-            up
-            down
-            K one through K eight
-            launch Koala Kombat Kruisin
-
-          Background-TV protection:
-            A detected "up", "down", "menu", "select", or catalog phrase cannot alter
-            the display while the wake session is inactive. Only KillerKoala can open
-            a voice session. Pi menu_sync generated by K1-K8 or keyboard input is a
-            trusted physical-input path and may wake or refresh the session.
-
-          KillerKoala Australian local voice:
-            - synthesis backend: en-AU-WilliamNeural
-            - spoken identity remains KillerKoala
-            - clips are embedded for offline wake/basic responses
-            - Pi-generated responses remain on the Pi/JBL speaker path
-
-          Expected serial diagnostics:
-            wake_session_active: true after KillerKoala or trusted physical input
-            wake_session_timeout_ms: 10000
-            voice_command_ignored_sleeping for rejected ambient commands
-            wake_session_closed with ten_second_inactivity_timeout on expiry
-
-          Recognizer status request over serial:
-            {"type":"local_voice_status_request"}
-
-          Windows flash command from this folder:
-            powershell -ExecutionPolicy Bypass -File .\flash-esp32-dualeye-wake-session.ps1 -Port COM9
-
-          Replace COM9 if Windows assigns a different port.
-          Disconnect the battery for the first flash and use stable USB power only.
-          Do not use -SkipErase for this release.
-          README
+          cat > "${package}/BUILD-PROVENANCE.txt" <<EOF
+          source_commit=${SOURCE_COMMIT}
+          target=Waveshare ESP32-S3 DualEye 1.28 non-touch
+          runtime_firmware_id=0.9.8-dualeye-static-grammar-40-response-bank
+          spoken_identity=KillerKoala
+          tts_backend=en-AU-WilliamNeural
+          installer_owned_flash=false
+          generated_flasher=false
+          EOF
 
           (
             cd "${package}"
-            sha256sum *.bin flash-esp32-dualeye-wake-session.ps1 README-FLASH.txt build.log wake-session-validation.json > SHA256SUMS.txt
+            sha256sum *.bin build.log wake-session-validation.json BUILD-PROVENANCE.txt > SHA256SUMS.txt
           )
 
-      - name: Upload firmware package
-        if: always()
+      - name: Upload current source-build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session
-          path: |
-            releases/koalabyte-esp32-s3-dualeye-v0.9.8-killerkoala-wake-session/**
-            releases/esp32-dualeye-platformio.log
+          name: koalabyte-esp32-s3-dualeye-current-source-build
+          path: releases/koalabyte-esp32-s3-dualeye-current-source-build/**
           if-no-files-found: error
+          retention-days: 14
