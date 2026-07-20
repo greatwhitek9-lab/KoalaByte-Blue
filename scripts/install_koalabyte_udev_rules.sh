@@ -9,62 +9,47 @@ CHECK_ONLY=0
 
 usage() {
   cat <<'EOF'
-KoalaByte Blue V2 Heltec Edition stable USB device path installer
+Install KoalaByte stable USB aliases and optional SocketCAN hot-plug rule.
 
-Usage:
-  bash scripts/install_koalabyte_udev_rules.sh
-  bash scripts/install_koalabyte_udev_rules.sh --check-only
-  INSTALL_UDEV_RULES=1 bash scripts/install_koalabyte_udev_rules.sh
-  INSTALL_UDEV_RULES=0 bash scripts/install_koalabyte_udev_rules.sh
+Aliases:
+  /dev/koalabyte-heltec
+  /dev/koalabyte-heltec-t114
+  /dev/koalabyte-esp32-dualeye
+  /dev/koalabyte-esp32-eyes
 
-Creates best-effort stable symlinks when udev can identify the devices:
-  /dev/koalabyte-heltec           Heltec T114 / nRF52840 primary BLE board
-  /dev/koalabyte-esp32-dualeye    ESP32-S3 DualEye face/UI and secondary BLE node
-  /dev/koalabyte-esp32-eyes       Backward-compatible ESP32 alias
-  /dev/koalabyte-nrf52840         Legacy external nRF52840 compatibility alias
-  /dev/koalabyte-nrf-ble          Backward-compatible nRF alias
-  koalabyte-can0.service           Re-run SocketCAN setup when gs_usb CAN appears
-
-The runtime fallback is scripts/discover_koalabyte_ports.py --profile heltec.
+The current detected identities are Heltec 2fe3:0100 and ESP32-S3 303a:1001.
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --check-only)
-      CHECK_ONLY=1
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "Unknown argument: $1" >&2
-      usage >&2
-      exit 2
-      ;;
+    --check-only) CHECK_ONLY=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
   shift
 done
 
 case "${INSTALL_UDEV_RULES}" in
-  0|false|False|no|NO|skip|SKIP)
-    echo "Skipping udev rule install by request."
-    exit 0
-    ;;
-  auto|AUTO|1|true|True|yes|YES)
-    ;;
-  *)
-    echo "Unknown INSTALL_UDEV_RULES value: ${INSTALL_UDEV_RULES}" >&2
-    exit 2
-    ;;
+  0|false|False|no|NO|skip|SKIP) echo "Skipping udev rule install by request."; exit 0 ;;
+  auto|AUTO|1|true|True|yes|YES) ;;
+  *) echo "Unknown INSTALL_UDEV_RULES value: ${INSTALL_UDEV_RULES}" >&2; exit 2 ;;
 esac
 
+SOURCE_RULES="${ROOT}/udev/99-koalabyte-blue.rules"
+[[ -f "${SOURCE_RULES}" ]] || { echo "Missing source rules: ${SOURCE_RULES}" >&2; exit 1; }
+
+for marker in \
+  'ATTRS{idVendor}=="2fe3"' \
+  'ATTRS{idProduct}=="0100"' \
+  'ATTRS{idVendor}=="303a"' \
+  'ATTRS{idProduct}=="1001"' \
+  'koalabyte-heltec-t114' \
+  'koalabyte-esp32-dualeye'; do
+  grep -Fq "${marker}" "${SOURCE_RULES}" || { echo "Source udev rules missing marker: ${marker}" >&2; exit 1; }
+done
+
 if [[ "${CHECK_ONLY}" == "1" ]]; then
-  grep -q "koalabyte-heltec" "${ROOT}/udev/99-koalabyte-blue.rules" 2>/dev/null || true
-  grep -q 'ATTRS{idVendor}=="2fe3"' "${ROOT}/udev/99-koalabyte-blue.rules" 2>/dev/null || true
-  grep -q "koalabyte-esp32-dualeye" "${ROOT}/udev/99-koalabyte-blue.rules" 2>/dev/null || true
-  grep -q "koalabyte-can0.service" "${ROOT}/udev/99-koalabyte-blue.rules" 2>/dev/null || true
   echo "KoalaByte udev installer check-only passed."
   exit 0
 fi
@@ -85,32 +70,12 @@ else
   exit 0
 fi
 
-cat > /tmp/99-koalabyte.rules <<'RULESEOF'
-# KoalaByte Blue V2 Heltec Edition stable USB serial aliases.
-# The runtime fallback is scripts/discover_koalabyte_ports.py --profile heltec.
-
-# Heltec Mesh Node T114 / Nordic nRF52840 primary BLE board.
-SUBSYSTEM=="tty", ATTRS{idVendor}=="1915", SYMLINK+="koalabyte-heltec", SYMLINK+="koalabyte-nrf52840", SYMLINK+="koalabyte-nrf-ble", GROUP="dialout", MODE="0660", TAG+="uaccess"
-# Zephyr USB device identity emitted by the combined-safe T114 firmware.
-SUBSYSTEM=="tty", ATTRS{idVendor}=="2fe3", ATTRS{idProduct}=="0100", SYMLINK+="koalabyte-heltec", SYMLINK+="koalabyte-heltec-t114", GROUP="dialout", MODE="0660", TAG+="uaccess"
-SUBSYSTEM=="tty", ENV{ID_MODEL}=="*T114*", SYMLINK+="koalabyte-heltec", GROUP="dialout", MODE="0660", TAG+="uaccess"
-SUBSYSTEM=="tty", ENV{ID_MODEL}=="*nRF52840*", SYMLINK+="koalabyte-nrf52840", SYMLINK+="koalabyte-nrf-ble", GROUP="dialout", MODE="0660", TAG+="uaccess"
-SUBSYSTEM=="tty", ENV{ID_MODEL}=="*PCA10059*", SYMLINK+="koalabyte-nrf52840", SYMLINK+="koalabyte-nrf-ble", GROUP="dialout", MODE="0660", TAG+="uaccess"
-
-# ESP32-S3 DualEye / Espressif native USB and common USB serial bridges.
-SUBSYSTEM=="tty", ATTRS{idVendor}=="303a", SYMLINK+="koalabyte-esp32-dualeye", SYMLINK+="koalabyte-esp32-eyes", GROUP="dialout", MODE="0660", TAG+="uaccess"
-SUBSYSTEM=="tty", ENV{ID_MODEL}=="*ESP32*", SYMLINK+="koalabyte-esp32-dualeye", SYMLINK+="koalabyte-esp32-eyes", GROUP="dialout", MODE="0660", TAG+="uaccess"
-SUBSYSTEM=="tty", ENV{ID_VENDOR}=="*Espressif*", SYMLINK+="koalabyte-esp32-dualeye", SYMLINK+="koalabyte-esp32-eyes", GROUP="dialout", MODE="0660", TAG+="uaccess"
-SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="koalabyte-esp32-dualeye", SYMLINK+="koalabyte-esp32-eyes", GROUP="dialout", MODE="0660", TAG+="uaccess"
-SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", SYMLINK+="koalabyte-esp32-dualeye", SYMLINK+="koalabyte-esp32-eyes", GROUP="dialout", MODE="0660", TAG+="uaccess"
-
-# InnoMaker USB2CAN native SocketCAN hot-plug activation (stock firmware, gs_usb).
-SUBSYSTEM=="net", KERNEL=="can[0-9]*", DRIVERS=="gs_usb", TAG+="systemd", ENV{SYSTEMD_WANTS}+="koalabyte-can0.service"
-RULESEOF
-
-"${sudo_cmd[@]}" install -m 0644 /tmp/99-koalabyte.rules "${RULES_PATH}"
-"${sudo_cmd[@]}" udevadm control --reload-rules || true
+"${sudo_cmd[@]}" install -m 0644 "${SOURCE_RULES}" "${RULES_PATH}"
+"${sudo_cmd[@]}" udevadm control --reload-rules
 "${sudo_cmd[@]}" udevadm trigger || true
+"${sudo_cmd[@]}" udevadm settle || true
 
 echo "Installed KoalaByte udev rules: ${RULES_PATH}"
-PYTHONPATH="${ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}" python3 "${ROOT}/scripts/discover_koalabyte_ports.py" --profile heltec --output-dir "${ROOT}/logs/preflight" || true
+PYTHONPATH="${ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}" \
+  python3 "${ROOT}/scripts/discover_koalabyte_ports.py" \
+  --profile heltec --output-dir "${ROOT}/logs/preflight" || true
