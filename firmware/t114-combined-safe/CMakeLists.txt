@@ -11,6 +11,8 @@ target_sources(app PRIVATE
 
 target_link_options(app PRIVATE
   -Wl,--wrap=render_killerkoala_mouth
+  -Wl,--wrap=render_menu_status
+  -Wl,--wrap=render_koalagotchi_action
 )
 
 set(KOALABYTE_BOOT_SPLASH_ASSET
