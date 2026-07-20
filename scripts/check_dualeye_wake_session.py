@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = ROOT / "firmware" / "esp32-dualeye" / "scripts" / "generate_wake_session_source.py"
 AWAKE_PATCH = ROOT / "firmware" / "esp32-dualeye" / "scripts" / "patch_wake_session_awake_eyes.py"
+TWO_STAGE_PATCH = ROOT / "firmware" / "esp32-dualeye" / "scripts" / "patch_wake_session_two_stage_grammar.py"
 CATALOG = ROOT / "firmware" / "esp32-dualeye" / "scripts" / "generate_voice_menu_catalog.py"
 PLATFORMIO = ROOT / "firmware" / "esp32-dualeye" / "platformio.ini"
 STATUS = ROOT / "logs" / "one_shot" / "dualeye_wake_session_status.json"
@@ -20,12 +21,13 @@ def require(text: str, marker: str, failures: list[str], label: str) -> None:
 
 def main() -> int:
     failures: list[str] = []
-    for path in (GENERATOR, AWAKE_PATCH, CATALOG, PLATFORMIO):
+    for path in (GENERATOR, AWAKE_PATCH, TWO_STAGE_PATCH, CATALOG, PLATFORMIO):
         if not path.exists():
             failures.append(f"missing required file: {path.relative_to(ROOT)}")
 
     generator = GENERATOR.read_text(encoding="utf-8") if GENERATOR.exists() else ""
     awake_patch = AWAKE_PATCH.read_text(encoding="utf-8") if AWAKE_PATCH.exists() else ""
+    two_stage_patch = TWO_STAGE_PATCH.read_text(encoding="utf-8") if TWO_STAGE_PATCH.exists() else ""
     catalog = CATALOG.read_text(encoding="utf-8") if CATALOG.exists() else ""
     platformio = PLATFORMIO.read_text(encoding="utf-8") if PLATFORMIO.exists() else ""
 
@@ -47,9 +49,9 @@ def main() -> int:
     for marker in generator_markers:
         require(generator, marker, failures, "wake-session generator")
 
-    # The PlatformIO prebuild executes this patch against the generated C++.
-    # Exact C++ anchor matching is intentionally enforced by the patch script
-    # itself during compilation rather than duplicated here.
+    # The PlatformIO prebuild executes these patches against the generated C++.
+    # Exact C++ anchor matching is intentionally enforced by each patch script
+    # during compilation rather than duplicated here.
     awake_markers = [
         "showWakeSessionEyes",
         "listening",
@@ -59,6 +61,21 @@ def main() -> int:
     ]
     for marker in awake_markers:
         require(awake_patch, marker, failures, "awake-eye patch")
+
+    two_stage_markers = [
+        "kWakeOnlySpeechCommands",
+        '"Killer Koala"',
+        '"Hey Killer Koala"',
+        "RecognitionGrammar::WakeOnly",
+        "RecognitionGrammar::FullSession",
+        "restartRecognitionGrammar",
+        "active_multinet_command_count",
+        "sleeping_wake_only_grammar_enabled",
+        "wake_session_grammar_enabled",
+        "ESP_SR.end()",
+    ]
+    for marker in two_stage_markers:
+        require(two_stage_patch, marker, failures, "two-stage grammar patch")
 
     catalog_markers = [
         '(100, "k1_main_menu", "Main Menu", "main", "Menu", "K one")',
@@ -74,6 +91,7 @@ def main() -> int:
     platformio_markers = [
         "pre:scripts/generate_wake_session_source.py",
         "pre:scripts/patch_wake_session_awake_eyes.py",
+        "pre:scripts/patch_wake_session_two_stage_grammar.py",
         "-<integrated_main_clean_voice.cpp>",
     ]
     for marker in platformio_markers:
@@ -82,42 +100,54 @@ def main() -> int:
     now = 100_000
     deadline = 0
     awake = False
+    grammar = "wake_only"
 
     def voice(command: str, at: int) -> bool:
-        nonlocal awake, deadline
+        nonlocal awake, deadline, grammar
         if command == "killerkoala":
             awake = True
+            grammar = "full_session"
             deadline = at + 10_000
             return True
-        if not awake or at >= deadline:
+        if grammar != "full_session" or not awake or at >= deadline:
             awake = False
+            grammar = "wake_only"
             return False
         deadline = at + 10_000
         return True
 
     def trusted_input(at: int) -> None:
-        nonlocal awake, deadline
+        nonlocal awake, deadline, grammar
         awake = True
+        grammar = "full_session"
         deadline = at + 10_000
 
+    if grammar != "wake_only":
+        failures.append("sleeping recognizer did not start with wake-only grammar")
     if voice("up", now):
         failures.append("ambient command was accepted while sleeping")
     if not voice("killerkoala", now + 100):
         failures.append("wake phrase did not open session")
+    if grammar != "full_session":
+        failures.append("wake phrase did not enable full-session grammar")
     first_deadline = deadline
     if not voice("menu", now + 5_000) or deadline <= first_deadline:
         failures.append("accepted voice command did not refresh session")
     trusted_input(now + 9_000)
-    if not awake or deadline != now + 19_000:
+    if not awake or deadline != now + 19_000 or grammar != "full_session":
         failures.append("trusted K1-K8/keyboard activity did not wake or refresh session")
     if voice("down", now + 19_001):
         failures.append("voice command remained accepted after ten seconds of inactivity")
     if awake:
         failures.append("session did not return to sleeping state after timeout")
+    if grammar != "wake_only":
+        failures.append("timeout did not restore wake-only recognition grammar")
 
     payload = {
         "status": "DUALEYE_WAKE_SESSION_OK" if not failures else "DUALEYE_WAKE_SESSION_ERROR",
         "wake_phrase": "killerkoala|hey killerkoala",
+        "sleeping_recognition_grammar": "wake_only_two_phrases",
+        "active_session_recognition_grammar": "full_generated_catalog",
         "session_timeout_ms": 10_000,
         "accepted_voice_refreshes_session": True,
         "trusted_gpio_and_keyboard_wake_or_refresh": True,
