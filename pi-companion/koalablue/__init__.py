@@ -48,3 +48,12 @@ except Exception:
     # Music support is optional at import time; a missing service or user config
     # must never prevent the menu, voice bridge, or diagnostics from starting.
     pass
+
+try:
+    from .rf_ble_lab_gates import install_rf_ble_lab_gates
+
+    install_rf_ble_lab_gates()
+except Exception:
+    # RF/BLE lab routing must fail closed: if the optional routing layer cannot
+    # load, the existing passive/placeholder behavior remains in effect.
+    pass
