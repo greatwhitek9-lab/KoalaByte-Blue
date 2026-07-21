@@ -9,6 +9,7 @@ on:
       - "pi-companion/koalablue/menu_*.py"
       - "scripts/check_music_player.py"
       - "scripts/check_lyrebird_browser.py"
+      - "scripts/check_lyrebird_voice_alias.py"
       - ".github/workflows/lyrebird.yml"
   pull_request:
     branches: [Main, main]
@@ -18,6 +19,7 @@ on:
       - "pi-companion/koalablue/menu_*.py"
       - "scripts/check_music_player.py"
       - "scripts/check_lyrebird_browser.py"
+      - "scripts/check_lyrebird_voice_alias.py"
       - ".github/workflows/lyrebird.yml"
 
 permissions:
@@ -45,7 +47,9 @@ jobs:
         run: |
           python -m py_compile pi-companion/koalablue/lyrebird_brand.py
           python -m py_compile pi-companion/koalablue/lyrebird_browser.py
+          python -m py_compile pi-companion/koalablue/lyrebird_voice_alias.py
           python -m py_compile scripts/check_lyrebird_browser.py
+          python -m py_compile scripts/check_lyrebird_voice_alias.py
 
       - name: Validate existing Mopidy integration
         run: PYTHONPATH=pi-companion python scripts/check_music_player.py
@@ -54,5 +58,12 @@ jobs:
         run: |
           PYTHONPATH=pi-companion python scripts/check_lyrebird_browser.py || {
             cat logs/music_player/lyrebird_browser_readiness.json 2>/dev/null || true
+            exit 1
+          }
+
+      - name: Validate KillerKoala play music voice alias
+        run: |
+          PYTHONPATH=pi-companion python scripts/check_lyrebird_voice_alias.py || {
+            cat logs/music_player/lyrebird_voice_alias_readiness.json 2>/dev/null || true
             exit 1
           }
