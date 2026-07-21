@@ -40,6 +40,10 @@ try:
     from .lyrebird_browser import install_lyrebird_browser
 
     install_lyrebird_browser()
+
+    from .lyrebird_voice_alias import install_lyrebird_voice_alias
+
+    install_lyrebird_voice_alias()
 except Exception:
     # Music support is optional at import time; a missing service or user config
     # must never prevent the menu, voice bridge, or diagnostics from starting.
