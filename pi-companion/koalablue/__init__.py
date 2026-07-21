@@ -55,5 +55,16 @@ try:
     install_rf_ble_lab_gates()
 except Exception:
     # RF/BLE lab routing must fail closed: if the optional routing layer cannot
-    # load, the existing passive/placeholder behavior remains in effect.
+    # load, the existing passive behavior remains in effect.
+    pass
+
+try:
+    from .menu_actionability import install_menu_actionability
+
+    # Install last so it audits the final composed GreatWhite, TwoCan, Lyrebird,
+    # RF/BLE, core menu and UI dispatch chain rather than only the base runner.
+    install_menu_actionability()
+except Exception:
+    # Core imports remain available, but CI treats a missing actionability layer
+    # as a deployment failure before the one-shot is considered flash-ready.
     pass
