@@ -1,0 +1,43 @@
+name: RF BLE Lab Gates
+
+on:
+  pull_request:
+    paths:
+      - "pi-companion/koalablue/rf_ble_lab_gates.py"
+      - "pi-companion/koalablue/__init__.py"
+      - "pi-companion/koalablue/t114_bluez.py"
+      - "pi-companion/koalablue/koala_kapture.py"
+      - "pi-companion/koalablue/koala_kry.py"
+      - "pi-companion/koalablue/lab_transmit_policy.py"
+      - "pi-companion/koalablue/menu_action_runner.py"
+      - "firmware/t114-combined-safe/**"
+      - "scripts/check_rf_ble_lab_gates.py"
+      - ".github/workflows/rf-ble-lab-gates.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-rf-ble-lab-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile RF BLE gate sources
+        run: |
+          python -m py_compile \
+            pi-companion/koalablue/rf_ble_lab_gates.py \
+            pi-companion/koalablue/__init__.py \
+            scripts/check_rf_ble_lab_gates.py
+
+      - name: Validate armed and blocked gate behavior
+        env:
+          PYTHONPATH: pi-companion
+        run: python scripts/check_rf_ble_lab_gates.py

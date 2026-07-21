@@ -16,6 +16,7 @@ This directory contains operational, hardware, runtime, and authorized-lab refer
 - [8-key button board](8_KEY_BUTTON_BOARD.md) — K1-K8 wiring and controls.
 - [Main BLE node roles](MAIN_BLE_NODE_ROLES.md) — Pi, ESP32-S3, and Heltec BLE ownership/failover.
 - [Theme and menu system](THEME_AND_MENU_SYSTEM.md) — display and menu behavior.
+- [Lyrebird music player](LYREBIRD.md) — Pi-owned music, radio presets, voice/menu controls, and speech ducking.
 - [Preboot mode selector](PREBOOT_MODE_SELECTOR.md) — startup mode selection.
 - [Split loading sequence](SPLIT_LOADING_SEQUENCE.md) — coordinated boot/loading behavior.
 - [Heltec V2 feature notes](MINED_HELTEC_V2_FEATURES.md) — Heltec feature reference.
