@@ -26,11 +26,12 @@ except Exception:
 
 try:
     from . import mopidy_player as _mopidy_player
+    from .mopidy_player import install_menu_catalog as install_music_player_menu
 
     # Lyrebird is the KoalaByte product name. Mopidy remains the stable internal
     # engine, service, RPC API, configuration format, and command namespace.
     _mopidy_player.GROUP_NAME = "Lyrebird"
-    _mopidy_player.install_menu_catalog()
+    install_music_player_menu()
 
     from .lyrebird_brand import install_lyrebird_brand
 
