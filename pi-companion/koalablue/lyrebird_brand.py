@@ -9,14 +9,14 @@ SUBMENU_COMMAND = f"submenu:{SUBMENU_NAME}"
 _COMMAND_LABELS = {
     "music_status": "Lyrebird Status",
     "music_now_playing": "Lyrebird Now Playing",
-    "music_play": "Lyrebird Play / Resume",
+    "music_play": "Lyrebird Play",
     "music_pause": "Lyrebird Pause",
-    "music_toggle": "Lyrebird Play / Pause",
-    "music_next": "Lyrebird Next Track",
-    "music_previous": "Lyrebird Previous Track",
+    "music_toggle": "Lyrebird Toggle",
+    "music_next": "Lyrebird Next",
+    "music_previous": "Lyrebird Previous",
     "music_stop": "Lyrebird Stop",
-    "music_volume_up": "Lyrebird Volume +5",
-    "music_volume_down": "Lyrebird Volume -5",
+    "music_volume_up": "Lyrebird Volume Up",
+    "music_volume_down": "Lyrebird Volume Down",
     "music_refresh_library": "Lyrebird Refresh Library",
     "music_config_status": "Lyrebird Configuration",
 }
@@ -37,7 +37,7 @@ def _brand_row(row: dict[str, Any]) -> None:
         row["group"] = PLAYER_NAME
         label = str(row.get("label", ""))
         preset = label.split(":", 1)[-1].strip() if ":" in label else label
-        row["label"] = f"Lyrebird Radio: {preset}" if preset else "Lyrebird Radio"
+        row["label"] = f"Lyrebird Radio {preset}" if preset else "Lyrebird Radio"
 
 
 def install_lyrebird_brand() -> None:
