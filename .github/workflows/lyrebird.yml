@@ -20,6 +20,9 @@ on:
       - "scripts/check_lyrebird_browser.py"
       - ".github/workflows/lyrebird.yml"
 
+permissions:
+  contents: read
+
 jobs:
   lyrebird:
     name: Check Lyrebird media browser
