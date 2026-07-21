@@ -5,11 +5,11 @@ Lyrebird is KoalaByte Blue's Raspberry Pi-owned music player. The product name i
 ## Ownership and signal flow
 
 - **Raspberry Pi:** installs and runs `mopidy.service`, owns the queue, music library, internet-radio presets, volume, playback state, and audio output.
-- **ESP32-S3 DualEye:** sends menu or voice actions to the Pi and displays the selected Lyrebird action through the normal action-status synchronization path.
-- **Heltec T114:** displays Koalagotchi/action state through the normal synchronized status path. It does not decode or play music locally.
+- **ESP32-S3 DualEye:** sends menu or voice actions to the Pi. In Lyrebird browsing screens, the active song or station is shown on the left display while the scrollable list remains on the right display.
+- **Heltec T114:** shows the persistent Koalagotchi `DANCE` animation while Lyrebird is playing and exits the dance state when playback is paused or stopped.
 - **KillerKoala speech:** pauses active music before speech and resumes it afterward.
 
-No music decoder or copyrighted audio is embedded in the ESP32 or T114 firmware. Firmware changes are not required to add tracks or radio presets.
+No music decoder or copyrighted audio is embedded in the ESP32 or T114 firmware. Tracks, queues, radio streams, and decoding remain Pi-owned.
 
 ## Installation
 
@@ -35,21 +35,29 @@ curl -fsS -H 'Content-Type: application/json' \
 cat logs/music_player/mopidy_setup_status.json
 ```
 
-## Local music
+## Uploaded songs
 
-Copy supported audio files to:
+Copy supported audio files into:
 
 ```text
 /srv/koalabyte-music
 ```
 
-Then refresh the library from the Lyrebird menu or run:
+Lyrebird recursively discovers supported files, including MP3, FLAC, Ogg, AAC, M4A, Opus, WMA, AIFF, and WAV. Subdirectories are displayed as part of the song label.
+
+Open:
+
+```text
+Lyrebird → Uploaded Songs
+```
+
+The list is rebuilt when the submenu opens. Use **Refresh Uploaded Songs** after copying files, or run:
 
 ```bash
 sudo mopidyctl local scan
 ```
 
-The installer adds common GStreamer codecs, including MP3, AAC, FLAC, Ogg/Vorbis, and other formats supported by the installed plugins.
+The complete discovered song collection is placed into the Mopidy queue when a song is selected, allowing next and previous controls to move through the uploaded library.
 
 ## Internet radio presets
 
@@ -73,18 +81,44 @@ Example:
 
 Use a direct audio-stream URL, not a normal station web page. Do not commit credentials or authenticated stream URLs.
 
-## Controls
+Open:
 
-Lyrebird exposes these Pi-owned actions:
+```text
+Lyrebird → Radio Stations
+```
 
-- status and now-playing information
-- play, resume, pause, toggle, and stop
-- next and previous track
-- software volume up or down in five-percent steps
-- local-library refresh
-- configured internet-radio presets
+Configured stations appear as a scrollable list. Selecting a station creates a queue containing all configured stations so next and previous controls can move through them.
 
-The internal commands remain stable for compatibility:
+## Menu and button controls
+
+Lyrebird follows the standard KoalaByte menu layout and status lifecycle.
+
+- **K5 / Up:** scroll up through songs, stations, or Lyrebird controls.
+- **K6 / Down:** scroll down.
+- **K3 / Enter:** play the highlighted song or station. When the highlighted item is already active, K3/Enter toggles Play/Pause.
+- **K4 / Right / Forward:** play the next queued song or station.
+- **K2 / Left / Back once:** restart the current song or stream from its beginning when supported.
+- **K2 twice within 0.75 seconds:** play the previous queued song or station.
+- **K1 / Menu:** return to the main canopy.
+- **Touch long-press:** equivalent to K3 selection.
+- **Touch drag:** scroll the visible list.
+
+Explicit menu rows remain available for status, now playing, play/resume, pause, toggle, stop, next, previous, volume, library refresh, and configuration.
+
+## Display behavior
+
+While a Lyrebird list is open:
+
+- The **ESP32-S3 left display** shows `Playing: <song or station>` or `Paused: <song or station>`.
+- The **ESP32-S3 right display** shows up to six visible list rows with the current highlight, position, and scroll window.
+- The **Heltec T114** shows Koalagotchi in the persistent `DANCE` animation while playback is active.
+- Pausing or stopping Lyrebird sends a Koalagotchi mode-exit state to the T114.
+
+This uses the existing menu and face synchronization protocol; it does not require a new flash layout or separate display transport.
+
+## Stable internal commands
+
+The existing commands remain stable:
 
 ```text
 music_status
@@ -102,7 +136,14 @@ music_config_status
 music_preset:<preset-name>
 ```
 
-Because KillerKoala voice routing derives aliases from visible menu labels and internal commands, commands such as `killerkoala lyrebird play`, `killerkoala lyrebird pause`, and `killerkoala music next` route to the same Pi actions.
+Lyrebird also adds runtime commands for uploaded files and restart behavior:
+
+```text
+music_song:<generated-file-id>
+music_restart
+```
+
+Because KillerKoala voice routing derives aliases from visible menu labels and internal commands, commands such as `killerkoala lyrebird play`, `killerkoala lyrebird pause`, and `killerkoala music next` route to the same Pi actions. Song filenames and private station names remain runtime-generated menu entries rather than fixed firmware assets.
 
 ## Audio behavior
 
