@@ -1,26 +1,49 @@
 # KoalaByte Blue generated files
-build/
-logs/*.json
-logs/*.jsonl
-logs/*.log
-logs/nrf_connect_sdk_env.sh
-logs/nrf_connect_sdk_status.json
+/build/
+/dist/
+/artifacts/
 
-# Python / venv
+# Runtime logs and generated status reports
+/logs/**/*.json
+/logs/**/*.jsonl
+/logs/**/*.log
+/logs/**/*.txt
+/logs/nrf_connect_sdk_env.sh
+/logs/nrf_connect_sdk_status.json
+
+# Locally generated release bundles
+/releases/koalabyte-blue-current/
+/releases/**/*.zip
+/releases/**/*.tar.gz
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python / virtual environments / coverage
 __pycache__/
 *.py[cod]
+*.egg-info/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
 pi-companion/.venv/
 .venv/
 
-# PlatformIO / ESP32 build artifacts
-firmware/esp32-dualeye/.pio/
-firmware/esp32-dualeye/.vscode/.browse.c_cpp.db*
-firmware/esp32-dualeye/.vscode/c_cpp_properties.json
-firmware/esp32-dualeye/.vscode/launch.json
-firmware/esp32-dualeye/.vscode/ipch/
+# PlatformIO / embedded build artifacts
+**/.pio/
+**/.vscode/.browse.c_cpp.db*
+**/.vscode/c_cpp_properties.json
+**/.vscode/launch.json
+**/.vscode/ipch/
+*.elf
+*.map
 
 # Local vendored Nordic/nRF Connect SDK and Zephyr SDK worktrees.
 # These are intentionally populated on the Pi by scripts/vendor_nrf_connect_sdk.sh
@@ -31,8 +54,19 @@ third_party/zephyr-sdk-*/
 !third_party/README.md
 !third_party/ncs/README.md
 
-# OS/editor noise
+# Test and tooling caches
+.tox/
+.nox/
+.cache/
+
+# OS/editor/temporary noise
 .DS_Store
+._*
 Thumbs.db
+Desktop.ini
+.idea/
 *.swp
 *.swo
+*.bak
+*.orig
+*~
