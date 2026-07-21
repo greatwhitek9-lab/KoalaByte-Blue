@@ -1,0 +1,55 @@
+name: Lyrebird Integration
+
+on:
+  push:
+    branches: [Main, main]
+    paths:
+      - "pi-companion/koalablue/mopidy_player.py"
+      - "pi-companion/koalablue/lyrebird_*.py"
+      - "pi-companion/koalablue/menu_*.py"
+      - "scripts/check_music_player.py"
+      - "scripts/check_lyrebird_browser.py"
+      - ".github/workflows/lyrebird.yml"
+  pull_request:
+    branches: [Main, main]
+    paths:
+      - "pi-companion/koalablue/mopidy_player.py"
+      - "pi-companion/koalablue/lyrebird_*.py"
+      - "pi-companion/koalablue/menu_*.py"
+      - "scripts/check_music_player.py"
+      - "scripts/check_lyrebird_browser.py"
+      - ".github/workflows/lyrebird.yml"
+
+jobs:
+  lyrebird:
+    name: Check Lyrebird media browser
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Pi companion dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r pi-companion/requirements.txt
+
+      - name: Compile Lyrebird runtime
+        run: |
+          python -m py_compile pi-companion/koalablue/lyrebird_brand.py
+          python -m py_compile pi-companion/koalablue/lyrebird_browser.py
+          python -m py_compile scripts/check_lyrebird_browser.py
+
+      - name: Validate existing Mopidy integration
+        run: PYTHONPATH=pi-companion python scripts/check_music_player.py
+
+      - name: Validate Lyrebird browsing, controls, and display sync
+        run: |
+          PYTHONPATH=pi-companion python scripts/check_lyrebird_browser.py || {
+            cat logs/music_player/lyrebird_browser_readiness.json 2>/dev/null || true
+            exit 1
+          }
