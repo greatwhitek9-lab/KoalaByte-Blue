@@ -10,6 +10,7 @@ Type=simple
 WorkingDirectory=/opt/KoalaByte-Blue
 Environment=PYTHONPATH=/opt/KoalaByte-Blue/pi-companion:/opt/KoalaByte-Blue
 Environment=PYTHON_BIN=/opt/KoalaByte-Blue/pi-companion/.venv/bin/python
+Environment=PATH=/opt/KoalaByte-Blue/pi-companion/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=KOALABYTE_MENU_SYNC=auto
 Environment=KOALABYTE_TTS=1
 Environment=PYTHONUNBUFFERED=1
