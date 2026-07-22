@@ -74,8 +74,13 @@ validate_sources() {
   bash -n scripts/run_can0_service.sh
   bash -n scripts/install_can0_service.sh
   bash -n scripts/configure_pi_audio_output.sh
-  python3 -m py_compile scripts/pi_hardware_doctor.py scripts/test_gpio_buttons.py
-  PYTHONPATH=pi-companion python3 -m py_compile pi-companion/koalablue/gpio_buttons.py
+  python3 -m py_compile \
+    scripts/pi_hardware_doctor.py scripts/test_gpio_buttons.py \
+    scripts/check_serial_command_bus.py \
+    pi-companion/koalablue/gpio_buttons.py \
+    pi-companion/koalablue/serial_command_bus.py \
+    pi-companion/koalablue/runtime_serial_ownership.py
+  PYTHONPATH=pi-companion python3 scripts/check_serial_command_bus.py >/dev/null
 }
 validate_sources
 
@@ -86,8 +91,8 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
 fi
 [[ "$(uname -s)" == "Linux" ]] || { echo "This stage requires Linux." >&2; exit 1; }
 
-# Reject 32-bit OS, inadequate storage, bad clock, or any Pi undervoltage history
-# before the first APT or pip write begins.
+# Reject 32-bit OS, inadequate storage, bad clock, sudo-wrapped HOME splits, or
+# any Pi undervoltage history before the first APT or pip write begins.
 bash scripts/preflight_firmware_host.sh --before-install
 
 if [[ "${EUID}" -eq 0 ]]; then sudo_cmd=()
