@@ -47,6 +47,7 @@ PROJECT_MODULES = (
     "koalablue.killerkoala_hybrid_companion",
     "koalablue.killerkoala_face_bridge",
     "koalablue.esp32_dualeye_latched_koalagotchi_bridge",
+    "koalablue.esp32_dualeye_error_dig_bridge",
     "koalablue.ble_node_manager",
     "koalablue.t114_bluez",
     "koalablue.gnss_location",
@@ -62,6 +63,8 @@ CURRENT_RUNTIME_FILES = (
     "scripts/run_esp32_dualeye_voice_bridge.py",
     "scripts/setup_pi_hardware_stage.sh",
     "scripts/setup_system_packages.sh",
+    "scripts/setup_killerkoala_ollama.sh",
+    "scripts/setup_mopidy_player.sh",
     "scripts/setup_gpio_buttons.py",
     "scripts/test_gpio_buttons.py",
     "scripts/pi_hardware_doctor.py",
@@ -72,12 +75,17 @@ CURRENT_RUNTIME_FILES = (
     "scripts/install_runtime_log_rotation.sh",
     "scripts/install_ble_node_manager_service.sh",
     "scripts/install_esp32_dualeye_voice_bridge_service.sh",
+    "scripts/provision_esp32_wifi_env.sh",
     "scripts/configure_pi_audio_output.sh",
+    "scripts/configure_shared_alsa_output.sh",
     "scripts/check_serial_command_bus.py",
+    "scripts/check_confirmed_wake_audio.py",
+    "scripts/check_live_runtime_services.py",
     "scripts/check_one_shot_controls.py",
     "scripts/check_menu_actions.py",
     "scripts/check_menu_display_sync.py",
     "scripts/check_killerkoala_face_mouth_sync.py",
+    "training/killerkoala_lora/Modelfile.killerkoala-tinyllama",
     "systemd/koalabyte-menu.service",
     "systemd/koalabyte-doctor.service",
     "udev/99-koalabyte-blue.rules",
@@ -87,6 +95,8 @@ CURRENT_FIRMWARE_SOURCE_FILES = (
     "firmware/esp32-dualeye/platformio.ini",
     "firmware/esp32-dualeye/include/config.h",
     "firmware/esp32-dualeye/src/integrated_main.cpp",
+    "firmware/esp32-dualeye/src/integrated_main_wake_session.cpp",
+    "firmware/esp32-dualeye/scripts/patch_complex_capture_preroll.py",
     "firmware/t114-combined-safe/CMakeLists.txt",
     "firmware/t114-combined-safe/prj.conf",
     "firmware/t114-combined-safe/src/main.c",
@@ -105,6 +115,16 @@ PI_RUNTIME_COMMANDS = (
     "ffmpeg",
     "espeak-ng",
 )
+REQUIRED_PI_RUNTIME_COMMANDS = {
+    "ip",
+    "lsusb",
+    "udevadm",
+    "bluetoothctl",
+    "rfkill",
+    "aplay",
+    "ffmpeg",
+    "espeak-ng",
+}
 OPTIONAL_COMMAND_GROUPS: dict[str, tuple[str, ...]] = {
     "socketcan": ("modprobe", "candump", "cansend"),
     "pipewire_pulseaudio": ("wpctl", "pactl"),
@@ -156,7 +176,9 @@ def project_import_checks() -> tuple[dict[str, Any], list[str]]:
     return results, failures
 
 
-def file_checks(paths: tuple[str, ...], label: str) -> tuple[dict[str, bool], list[str]]:
+def file_checks(
+    paths: tuple[str, ...], label: str
+) -> tuple[dict[str, bool], list[str]]:
     results: dict[str, bool] = {}
     failures: list[str] = []
     for relative in paths:
@@ -182,7 +204,9 @@ def can_required() -> bool:
     return value in {"1", "true", "yes", "on", "required"}
 
 
-def import_available(results: dict[str, dict[str, Any]], group: str, module: str) -> bool:
+def import_available(
+    results: dict[str, dict[str, Any]], group: str, module: str
+) -> bool:
     return bool(results.get(group, {}).get(module, {}).get("available"))
 
 
@@ -245,12 +269,19 @@ def main() -> int:
     if not edge_tts["available"]:
         failures.append("missing William TTS command: edge-tts")
     for command, result in pi_commands.items():
-        if not result["available"]:
-            warnings.append(f"missing Pi host command: {command}")
+        if result["available"]:
+            continue
+        message = f"missing Pi host command: {command}"
+        if command in REQUIRED_PI_RUNTIME_COMMANDS:
+            failures.append(message)
+        else:
+            warnings.append(message)
     for group, commands in optional_commands.items():
         for command, result in commands.items():
             if not result["available"]:
-                warnings.append(f"missing optional host command for {group}: {command}")
+                warnings.append(
+                    f"missing optional host command for {group}: {command}"
+                )
 
     required_can = can_required()
     if required_can:
@@ -273,7 +304,9 @@ def main() -> int:
         or os.getenv("STRICT_FULL_RUNTIME_DEPENDENCIES", "0") == "1"
     )
     if strict_system:
-        failures.extend(f"strict system dependency: {warning}" for warning in warnings)
+        failures.extend(
+            f"strict system dependency: {warning}" for warning in warnings
+        )
 
     python_results = {**required_imports, **optional_imports}
     payload = {
@@ -288,6 +321,9 @@ def main() -> int:
         "can_required": required_can,
         "offline_stt_required": True,
         "offline_stt_backend": "pocketsphinx",
+        "william_tts_required": True,
+        "audible_pi_playback_required": True,
+        "required_pi_commands": sorted(REQUIRED_PI_RUNTIME_COMMANDS),
         "python_imports": python_results,
         "project_modules": project_results,
         "runtime_files": runtime_files,
@@ -305,7 +341,8 @@ def main() -> int:
     }
     STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
     STATUS_PATH.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
     print(
         json.dumps(
