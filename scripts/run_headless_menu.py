@@ -12,6 +12,7 @@ from pathlib import Path
 from koalablue.gpio_buttons import GPIOButtonManager
 from koalablue.killerkoala_error_dig import run_standalone_error_sequence
 from koalablue.menu_display_sync import sync_menu_state
+from koalablue.runtime_serial_ownership import install_display_command_clients
 from scripts.run_menu_screen import make_menu
 
 STATUS_PATH = Path("logs/runtime/headless_menu_status.json")
@@ -24,6 +25,7 @@ def write_status(status: str, **extra: object) -> None:
         "mode": "headless_pi_control",
         "local_graphical_display_required": False,
         "gpio_buttons": "K1-K8",
+        "serial_transport": "single_owner_command_bus",
         "updated_at": time.time(),
         **extra,
     }
@@ -41,6 +43,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run KoalaByte headless K1-K8 menu and display synchronization")
     parser.add_argument("--poll-seconds", type=float, default=0.05)
     args = parser.parse_args()
+
+    # The voice bridge and BLE manager are the exclusive ESP32 and Heltec tty
+    # owners. Menu updates are submitted to their local command sockets.
+    install_display_command_clients()
 
     stop_requested = False
 
