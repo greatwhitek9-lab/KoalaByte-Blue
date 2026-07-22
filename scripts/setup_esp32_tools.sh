@@ -85,10 +85,16 @@ install_edge_tts_retry_wrapper() {
   local real="${bin_dir}/edge-tts-real"
   local wrapper="${bin_dir}/edge-tts"
   [[ -x "${wrapper}" ]] || return 1
+
+  if grep -Fq 'KOALABYTE_EDGE_TTS_RETRY_WRAPPER' "${wrapper}" 2>/dev/null && [[ -x "${real}" ]]; then
+    return 0
+  fi
+
   run_as_install_user mv -f "${wrapper}" "${real}"
   temp_wrapper="$(mktemp)"
   cat >"${temp_wrapper}" <<EOF
 #!/usr/bin/env bash
+# KOALABYTE_EDGE_TTS_RETRY_WRAPPER
 set -u
 real="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)/edge-tts-real"
 attempts="${EDGE_TTS_ATTEMPTS}"
@@ -140,7 +146,8 @@ if [[ -x "${ESP32_TOOLS_VENV}/bin/pio" ]]; then
 else
   echo "PlatformIO/pio: MISSING" >&2; missing=1
 fi
-if [[ -x "${ESP32_TOOLS_VENV}/bin/edge-tts" && -x "${ESP32_TOOLS_VENV}/bin/edge-tts-real" ]]; then
+if [[ -x "${ESP32_TOOLS_VENV}/bin/edge-tts" && -x "${ESP32_TOOLS_VENV}/bin/edge-tts-real" ]] && \
+   grep -Fq 'KOALABYTE_EDGE_TTS_RETRY_WRAPPER' "${ESP32_TOOLS_VENV}/bin/edge-tts"; then
   actual_edge="$("${ESP32_TOOLS_VENV}/bin/python" -c 'import importlib.metadata; print(importlib.metadata.version("edge-tts"))' 2>/dev/null || true)"
   echo "edge-tts: ${actual_edge:-unknown}, retry wrapper: ready"
   [[ "${actual_edge}" == "${EDGE_TTS_VERSION}" ]] || { echo "edge-tts version mismatch" >&2; missing=1; }
