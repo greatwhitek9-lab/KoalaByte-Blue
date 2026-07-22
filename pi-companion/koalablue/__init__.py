@@ -21,13 +21,17 @@ except Exception:
 # T114 menu, status, scan, and bounded-lab TX actions must never compete with the
 # BLE/GNSS service for the Heltec tty. This is a required runtime safety layer;
 # import failures intentionally fail package validation rather than reverting to
-# direct serial access. Explicit maintenance mode remains available through
-# KOALABYTE_ALLOW_DIRECT_HELTEC_SERIAL=1 after the owner service is stopped.
+# direct serial access. Explicit maintenance mode requires both the opt-in flag
+# and an unheld Heltec owner lock.
 from . import t114_bluez as _t114_bluez
-from .t114_runtime_broker import install as _install_t114_runtime_broker
+from . import t114_runtime_broker as _t114_runtime_broker
+from .serial_maintenance import (
+    heltec_direct_serial_maintenance_allowed as _heltec_direct_allowed,
+)
 
-_install_t114_runtime_broker(_t114_bluez)
-del _install_t114_runtime_broker
+_t114_runtime_broker._direct_allowed = _heltec_direct_allowed
+_t114_runtime_broker.install(_t114_bluez)
+del _heltec_direct_allowed
 
 # Koala Kombat passive survey actions use the same two serial owners and bounded
 # event ledgers. The legacy direct-open helper remains in the source for explicit
