@@ -38,6 +38,16 @@ from .koala_kombat_runtime_broker import install as _install_koala_kombat_broker
 _install_koala_kombat_broker(_koala_kombat_kruisin)
 del _install_koala_kombat_broker
 
+# General KoalaByte discovery must not report, score, alert on, or export the Pi,
+# DualEye ESP32-S3, or Heltec T114 as nearby targets. The central policy discovers
+# local Pi identities automatically and accepts exact controller MACs through the
+# private runtime environment/config file. Explicit owned-device lab tools remain
+# available only through their dedicated target/confirmation paths.
+from .owned_scan_runtime import install_owned_scan_allowlist as _install_owned_scan_allowlist
+
+_install_owned_scan_allowlist()
+del _install_owned_scan_allowlist
+
 try:
     from .greatwhite_reef import install_menu_catalog
 
