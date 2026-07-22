@@ -17,9 +17,8 @@ Usage:
   INSTALL_SYSTEM_PACKAGES=0 bash scripts/setup_system_packages.sh
   bash scripts/setup_system_packages.sh --check-only
 
-The helper supports Raspberry Pi OS Bookworm and Trixie, resolves compatibility
-package variants, treats PocketSphinx as optional, and runs APT noninteractively
-so Wireshark and other debconf packages cannot stall an SSH deployment.
+The helper refreshes APT metadata before resolving Bookworm/Trixie package
+variants, treats PocketSphinx as optional, retries APT, and runs noninteractively.
 EOF
 }
 
@@ -52,6 +51,25 @@ else
   [[ "${STRICT_SYSTEM_PACKAGES}" == "1" ]] && exit 1
   exit 0
 fi
+
+apt_retry() {
+  local attempt rc=1
+  for ((attempt=1; attempt<=APT_RETRIES; attempt++)); do
+    set +e
+    DEBIAN_FRONTEND=noninteractive "${apt_runner[@]}" \
+      -o Acquire::Retries=3 -o Dpkg::Options::=--force-confold "$@"
+    rc=$?
+    set -e
+    [[ ${rc} -eq 0 ]] && return 0
+    echo "APT attempt ${attempt}/${APT_RETRIES} failed with exit ${rc}; retrying..." >&2
+    sleep $((attempt * 10))
+  done
+  return "${rc}"
+}
+
+# Resolve against current repository metadata, not the possibly stale cache from
+# the Raspberry Pi OS image.
+apt_retry update
 
 base_packages=(
   git ca-certificates python3 python3-venv python3-pip python3-dev python3-gpiozero python3-lgpio
@@ -103,21 +121,6 @@ if (( ${#missing_required[@]} > 0 )); then
 fi
 (( ${#packages[@]} > 0 )) || { echo "No compatible packages resolved." >&2; exit 1; }
 
-apt_retry() {
-  local attempt rc=1
-  for ((attempt=1; attempt<=APT_RETRIES; attempt++)); do
-    set +e
-    DEBIAN_FRONTEND=noninteractive "${apt_runner[@]}" \
-      -o Acquire::Retries=3 -o Dpkg::Options::=--force-confold "$@"
-    rc=$?
-    set -e
-    [[ ${rc} -eq 0 ]] && return 0
-    echo "APT attempt ${attempt}/${APT_RETRIES} failed with exit ${rc}; retrying..." >&2
-    sleep $((attempt * 10))
-  done
-  return "${rc}"
-}
-
 if command -v debconf-set-selections >/dev/null 2>&1; then
   if [[ "${EUID}" -eq 0 ]]; then
     printf '%s\n' 'wireshark-common wireshark-common/install-setuid boolean false' | debconf-set-selections || true
@@ -126,7 +129,6 @@ if command -v debconf-set-selections >/dev/null 2>&1; then
   fi
 fi
 
-apt_retry update
 apt_retry install -y "${packages[@]}"
 
 echo "System package setup complete."
