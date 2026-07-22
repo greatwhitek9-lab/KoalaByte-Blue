@@ -1,28 +1,27 @@
-Import("env")
+from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
-project = Path(env.subst("$PROJECT_DIR"))
-source = project / "src" / "integrated_main_wake_session.cpp"
-text = source.read_text(encoding="utf-8")
 
+def patch_text(original: str) -> str:
+    text = original
 
-def replace_once(old: str, new: str, label: str) -> None:
-    global text
-    count = text.count(old)
-    if count != 1:
-        raise RuntimeError(
-            f"complex-capture pre-roll expected one {label} anchor, found {count}"
-        )
-    text = text.replace(old, new, 1)
+    def replace_once(old: str, new: str, label: str) -> None:
+        nonlocal text
+        count = text.count(old)
+        if count != 1:
+            raise RuntimeError(
+                f"complex-capture pre-roll expected one {label} anchor, found {count}"
+            )
+        text = text.replace(old, new, 1)
 
-
-replace_once(
-    """uint8_t cleanVoiceHotFrames = 0;
+    replace_once(
+        """uint8_t cleanVoiceHotFrames = 0;
 uint8_t activeMicChannel = 0;
 uint32_t cleanMicrophoneReadyAt = 0;
 """,
-    """uint8_t cleanVoiceHotFrames = 0;
+        """uint8_t cleanVoiceHotFrames = 0;
 uint8_t activeMicChannel = 0;
 uint32_t cleanMicrophoneReadyAt = 0;
 uint8_t complexPreRoll[MIC_PRE_ROLL_BLOCKS][MIC_PCM_CHUNK_BYTES] = {};
@@ -30,13 +29,13 @@ size_t complexPreRollLengths[MIC_PRE_ROLL_BLOCKS] = {};
 uint8_t complexPreRollWrite = 0;
 uint8_t complexPreRollCount = 0;
 """,
-    "pre-roll state",
-)
+        "pre-roll state",
+    )
 
-replace_once(
-    """void cleanBeginUtterance(float rms) {
+    replace_once(
+        """void cleanBeginUtterance(float rms) {
 """,
-    """void resetComplexPreRoll() {
+        """void resetComplexPreRoll() {
   memset(complexPreRollLengths, 0, sizeof(complexPreRollLengths));
   complexPreRollWrite = 0;
   complexPreRollCount = 0;
@@ -87,54 +86,54 @@ void flushComplexPreRoll(float rms) {
 
 void cleanBeginUtterance(float rms) {
 """,
-    "pre-roll helpers",
-)
+        "pre-roll helpers",
+    )
 
-replace_once(
-    """  cleanVoiceHotFrames = 0;
+    replace_once(
+        """  cleanVoiceHotFrames = 0;
   utteranceActive = false;
   pauseLocalRecognition();
 """,
-    """  cleanVoiceHotFrames = 0;
+        """  cleanVoiceHotFrames = 0;
   utteranceActive = false;
   resetComplexPreRoll();
   pauseLocalRecognition();
 """,
-    "capture-arm reset",
-)
+        "capture-arm reset",
+    )
 
-replace_once(
-    """  utteranceActive = false;
+    replace_once(
+        """  utteranceActive = false;
   complexCaptureArmed = false;
   cleanVoiceHotFrames = 0;
   srResumeAt = millis() + 150;
 """,
-    """  utteranceActive = false;
+        """  utteranceActive = false;
   complexCaptureArmed = false;
   cleanVoiceHotFrames = 0;
   resetComplexPreRoll();
   srResumeAt = millis() + 150;
 """,
-    "capture-end reset",
-)
+        "capture-end reset",
+    )
 
-replace_once(
-    """  complexCaptureArmed = false;
+    replace_once(
+        """  complexCaptureArmed = false;
   utteranceActive = false;
   cleanVoiceHotFrames = 0;
   emitLocalVoiceStatus("complex_capture_cancelled", reason);
 """,
-    """  complexCaptureArmed = false;
+        """  complexCaptureArmed = false;
   utteranceActive = false;
   cleanVoiceHotFrames = 0;
   resetComplexPreRoll();
   emitLocalVoiceStatus("complex_capture_cancelled", reason);
 """,
-    "capture-cancel reset",
-)
+        "capture-cancel reset",
+    )
 
-replace_once(
-    """  if (!utteranceActive) {
+    replace_once(
+        """  if (!utteranceActive) {
     if (rms >= MIC_WAKE_RMS_THRESHOLD) {
       if (cleanVoiceHotFrames < 255) ++cleanVoiceHotFrames;
       if (cleanVoiceHotFrames >= kVoiceStartConsecutiveFrames) {
@@ -164,7 +163,7 @@ replace_once(
     sendPayload(doc);
   }
 """,
-    """  if (!utteranceActive) {
+        """  if (!utteranceActive) {
     bool startedNow = false;
     if (rms >= MIC_WAKE_RMS_THRESHOLD) {
       if (cleanVoiceHotFrames < 255) ++cleanVoiceHotFrames;
@@ -185,8 +184,59 @@ replace_once(
   if (rms >= MIC_WAKE_RMS_THRESHOLD * 0.55f) lastSpeechMs = millis();
   emitComplexPcmChunk(monoMic, frames * sizeof(int16_t), rms);
 """,
-    "capture detection and PCM emission",
-)
+        "capture detection and PCM emission",
+    )
 
-source.write_text(text, encoding="utf-8")
-print("Patched three-block complex voice capture pre-roll")
+    required_markers = (
+        "complexPreRoll[MIC_PRE_ROLL_BLOCKS][MIC_PCM_CHUNK_BYTES]",
+        "flushComplexPreRoll(rms);",
+        'doc["pre_roll"] = preRoll;',
+        "rememberComplexPreRoll(monoMic, frames * sizeof(int16_t));",
+    )
+    missing = [marker for marker in required_markers if marker not in text]
+    if missing:
+        raise RuntimeError(f"pre-roll patch output missing markers: {missing}")
+    return text
+
+
+def apply_to_source(source: Path, *, check_only: bool = False) -> None:
+    original = source.read_text(encoding="utf-8")
+    patched = patch_text(original)
+    if not check_only:
+        source.write_text(patched, encoding="utf-8")
+    print(
+        "Validated three-block complex voice capture pre-roll"
+        if check_only
+        else "Patched three-block complex voice capture pre-roll"
+    )
+
+
+def standalone_main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Apply or validate the ESP32 complex-capture pre-roll patch"
+    )
+    parser.add_argument("--check", action="store_true")
+    parser.add_argument(
+        "--source",
+        default=str(
+            Path(__file__).resolve().parents[1]
+            / "src"
+            / "integrated_main_wake_session.cpp"
+        ),
+    )
+    args = parser.parse_args()
+    apply_to_source(Path(args.source), check_only=args.check)
+    return 0
+
+
+try:
+    Import("env")  # type: ignore[name-defined]  # noqa: F821
+    _platformio_env = env  # type: ignore[name-defined]  # noqa: F821
+except NameError:
+    _platformio_env = None
+
+if _platformio_env is not None:
+    project = Path(_platformio_env.subst("$PROJECT_DIR"))
+    apply_to_source(project / "src" / "integrated_main_wake_session.cpp")
+elif __name__ == "__main__":
+    raise SystemExit(standalone_main())
