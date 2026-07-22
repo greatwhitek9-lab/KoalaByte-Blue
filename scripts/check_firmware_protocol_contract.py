@@ -70,24 +70,28 @@ def validate_t114(manifest: dict[str, object]) -> dict[str, str]:
     protocol = str(manifest["heltec_t114_min_protocol"])
     repo_version = str(manifest["repo_protocol_version"])
     tone_path = T114 / "scripts/generate_tone_aware_main.py"
-    patch_path = T114 / "scripts/patch_protocol_status.py"
-    patch_text = patch_path.read_text(encoding="utf-8")
-    require_once(patch_text, f'PROTOCOL = "{protocol}"', "T114 protocol constant")
+    protocol_path = T114 / "scripts/patch_protocol_status.py"
+    bootloader_path = T114 / "scripts/patch_uf2_bootloader_entry.py"
+    protocol_text = protocol_path.read_text(encoding="utf-8")
+    require_once(protocol_text, f'PROTOCOL = "{protocol}"', "T114 protocol constant")
     require_once(
-        patch_text,
+        protocol_text,
         f'REPO_PROTOCOL_VERSION = "{repo_version}"',
         "T114 repository protocol constant",
     )
 
     tone_module = load_module("koalabyte_t114_tone_contract", tone_path)
-    protocol_module = load_module("koalabyte_t114_protocol_contract", patch_path)
+    protocol_module = load_module("koalabyte_t114_protocol_contract", protocol_path)
+    bootloader_module = load_module("koalabyte_t114_bootloader_contract", bootloader_path)
     with tempfile.TemporaryDirectory(prefix="koalabyte-t114-protocol-") as temp_dir:
         temp_root = Path(temp_dir)
         tone_output = temp_root / "tone-main.c"
         protocol_output = temp_root / "protocol-main.c"
+        final_output = temp_root / "deployable-main.c"
         tone_module.generate(T114 / "src/main.c", tone_output)
         protocol_module.patch(tone_output, protocol_output)
-        patched = protocol_output.read_text(encoding="utf-8")
+        bootloader_module.patch(protocol_output, final_output)
+        patched = final_output.read_text(encoding="utf-8")
     require_once(patched, f'#define KOALA_PROTOCOL "{protocol}"', "T114 patched protocol declaration")
     require_once(
         patched,
@@ -101,6 +105,9 @@ def validate_t114(manifest: dict[str, object]) -> dict[str, str]:
         "T114 status repository protocol field",
     )
     require_once(patched, r'\"tone\":\"%s\"', "T114 tone-aware status field")
+    require_once(patched, "NRF_POWER->GPREGRET = 0x57;", "T114 UF2 GPREGRET path")
+    require_once(patched, r'\"type\":\"bootloader_ack\"', "T114 UF2 acknowledgement")
+    require_once(patched, 'strcmp(line, "REBOOT_UF2") == 0', "T114 UF2 command route")
 
     cmake = (T114 / "CMakeLists.txt").read_text(encoding="utf-8")
     tone_pos = cmake.find("generate_tone_aware_main.py")
