@@ -63,7 +63,6 @@ fi
 base_packages=(
   git python3 python3-venv python3-pip python3-dev python3-gpiozero python3-lgpio
   python3-serial python3-dbus python3-gi python3-httpx
-  python3-pocketsphinx pocketsphinx-en-us
   build-essential pkg-config cmake ninja-build gperf ccache device-tree-compiler
   wget curl xz-utils file make gcc g++ libffi-dev libssl-dev usbutils udev kmod
   util-linux parted dosfstools exfatprogs libusb-1.0-0 libusb-1.0-0-dev
@@ -76,9 +75,10 @@ base_packages=(
   portaudio19-dev python3-pyaudio tshark wireshark
 )
 
-# Debian 12/Bookworm uses libgpiod2. Debian 13/Trixie transitioned to
-# libgpiod3. Select whichever package exists instead of failing the whole apt
-# transaction on an obsolete package name.
+optional_packages=(
+  python3-pocketsphinx pocketsphinx-en-us
+)
+
 variant_groups=(
   "libgpiod3 libgpiod2"
   "libasound2t64 libasound2"
@@ -89,12 +89,21 @@ package_exists() {
 }
 
 packages=()
-missing=()
+missing_required=()
+missing_optional=()
 for package in "${base_packages[@]}"; do
   if package_exists "${package}"; then
     packages+=("${package}")
   else
-    missing+=("${package}")
+    missing_required+=("${package}")
+  fi
+done
+
+for package in "${optional_packages[@]}"; do
+  if package_exists "${package}"; then
+    packages+=("${package}")
+  else
+    missing_optional+=("${package}")
   fi
 done
 
@@ -108,16 +117,21 @@ for group in "${variant_groups[@]}"; do
     fi
   done
   if [[ -z "${selected}" ]]; then
-    missing+=("${group}")
+    missing_required+=("${group}")
   else
     echo "Selected compatibility package: ${selected}"
   fi
 done
 
-if (( ${#missing[@]} > 0 )); then
-  echo "warning: unavailable optional package(s) on this OS: ${missing[*]}" >&2
+if (( ${#missing_optional[@]} > 0 )); then
+  echo "warning: unavailable optional package(s) on this OS: ${missing_optional[*]}" >&2
+  echo "Optional package absence will not block installation." >&2
+fi
+
+if (( ${#missing_required[@]} > 0 )); then
+  echo "error: unavailable required package(s) on this OS: ${missing_required[*]}" >&2
   if [[ "${STRICT_SYSTEM_PACKAGES}" == "1" ]]; then
-    echo "STRICT_SYSTEM_PACKAGES=1 is set; unavailable packages are fatal." >&2
+    echo "STRICT_SYSTEM_PACKAGES=1 is set; unavailable required packages are fatal." >&2
     exit 1
   fi
 fi
