@@ -17,7 +17,7 @@ KILLERKOALA_ENV_DIR="${KILLERKOALA_ENV_DIR:-/etc/koalabyte-blue}"
 KILLERKOALA_ENV_FILE="${KILLERKOALA_ENV_FILE:-${KILLERKOALA_ENV_DIR}/killerkoala.env}"
 
 usage() {
-  cat <<'EOF'
+  cat <<'EOF_USAGE'
 Install/start the KoalaByte ESP32-S3 DualEye voice bridge service.
 
 The Waveshare handles its saved wake/basic vocabulary locally. The service owns
@@ -32,7 +32,7 @@ Supported entries include:
   BRAVE_SEARCH_API_KEY=...
   KILLERKOALA_WEB_SEARCH=auto|always|off
   KILLERKOALA_DIALOGUE_TURNS=4
-EOF
+EOF_USAGE
 }
 
 for arg in "$@"; do
@@ -131,6 +131,7 @@ User=${SERVICE_USER}
 Group=${SERVICE_GROUP}
 WorkingDirectory=${REPO_ROOT}
 Environment=PYTHONPATH=${REPO_ROOT}/pi-companion
+Environment=PATH=${REPO_ROOT}/pi-companion/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=KOALABYTE_ESP32_MIC_PORT=${ESP32_MIC_PORT}
 Environment=KILLERKOALA_LLM_MODE=tinyllama
 Environment=KILLERKOALA_LLM_MODEL=${KILLERKOALA_LLM_MODEL}
