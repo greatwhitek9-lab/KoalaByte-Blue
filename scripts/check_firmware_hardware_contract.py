@@ -164,7 +164,10 @@ def main() -> int:
             "--application-min 0x26000",
             "--application-max 0xec000",
             "--family 0x239a0071",
-            'EXPECTED_FW="${T114_EXPECTED_FW:-0.10.0-t114-smooth-idle-and-speech-mouth}"',
+            'EXPECTED_FW="${T114_EXPECTED_FW:-}"',
+            "sed -n 's/^#define KOALA_FW",
+            'EXPECTED_FW="$(resolve_expected_fw || true)"',
+            'payload.get("fw") == expected_fw',
         ),
     )
 
@@ -177,6 +180,7 @@ def main() -> int:
         "t114_application_offset": "0x26000",
         "t114_family": "0x239a0071",
         "t114_firmware_identity": "0.10.0-t114-smooth-idle-and-speech-mouth",
+        "t114_identity_source": "firmware/t114-combined-safe/src/main.c",
     }
     print(json.dumps(payload, indent=2, sort_keys=True))
     return 0
