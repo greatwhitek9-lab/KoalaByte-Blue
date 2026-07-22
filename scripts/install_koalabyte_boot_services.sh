@@ -35,7 +35,10 @@ case "${INSTALL_BOOT_SERVICES}" in
 esac
 
 for svc in "${SERVICES[@]}"; do
-  [[ -f "${REPO_ROOT}/systemd/${svc}" ]] || { echo "Missing service template: systemd/${svc}" >&2; exit 1; }
+  [[ -f "${REPO_ROOT}/systemd/${svc}" ]] || {
+    echo "Missing service template: systemd/${svc}" >&2
+    exit 1
+  }
 done
 [[ -f "${REPO_ROOT}/scripts/install_runtime_log_rotation.sh" ]] || {
   echo "Missing scripts/install_runtime_log_rotation.sh" >&2
@@ -49,13 +52,16 @@ for marker in \
   "Environment=PYTHON_BIN=/opt/KoalaByte-Blue/pi-companion/.venv/bin/python" \
   "Environment=PATH=/opt/KoalaByte-Blue/pi-companion/.venv/bin"; do
   [[ "${menu_service_text}" == *"${marker}"* ]] || {
-    echo "koalabyte-menu.service missing marker: ${marker}" >&2; exit 1;
+    echo "koalabyte-menu.service missing marker: ${marker}" >&2
+    exit 1
   }
 done
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   bash -n scripts/install_koalabyte_boot_services.sh
-  bash scripts/install_runtime_log_rotation.sh --check-only
+  KOALABYTE_SERVICE_USER="${SERVICE_USER}" \
+    KOALABYTE_SERVICE_GROUP="${SERVICE_GROUP}" \
+    bash scripts/install_runtime_log_rotation.sh --check-only
   python3 -m py_compile scripts/run_headless_menu.py
   echo "KoalaByte boot service templates are ready."
   exit 0
@@ -73,7 +79,10 @@ else
   [[ "${STRICT_BOOT_SERVICES}" == "1" ]] && exit 1
   exit 0
 fi
-id "${SERVICE_USER}" >/dev/null 2>&1 || { echo "Service user does not exist: ${SERVICE_USER}" >&2; exit 1; }
+id "${SERVICE_USER}" >/dev/null 2>&1 || {
+  echo "Service user does not exist: ${SERVICE_USER}" >&2
+  exit 1
+}
 [[ -n "${SERVICE_GROUP}" ]] || SERVICE_GROUP="$(id -gn "${SERVICE_USER}")"
 
 KOALABYTE_SERVICE_USER="${SERVICE_USER}" KOALABYTE_SERVICE_GROUP="${SERVICE_GROUP}" \
@@ -105,11 +114,14 @@ for svc in "${SERVICES[@]}"; do
       -e "s#/opt/KoalaByte-Blue#${INSTALL_ROOT}#g" \
       -e "s#User=pi#User=${SERVICE_USER}#g" \
       -e "s#Group=pi#Group=${SERVICE_GROUP}#g" \
-      "${REPO_ROOT}/systemd/${svc}" > "${tmp}"
+      "${REPO_ROOT}/systemd/${svc}" >"${tmp}"
   "${sudo_cmd[@]}" install -m 0644 "${tmp}" "/etc/systemd/system/${svc}"
   rm -f "${tmp}"
 done
 
 "${sudo_cmd[@]}" systemctl daemon-reload
+for svc in "${SERVICES[@]}"; do
+  "${sudo_cmd[@]}" systemctl reset-failed "${svc}" >/dev/null 2>&1 || true
+done
 "${sudo_cmd[@]}" systemctl enable "${SERVICES[@]}"
 echo "Installed KoalaByte menu/live-sync and doctor services for ${SERVICE_USER}:${SERVICE_GROUP}."
