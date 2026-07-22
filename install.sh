@@ -5,6 +5,7 @@ REPO_URL="${KOALABYTE_REPO_URL:-https://github.com/greatwhitek9-lab/KoalaByte-Bl
 BRANCH="${KOALABYTE_BRANCH:-Main}"
 INSTALL_DIR="${KOALABYTE_INSTALL_DIR:-${HOME}/KoalaByte-Blue}"
 MODE="install"
+ALLOW_SUDO_WRAPPED_INSTALL="${KOALABYTE_ALLOW_SUDO_WRAPPED_INSTALL:-0}"
 
 usage() {
   cat <<'EOF'
@@ -21,8 +22,9 @@ Environment:
   KOALABYTE_INSTALL_DIR=$HOME/KoalaByte-Blue
   KOALABYTE_SERVICE_USER=<linux-user>
 
-The bootstrapper recovers an interrupted ESP32 source-generation transaction,
-updates the selected branch, and invokes one-shot-install.sh.
+Run this as the normal SSH/login user, not with `sudo bash`. The bootstrapper
+recovers an interrupted ESP32 source-generation transaction, updates the selected
+branch, and invokes one-shot-install.sh, which requests sudo only where required.
 EOF
 }
 
@@ -34,6 +36,16 @@ case "${1:-install}" in
   *) echo "Unknown mode: ${1}" >&2; usage >&2; exit 2 ;;
 esac
 [[ $# -eq 0 ]] || { echo "Unexpected arguments: $*" >&2; exit 2; }
+
+case "${ALLOW_SUDO_WRAPPED_INSTALL}" in
+  1|true|True|yes|YES|on|ON) allow_sudo=1 ;;
+  *) allow_sudo=0 ;;
+esac
+if [[ "${EUID}" -eq 0 && -n "${SUDO_USER:-}" && "${allow_sudo}" != "1" ]]; then
+  echo "Do not run the KoalaByte bootstrapper with 'sudo bash'." >&2
+  echo "Exit the root shell and run it as ${SUDO_USER}; privileged steps call sudo internally." >&2
+  exit 1
+fi
 
 if ! command -v git >/dev/null 2>&1; then
   if command -v apt-get >/dev/null 2>&1; then
