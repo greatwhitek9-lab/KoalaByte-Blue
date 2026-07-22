@@ -43,11 +43,6 @@ def _client_menu_write(
     return submission.accepted, submission.status
 
 
-def _requeue(target: str, payloads: list[dict[str, Any]]) -> None:
-    for payload in payloads[-64:]:
-        submit_command(target, payload, queue_if_unavailable=True)
-
-
 def install_display_command_clients() -> None:
     """Stop non-owner runtime processes from opening either board's tty."""
 
@@ -101,21 +96,16 @@ def install_esp32_serial_owner(bridge_class: type[Any]) -> None:
         inbox = getattr(instance, "_koalabyte_esp32_command_inbox", None)
         if inbox is None:
             return
-        retry = list(getattr(instance, "_koalabyte_esp32_command_retry", []))
-        retry.extend(inbox.drain(max_items=max(0, 64 - len(retry))))
-        remaining: list[dict[str, Any]] = []
-        for payload in retry[:64]:
-            try:
-                instance._serial_write_json(payload)
-            except Exception:
-                remaining.append(payload)
-        instance._koalabyte_esp32_command_retry = remaining[-64:]
+        try:
+            inbox.drain_to_writer(instance._serial_write_json, max_items=64)
+        except Exception:
+            # The claim remains on disk and is replayed on the next loop or owner.
+            return
 
     def owned_open(instance: Any, *args: Any, **kwargs: Any) -> Any:
         result = original_open(instance, *args, **kwargs)
         try:
             instance._koalabyte_esp32_command_inbox = JsonCommandInbox("esp32")
-            instance._koalabyte_esp32_command_retry = []
             drain(instance)
         except Exception:
             try:
@@ -132,19 +122,12 @@ def install_esp32_serial_owner(bridge_class: type[Any]) -> None:
 
     def owned_close(instance: Any, *args: Any, **kwargs: Any) -> Any:
         inbox = getattr(instance, "_koalabyte_esp32_command_inbox", None)
-        pending = list(getattr(instance, "_koalabyte_esp32_command_retry", []))
         if inbox is not None:
             try:
                 drain(instance)
-                pending = list(
-                    getattr(instance, "_koalabyte_esp32_command_retry", [])
-                )
-                pending.extend(inbox.drain(max_items=max(0, 64 - len(pending))))
             finally:
                 inbox.close()
                 instance._koalabyte_esp32_command_inbox = None
-        instance._koalabyte_esp32_command_retry = []
-        _requeue("esp32", pending)
         return original_close(instance, *args, **kwargs)
 
     bridge_class.open = owned_open
@@ -157,23 +140,19 @@ class _HeltecOwnedSerial:
     def __init__(self, serial_handle: Any) -> None:
         self._serial = serial_handle
         self._inbox = JsonCommandInbox("heltec")
-        self._retry: list[dict[str, Any]] = []
         self._drain_commands()
 
+    def _write_payload(self, payload: dict[str, Any]) -> None:
+        line = json.dumps(payload, separators=(",", ":")) + "\n"
+        self._serial.write(line.encode("utf-8"))
+        self._serial.flush()
+
     def _drain_commands(self) -> None:
-        commands = [
-            *self._retry,
-            *self._inbox.drain(max_items=max(0, 64 - len(self._retry))),
-        ]
-        self._retry = []
-        for payload in commands[:64]:
-            try:
-                line = json.dumps(payload, separators=(",", ":")) + "\n"
-                self._serial.write(line.encode("utf-8"))
-                self._serial.flush()
-            except Exception:
-                self._retry.append(payload)
-        self._retry = self._retry[-64:]
+        try:
+            self._inbox.drain_to_writer(self._write_payload, max_items=64)
+        except Exception:
+            # Leave the active claim in place for retry without losing ordering.
+            return
 
     def readline(self, *args: Any, **kwargs: Any) -> Any:
         self._drain_commands()
@@ -182,18 +161,10 @@ class _HeltecOwnedSerial:
         return value
 
     def close(self) -> None:
-        pending = list(self._retry)
         try:
-            try:
-                self._drain_commands()
-                pending = list(self._retry)
-                pending.extend(
-                    self._inbox.drain(max_items=max(0, 64 - len(pending)))
-                )
-            finally:
-                self._inbox.close()
-            _requeue("heltec", pending)
+            self._drain_commands()
         finally:
+            self._inbox.close()
             self._serial.close()
 
     def __getattr__(self, name: str) -> Any:
