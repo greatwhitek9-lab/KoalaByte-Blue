@@ -3,10 +3,10 @@ Import("env")
 from pathlib import Path
 
 project = Path(env.subst("$PROJECT_DIR"))
-# The wake-session wrapper includes integrated_main.cpp after renaming legacy
-# entrypoints. Face/audio handlers and their state live in the included source,
-# so patch that file before the wrapper is compiled.
-path = project / "src" / "integrated_main.cpp"
+# generate_wake_session_source.py creates the actual compiled translation unit.
+# integrated_main.cpp is excluded by platformio.ini, so every behavioral patch
+# must target integrated_main_wake_session.cpp.
+path = project / "src" / "integrated_main_wake_session.cpp"
 text = path.read_text(encoding="utf-8")
 
 
@@ -148,4 +148,4 @@ replace_once(
 )
 
 path.write_text(text, encoding="utf-8")
-print(f"Patched tone/subject expression retention in included DualEye source: {path}")
+print(f"Patched tone/subject expression retention in compiled DualEye source: {path}")
