@@ -133,8 +133,10 @@ validate_sources() {
   bash -n scripts/preflight_firmware_host.sh
   python3 -m py_compile \
     scripts/inspect_uf2.py scripts/patch_uf2_family.py scripts/verify_uf2_vector.py \
-    scripts/check_firmware_hardware_contract.py scripts/check_esp32_compiled_patch_chain.py
+    scripts/check_firmware_hardware_contract.py scripts/check_firmware_protocol_contract.py \
+    scripts/check_esp32_compiled_patch_chain.py
   python3 scripts/check_firmware_hardware_contract.py >/dev/null
+  python3 scripts/check_firmware_protocol_contract.py >/dev/null
   python3 scripts/check_esp32_compiled_patch_chain.py >/dev/null
   test -f firmware/esp32-dualeye/platformio.ini
   test -f firmware/esp32-dualeye/partitions.csv
