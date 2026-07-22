@@ -35,9 +35,9 @@ Usage:
   bash scripts/deploy_whole_system_firmware.sh --keep-build-tools
 
 Source builds finish before serial services are stopped or USB devices are
-required. Immediately before flashing, the host power state is checked again,
-then both selected devices are identified, flashed, and rediscovered. A failed
-flash always restores any services stopped by this transaction.
+required. Immediately before flashing, the host power state is checked again.
+Only schema-2, partition-bounded bundles are accepted, and each selected board
+must report the exact bundled firmware and protocol identity after flashing.
 EOF
 }
 
@@ -54,6 +54,10 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
+[[ "${SKIP_ESP32}" == "1" && "${SKIP_T114}" == "1" ]] && {
+  echo "Cannot skip both ESP32 and T114 firmware targets." >&2
+  exit 2
+}
 
 mkdir -p "${ROOT}/logs/deployment" "${ROOT}/logs/preflight"
 CURRENT_STEP="initializing"
@@ -86,6 +90,8 @@ Path(path).write_text(json.dumps({
     "service_restart_deferred": defer_restart == "1",
     "build_tool_cleanup_requested": cleanup_tools.lower() in {"1", "true", "yes", "on", "auto"},
     "pre_flash_power_gate": True,
+    "schema_2_bundle_required": True,
+    "exact_runtime_identity_required": True,
     "failure_restores_services": True,
     "can_transmit": False,
     "started_at": int(started),
@@ -142,16 +148,25 @@ validate_contract() {
   bash -n scripts/enter_t114_uf2_bootloader.sh
   bash -n scripts/cleanup_firmware_build_tools.sh
   bash -n scripts/preflight_firmware_host.sh
-  python3 -m py_compile scripts/check_whole_system_deployment.py
+  python3 -m py_compile \
+    scripts/check_whole_system_deployment.py scripts/check_firmware_bundle.py \
+    scripts/check_verified_firmware_flashes.py scripts/write_firmware_bundle_manifest.py
+}
+
+selected_requirement() {
+  if [[ "${SKIP_ESP32}" == "1" ]]; then printf '%s\n' t114
+  elif [[ "${SKIP_T114}" == "1" ]]; then printf '%s\n' esp32
+  else printf '%s\n' all
+  fi
 }
 
 verify_bundle() {
-  test -f "${BUNDLE_DIR}/SHA256SUMS.txt"
-  (
-    cd "${BUNDLE_DIR}"
-    sha256sum -c SHA256SUMS.txt
-  )
-  python3 scripts/check_whole_system_deployment.py --bundle-only --bundle-dir "${BUNDLE_DIR}"
+  local requirement
+  requirement="$(selected_requirement)"
+  python3 scripts/check_firmware_bundle.py \
+    --bundle "${BUNDLE_DIR}" --require "${requirement}"
+  python3 scripts/check_whole_system_deployment.py \
+    --bundle-only --bundle-dir "${BUNDLE_DIR}"
 }
 
 discover_required_devices() {
@@ -176,7 +191,7 @@ validate_contract
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   bash scripts/build_whole_system_firmware.sh --check-only
   python3 scripts/check_whole_system_deployment.py --source-only
-  write_status check_only_ready "Whole-system build/flash source contract validated without touching hardware."
+  write_status check_only_ready "Whole-system build/flash source, hardware, protocol, and bundle contracts validated without touching hardware."
   trap - ERR
   exit 0
 fi
@@ -191,10 +206,10 @@ if [[ "${USE_EXISTING_BUNDLE}" != "1" ]]; then
   bash scripts/build_whole_system_firmware.sh "${args[@]}"
 fi
 
-CURRENT_STEP="verify_bundle_checksums"
+CURRENT_STEP="verify_schema_2_bundle"
 verify_bundle
 if [[ "${BUILD_ONLY}" == "1" ]]; then
-  write_status built "Whole-system firmware bundle built and verified; flash skipped by --build-only."
+  write_status built "Firmware bundle built and verified with partition bounds, checksums, and exact runtime identities; flash skipped by --build-only."
   trap - ERR
   exit 0
 fi
@@ -218,12 +233,15 @@ if [[ "${SKIP_ESP32}" != "1" ]]; then
   bash scripts/flash_esp32_dualeye_current.sh
 fi
 
-CURRENT_STEP="post_flash_discovery"
+CURRENT_STEP="post_flash_exact_identity"
 sleep 2
 PYTHONPATH=pi-companion python3 scripts/discover_koalabyte_ports.py --profile heltec --output-dir logs/preflight
-python3 scripts/check_whole_system_deployment.py --post-flash --bundle-dir "${BUNDLE_DIR}" \
-  $([[ "${SKIP_ESP32}" == "1" ]] && printf '%s' '--skip-esp32') \
-  $([[ "${SKIP_T114}" == "1" ]] && printf '%s' '--skip-t114')
+post_args=(--post-flash --bundle-dir "${BUNDLE_DIR}")
+[[ "${SKIP_ESP32}" == "1" ]] && post_args+=(--skip-esp32)
+[[ "${SKIP_T114}" == "1" ]] && post_args+=(--skip-t114)
+python3 scripts/check_whole_system_deployment.py "${post_args[@]}"
+python3 scripts/check_verified_firmware_flashes.py \
+  --bundle "${BUNDLE_DIR}" --require "$(selected_requirement)"
 
 if is_enabled "${CLEANUP_FIRMWARE_BUILD_TOOLS}"; then
   if [[ "${SKIP_ESP32}" == "1" || "${SKIP_T114}" == "1" ]]; then
@@ -239,7 +257,7 @@ else
 fi
 
 CURRENT_STEP="complete"
-write_status complete "Firmware was built or selected, checksummed, power-gated, flashed, and rediscovered."
+write_status complete "Firmware was built or selected, schema-2 validated, power-gated, flashed, and exact firmware/protocol identities were rediscovered."
 trap - ERR
 restore_services 0
 echo "Whole-system peripheral firmware deployment complete."
