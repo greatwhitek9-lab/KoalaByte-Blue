@@ -46,10 +46,13 @@ for file in "${required[@]}"; do
 done
 
 STRICT_ESP32_TOOLS=1 bash scripts/setup_esp32_tools.sh
-esptool="$(find "${HOME}/.platformio/packages/tool-esptoolpy" -maxdepth 3 \
+esptool="$(find "${HOME}/.platformio/packages/tool-esptoolpy" -maxdepth 4 -type f \
   \( -name 'esptool.py' -o -name 'esptool' \) -print -quit 2>/dev/null || true)"
 [[ -n "${esptool}" ]] || esptool="$(command -v esptool.py || command -v esptool || true)"
-[[ -n "${esptool}" ]] || { write_status missing_esptool "esptool was not found."; exit 1; }
+[[ -n "${esptool}" && -f "${esptool}" ]] || {
+  write_status missing_esptool "An executable esptool file was not found."
+  exit 1
+}
 if [[ "${esptool}" == *.py ]]; then runner=(python3 "${esptool}"); else runner=("${esptool}"); fi
 
 run_esptool_for_port() {
