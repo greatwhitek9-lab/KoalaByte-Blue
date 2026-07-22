@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import re
+import struct
 import time
 from pathlib import Path
 
@@ -23,6 +24,11 @@ ESP32_LAYOUT = (
     ("srmodels.bin", 0x00CB0000, 0x01000000, 256 * 1024),
 )
 T114_MIN_BYTES = 64 * 1024
+UF2_MAGIC_START0 = 0x0A324655
+UF2_MAGIC_START1 = 0x9E5D5157
+UF2_MAGIC_END = 0x0AB16F30
+UF2_FAMILY_ID = 0x239A0071
+UF2_BLOCK_BYTES = 512
 
 
 def sha256(path: Path) -> str:
@@ -77,11 +83,59 @@ def record(path: Path, bundle: Path, *, address: int | None = None) -> dict[str,
     return row
 
 
-def require_binary_markers(path: Path, markers: tuple[str, ...], label: str) -> None:
-    data = path.read_bytes()
+def require_binary_markers(data: bytes, markers: tuple[str, ...], label: str) -> None:
     missing = [marker for marker in markers if marker.encode("utf-8") not in data]
     if missing:
         raise RuntimeError(f"{label} is missing compiled identity markers: {missing}")
+
+
+def decode_uf2_payload(path: Path) -> bytes:
+    raw = path.read_bytes()
+    if len(raw) % UF2_BLOCK_BYTES:
+        raise RuntimeError(f"T114 UF2 size is not a multiple of 512 bytes: {len(raw)}")
+    chunks: list[tuple[int, bytes]] = []
+    expected_blocks: int | None = None
+    seen_numbers: set[int] = set()
+    for offset in range(0, len(raw), UF2_BLOCK_BYTES):
+        block = raw[offset : offset + UF2_BLOCK_BYTES]
+        start0, start1, flags, target, payload_size, number, total, family = struct.unpack_from(
+            "<8I", block, 0
+        )
+        end_magic = struct.unpack_from("<I", block, 508)[0]
+        if (start0, start1, end_magic) != (
+            UF2_MAGIC_START0,
+            UF2_MAGIC_START1,
+            UF2_MAGIC_END,
+        ):
+            raise RuntimeError(f"invalid UF2 magic at block offset {offset}")
+        if payload_size <= 0 or payload_size > 476:
+            raise RuntimeError(f"invalid UF2 payload size {payload_size} at block {number}")
+        if family != UF2_FAMILY_ID:
+            raise RuntimeError(
+                f"unexpected T114 UF2 family at block {number}: 0x{family:08x}"
+            )
+        if expected_blocks is None:
+            expected_blocks = total
+        elif total != expected_blocks:
+            raise RuntimeError("inconsistent UF2 total block count")
+        if number in seen_numbers:
+            raise RuntimeError(f"duplicate UF2 block number: {number}")
+        seen_numbers.add(number)
+        chunks.append((target, block[32 : 32 + payload_size]))
+    if expected_blocks is None or len(chunks) != expected_blocks:
+        raise RuntimeError(
+            f"incomplete UF2 block set: observed={len(chunks)} expected={expected_blocks}"
+        )
+    chunks.sort(key=lambda item: item[0])
+    minimum = chunks[0][0]
+    maximum = max(address + len(payload) for address, payload in chunks)
+    if minimum != 0x00026000:
+        raise RuntimeError(f"unexpected T114 UF2 minimum target: 0x{minimum:08x}")
+    image = bytearray(b"\xff" * (maximum - minimum))
+    for address, payload in chunks:
+        start = address - minimum
+        image[start : start + len(payload)] = payload
+    return bytes(image)
 
 
 def validate_esp32(
@@ -111,14 +165,21 @@ def validate_esp32(
             )
         output.append(record(path, bundle, address=start))
     require_binary_markers(
-        bundle / "esp32" / "firmware.bin",
+        (bundle / "esp32" / "firmware.bin").read_bytes(),
         ("esp32-s3-dualeye", fw, protocol, repo_protocol),
         "ESP32 application image",
     )
     return output
 
 
-def validate_t114(bundle: Path, included: bool) -> dict[str, object] | None:
+def validate_t114(
+    bundle: Path,
+    included: bool,
+    *,
+    fw: str,
+    protocol: str,
+    repo_protocol: str,
+) -> dict[str, object] | None:
     if not included:
         return None
     path = bundle / "t114" / "koalabyte-t114-current.uf2"
@@ -128,6 +189,12 @@ def validate_t114(bundle: Path, included: bool) -> dict[str, object] | None:
         raise RuntimeError(
             f"T114 UF2 is unexpectedly small: {path.stat().st_size} bytes"
         )
+    payload = decode_uf2_payload(path)
+    require_binary_markers(
+        payload,
+        ("heltec-t114", "heltec_mouth_status", fw, protocol, repo_protocol),
+        "T114 UF2 application payload",
+    )
     return record(path, bundle)
 
 
@@ -164,7 +231,13 @@ def main() -> int:
         protocol=esp32_protocol,
         repo_protocol=repo_protocol,
     )
-    t114_file = validate_t114(bundle, not args.skip_t114)
+    t114_file = validate_t114(
+        bundle,
+        not args.skip_t114,
+        fw=t114_fw,
+        protocol=t114_protocol,
+        repo_protocol=repo_protocol,
+    )
 
     manifest = {
         "schema": 2,
