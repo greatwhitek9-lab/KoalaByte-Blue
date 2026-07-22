@@ -6,6 +6,27 @@ cd "${REPO_ROOT}"
 
 STRICT_TOOLS="${STRICT_TOOLS:-0}"
 BUILT_ANY=0
+ESP32_TOOLS_VENV="${ESP32_TOOLS_VENV:-${HOME}/.venvs/platformio}"
+PIO_BIN="${PIO_BIN:-}"
+
+resolve_pio() {
+  if [[ -n "${PIO_BIN}" && -x "${PIO_BIN}" ]]; then
+    return 0
+  fi
+  if command -v pio >/dev/null 2>&1; then
+    PIO_BIN="$(command -v pio)"
+    return 0
+  fi
+  if [[ -x "${ESP32_TOOLS_VENV}/bin/pio" ]]; then
+    PIO_BIN="${ESP32_TOOLS_VENV}/bin/pio"
+    return 0
+  fi
+  if [[ -x "${HOME}/.local/bin/pio" ]]; then
+    PIO_BIN="${HOME}/.local/bin/pio"
+    return 0
+  fi
+  return 1
+}
 
 python3 scripts/check_repo_readiness.py
 
@@ -28,9 +49,9 @@ if ! STRICT_ESP32_TOOLS="${STRICT_TOOLS}" bash scripts/setup_esp32_tools.sh; the
   fi
 fi
 
-if command -v pio >/dev/null 2>&1; then
-  echo "Building ESP32-S3 DualEye firmware..."
-  pio run -d firmware/esp32-dualeye
+if resolve_pio; then
+  echo "Building ESP32-S3 DualEye firmware with ${PIO_BIN}..."
+  "${PIO_BIN}" run -d firmware/esp32-dualeye
   BUILT_ANY=1
 else
   echo "Skipping ESP32 build: PlatformIO not found." >&2
