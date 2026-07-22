@@ -21,20 +21,59 @@ def default_primary_ble_port() -> str:
             "KOALABYTE_HELTEC_USB_PORT",
             os.getenv(
                 "HELTEC_PORT",
-                os.getenv("KOALABYTE_NRF_BLE_PORT", os.getenv("NRF_BLE_PORT", os.getenv("NRF_DFU_PORT", ""))),
+                os.getenv(
+                    "KOALABYTE_NRF_BLE_PORT",
+                    os.getenv("NRF_BLE_PORT", os.getenv("NRF_DFU_PORT", "")),
+                ),
             ),
         ),
     )
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run KoalaByte Blue V2 Heltec Edition BLE node manager with Heltec T114 nRF52840 as the primary BLE board.")
-    parser.add_argument("--duration", type=float, default=30.0, help="Seconds to listen. Use 0 for continuous.")
-    parser.add_argument("--primary-port", default=default_primary_ble_port(), help="Primary BLE serial port. Default checks KOALABYTE_PRIMARY_BLE_PORT, KOALABYTE_HELTEC_USB_PORT, HELTEC_PORT, then legacy nRF env names.")
-    parser.add_argument("--dongle-port", default="", help="Legacy alias for --primary-port. Prefer --primary-port for the Heltec Edition.")
-    parser.add_argument("--esp32-port", default=os.getenv("KOALABYTE_ESP32_FACE_PORT", os.getenv("ESP32_PORT", "")))
-    parser.add_argument("--baud", type=int, default=int(os.getenv("KOALABYTE_BLE_NODE_BAUD", "115200")))
-    parser.add_argument("--no-pi-bluez", action="store_true", help="Disable Raspberry Pi BlueZ secondary node observations.")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run KoalaByte Blue V2 Heltec Edition BLE node manager with the "
+            "Heltec T114 nRF52840 as the exclusive primary serial board."
+        )
+    )
+    parser.add_argument(
+        "--duration",
+        type=float,
+        default=30.0,
+        help="Seconds to listen. Use 0 for continuous.",
+    )
+    parser.add_argument(
+        "--primary-port",
+        default=default_primary_ble_port(),
+        help=(
+            "Primary BLE serial port. Default checks KOALABYTE_PRIMARY_BLE_PORT, "
+            "KOALABYTE_HELTEC_USB_PORT, HELTEC_PORT, then legacy nRF names."
+        ),
+    )
+    parser.add_argument(
+        "--dongle-port",
+        default="",
+        help="Legacy alias for --primary-port.",
+    )
+    parser.add_argument(
+        "--esp32-port",
+        default="",
+        help=(
+            "Manual diagnostics only. Production must leave this empty because "
+            "the DualEye voice bridge exclusively owns ESP32 serial."
+        ),
+    )
+    parser.add_argument(
+        "--baud",
+        type=int,
+        default=int(os.getenv("KOALABYTE_BLE_NODE_BAUD", "115200")),
+    )
+    parser.add_argument(
+        "--no-pi-bluez",
+        action="store_true",
+        help="Disable Raspberry Pi BlueZ secondary-node observations.",
+    )
     parser.add_argument("--log-dir", default="logs/ble_nodes")
     args = parser.parse_args()
 
@@ -50,7 +89,11 @@ def main() -> int:
     )
 
     if not manager.primary_ble.port:
-        print("No Heltec T114 primary BLE serial port found. Set KOALABYTE_PRIMARY_BLE_PORT, KOALABYTE_HELTEC_USB_PORT, or HELTEC_PORT.", file=sys.stderr)
+        print(
+            "No Heltec T114 primary BLE serial port found. Set "
+            "KOALABYTE_PRIMARY_BLE_PORT, KOALABYTE_HELTEC_USB_PORT, or HELTEC_PORT.",
+            file=sys.stderr,
+        )
         return 2
 
     duration = None if args.duration == 0 else args.duration
@@ -61,14 +104,12 @@ def main() -> int:
             event.get("type") == "node_error"
             and event.get("source") == manager.primary_ble.name
         ):
-            # A manager with no primary serial handle otherwise remains alive and
-            # never reconnects. Exit so systemd Restart=always retries hot-plug.
+            # Exit so systemd Restart=always retries after USB hot-plug or reset.
             print(
                 "Heltec primary serial open failed; exiting for systemd retry.",
                 file=sys.stderr,
             )
             return 3
-
     return 0
 
 
