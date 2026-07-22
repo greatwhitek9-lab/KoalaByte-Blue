@@ -4,17 +4,16 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import socket
 import stat
 import subprocess
 import time
-import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_STATUS = ROOT / "logs" / "runtime" / "live_service_health.json"
+MAX_RESTARTS = int(os.getenv("KOALABYTE_MAX_SERVICE_RESTARTS", "3"))
 
 
 def systemctl_properties(service: str) -> dict[str, str]:
@@ -23,7 +22,6 @@ def systemctl_properties(service: str) -> dict[str, str]:
         "show",
         service,
         "--property=ActiveState,SubState,NRestarts,ExecMainStatus,Result",
-        "--value",
     ]
     try:
         result = subprocess.run(
@@ -35,23 +33,33 @@ def systemctl_properties(service: str) -> dict[str, str]:
         )
     except Exception as exc:
         return {"error": str(exc)}
-    values = result.stdout.splitlines()
-    keys = ["ActiveState", "SubState", "NRestarts", "ExecMainStatus", "Result"]
-    payload = dict(zip(keys, values))
-    payload["returncode"] = str(result.returncode)
-    payload["stderr"] = result.stderr.strip()
+    payload: dict[str, str] = {
+        "returncode": str(result.returncode),
+        "stderr": result.stderr.strip(),
+    }
+    for line in result.stdout.splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        payload[key] = value
     return payload
 
 
 def service_ready(service: str) -> tuple[bool, dict[str, str]]:
     properties = systemctl_properties(service)
+    try:
+        restarts = int(properties.get("NRestarts", "0") or 0)
+    except ValueError:
+        restarts = MAX_RESTARTS + 1
     ready = (
         properties.get("returncode") == "0"
         and properties.get("ActiveState") == "active"
         and properties.get("SubState") in {"running", "exited"}
         and properties.get("ExecMainStatus") in {"", "0"}
         and properties.get("Result") in {"", "success"}
+        and restarts <= MAX_RESTARTS
     )
+    properties["restart_limit"] = str(MAX_RESTARTS)
     return ready, properties
 
 
@@ -126,7 +134,10 @@ def main() -> int:
             ready, properties = service_ready(service)
             last_services[service] = properties
             if not ready:
-                failures.append(f"service not stable: {service}")
+                restarts = properties.get("NRestarts", "unknown")
+                failures.append(
+                    f"service not stable: {service} (restarts={restarts})"
+                )
 
         if firmware_runtime:
             for target in ("esp32", "heltec"):
@@ -197,6 +208,7 @@ def main() -> int:
         "required_services": required_services,
         "services": last_services,
         "apis": last_api,
+        "max_service_restarts": MAX_RESTARTS,
         "serial_owners_required": firmware_runtime,
         "serial_owner_sockets": {
             target: str(
