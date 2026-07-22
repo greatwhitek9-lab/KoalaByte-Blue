@@ -138,7 +138,7 @@ try:
         if (
             payload.get("type") == "heltec_mouth_status"
             and payload.get("device") == "heltec-t114"
-            and str(payload.get("fw") or "").startswith("0.")
+            and bool(str(payload.get("fw") or "").strip())
         ):
             print(json.dumps(payload, sort_keys=True))
             raise SystemExit(0)
