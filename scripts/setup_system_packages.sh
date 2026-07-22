@@ -40,17 +40,13 @@ if [[ "${CHECK_ONLY}" == "1" || "${INSTALL_SYSTEM_PACKAGES}" == "0" ]]; then
   echo "Package installation not attempted."
   exit 0
 fi
-
 if ! command -v apt-get >/dev/null 2>&1; then
   echo "apt-get not found; skipping system package setup on this OS." >&2
   [[ "${STRICT_SYSTEM_PACKAGES}" == "1" ]] && exit 1
   exit 0
 fi
-
-if [[ "${EUID}" -eq 0 ]]; then
-  apt_runner=(apt-get)
-elif command -v sudo >/dev/null 2>&1; then
-  apt_runner=(sudo apt-get)
+if [[ "${EUID}" -eq 0 ]]; then apt_runner=(apt-get)
+elif command -v sudo >/dev/null 2>&1; then apt_runner=(sudo apt-get)
 else
   echo "apt-get is available, but root/sudo is unavailable." >&2
   [[ "${STRICT_SYSTEM_PACKAGES}" == "1" ]] && exit 1
@@ -81,25 +77,18 @@ package_exists() { apt-cache show "$1" >/dev/null 2>&1; }
 packages=()
 missing_required=()
 missing_optional=()
-
 for package in "${base_packages[@]}"; do
-  if package_exists "${package}"; then packages+=("${package}")
-  else missing_required+=("${package}")
-  fi
+  if package_exists "${package}"; then packages+=("${package}"); else missing_required+=("${package}"); fi
 done
 for package in "${optional_packages[@]}"; do
-  if package_exists "${package}"; then packages+=("${package}")
-  else missing_optional+=("${package}")
-  fi
+  if package_exists "${package}"; then packages+=("${package}"); else missing_optional+=("${package}"); fi
 done
 for group in "${variant_groups[@]}"; do
   selected=""
   for package in ${group}; do
     if package_exists "${package}"; then selected="${package}"; packages+=("${package}"); break; fi
   done
-  if [[ -z "${selected}" ]]; then missing_required+=("${group}")
-  else echo "Selected compatibility package: ${selected}"
-  fi
+  if [[ -z "${selected}" ]]; then missing_required+=("${group}"); else echo "Selected compatibility package: ${selected}"; fi
 done
 
 if (( ${#missing_optional[@]} > 0 )); then
@@ -129,11 +118,7 @@ apt_retry() {
   return "${rc}"
 }
 
-# Explicitly keep packet capture unprivileged; this answers the wireshark-common
-# debconf question without an interactive terminal.
 if command -v debconf-set-selections >/dev/null 2>&1; then
-  printf '%s\n' 'wireshark-common wireshark-common/install-setuid boolean false' | \
-    sudo_cmd="" cat >/dev/null
   if [[ "${EUID}" -eq 0 ]]; then
     printf '%s\n' 'wireshark-common wireshark-common/install-setuid boolean false' | debconf-set-selections || true
   else
