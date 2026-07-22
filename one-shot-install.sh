@@ -19,6 +19,7 @@ STATUS_PATH="${KOALABYTE_ONE_SHOT_STATUS_PATH:-logs/one_shot/final_install_statu
 PYTHON_BIN="${ROOT}/pi-companion/.venv/bin/python"
 INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN:-auto}"
 KOALABYTE_TMPDIR="${KOALABYTE_TMPDIR:-${HOME}/.cache/koalabyte/tmp}"
+RUNTIME_HEALTH_TIMEOUT="${KOALABYTE_RUNTIME_HEALTH_TIMEOUT:-45}"
 
 mkdir -p "${KOALABYTE_TMPDIR}"
 export TMPDIR="${KOALABYTE_TMPDIR}"
@@ -45,9 +46,9 @@ Options:
   --use-existing-firmware-bundle Flash releases/koalabyte-blue-current without rebuilding
   --keep-build-tools             Retain NCS, Zephyr SDK, west, and PlatformIO after success
 
-The default transaction uses persistent SD-card temporary storage, builds an
-atomic firmware bundle, rechecks Pi power immediately before flashing, installs
-and verifies runtime services, then removes firmware-only build toolchains.
+Run as the normal SSH/login user, not with `sudo bash`; privileged stages request
+sudo internally. The default transaction verifies runtime service stability and
+exclusive ESP32/Heltec serial ownership before cleanup or success is reported.
 EOF
 }
 
@@ -105,6 +106,8 @@ Path(path).write_text(json.dumps({
     "local_ai_model": "killerkoala-tinyllama:latest",
     "music_engine": "mopidy",
     "ble_roles": "heltec_primary_pi_bluez_preferred_esp32_guarded_fallback",
+    "serial_ownership": "esp32_voice_bridge_and_heltec_ble_manager",
+    "runtime_health_gate": True,
     "error_lifecycle": "purple_green_alarm_then_heltec_mouth_and_pi_dig",
     "can_transmit_during_install": False,
     "innomaker_stock_firmware_preserved": True,
@@ -157,20 +160,24 @@ validate_sources() {
     bash -n "${script}"
   done
   python3 -m py_compile \
-    scripts/run_headless_menu.py scripts/setup_gpio_buttons.py scripts/test_gpio_buttons.py \
+    scripts/run_headless_menu.py scripts/run_esp32_dualeye_voice_bridge.py \
+    scripts/run_ble_node_manager.py scripts/setup_gpio_buttons.py scripts/test_gpio_buttons.py \
     scripts/pi_hardware_doctor.py scripts/discover_koalabyte_ports.py \
-    scripts/check_one_shot_controls.py scripts/check_whole_system_deployment.py \
-    scripts/check_killerkoala_ai.py scripts/check_ble_role_failover.py \
-    scripts/check_killerkoala_error_sequence.py scripts/check_music_player.py \
-    scripts/check_full_runtime_dependencies.py \
+    scripts/check_serial_command_bus.py scripts/check_one_shot_controls.py \
+    scripts/check_whole_system_deployment.py scripts/check_killerkoala_ai.py \
+    scripts/check_ble_role_failover.py scripts/check_killerkoala_error_sequence.py \
+    scripts/check_music_player.py scripts/check_full_runtime_dependencies.py \
     pi-companion/koalablue/gpio_buttons.py pi-companion/koalablue/ble_role_coordinator.py \
     pi-companion/koalablue/ble_node_manager.py pi-companion/koalablue/dualeye_tts.py \
+    pi-companion/koalablue/serial_command_bus.py \
+    pi-companion/koalablue/runtime_serial_ownership.py \
     pi-companion/koalablue/killerkoala_expression.py \
     pi-companion/koalablue/killerkoala_hybrid_companion.py \
     pi-companion/koalablue/killerkoala_voice_control.py \
     pi-companion/koalablue/esp32_dualeye_speech_synced_bridge.py \
     pi-companion/koalablue/mopidy_player.py pi-companion/koalablue/music_player.py \
     pi-companion/koalablue/music_speech_duck.py
+  PYTHONPATH=pi-companion python3 scripts/check_serial_command_bus.py >/dev/null
 }
 
 run_discovery() {
@@ -184,6 +191,7 @@ run_button_probe() {
 run_runtime_checks() {
   local py
   py="$(python_for_runtime)"
+  PYTHONPATH=pi-companion "${py}" scripts/check_serial_command_bus.py
   PYTHONPATH=pi-companion "${py}" scripts/check_one_shot_controls.py
   PYTHONPATH=pi-companion "${py}" scripts/check_killerkoala_ai.py
   PYTHONPATH=pi-companion KOALABYTE_MENU_SYNC=0 "${py}" scripts/check_menu_display_sync.py
@@ -213,6 +221,58 @@ restart_services() {
     "${sudo_cmd[@]}" systemctl enable koalabyte-can0.service >/dev/null 2>&1 || true
     "${sudo_cmd[@]}" systemctl restart koalabyte-can0.service || true
   fi
+}
+
+verify_runtime_services() {
+  command -v systemctl >/dev/null 2>&1 || {
+    echo "systemctl is required for runtime health verification." >&2
+    return 1
+  }
+  local sudo_cmd=() deadline now service failed=0
+  [[ "${EUID}" -ne 0 ]] && sudo_cmd=(sudo)
+  required=(
+    koalabyte-menu.service
+    koalabyte-doctor.service
+  )
+  if [[ "${SKIP_FIRMWARE}" != "1" && "${FIRMWARE_BUILD_ONLY}" != "1" ]]; then
+    required+=(koalabyte-ble-node-manager.service koalabyte-dualeye-voice-bridge.service)
+  fi
+  [[ "${SKIP_AI}" == "1" ]] || required+=(ollama.service)
+  [[ "${SKIP_MUSIC}" == "1" ]] || required+=(mopidy.service)
+  can_enabled && required+=(koalabyte-can0.service)
+
+  deadline=$(( $(date +%s) + RUNTIME_HEALTH_TIMEOUT ))
+  while (( $(date +%s) < deadline )); do
+    failed=0
+    for service in "${required[@]}"; do
+      "${sudo_cmd[@]}" systemctl is-active --quiet "${service}" || failed=1
+    done
+    if [[ "${SKIP_FIRMWARE}" != "1" && "${FIRMWARE_BUILD_ONLY}" != "1" ]]; then
+      [[ -S logs/runtime/serial_bus/esp32.sock ]] || failed=1
+      [[ -S logs/runtime/serial_bus/heltec.sock ]] || failed=1
+    fi
+    [[ "${failed}" == "0" ]] && break
+    sleep 1
+  done
+
+  failed=0
+  for service in "${required[@]}"; do
+    if ! "${sudo_cmd[@]}" systemctl is-active --quiet "${service}"; then
+      echo "Runtime service is not active: ${service}" >&2
+      "${sudo_cmd[@]}" systemctl --no-pager --full status "${service}" >&2 || true
+      "${sudo_cmd[@]}" journalctl -u "${service}" -n 40 --no-pager >&2 || true
+      failed=1
+    fi
+  done
+  if [[ "${SKIP_FIRMWARE}" != "1" && "${FIRMWARE_BUILD_ONLY}" != "1" ]]; then
+    for target in esp32 heltec; do
+      if [[ ! -S "logs/runtime/serial_bus/${target}.sock" ]]; then
+        echo "Serial owner socket did not become ready: logs/runtime/serial_bus/${target}.sock" >&2
+        failed=1
+      fi
+    done
+  fi
+  [[ "${failed}" == "0" ]]
 }
 
 run_final_doctor() {
@@ -250,7 +310,7 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
   run_step "Pi hardware inventory" env INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN}" bash scripts/setup_pi_hardware_stage.sh --check-only
   [[ "${SKIP_AI}" == "1" ]] || run_step "TinyLlama installer contract" bash scripts/setup_killerkoala_ollama.sh --check-only
   [[ "${SKIP_MUSIC}" == "1" ]] || run_step "Mopidy installer contract" bash scripts/setup_mopidy_player.sh --check-only
-  run_step "Control, AI, music, BLE, alarm, and display contracts" run_runtime_checks
+  run_step "Control, AI, music, BLE, alarm, display, and serial ownership contracts" run_runtime_checks
   run_step "Audio readiness" bash scripts/configure_pi_audio_output.sh --check-only
   write_status complete whole_system_check "Complete source and runtime contracts validated."
   trap - ERR
@@ -306,11 +366,12 @@ run_step "Post-deployment device discovery" run_discovery
 run_step "K1-K8 GPIO initialization" run_button_probe
 run_step "Control, AI, music, BLE, alarm, and display verification" run_runtime_checks
 run_step "Runtime service activation" restart_services
+run_step "Runtime service health and serial ownership" verify_runtime_services
 [[ "${SKIP_AUDIO}" == "1" ]] || run_step "External audio selection" bash scripts/configure_pi_audio_output.sh
 run_step "Final Pi hardware doctor" run_final_doctor
 run_step "Remove firmware-only build toolchains" run_cleanup
 
-write_status complete whole_system_deployment "Firmware and Pi runtime deployed, verified, and cleaned according to policy."
+write_status complete whole_system_deployment "Firmware and Pi runtime deployed, services stable, serial ownership verified, and build tools cleaned according to policy."
 trap - ERR
 
 cat <<EOF
@@ -326,6 +387,7 @@ TinyLlama: logs/killerkoala/ollama_setup_status.json
 Music: logs/music_player/mopidy_setup_status.json
 BLE roles: logs/ble_nodes/ble_role_election.json
 Device map: logs/preflight/koalabyte_ports.json
+Serial owners: logs/runtime/serial_bus/esp32.sock and heltec.sock
 
 Reboot once after the first installation so ${SERVICE_USER} receives all hardware group memberships.
 EOF
