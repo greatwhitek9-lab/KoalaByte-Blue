@@ -139,11 +139,6 @@ def _client_menu_write(
     return submission.accepted, submission.status
 
 
-def _requeue(target: str, payloads: list[dict[str, Any]]) -> None:
-    for payload in payloads[-64:]:
-        submit_command(target, payload, queue_if_unavailable=True)
-
-
 def install_display_command_clients() -> None:
     """Stop non-owner runtime processes from opening either board's tty."""
 
@@ -165,8 +160,6 @@ def install_display_command_clients() -> None:
 
     menu_display_sync._send_json_line = _client_menu_write
 
-    # The speech-synced bridge imports both helpers by value. Update every loaded
-    # binding explicitly; modules imported later receive the patched helpers.
     for name in (
         "koalablue.esp32_dualeye_voice_bridge",
         "koalablue.esp32_dualeye_speech_synced_bridge",
@@ -184,7 +177,7 @@ def install_display_command_clients() -> None:
 
 
 def install_esp32_serial_owner(bridge_class: type[Any]) -> None:
-    """Attach the ESP32 command inbox to the long-running voice bridge."""
+    """Attach the crash-resilient ESP32 inbox to the voice bridge."""
 
     if getattr(bridge_class, "_koalabyte_serial_owner_installed", False):
         return
@@ -197,21 +190,23 @@ def install_esp32_serial_owner(bridge_class: type[Any]) -> None:
         inbox = getattr(instance, "_koalabyte_esp32_command_inbox", None)
         if inbox is None:
             return
-        retry = list(getattr(instance, "_koalabyte_esp32_command_retry", []))
-        retry.extend(inbox.drain(max_items=max(0, 64 - len(retry))))
-        remaining: list[dict[str, Any]] = []
-        for payload in retry[:64]:
+        commands = inbox.drain(max_items=64)
+        if not commands:
+            return
+        for payload in commands:
             try:
                 instance._serial_write_json(payload)
             except Exception:
-                remaining.append(payload)
-        instance._koalabyte_esp32_command_retry = remaining[-64:]
+                # Leave the active claim unacknowledged. The same batch is replayed
+                # after the owner recovers or restarts; duplicate display commands
+                # are safer than silent command loss.
+                return
+        inbox.acknowledge()
 
     def owned_open(instance: Any, *args: Any, **kwargs: Any) -> Any:
         result = original_open(instance, *args, **kwargs)
         try:
             instance._koalabyte_esp32_command_inbox = JsonCommandInbox("esp32")
-            instance._koalabyte_esp32_command_retry = []
             drain(instance)
         except Exception:
             try:
@@ -228,19 +223,12 @@ def install_esp32_serial_owner(bridge_class: type[Any]) -> None:
 
     def owned_close(instance: Any, *args: Any, **kwargs: Any) -> Any:
         inbox = getattr(instance, "_koalabyte_esp32_command_inbox", None)
-        pending = list(getattr(instance, "_koalabyte_esp32_command_retry", []))
         if inbox is not None:
             try:
                 drain(instance)
-                pending = list(
-                    getattr(instance, "_koalabyte_esp32_command_retry", [])
-                )
-                pending.extend(inbox.drain(max_items=max(0, 64 - len(pending))))
             finally:
                 inbox.close()
                 instance._koalabyte_esp32_command_inbox = None
-        instance._koalabyte_esp32_command_retry = []
-        _requeue("esp32", pending)
         return original_close(instance, *args, **kwargs)
 
     bridge_class.open = owned_open
@@ -253,26 +241,27 @@ class _HeltecOwnedSerial:
     def __init__(self, serial_handle: Any) -> None:
         self._serial = serial_handle
         self._inbox = JsonCommandInbox("heltec")
-        self._retry: list[dict[str, Any]] = []
         self._drain_commands()
 
     def _drain_commands(self) -> None:
-        commands = [
-            *self._retry,
-            *self._inbox.drain(max_items=max(0, 64 - len(self._retry))),
-        ]
-        self._retry = []
-        for payload in commands[:64]:
+        commands = self._inbox.drain(max_items=64)
+        if not commands:
+            return
+        transient_failure = False
+        for payload in commands:
             try:
                 wire_payload = compact_heltec_payload(payload)
-                line = _wire_bytes(wire_payload) + b"\n"
-                self._serial.write(line)
+                self._serial.write(_wire_bytes(wire_payload) + b"\n")
                 self._serial.flush()
             except ValueError as exc:
+                # An invalid oversized command can never succeed on retry. Log it
+                # and continue so it cannot permanently block later valid commands.
                 print(f"Rejected unsafe Heltec serial payload: {exc}", file=sys.stderr)
             except Exception:
-                self._retry.append(payload)
-        self._retry = self._retry[-64:]
+                transient_failure = True
+                break
+        if not transient_failure:
+            self._inbox.acknowledge()
 
     def readline(self, *args: Any, **kwargs: Any) -> Any:
         self._drain_commands()
@@ -281,18 +270,10 @@ class _HeltecOwnedSerial:
         return value
 
     def close(self) -> None:
-        pending = list(self._retry)
         try:
-            try:
-                self._drain_commands()
-                pending = list(self._retry)
-                pending.extend(
-                    self._inbox.drain(max_items=max(0, 64 - len(pending)))
-                )
-            finally:
-                self._inbox.close()
-            _requeue("heltec", pending)
+            self._drain_commands()
         finally:
+            self._inbox.close()
             self._serial.close()
 
     def __getattr__(self, name: str) -> Any:
@@ -300,7 +281,7 @@ class _HeltecOwnedSerial:
 
 
 def install_heltec_serial_owner() -> None:
-    """Attach the Heltec command inbox to the BLE/GNSS serial manager."""
+    """Attach the crash-resilient Heltec inbox to the BLE/GNSS manager."""
 
     from .ble_node_manager import SerialBleNode
 
