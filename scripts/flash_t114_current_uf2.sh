@@ -9,7 +9,7 @@ UF2="${T114_UF2_PATH:-${BUNDLE_DIR}/t114/koalabyte-t114-current.uf2}"
 UF2_VOLUME_NAME="${T114_UF2_VOLUME_NAME:-HT-n5262}"
 UF2_MOUNTPOINT="${T114_UF2_MOUNTPOINT:-/mnt/koalabyte-t114-uf2}"
 STATUS_PATH="${T114_FLASH_STATUS_PATH:-${ROOT}/logs/deployment/t114_flash_status.json}"
-WAIT_SECONDS="${T114_FLASH_WAIT_SECONDS:-45}"
+WAIT_SECONDS="${T114_FLASH_WAIT_SECONDS:-75}"
 CHECK_ONLY=0
 
 while [[ $# -gt 0 ]]; do
@@ -24,14 +24,14 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-mkdir -p "${ROOT}/logs/deployment"
+mkdir -p "${ROOT}/logs/deployment" "${ROOT}/logs/preflight"
 
 write_status() {
-  local status="$1" reason="$2" mount="${3:-}"
-  python3 - "${STATUS_PATH}" "${status}" "${reason}" "${UF2}" "${mount}" <<'PY'
+  local status="$1" reason="$2" mount="${3:-}" runtime_port="${4:-}"
+  python3 - "${STATUS_PATH}" "${status}" "${reason}" "${UF2}" "${mount}" "${runtime_port}" <<'PY'
 import hashlib, json, sys, time
 from pathlib import Path
-path, status, reason, uf2, mount = sys.argv[1:]
+path, status, reason, uf2, mount, runtime_port = sys.argv[1:]
 source = Path(uf2)
 payload = {
     "status": status,
@@ -39,6 +39,9 @@ payload = {
     "artifact": uf2,
     "artifact_sha256": hashlib.sha256(source.read_bytes()).hexdigest() if source.exists() else "",
     "uf2_mount": mount,
+    "runtime_port": runtime_port,
+    "runtime_identity_required": True,
+    "expected_runtime_device": "heltec-t114",
     "updated_at": time.time(),
 }
 Path(path).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -46,11 +49,7 @@ PY
 }
 
 sudo_run() {
-  if [[ "${EUID}" -eq 0 ]]; then
-    "$@"
-  else
-    sudo "$@"
-  fi
+  if [[ "${EUID}" -eq 0 ]]; then "$@"; else sudo "$@"; fi
 }
 
 find_record() {
@@ -99,21 +98,71 @@ validate_contract() {
     --family 0x239a0071 >/dev/null
 }
 
+query_t114_status() {
+  local candidate="$1" python_runner=(python3)
+  [[ -e "${candidate}" ]] || return 1
+  if [[ ! -r "${candidate}" || ! -w "${candidate}" ]] && command -v sudo >/dev/null 2>&1; then
+    python_runner=(sudo env "PYTHONPATH=${ROOT}/pi-companion" python3)
+  fi
+  PYTHONPATH=pi-companion "${python_runner[@]}" - "${candidate}" <<'PY'
+import json, sys, time
+import serial
+port = sys.argv[1]
+ser = serial.Serial()
+ser.port = port
+ser.baudrate = 115200
+ser.timeout = 0.25
+ser.write_timeout = 1.0
+ser.dsrdtr = False
+ser.rtscts = False
+ser.dtr = False
+ser.rts = False
+ser.open()
+try:
+    time.sleep(0.25)
+    deadline = time.time() + 4.0
+    next_request = 0.0
+    while time.time() < deadline:
+        now = time.time()
+        if now >= next_request:
+            ser.write(b'{"type":"status"}\n')
+            ser.flush()
+            next_request = now + 0.8
+        line = ser.readline().decode("utf-8", errors="replace").strip()
+        if not line:
+            continue
+        try:
+            payload = json.loads(line)
+        except Exception:
+            continue
+        if (
+            payload.get("type") == "heltec_mouth_status"
+            and payload.get("device") == "heltec-t114"
+            and str(payload.get("fw") or "").startswith("0.")
+        ):
+            print(json.dumps(payload, sort_keys=True))
+            raise SystemExit(0)
+finally:
+    ser.close()
+raise SystemExit(1)
+PY
+}
+
 if [[ ! -f "${UF2}" ]]; then
-  write_status "missing_artifact" "T114 UF2 artifact is missing."
+  write_status missing_artifact "T114 UF2 artifact is missing."
   echo "Missing T114 UF2: ${UF2}" >&2
   exit 1
 fi
 validate_contract
 if [[ "${CHECK_ONLY}" == "1" ]]; then
-  write_status "check_only_ready" "T114 UF2 and flash contract validated."
+  write_status check_only_ready "T114 UF2, vector, bootloader, and runtime identity contracts validated."
   exit 0
 fi
 
 bash scripts/enter_t114_uf2_bootloader.sh
 mount="$(mount_volume || true)"
 if [[ -z "${mount}" || ! -d "${mount}" ]]; then
-  write_status "mount_failed" "HT-n5262 UF2 volume could not be mounted."
+  write_status mount_failed "HT-n5262 UF2 volume could not be mounted."
   exit 1
 fi
 
@@ -121,20 +170,34 @@ echo "Copying current T114 UF2 to ${mount}..."
 cp "${UF2}" "${mount}/KOALABYTE.UF2" 2>/dev/null \
   || sudo_run cp "${UF2}" "${mount}/KOALABYTE.UF2"
 sync
-write_status "copied" "T114 UF2 copied; waiting for application USB to return." "${mount}"
+write_status copied "T114 UF2 copied; waiting for verified application USB." "${mount}"
 
-# The bootloader normally unmounts after accepting the UF2. Wait for the runtime
-# CDC alias or a ttyACM endpoint to return before allowing Pi services to start.
 deadline=$(( $(date +%s) + WAIT_SECONDS ))
+verified_port=""
 while (( $(date +%s) < deadline )); do
-  if [[ -e /dev/koalabyte-heltec || -e /dev/koalabyte-heltec-t114 ]]; then
-    write_status "flashed" "T114 UF2 accepted and runtime USB alias returned." "${mount}"
-    echo "T114 firmware flash complete."
-    exit 0
+  PYTHONPATH=pi-companion python3 scripts/discover_koalabyte_ports.py --profile heltec --output-dir logs/preflight >/dev/null 2>&1 || true
+  discovered=""
+  if [[ -f logs/preflight/koalabyte_ports.env ]]; then
+    # shellcheck disable=SC1091
+    source logs/preflight/koalabyte_ports.env
+    discovered="${KOALABYTE_HELTEC_USB_PORT:-${KOALABYTE_PRIMARY_BLE_PORT:-${HELTEC_PORT:-}}}"
   fi
+  for candidate in /dev/koalabyte-heltec /dev/koalabyte-heltec-t114 "${discovered}"; do
+    [[ -n "${candidate}" && -e "${candidate}" ]] || continue
+    if query_t114_status "${candidate}"; then
+      verified_port="${candidate}"
+      break 2
+    fi
+  done
   sleep 1
 done
 
-write_status "flashed_unverified" "UF2 was copied, but the stable runtime alias did not return before timeout." "${mount}"
-echo "T114 UF2 copied, but runtime re-enumeration was not verified." >&2
+if [[ -n "${verified_port}" ]]; then
+  write_status flashed "T114 UF2 accepted and heltec_mouth_status verified the intended application." "${mount}" "${verified_port}"
+  echo "T114 firmware flash complete."
+  exit 0
+fi
+
+write_status flashed_unverified "UF2 was copied, but the intended T114 application identity was not verified before timeout." "${mount}"
+echo "T114 UF2 copied, but runtime identity verification timed out." >&2
 exit 1
