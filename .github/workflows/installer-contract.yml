@@ -50,6 +50,9 @@ jobs:
       - name: Lock ESP32 and T114 hardware contracts
         run: python3 scripts/check_firmware_hardware_contract.py
 
+      - name: Validate ESP32 and T114 protocol patches
+        run: python3 scripts/check_firmware_protocol_contract.py
+
       - name: Validate single-owner serial command bus
         env:
           PYTHONPATH: pi-companion
@@ -77,6 +80,7 @@ jobs:
           grep -Fq 'esp32-source-backup' scripts/build_whole_system_firmware.sh
           grep -Fq 'atomic_bundle_publish' scripts/build_whole_system_firmware.sh
           grep -Fq 'check_firmware_hardware_contract.py' scripts/build_whole_system_firmware.sh
+          grep -Fq 'check_firmware_protocol_contract.py' scripts/build_whole_system_firmware.sh
           grep -Fq 'DEBIAN_FRONTEND=noninteractive' scripts/setup_system_packages.sh
           grep -Fq 'firmware_bundle_preserved' scripts/cleanup_firmware_build_tools.sh
           grep -Fq 'install_esp32_serial_owner' scripts/run_esp32_dualeye_voice_bridge.py
