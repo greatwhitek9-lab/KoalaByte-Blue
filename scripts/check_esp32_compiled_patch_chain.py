@@ -7,13 +7,18 @@ from pathlib import Path
 from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE_SOURCE = ROOT / "firmware/esp32-dualeye/src/integrated_main_clean_voice.cpp"
+INCLUDED_SOURCE = ROOT / "firmware/esp32-dualeye/src/integrated_main.cpp"
+WRAPPER_TEMPLATE = ROOT / "firmware/esp32-dualeye/src/integrated_main_clean_voice.cpp"
+WRAPPER_GENERATOR = (
+    ROOT / "firmware/esp32-dualeye/scripts/generate_wake_session_source.py"
+)
 PATCHES = (
     ROOT / "firmware/esp32-dualeye/scripts/patch_guarded_ble_failover.py",
     ROOT / "firmware/esp32-dualeye/scripts/patch_tone_expression_payloads.py",
     ROOT / "firmware/esp32-dualeye/scripts/patch_alarm_background.py",
 )
-COMPILED_SOURCE_NAME = "integrated_main_wake_session.cpp"
+INCLUDED_SOURCE_NAME = "integrated_main.cpp"
+COMPILED_WRAPPER_NAME = "integrated_main_wake_session.cpp"
 
 
 def replacement_calls(path: Path) -> Iterable[tuple[str, str, str]]:
@@ -35,13 +40,21 @@ def replacement_calls(path: Path) -> Iterable[tuple[str, str, str]]:
 
 
 def main() -> int:
-    text = BASE_SOURCE.read_text(encoding="utf-8")
+    wrapper = WRAPPER_TEMPLATE.read_text(encoding="utf-8")
+    generator = WRAPPER_GENERATOR.read_text(encoding="utf-8")
+    include_marker = '#include "integrated_main.cpp"'
+    if include_marker not in wrapper or include_marker not in generator:
+        raise AssertionError(
+            "the generated wake-session wrapper no longer textually includes integrated_main.cpp"
+        )
+
+    text = INCLUDED_SOURCE.read_text(encoding="utf-8")
     applied: list[dict[str, object]] = []
     for patch in PATCHES:
         patch_text = patch.read_text(encoding="utf-8")
-        if f'"{COMPILED_SOURCE_NAME}"' not in patch_text:
+        if f'"{INCLUDED_SOURCE_NAME}"' not in patch_text:
             raise AssertionError(
-                f"{patch.relative_to(ROOT)} does not target {COMPILED_SOURCE_NAME}"
+                f"{patch.relative_to(ROOT)} does not target included source {INCLUDED_SOURCE_NAME}"
             )
         replacements = list(replacement_calls(patch))
         if not replacements:
@@ -74,14 +87,15 @@ def main() -> int:
     )
     missing = [marker for marker in required_markers if marker not in text]
     if missing:
-        raise AssertionError(f"compiled patch-chain output missing markers: {missing}")
+        raise AssertionError(f"included patch-chain output missing markers: {missing}")
 
     print(
         json.dumps(
             {
-                "status": "ESP32_COMPILED_PATCH_CHAIN_READY",
-                "base_source": str(BASE_SOURCE.relative_to(ROOT)),
-                "compiled_source": COMPILED_SOURCE_NAME,
+                "status": "ESP32_INCLUDED_PATCH_CHAIN_READY",
+                "included_source": str(INCLUDED_SOURCE.relative_to(ROOT)),
+                "compiled_wrapper": COMPILED_WRAPPER_NAME,
+                "textual_include_verified": True,
                 "patches": applied,
                 "required_markers": list(required_markers),
             },
