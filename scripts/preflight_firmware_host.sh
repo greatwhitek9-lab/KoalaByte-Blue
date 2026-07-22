@@ -20,9 +20,9 @@ Usage:
   bash scripts/preflight_firmware_host.sh --before-build
   bash scripts/preflight_firmware_host.sh --before-flash
 
-Run the installer as the normal SSH/login user, not with `sudo bash`. The scripts
-request sudo only for APT, systemd, udev, mounts, and other privileged operations.
-This keeps PlatformIO, NCS, cache, and build paths under one consistent HOME.
+Installation/build requires 64-bit Raspberry Pi OS Bookworm or Trixie, Python
+3.10-3.13, a consistent non-root HOME, adequate persistent storage and memory,
+and a clean Raspberry Pi power state. Run as the normal SSH user, not sudo bash.
 EOF
 }
 
@@ -50,6 +50,9 @@ is_enabled() {
 }
 
 if [[ "${MODE}" == "before-install" || "${MODE}" == "before-build" ]]; then
+  if ! python3 "${ROOT}/scripts/check_supported_host.py"; then
+    failures+=("unsupported Raspberry Pi OS/Python host; inspect logs/preflight/supported_host.json")
+  fi
   if [[ "${EUID}" -eq 0 && -n "${SUDO_USER:-}" ]] && ! is_enabled "${ALLOW_SUDO_WRAPPED_INSTALL}"; then
     failures+=("do not run the installer as 'sudo bash'; exit the root shell and run 'bash one-shot-install.sh' as ${SUDO_USER}, because sudo-wrapping splits HOME and firmware tool ownership")
   fi
