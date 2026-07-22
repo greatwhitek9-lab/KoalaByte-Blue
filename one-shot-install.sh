@@ -13,10 +13,17 @@ SKIP_MUSIC=0
 SKIP_FIRMWARE=0
 FIRMWARE_BUILD_ONLY=0
 USE_EXISTING_FIRMWARE_BUNDLE=0
+CLEANUP_FIRMWARE_BUILD_TOOLS="${CLEANUP_FIRMWARE_BUILD_TOOLS:-1}"
 SERVICE_USER="${KOALABYTE_SERVICE_USER:-${SUDO_USER:-${USER:-pi}}}"
 STATUS_PATH="${KOALABYTE_ONE_SHOT_STATUS_PATH:-logs/one_shot/final_install_status.json}"
 PYTHON_BIN="${ROOT}/pi-companion/.venv/bin/python"
 INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN:-auto}"
+KOALABYTE_TMPDIR="${KOALABYTE_TMPDIR:-${HOME}/.cache/koalabyte/tmp}"
+
+mkdir -p "${KOALABYTE_TMPDIR}"
+export TMPDIR="${KOALABYTE_TMPDIR}"
+export TMP="${KOALABYTE_TMPDIR}"
+export TEMP="${KOALABYTE_TMPDIR}"
 
 usage() {
   cat <<'EOF'
@@ -25,14 +32,6 @@ KoalaByte Blue complete whole-system one-shot deployment
 Usage:
   bash one-shot-install.sh
   bash one-shot-install.sh --check-only
-
-Default deployment:
-  1. Prepare Raspberry Pi OS Lite packages, Python, udev, GPIO, audio, and tools.
-  2. Build the current Heltec T114 UF2 and complete ESP32-S3 image set.
-  3. Flash the T114 and ESP32-S3 in the same installer transaction.
-  4. Install TinyLlama, web research, Australian TTS, Mopidy music, BLE failover,
-     K1-K8 controls, menu/action services, synchronized displays, and diagnostics.
-  5. Rediscover and verify both flashed peripherals before completion.
 
 Options:
   --check-only                   Validate the complete source/deployment contract
@@ -44,29 +43,11 @@ Options:
   --skip-firmware                Provision only the Pi; do not build or flash peripherals
   --firmware-build-only          Build/checksum firmware but do not flash it
   --use-existing-firmware-bundle Flash releases/koalabyte-blue-current without rebuilding
+  --keep-build-tools             Retain NCS, Zephyr SDK, west, and PlatformIO after success
 
-Important environment:
-  KOALABYTE_SERVICE_USER=<linux-user>
-  KOALABYTE_REQUIRE_ALL_PERIPHERALS=1
-  ESP32_PORT=/dev/serial/by-id/<esp32>
-  KOALABYTE_HELTEC_USB_PORT=/dev/koalabyte-heltec
-  T114_UF2_MOUNT=/media/<user>/HT-n5262
-  T114_BOOTLOADER_TIMEOUT_SECONDS=45
-  INSTALL_KILLERKOALA_OLLAMA=auto|1|0
-  STRICT_KILLERKOALA_OLLAMA=0|1
-  KILLERKOALA_LLM_MODEL=killerkoala-tinyllama:latest
-  KILLERKOALA_WEB_SEARCH=auto|always|off
-  INSTALL_MOPIDY_PLAYER=auto|1|0
-  STRICT_MOPIDY_PLAYER=0|1
-  INSTALL_INNOMAKER_CAN=auto|1|0
-  CAN_INTERFACE=can0
-  CAN_BITRATE=500000
-  STRICT_GPIO_BUTTONS=0|1
-
-The InnoMaker/SocketCAN adapter remains stock firmware and no CAN frames are
-transmitted during installation. The default run requires both the T114 and
-ESP32-S3 to be connected. First deployment may require one T114 reset double-tap
-if its currently installed firmware predates software UF2 entry.
+The default transaction uses persistent SD-card temporary storage, builds an
+atomic firmware bundle, rechecks Pi power immediately before flashing, installs
+and verifies runtime services, then removes firmware-only build toolchains.
 EOF
 }
 
@@ -81,6 +62,7 @@ while [[ $# -gt 0 ]]; do
     --skip-firmware) SKIP_FIRMWARE=1 ;;
     --firmware-build-only) FIRMWARE_BUILD_ONLY=1 ;;
     --use-existing-firmware-bundle) USE_EXISTING_FIRMWARE_BUNDLE=1 ;;
+    --keep-build-tools) CLEANUP_FIRMWARE_BUILD_TOOLS=0 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -90,15 +72,20 @@ done
 mkdir -p logs/one_shot logs/deployment logs/preflight logs/pi_hardware \
   logs/gpio_buttons logs/runtime logs/killerkoala logs/ble_nodes logs/music_player
 
+enabled() {
+  case "$1" in 1|true|True|yes|YES|on|ON|auto|AUTO) return 0 ;; *) return 1 ;; esac
+}
+
 write_status() {
   local status="$1" step="$2" reason="$3"
   python3 - "${STATUS_PATH}" "${status}" "${step}" "${reason}" \
     "${CHECK_ONLY}" "${SERVICE_USER}" "${SKIP_AI}" "${SKIP_MUSIC}" \
-    "${SKIP_FIRMWARE}" "${FIRMWARE_BUILD_ONLY}" <<'PY'
+    "${SKIP_FIRMWARE}" "${FIRMWARE_BUILD_ONLY}" "${CLEANUP_FIRMWARE_BUILD_TOOLS}" \
+    "${KOALABYTE_TMPDIR}" <<'PY'
 import json, sys, time
 from pathlib import Path
 (path, status, step, reason, check_only, service_user, skip_ai, skip_music,
- skip_firmware, build_only) = sys.argv[1:]
+ skip_firmware, build_only, cleanup_tools, temp_dir) = sys.argv[1:]
 firmware_enabled = skip_firmware != "1"
 Path(path).write_text(json.dumps({
     "status": status,
@@ -107,10 +94,12 @@ Path(path).write_text(json.dumps({
     "check_only": check_only == "1",
     "service_user": service_user,
     "runtime_mode": "headless_pi_os_lite",
+    "persistent_temp_dir": temp_dir,
     "firmware_flashing": firmware_enabled and build_only != "1",
     "firmware_build": firmware_enabled,
     "firmware_targets": ["heltec-t114-uf2", "waveshare-esp32-s3-dualeye"],
     "firmware_bundle": "releases/koalabyte-blue-current",
+    "build_tool_cleanup_requested": cleanup_tools.lower() in {"1", "true", "yes", "on", "auto"},
     "ai_setup_skipped": skip_ai == "1",
     "music_setup_skipped": skip_music == "1",
     "local_ai_model": "killerkoala-tinyllama:latest",
@@ -125,13 +114,12 @@ PY
 }
 
 run_step() {
-  local name="$1"
-  shift
+  local name="$1"; shift
   echo
   echo "== ${name} =="
-  write_status "running" "${name}" "step started"
+  write_status running "${name}" "step started"
   "$@"
-  write_status "ok" "${name}" "step completed"
+  write_status ok "${name}" "step completed"
 }
 
 python_for_runtime() {
@@ -143,7 +131,6 @@ can_hardware_present() {
   command -v lsusb >/dev/null 2>&1 || return 1
   lsusb | grep -Eiq 'innomaker|usb.?can|candle|canable|gs[_ -]?usb'
 }
-
 can_enabled() {
   [[ "${SKIP_CAN}" == "1" ]] && return 1
   case "${INSTALL_INNOMAKER_CAN}" in
@@ -155,15 +142,18 @@ can_enabled() {
 }
 
 validate_sources() {
+  local script
   for script in \
     one-shot-install.sh install.sh \
-    scripts/setup_pi_hardware_stage.sh scripts/setup_killerkoala_ollama.sh \
-    scripts/setup_mopidy_player.sh scripts/install_power_controls.sh \
-    scripts/install_koalabyte_boot_services.sh scripts/install_ble_node_manager_service.sh \
-    scripts/install_esp32_dualeye_voice_bridge_service.sh scripts/install_koalabyte_udev_rules.sh \
-    scripts/configure_pi_audio_output.sh scripts/build_whole_system_firmware.sh \
-    scripts/deploy_whole_system_firmware.sh scripts/flash_t114_current_uf2.sh \
-    scripts/flash_esp32_dualeye_current.sh scripts/enter_t114_uf2_bootloader.sh; do
+    scripts/setup_pi_hardware_stage.sh scripts/setup_system_packages.sh \
+    scripts/setup_killerkoala_ollama.sh scripts/setup_mopidy_player.sh \
+    scripts/install_power_controls.sh scripts/install_koalabyte_boot_services.sh \
+    scripts/install_ble_node_manager_service.sh scripts/install_esp32_dualeye_voice_bridge_service.sh \
+    scripts/install_koalabyte_udev_rules.sh scripts/configure_pi_audio_output.sh \
+    scripts/build_whole_system_firmware.sh scripts/deploy_whole_system_firmware.sh \
+    scripts/flash_t114_current_uf2.sh scripts/flash_esp32_dualeye_current.sh \
+    scripts/enter_t114_uf2_bootloader.sh scripts/preflight_firmware_host.sh \
+    scripts/ensure_build_swap.sh scripts/cleanup_firmware_build_tools.sh; do
     bash -n "${script}"
   done
   python3 -m py_compile \
@@ -187,12 +177,10 @@ run_discovery() {
   PYTHONPATH=pi-companion "$(python_for_runtime)" scripts/discover_koalabyte_ports.py \
     --profile heltec --output-dir logs/preflight
 }
-
 run_button_probe() {
   PYTHONPATH=pi-companion STRICT_GPIO_BUTTONS="${STRICT_GPIO_BUTTONS:-0}" \
     "$(python_for_runtime)" scripts/setup_gpio_buttons.py --probe
 }
-
 run_runtime_checks() {
   local py
   py="$(python_for_runtime)"
@@ -210,12 +198,12 @@ run_runtime_checks() {
 
 restart_services() {
   command -v systemctl >/dev/null 2>&1 || return 0
-  local sudo_cmd=()
+  local sudo_cmd=() service
   [[ "${EUID}" -ne 0 ]] && sudo_cmd=(sudo)
   "${sudo_cmd[@]}" systemctl daemon-reload
   for service in ollama.service mopidy.service koalabyte-menu.service \
     koalabyte-doctor.service koalabyte-ble-node-manager.service \
-    koalabyte-dualeye-voice-bridge.service; do
+    koalabyte-dualeye-voice-bridge.service koalabyte-swap.service; do
     if "${sudo_cmd[@]}" systemctl list-unit-files "${service}" >/dev/null 2>&1; then
       "${sudo_cmd[@]}" systemctl enable "${service}" >/dev/null 2>&1 || true
       "${sudo_cmd[@]}" systemctl restart "${service}" || true
@@ -238,8 +226,22 @@ run_final_doctor() {
   return 0
 }
 
-trap 'write_status "failed" "final_one_shot" "deployment stopped before completion"' ERR
+run_cleanup() {
+  if [[ "${SKIP_FIRMWARE}" == "1" || "${FIRMWARE_BUILD_ONLY}" == "1" ]]; then
+    echo "Build-tool cleanup skipped because no complete firmware flash occurred."
+    return 0
+  fi
+  if ! enabled "${CLEANUP_FIRMWARE_BUILD_TOOLS}"; then
+    echo "Firmware build toolchains retained by configuration."
+    return 0
+  fi
+  if ! bash scripts/cleanup_firmware_build_tools.sh; then
+    echo "warning: deployment succeeded, but build-tool cleanup was incomplete" >&2
+    return 0
+  fi
+}
 
+trap 'write_status failed final_one_shot "deployment stopped before completion"' ERR
 run_step "Source and deployment validation" validate_sources
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
@@ -247,19 +249,19 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
   run_step "Restricted K7/K8 power permissions" env KOALABYTE_SERVICE_USER="${SERVICE_USER}" bash scripts/install_power_controls.sh --check-only
   run_step "Pi hardware inventory" env INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN}" bash scripts/setup_pi_hardware_stage.sh --check-only
   [[ "${SKIP_AI}" == "1" ]] || run_step "TinyLlama installer contract" bash scripts/setup_killerkoala_ollama.sh --check-only
-  [[ "${SKIP_MUSIC}" == "1" ]] || run_step "Mopidy music installer contract" bash scripts/setup_mopidy_player.sh --check-only
+  [[ "${SKIP_MUSIC}" == "1" ]] || run_step "Mopidy installer contract" bash scripts/setup_mopidy_player.sh --check-only
   run_step "Control, AI, music, BLE, alarm, and display contracts" run_runtime_checks
   run_step "Audio readiness" bash scripts/configure_pi_audio_output.sh --check-only
-  write_status "complete" "whole_system_check" "Complete Pi, firmware build/flash, AI, music, BLE, controls, displays, and safety contracts validated."
+  write_status complete whole_system_check "Complete source and runtime contracts validated."
   trap - ERR
   echo "KoalaByte whole-system one-shot check passed."
   exit 0
 fi
 
-[[ "$(uname -s)" == "Linux" ]] || { echo "Run the complete deployment on the Raspberry Pi Linux host." >&2; exit 1; }
+[[ "$(uname -s)" == "Linux" ]] || { echo "Run deployment on the Raspberry Pi Linux host." >&2; exit 1; }
+echo "Persistent temporary directory: ${KOALABYTE_TMPDIR}"
+df -h "${KOALABYTE_TMPDIR}"
 
-# Install prerequisites and udev first, but delay runtime services until both
-# peripherals have been rebuilt and flashed.
 prereq_args=()
 [[ "${SKIP_PACKAGES}" == "1" ]] && prereq_args+=(--skip-packages)
 [[ "${SKIP_AUDIO}" == "1" ]] && prereq_args+=(--skip-audio)
@@ -270,12 +272,13 @@ run_step "Raspberry Pi prerequisites and stable device rules" \
       bash scripts/setup_pi_hardware_stage.sh "${prereq_args[@]}"
 
 if [[ "${SKIP_FIRMWARE}" != "1" ]]; then
-  firmware_args=()
+  firmware_args=(--keep-build-tools)
   [[ "${FIRMWARE_BUILD_ONLY}" == "1" ]] && firmware_args+=(--build-only)
   [[ "${USE_EXISTING_FIRMWARE_BUNDLE}" == "1" ]] && firmware_args+=(--use-existing-bundle)
   run_step "Build and flash current T114 and ESP32 firmware" \
     env KOALABYTE_REQUIRE_ALL_PERIPHERALS="${KOALABYTE_REQUIRE_ALL_PERIPHERALS:-1}" \
-      bash scripts/deploy_whole_system_firmware.sh "${firmware_args[@]}"
+        KOALABYTE_DEFER_SERVICE_RESTART=1 CLEANUP_FIRMWARE_BUILD_TOOLS=0 \
+        bash scripts/deploy_whole_system_firmware.sh "${firmware_args[@]}"
 fi
 
 [[ "${SKIP_AI}" == "1" ]] || run_step "Local KillerKoala TinyLlama model" \
@@ -305,8 +308,9 @@ run_step "Control, AI, music, BLE, alarm, and display verification" run_runtime_
 run_step "Runtime service activation" restart_services
 [[ "${SKIP_AUDIO}" == "1" ]] || run_step "External audio selection" bash scripts/configure_pi_audio_output.sh
 run_step "Final Pi hardware doctor" run_final_doctor
+run_step "Remove firmware-only build toolchains" run_cleanup
 
-write_status "complete" "whole_system_deployment" "Current T114 UF2 and ESP32 complete image set deployed; Pi runtime, TinyLlama, web research, Australian TTS, Mopidy, K1-K8, BLE failover, synchronized displays, alarm/dig lifecycle, audio, and diagnostics installed."
+write_status complete whole_system_deployment "Firmware and Pi runtime deployed, verified, and cleaned according to policy."
 trap - ERR
 
 cat <<EOF
@@ -315,8 +319,9 @@ KoalaByte Blue whole-system one-shot deployment complete.
 Status: ${STATUS_PATH}
 Firmware bundle: releases/koalabyte-blue-current/manifest.json
 Firmware deployment: logs/deployment/whole_system_deployment_status.json
-T114 flash: logs/deployment/t114_flash_status.json
-ESP32 flash: logs/deployment/esp32_flash_status.json
+Build cleanup: logs/deployment/build_tool_cleanup_status.json
+Host preflight: logs/preflight/firmware_host_preflight.json
+Build swap: logs/preflight/build_swap.json
 TinyLlama: logs/killerkoala/ollama_setup_status.json
 Music: logs/music_player/mopidy_setup_status.json
 BLE roles: logs/ble_nodes/ble_role_election.json
