@@ -47,8 +47,8 @@ Options:
   --keep-build-tools             Retain NCS, Zephyr SDK, west, and PlatformIO after success
 
 Run as the normal SSH/login user, not with `sudo bash`; privileged stages request
-sudo internally. The default transaction verifies runtime service stability and
-exclusive ESP32/Heltec serial ownership before cleanup or success is reported.
+sudo internally. The transaction verifies stable services, exclusive serial
+owners, the required Ollama model, and Mopidy JSON-RPC before reporting success.
 EOF
 }
 
@@ -107,7 +107,7 @@ Path(path).write_text(json.dumps({
     "music_engine": "mopidy",
     "ble_roles": "heltec_primary_pi_bluez_preferred_esp32_guarded_fallback",
     "serial_ownership": "esp32_voice_bridge_and_heltec_ble_manager",
-    "runtime_health_gate": True,
+    "runtime_health_gate": "services_plus_local_apis",
     "error_lifecycle": "purple_green_alarm_then_heltec_mouth_and_pi_dig",
     "can_transmit_during_install": False,
     "innomaker_stock_firmware_preserved": True,
@@ -163,14 +163,16 @@ validate_sources() {
     scripts/run_headless_menu.py scripts/run_esp32_dualeye_voice_bridge.py \
     scripts/run_ble_node_manager.py scripts/setup_gpio_buttons.py scripts/test_gpio_buttons.py \
     scripts/pi_hardware_doctor.py scripts/discover_koalabyte_ports.py \
-    scripts/check_serial_command_bus.py scripts/check_one_shot_controls.py \
-    scripts/check_whole_system_deployment.py scripts/check_killerkoala_ai.py \
-    scripts/check_ble_role_failover.py scripts/check_killerkoala_error_sequence.py \
-    scripts/check_music_player.py scripts/check_full_runtime_dependencies.py \
+    scripts/check_serial_command_bus.py scripts/check_live_runtime_services.py \
+    scripts/check_one_shot_controls.py scripts/check_whole_system_deployment.py \
+    scripts/check_killerkoala_ai.py scripts/check_ble_role_failover.py \
+    scripts/check_killerkoala_error_sequence.py scripts/check_music_player.py \
+    scripts/check_full_runtime_dependencies.py \
     pi-companion/koalablue/gpio_buttons.py pi-companion/koalablue/ble_role_coordinator.py \
     pi-companion/koalablue/ble_node_manager.py pi-companion/koalablue/dualeye_tts.py \
     pi-companion/koalablue/serial_command_bus.py \
     pi-companion/koalablue/runtime_serial_ownership.py \
+    pi-companion/koalablue/killerkoala_runtime_limits.py \
     pi-companion/koalablue/killerkoala_expression.py \
     pi-companion/koalablue/killerkoala_hybrid_companion.py \
     pi-companion/koalablue/killerkoala_voice_control.py \
@@ -228,18 +230,19 @@ verify_runtime_services() {
     echo "systemctl is required for runtime health verification." >&2
     return 1
   }
-  local sudo_cmd=() deadline now service failed=0
+  local sudo_cmd=() deadline service failed=0
+  local health_args=(--timeout "${RUNTIME_HEALTH_TIMEOUT}")
   [[ "${EUID}" -ne 0 ]] && sudo_cmd=(sudo)
-  required=(
-    koalabyte-menu.service
-    koalabyte-doctor.service
-  )
+  required=(koalabyte-menu.service koalabyte-doctor.service)
   if [[ "${SKIP_FIRMWARE}" != "1" && "${FIRMWARE_BUILD_ONLY}" != "1" ]]; then
     required+=(koalabyte-ble-node-manager.service koalabyte-dualeye-voice-bridge.service)
+  else
+    health_args+=(--skip-firmware)
+    [[ "${FIRMWARE_BUILD_ONLY}" == "1" ]] && health_args+=(--firmware-build-only)
   fi
-  [[ "${SKIP_AI}" == "1" ]] || required+=(ollama.service)
-  [[ "${SKIP_MUSIC}" == "1" ]] || required+=(mopidy.service)
-  can_enabled && required+=(koalabyte-can0.service)
+  if [[ "${SKIP_AI}" == "1" ]]; then health_args+=(--skip-ai); else required+=(ollama.service); fi
+  if [[ "${SKIP_MUSIC}" == "1" ]]; then health_args+=(--skip-music); else required+=(mopidy.service); fi
+  if can_enabled; then required+=(koalabyte-can0.service); health_args+=(--require-can); fi
 
   deadline=$(( $(date +%s) + RUNTIME_HEALTH_TIMEOUT ))
   while (( $(date +%s) < deadline )); do
@@ -272,7 +275,11 @@ verify_runtime_services() {
       fi
     done
   fi
-  [[ "${failed}" == "0" ]]
+  [[ "${failed}" == "0" ]] || return 1
+
+  KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-tinyllama:latest}" \
+    PYTHONPATH=pi-companion "$(python_for_runtime)" \
+      scripts/check_live_runtime_services.py "${health_args[@]}"
 }
 
 run_final_doctor() {
@@ -366,12 +373,12 @@ run_step "Post-deployment device discovery" run_discovery
 run_step "K1-K8 GPIO initialization" run_button_probe
 run_step "Control, AI, music, BLE, alarm, and display verification" run_runtime_checks
 run_step "Runtime service activation" restart_services
-run_step "Runtime service health and serial ownership" verify_runtime_services
+run_step "Runtime service, serial-owner, and local API health" verify_runtime_services
 [[ "${SKIP_AUDIO}" == "1" ]] || run_step "External audio selection" bash scripts/configure_pi_audio_output.sh
 run_step "Final Pi hardware doctor" run_final_doctor
 run_step "Remove firmware-only build toolchains" run_cleanup
 
-write_status complete whole_system_deployment "Firmware and Pi runtime deployed, services stable, serial ownership verified, and build tools cleaned according to policy."
+write_status complete whole_system_deployment "Firmware and Pi runtime deployed; services, serial ownership, Ollama model, and Mopidy API verified; build tools cleaned according to policy."
 trap - ERR
 
 cat <<EOF
@@ -385,6 +392,7 @@ Host preflight: logs/preflight/firmware_host_preflight.json
 Build swap: logs/preflight/build_swap.json
 TinyLlama: logs/killerkoala/ollama_setup_status.json
 Music: logs/music_player/mopidy_setup_status.json
+Live runtime health: logs/runtime/live_service_health.json
 BLE roles: logs/ble_nodes/ble_role_election.json
 Device map: logs/preflight/koalabyte_ports.json
 Serial owners: logs/runtime/serial_bus/esp32.sock and heltec.sock
