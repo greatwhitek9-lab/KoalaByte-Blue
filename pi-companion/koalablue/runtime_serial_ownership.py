@@ -40,6 +40,11 @@ def _client_menu_write(
     return submission.accepted, submission.status
 
 
+def _requeue(target: str, payloads: list[dict[str, Any]]) -> None:
+    for payload in payloads[-64:]:
+        submit_command(target, payload, queue_if_unavailable=True)
+
+
 def install_display_command_clients() -> None:
     """Stop non-owner runtime processes from opening either board's tty."""
 
@@ -104,9 +109,19 @@ def install_esp32_serial_owner(bridge_class: type[Any]) -> None:
 
     def owned_close(instance: Any, *args: Any, **kwargs: Any) -> Any:
         inbox = getattr(instance, "_koalabyte_esp32_command_inbox", None)
+        pending = list(getattr(instance, "_koalabyte_esp32_command_retry", []))
         if inbox is not None:
-            inbox.close()
-            instance._koalabyte_esp32_command_inbox = None
+            try:
+                drain(instance)
+                pending = list(
+                    getattr(instance, "_koalabyte_esp32_command_retry", [])
+                )
+                pending.extend(inbox.drain(max_items=max(0, 64 - len(pending))))
+            finally:
+                inbox.close()
+                instance._koalabyte_esp32_command_inbox = None
+        instance._koalabyte_esp32_command_retry = []
+        _requeue("esp32", pending)
         return original_close(instance, *args, **kwargs)
 
     bridge_class.open = owned_open
@@ -123,7 +138,10 @@ class _HeltecOwnedSerial:
         self._drain_commands()
 
     def _drain_commands(self) -> None:
-        commands = [*self._retry, *self._inbox.drain(max_items=max(0, 64 - len(self._retry)))]
+        commands = [
+            *self._retry,
+            *self._inbox.drain(max_items=max(0, 64 - len(self._retry))),
+        ]
         self._retry = []
         for payload in commands[:64]:
             try:
@@ -141,8 +159,17 @@ class _HeltecOwnedSerial:
         return value
 
     def close(self) -> None:
+        pending = list(self._retry)
         try:
-            self._inbox.close()
+            try:
+                self._drain_commands()
+                pending = list(self._retry)
+                pending.extend(
+                    self._inbox.drain(max_items=max(0, 64 - len(pending)))
+                )
+            finally:
+                self._inbox.close()
+            _requeue("heltec", pending)
         finally:
             self._serial.close()
 
