@@ -1,4 +1,13 @@
-__version__ = "0.13.0"
+__version__ = "0.13.1"
+
+try:
+    from .killerkoala_runtime_limits import install_killerkoala_runtime_limits
+
+    install_killerkoala_runtime_limits()
+except Exception:
+    # TinyLlama remains optional. The phrase engine and fixed local responses must
+    # still load if Ollama/httpx is unavailable during a partial installation.
+    pass
 
 try:
     from .greatwhite_reef import install_menu_catalog
