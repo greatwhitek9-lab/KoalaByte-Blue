@@ -11,6 +11,8 @@ BUNDLE_DIR="${KOALABYTE_FIRMWARE_BUNDLE_DIR:-${ROOT}/releases/koalabyte-blue-cur
 ESP32_BUILD="${ROOT}/firmware/esp32-dualeye/.pio/build/esp32s3_dualeye"
 T114_BUILD="${T114_COMBINED_BUILD_DIR:-${ROOT}/build/t114-combined-safe}"
 STATUS_PATH="${KOALABYTE_FIRMWARE_BUILD_STATUS:-${ROOT}/logs/deployment/firmware_build_status.json}"
+ESP32_TOOLS_VENV="${ESP32_TOOLS_VENV:-${HOME}/.venvs/platformio}"
+PIO_BIN="${PIO_BIN:-}"
 
 usage() {
   cat <<'EOF'
@@ -60,6 +62,25 @@ Path(path).write_text(json.dumps({
 PY
 }
 
+resolve_pio() {
+  if [[ -n "${PIO_BIN}" && -x "${PIO_BIN}" ]]; then
+    return 0
+  fi
+  if command -v pio >/dev/null 2>&1; then
+    PIO_BIN="$(command -v pio)"
+    return 0
+  fi
+  if [[ -x "${ESP32_TOOLS_VENV}/bin/pio" ]]; then
+    PIO_BIN="${ESP32_TOOLS_VENV}/bin/pio"
+    return 0
+  fi
+  if [[ -x "${HOME}/.local/bin/pio" ]]; then
+    PIO_BIN="${HOME}/.local/bin/pio"
+    return 0
+  fi
+  return 1
+}
+
 validate_sources() {
   bash -n scripts/build_whole_system_firmware.sh
   bash -n scripts/setup_esp32_tools.sh
@@ -86,7 +107,12 @@ mkdir -p "${BUNDLE_DIR}/esp32" "${BUNDLE_DIR}/t114"
 if [[ "${SKIP_ESP32}" != "1" ]]; then
   echo "== Build ESP32-S3 DualEye =="
   STRICT_ESP32_TOOLS=1 bash scripts/setup_esp32_tools.sh
-  pio run -d firmware/esp32-dualeye
+  if ! resolve_pio; then
+    echo "PlatformIO executable not found after setup." >&2
+    exit 1
+  fi
+  echo "Using PlatformIO: ${PIO_BIN}"
+  "${PIO_BIN}" run -d firmware/esp32-dualeye
 
   boot_app0="$(find "${HOME}/.platformio/packages" -path '*/tools/partitions/boot_app0.bin' -print -quit)"
   srmodels="$(find "${HOME}/.platformio/packages" -path '*/esp_sr/srmodels.bin' -print -quit)"
