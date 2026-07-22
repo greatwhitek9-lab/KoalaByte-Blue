@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHECK_ONLY=0
@@ -11,25 +11,16 @@ CONFIG_DIR="${KOALABYTE_CONFIG_DIR:-/etc/koalabyte-blue}"
 PLAYER_CONFIG="${KOALABYTE_MUSIC_CONFIG:-${CONFIG_DIR}/music.json}"
 MOPIDY_CONFIG="${KOALABYTE_MOPIDY_CONFIG:-/etc/mopidy/mopidy.conf}"
 RPC_URL="${KOALABYTE_MOPIDY_RPC_URL:-http://127.0.0.1:6680/mopidy/rpc}"
+MOPIDY_READY_TIMEOUT="${KOALABYTE_MOPIDY_READY_TIMEOUT:-60}"
+TMP_ROOT="${TMPDIR:-${HOME}/.cache/koalabyte/tmp}"
 
 usage() {
   cat <<'EOF'
 Install the Pi-owned KoalaByte Mopidy music engine.
 
-Usage:
-  bash scripts/setup_mopidy_player.sh
-  bash scripts/setup_mopidy_player.sh --check-only
-
-Environment:
-  INSTALL_MOPIDY_PLAYER=auto|1|0
-  STRICT_MOPIDY_PLAYER=0|1
-  KOALABYTE_MUSIC_DIR=/srv/koalabyte-music
-  KOALABYTE_MOPIDY_RPC_URL=http://127.0.0.1:6680/mopidy/rpc
-  KOALABYTE_MOPIDY_AUDIO_OUTPUT=autoaudiosink
-
-The HTTP and MPD control interfaces bind to localhost. Add radio presets to
-/etc/koalabyte-blue/music.json. Streaming-service credentials belong in private
-Mopidy configuration and must never be committed to the repository.
+The HTTP and MPD control interfaces bind only to localhost. Installation is
+noninteractive, retries APT/network work, resets stale service failure counters,
+and requires a working JSON-RPC response before reporting success.
 EOF
 }
 
@@ -40,14 +31,17 @@ case "${1:-}" in
   *) echo "Unknown argument: ${1}" >&2; usage >&2; exit 2 ;;
 esac
 
-mkdir -p "$(dirname "${STATUS_PATH}")"
+mkdir -p "$(dirname "${STATUS_PATH}")" "${TMP_ROOT}"
 
 write_status() {
   local status="$1" reason="$2" service_state="${3:-unknown}"
-  python3 - "${STATUS_PATH}" "${status}" "${reason}" "${service_state}" "${CHECK_ONLY}" "${MUSIC_DIR}" "${PLAYER_CONFIG}" "${MOPIDY_CONFIG}" "${RPC_URL}" <<'PY'
+  python3 - "${STATUS_PATH}" "${status}" "${reason}" "${service_state}" \
+    "${CHECK_ONLY}" "${MUSIC_DIR}" "${PLAYER_CONFIG}" "${MOPIDY_CONFIG}" \
+    "${RPC_URL}" <<'PY'
 import json, sys, time
 from pathlib import Path
-path, status, reason, service_state, check_only, music_dir, player_config, mopidy_config, rpc_url = sys.argv[1:]
+(path, status, reason, service_state, check_only, music_dir, player_config,
+ mopidy_config, rpc_url) = sys.argv[1:]
 payload = {
     "status": status,
     "reason": reason,
@@ -64,7 +58,8 @@ payload = {
     "mopidy_config": mopidy_config,
     "sources": ["local_files", "internet_radio", "optional_mopidy_extensions"],
     "speech_ducking": True,
-    "universal_error_lifecycle": True,
+    "shared_alsa_supported": True,
+    "systemd_service_required": True,
     "updated_at": time.time(),
 }
 Path(path).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -74,7 +69,7 @@ PY
 
 case "${INSTALL_MOPIDY_PLAYER}" in
   0|false|False|no|NO|skip|SKIP)
-    write_status "MOPIDY_PLAYER_SKIPPED" "disabled by INSTALL_MOPIDY_PLAYER" "disabled"
+    write_status MOPIDY_PLAYER_SKIPPED "disabled by INSTALL_MOPIDY_PLAYER" disabled
     exit 0
     ;;
   auto|AUTO|1|true|True|yes|YES) ;;
@@ -82,73 +77,109 @@ case "${INSTALL_MOPIDY_PLAYER}" in
 esac
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
+  bash -n "$0"
   grep -q 'hostname = 127.0.0.1' "$0"
   grep -q 'mopidy-archive-keyring.gpg' "$0"
-  grep -q 'music.json' "$0"
-  write_status "MOPIDY_PLAYER_CONTRACT_READY" "official APT source, localhost-only API, media directory, service, and private preset contract validated" "not_started"
+  grep -q 'systemctl reset-failed mopidy.service' "$0"
+  write_status MOPIDY_PLAYER_CONTRACT_READY \
+    "official APT source, noninteractive install, localhost API, service reset, and RPC health contract validated" \
+    not_started
   exit 0
 fi
 
-if [[ "$(uname -s)" != "Linux" ]]; then
-  write_status "MOPIDY_PLAYER_UNSUPPORTED" "Mopidy setup requires Linux" "unsupported"
-  [[ "${STRICT_MOPIDY_PLAYER}" == "1" ]] && exit 1
-  exit 0
-fi
-
-if [[ "${EUID}" -eq 0 ]]; then
-  sudo_cmd=()
-elif command -v sudo >/dev/null 2>&1; then
-  sudo_cmd=(sudo)
-else
-  write_status "MOPIDY_PLAYER_ERROR" "root or sudo is required" "unknown"
-  [[ "${STRICT_MOPIDY_PLAYER}" == "1" ]] && exit 1
-  exit 0
-fi
-
-fail_soft() {
-  local reason="$1"
-  write_status "MOPIDY_PLAYER_WARNING" "${reason}" "unavailable"
-  if [[ "${STRICT_MOPIDY_PLAYER}" == "1" ]]; then
-    exit 1
-  fi
-  exit 0
+[[ "$(uname -s)" == "Linux" ]] || {
+  write_status MOPIDY_PLAYER_ERROR "Mopidy setup requires Linux" unsupported
+  exit 1
+}
+command -v apt-get >/dev/null 2>&1 || {
+  write_status MOPIDY_PLAYER_ERROR "apt-get is unavailable" unavailable
+  exit 1
 }
 
-if ! command -v apt-get >/dev/null 2>&1; then
-  fail_soft "apt-get is unavailable"
+if [[ "${EUID}" -eq 0 ]]; then sudo_cmd=()
+elif command -v sudo >/dev/null 2>&1; then sudo_cmd=(sudo)
+else
+  write_status MOPIDY_PLAYER_ERROR "root or sudo is required" unknown
+  exit 1
 fi
+
+fail_setup() {
+  local reason="$1" state="${2:-unavailable}"
+  write_status MOPIDY_PLAYER_ERROR "${reason}" "${state}"
+  echo "Mopidy setup failed: ${reason}" >&2
+  # A complete one-shot requires Mopidy unless --skip-music was selected, so fail
+  # here rather than allowing a less useful later health-gate error.
+  return 1
+}
+
+apt_noninteractive() {
+  if [[ "${EUID}" -eq 0 ]]; then
+    env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 \
+      -o Dpkg::Options::=--force-confold "$@"
+  else
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 \
+      -o Dpkg::Options::=--force-confold "$@"
+  fi
+}
+
+download_file() {
+  local url="$1" destination="$2"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL --retry 5 --retry-all-errors --connect-timeout 20 \
+      "${url}" -o "${destination}"
+  elif command -v wget >/dev/null 2>&1; then
+    wget --tries=5 --timeout=30 -q -O "${destination}" "${url}"
+  else
+    return 1
+  fi
+}
 
 . /etc/os-release 2>/dev/null || true
 codename="${VERSION_CODENAME:-bookworm}"
 case "${codename}" in
   trixie) source_name="trixie.sources" ;;
-  bookworm|bullseye|*) source_name="bookworm.sources" ;;
+  bookworm|bullseye) source_name="bookworm.sources" ;;
+  *)
+    echo "warning: unsupported/unknown Pi OS codename ${codename}; using Mopidy bookworm source" >&2
+    source_name="bookworm.sources"
+    ;;
 esac
 
-"${sudo_cmd[@]}" install -d -m 0755 /etc/apt/keyrings /etc/apt/sources.list.d
-if command -v wget >/dev/null 2>&1; then
-  "${sudo_cmd[@]}" wget -q -O /etc/apt/keyrings/mopidy-archive-keyring.gpg \
-    https://apt.mopidy.com/mopidy-archive-keyring.gpg || fail_soft "failed to download Mopidy APT key"
-  "${sudo_cmd[@]}" wget -q -O /etc/apt/sources.list.d/mopidy.sources \
-    "https://apt.mopidy.com/${source_name}" || fail_soft "failed to download Mopidy APT source"
-elif command -v curl >/dev/null 2>&1; then
-  curl -fsSL https://apt.mopidy.com/mopidy-archive-keyring.gpg | \
-    "${sudo_cmd[@]}" tee /etc/apt/keyrings/mopidy-archive-keyring.gpg >/dev/null || fail_soft "failed to download Mopidy APT key"
-  curl -fsSL "https://apt.mopidy.com/${source_name}" | \
-    "${sudo_cmd[@]}" tee /etc/apt/sources.list.d/mopidy.sources >/dev/null || fail_soft "failed to download Mopidy APT source"
-else
-  fail_soft "wget or curl is required to configure the Mopidy repository"
-fi
+key_tmp="$(mktemp -p "${TMP_ROOT}" koalabyte-mopidy-key.XXXXXX)"
+source_tmp="$(mktemp -p "${TMP_ROOT}" koalabyte-mopidy-source.XXXXXX)"
+config_tmp="$(mktemp -p "${TMP_ROOT}" koalabyte-mopidy-conf.XXXXXX)"
+player_tmp="$(mktemp -p "${TMP_ROOT}" koalabyte-music-json.XXXXXX)"
+trap 'rm -f "${key_tmp}" "${source_tmp}" "${config_tmp}" "${player_tmp}"' EXIT
 
-"${sudo_cmd[@]}" apt-get update || fail_soft "apt update failed while enabling Mopidy"
-DEBIAN_FRONTEND=noninteractive "${sudo_cmd[@]}" apt-get install -y \
+download_file https://apt.mopidy.com/mopidy-archive-keyring.gpg "${key_tmp}" || {
+  fail_setup "failed to download Mopidy APT key"
+  exit 1
+}
+download_file "https://apt.mopidy.com/${source_name}" "${source_tmp}" || {
+  fail_setup "failed to download Mopidy APT source"
+  exit 1
+}
+[[ -s "${key_tmp}" && -s "${source_tmp}" ]] || {
+  fail_setup "downloaded Mopidy repository metadata is empty"
+  exit 1
+}
+
+"${sudo_cmd[@]}" install -d -m 0755 /etc/apt/keyrings /etc/apt/sources.list.d
+"${sudo_cmd[@]}" install -m 0644 "${key_tmp}" /etc/apt/keyrings/mopidy-archive-keyring.gpg
+"${sudo_cmd[@]}" install -m 0644 "${source_tmp}" /etc/apt/sources.list.d/mopidy.sources
+
+apt_noninteractive update || { fail_setup "APT update failed while enabling Mopidy"; exit 1; }
+apt_noninteractive install -y \
   mopidy mopidy-mpd \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
-  gstreamer1.0-plugins-ugly gstreamer1.0-libav || \
-  fail_soft "Mopidy or its media codecs failed to install"
+  gstreamer1.0-plugins-ugly gstreamer1.0-libav || {
+    fail_setup "Mopidy or its media codecs failed to install"
+    exit 1
+  }
 
 if apt-cache show mopidy-local >/dev/null 2>&1; then
-  DEBIAN_FRONTEND=noninteractive "${sudo_cmd[@]}" apt-get install -y mopidy-local || true
+  apt_noninteractive install -y mopidy-local || \
+    echo "warning: optional mopidy-local package installation failed" >&2
 fi
 
 "${sudo_cmd[@]}" install -d -m 0755 "${MUSIC_DIR}" "${CONFIG_DIR}" /etc/mopidy
@@ -158,7 +189,7 @@ if id mopidy >/dev/null 2>&1; then
   "${sudo_cmd[@]}" chmod 0775 "${MUSIC_DIR}" || true
 fi
 
-cat >/tmp/koalabyte-mopidy.conf <<EOF
+cat >"${config_tmp}" <<EOF
 [core]
 restore_state = true
 
@@ -185,54 +216,65 @@ media_dirs =
 show_dotfiles = false
 follow_symlinks = false
 EOF
-"${sudo_cmd[@]}" install -m 0644 /tmp/koalabyte-mopidy.conf "${MOPIDY_CONFIG}"
+"${sudo_cmd[@]}" install -m 0644 "${config_tmp}" "${MOPIDY_CONFIG}"
 
 if [[ ! -f "${PLAYER_CONFIG}" ]]; then
-  cat >/tmp/koalabyte-music.json <<'JSONEOF'
+  cat >"${player_tmp}" <<'JSONEOF'
 {
   "engine": "mopidy",
   "rpc_url": "http://127.0.0.1:6680/mopidy/rpc",
   "radio_presets": {}
 }
 JSONEOF
-  "${sudo_cmd[@]}" install -m 0640 /tmp/koalabyte-music.json "${PLAYER_CONFIG}"
+  "${sudo_cmd[@]}" install -m 0640 "${player_tmp}" "${PLAYER_CONFIG}"
 fi
 
-if command -v systemctl >/dev/null 2>&1; then
-  "${sudo_cmd[@]}" systemctl daemon-reload
-  "${sudo_cmd[@]}" systemctl enable mopidy.service || true
-  "${sudo_cmd[@]}" systemctl restart mopidy.service || true
-fi
-
-sleep 2
-service_state="unknown"
-if command -v systemctl >/dev/null 2>&1; then
-  if "${sudo_cmd[@]}" systemctl is-active --quiet mopidy.service; then
-    service_state="active"
-  else
-    service_state="inactive"
-  fi
-fi
+command -v systemctl >/dev/null 2>&1 || {
+  fail_setup "systemd is required for Mopidy runtime"
+  exit 1
+}
+"${sudo_cmd[@]}" systemctl daemon-reload
+"${sudo_cmd[@]}" systemctl reset-failed mopidy.service >/dev/null 2>&1 || true
+"${sudo_cmd[@]}" systemctl enable mopidy.service || {
+  fail_setup "failed to enable mopidy.service"
+  exit 1
+}
+"${sudo_cmd[@]}" systemctl restart mopidy.service || {
+  fail_setup "failed to restart mopidy.service"
+  exit 1
+}
 
 rpc_ready=0
-if command -v curl >/dev/null 2>&1; then
-  if curl -fsS -H 'Content-Type: application/json' \
-      -d '{"jsonrpc":"2.0","id":1,"method":"core.playback.get_state"}' \
-      "${RPC_URL}" | grep -q '"result"'; then
+deadline=$((SECONDS + MOPIDY_READY_TIMEOUT))
+while (( SECONDS < deadline )); do
+  if "${sudo_cmd[@]}" systemctl is-active --quiet mopidy.service && \
+     command -v curl >/dev/null 2>&1 && \
+     curl -fsS --max-time 5 -H 'Content-Type: application/json' \
+       -d '{"jsonrpc":"2.0","id":1,"method":"core.playback.get_state"}' \
+       "${RPC_URL}" | grep -q '"result"'; then
     rpc_ready=1
+    break
   fi
-fi
+  sleep 2
+done
 
 if command -v mopidyctl >/dev/null 2>&1; then
   "${sudo_cmd[@]}" mopidyctl config >/dev/null 2>&1 || true
-  "${sudo_cmd[@]}" mopidyctl local scan >/dev/null 2>&1 || true
+  if command -v timeout >/dev/null 2>&1; then
+    timeout 120 "${sudo_cmd[@]}" mopidyctl local scan >/dev/null 2>&1 || \
+      echo "warning: optional Mopidy local scan did not complete" >&2
+  else
+    "${sudo_cmd[@]}" mopidyctl local scan >/dev/null 2>&1 || true
+  fi
 fi
 
-if [[ "${service_state}" == "active" && "${rpc_ready}" == "1" ]]; then
-  write_status "MOPIDY_PLAYER_READY" "Mopidy service and localhost JSON-RPC are ready" "${service_state}"
+if [[ "${rpc_ready}" == "1" ]]; then
+  write_status MOPIDY_PLAYER_READY \
+    "Mopidy system service and localhost JSON-RPC are ready" active
   exit 0
 fi
 
-write_status "MOPIDY_PLAYER_WARNING" "Mopidy installed, but service or RPC is not ready yet; inspect journalctl -u mopidy" "${service_state}"
-[[ "${STRICT_MOPIDY_PLAYER}" == "1" ]] && exit 1
-exit 0
+"${sudo_cmd[@]}" systemctl --no-pager --full status mopidy.service >&2 || true
+"${sudo_cmd[@]}" journalctl -u mopidy.service -n 50 --no-pager >&2 || true
+fail_setup "Mopidy service or localhost JSON-RPC did not become ready" inactive
+exit 1
