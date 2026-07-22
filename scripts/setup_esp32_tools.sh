@@ -6,6 +6,7 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 INSTALL_ESP32_TOOLS="${INSTALL_ESP32_TOOLS:-auto}"
 STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-0}"
 CHECK_ONLY=0
+EDGE_TTS_VERSION="${EDGE_TTS_VERSION:-7.2.8}"
 
 INSTALL_USER="${SUDO_USER:-${USER:-$(id -un)}}"
 INSTALL_HOME="${HOME}"
@@ -31,8 +32,9 @@ Usage:
 Environment:
   PYTHON_BIN            Python executable used to create the isolated venv. Default: python3
   ESP32_TOOLS_VENV      PlatformIO virtual environment. Default: ~/.venvs/platformio
-  INSTALL_ESP32_TOOLS   auto/1/0. Default: auto. Installs PlatformIO in the isolated venv when missing.
-  STRICT_ESP32_TOOLS    1 fails if PlatformIO is still missing after setup. Default: 0
+  INSTALL_ESP32_TOOLS   auto/1/0. Default: auto. Installs PlatformIO and voice tools when missing.
+  STRICT_ESP32_TOOLS    1 fails if required ESP32 build tools are missing. Default: 0
+  EDGE_TTS_VERSION      Pinned edge-tts version used for Australian voice clips. Default: 7.2.8
 EOF
 }
 
@@ -77,21 +79,46 @@ run_as_install_user() {
   fi
 }
 
-install_platformio_venv() {
-  echo "PlatformIO not found. Installing into isolated venv: ${ESP32_TOOLS_VENV}"
-
+ensure_venv() {
+  if [[ -x "${ESP32_TOOLS_VENV}/bin/python" ]]; then
+    return 0
+  fi
+  echo "Creating isolated ESP32 tools venv: ${ESP32_TOOLS_VENV}"
   if ! run_as_install_user "${PYTHON_BIN}" -m venv "${ESP32_TOOLS_VENV}"; then
-    echo "Unable to create the PlatformIO virtual environment." >&2
+    echo "Unable to create the ESP32 tools virtual environment." >&2
     echo "Install venv support first: sudo apt install -y python3-venv python3-full" >&2
     return 1
   fi
+}
 
+install_python_tools() {
+  ensure_venv || return 1
   run_as_install_user "${ESP32_TOOLS_VENV}/bin/python" -m pip install --upgrade pip
-  run_as_install_user "${ESP32_TOOLS_VENV}/bin/python" -m pip install --upgrade platformio
+  run_as_install_user "${ESP32_TOOLS_VENV}/bin/python" -m pip install --upgrade platformio "edge-tts==${EDGE_TTS_VERSION}"
   run_as_install_user mkdir -p "${ESP32_USER_BIN}"
   run_as_install_user ln -sfn "${ESP32_TOOLS_VENV}/bin/pio" "${ESP32_USER_BIN}/pio"
   run_as_install_user ln -sfn "${ESP32_TOOLS_VENV}/bin/platformio" "${ESP32_USER_BIN}/platformio"
+  run_as_install_user ln -sfn "${ESP32_TOOLS_VENV}/bin/edge-tts" "${ESP32_USER_BIN}/edge-tts"
   export PATH="${ESP32_USER_BIN}:${ESP32_TOOLS_VENV}/bin:${PATH}"
+}
+
+ensure_ffmpeg() {
+  command -v ffmpeg >/dev/null 2>&1 && return 0
+  [[ "${CHECK_ONLY}" == "1" ]] && return 1
+  install_enabled || return 1
+  echo "ffmpeg not found. Installing system package..."
+  if ! command -v apt-get >/dev/null 2>&1; then
+    return 1
+  fi
+  if [[ "$(id -u)" == "0" ]]; then
+    apt-get update
+    apt-get install -y ffmpeg
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo apt-get update
+    sudo apt-get install -y ffmpeg
+  else
+    return 1
+  fi
 }
 
 echo "== KoalaByte Blue ESP32 tool setup =="
@@ -100,21 +127,37 @@ echo "Install user: ${INSTALL_USER}"
 echo "PlatformIO venv: ${ESP32_TOOLS_VENV}"
 echo "INSTALL_ESP32_TOOLS=${INSTALL_ESP32_TOOLS} STRICT_ESP32_TOOLS=${STRICT_ESP32_TOOLS}"
 
-if ! command -v pio >/dev/null 2>&1 && [[ "${CHECK_ONLY}" != "1" ]] && install_enabled; then
-  install_platformio_venv || true
+if [[ "${CHECK_ONLY}" != "1" ]] && install_enabled; then
+  if [[ ! -x "${ESP32_TOOLS_VENV}/bin/pio" || ! -x "${ESP32_TOOLS_VENV}/bin/edge-tts" ]]; then
+    install_python_tools || true
+  fi
 fi
 
-if command -v pio >/dev/null 2>&1; then
-  echo "pio: $(command -v pio)"
-  pio --version || true
+missing=0
+if [[ -x "${ESP32_TOOLS_VENV}/bin/pio" ]]; then
+  echo "pio: ${ESP32_TOOLS_VENV}/bin/pio"
+  "${ESP32_TOOLS_VENV}/bin/pio" --version || true
 else
   echo "PlatformIO/pio: MISSING" >&2
-  echo "Install manually in an isolated environment:" >&2
-  echo "  ${PYTHON_BIN} -m venv ${ESP32_TOOLS_VENV}" >&2
-  echo "  ${ESP32_TOOLS_VENV}/bin/python -m pip install --upgrade platformio" >&2
-  if strict_enabled; then
-    exit 1
-  fi
+  missing=1
+fi
+
+if [[ -x "${ESP32_TOOLS_VENV}/bin/edge-tts" ]]; then
+  echo "edge-tts: ${ESP32_TOOLS_VENV}/bin/edge-tts"
+else
+  echo "edge-tts: MISSING" >&2
+  missing=1
+fi
+
+if ensure_ffmpeg && command -v ffmpeg >/dev/null 2>&1; then
+  echo "ffmpeg: $(command -v ffmpeg)"
+else
+  echo "ffmpeg: MISSING" >&2
+  missing=1
+fi
+
+if [[ "${missing}" == "1" ]] && strict_enabled; then
+  exit 1
 fi
 
 echo "ESP32 tool setup/check complete."
