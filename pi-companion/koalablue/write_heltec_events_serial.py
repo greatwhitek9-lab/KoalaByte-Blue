@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Iterator
 
 from .serial_command_bus import submit_command
+from .serial_maintenance import require_direct_serial_maintenance
 
 
 def read_events(path: Path) -> Iterator[dict[str, object]]:
@@ -26,15 +27,11 @@ def read_events(path: Path) -> Iterator[dict[str, object]]:
 
 
 def write_direct(port: str, baud: int, payloads: list[dict[str, object]]) -> int:
-    if os.getenv("KOALABYTE_ALLOW_DIRECT_HELTEC_SERIAL", "0").lower() not in {
-        "1",
-        "true",
-        "yes",
-    }:
-        raise RuntimeError(
-            "direct Heltec serial access is disabled; use the owner bus or set "
-            "KOALABYTE_ALLOW_DIRECT_HELTEC_SERIAL=1 for isolated manual recovery"
-        )
+    require_direct_serial_maintenance(
+        "heltec",
+        env_var="KOALABYTE_ALLOW_DIRECT_HELTEC_SERIAL",
+        service_name="koalabyte-ble-node-manager.service",
+    )
     import serial  # type: ignore
 
     written = 0
@@ -76,7 +73,10 @@ def main() -> int:
     parser.add_argument(
         "--direct-serial",
         action="store_true",
-        help="Manual recovery only; also requires KOALABYTE_ALLOW_DIRECT_HELTEC_SERIAL=1",
+        help=(
+            "Manual recovery only; requires KOALABYTE_ALLOW_DIRECT_HELTEC_SERIAL=1 "
+            "and a stopped Heltec owner service"
+        ),
     )
     args = parser.parse_args()
 
@@ -91,7 +91,7 @@ def main() -> int:
 
     if args.direct_serial:
         written = write_direct(args.port, args.baud, payloads)
-        mode = "direct_manual"
+        mode = "direct_manual_owner_stopped"
     else:
         written = 0
         for payload in payloads:
