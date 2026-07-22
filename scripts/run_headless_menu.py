@@ -9,14 +9,18 @@ import signal
 import time
 from pathlib import Path
 
+from koalablue.bounded_log import append_jsonl
 from koalablue.gpio_buttons import GPIOButtonManager
 from koalablue.killerkoala_error_dig import run_standalone_error_sequence
+from koalablue.killerkoala_runtime_limits import install_killerkoala_runtime_limits
 from koalablue.menu_display_sync import sync_menu_state
 from koalablue.runtime_serial_ownership import install_display_command_clients
 from scripts.run_menu_screen import make_menu
 
 STATUS_PATH = Path("logs/runtime/headless_menu_status.json")
 EVENT_PATH = Path("logs/runtime/headless_menu_events.jsonl")
+
+install_killerkoala_runtime_limits()
 
 
 def write_status(status: str, **extra: object) -> None:
@@ -26,21 +30,27 @@ def write_status(status: str, **extra: object) -> None:
         "local_graphical_display_required": False,
         "gpio_buttons": "K1-K8",
         "serial_transport": "single_owner_command_bus",
+        "low_memory_ai_limits": True,
         "updated_at": time.time(),
         **extra,
     }
     STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    STATUS_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temp = STATUS_PATH.with_name(f".{STATUS_PATH.name}.tmp")
+    temp.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    temp.replace(STATUS_PATH)
 
 
 def append_event(payload: dict[str, object]) -> None:
-    EVENT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with EVENT_PATH.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(payload, sort_keys=True) + "\n")
+    append_jsonl(EVENT_PATH, payload)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run KoalaByte headless K1-K8 menu and display synchronization")
+    parser = argparse.ArgumentParser(
+        description="Run KoalaByte headless K1-K8 menu and display synchronization"
+    )
     parser.add_argument("--poll-seconds", type=float, default=0.05)
     args = parser.parse_args()
 
@@ -58,7 +68,9 @@ def main() -> int:
     signal.signal(signal.SIGTERM, stop_handler)
 
     menu = make_menu()
-    buttons = GPIOButtonManager(log_path="logs/gpio_buttons/gpio_button_runtime_events.jsonl")
+    buttons = GPIOButtonManager(
+        log_path="logs/gpio_buttons/gpio_button_runtime_events.jsonl"
+    )
     buttons.start()
 
     write_status(
@@ -89,7 +101,9 @@ def main() -> int:
                         "HEADLESS_MENU_RUNNING",
                         buttons_available=buttons.available,
                         last_button=event_payload,
-                        last_menu_event=menu_event.__dict__ if menu_event is not None else None,
+                        last_menu_event=(
+                            menu_event.__dict__ if menu_event is not None else None
+                        ),
                         display_mode=menu.display_mode,
                         selected_label=menu.selected_item.label,
                     )
