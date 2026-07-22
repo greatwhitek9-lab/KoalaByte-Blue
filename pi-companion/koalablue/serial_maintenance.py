@@ -23,6 +23,20 @@ def direct_serial_maintenance_allowed(
     return _truthy(os.getenv(env_var, "0")) and not owner_is_active(target)
 
 
+def heltec_direct_serial_maintenance_allowed() -> bool:
+    return direct_serial_maintenance_allowed(
+        "heltec",
+        env_var="KOALABYTE_ALLOW_DIRECT_HELTEC_SERIAL",
+    )
+
+
+def esp32_direct_serial_maintenance_allowed() -> bool:
+    return direct_serial_maintenance_allowed(
+        "esp32",
+        env_var="KOALABYTE_ALLOW_DIRECT_ESP32_SERIAL",
+    )
+
+
 def require_direct_serial_maintenance(
     target: str,
     *,
@@ -43,6 +57,8 @@ def require_direct_serial_maintenance(
 
 __all__ = [
     "direct_serial_maintenance_allowed",
+    "esp32_direct_serial_maintenance_allowed",
+    "heltec_direct_serial_maintenance_allowed",
     "owner_is_active",
     "owner_lock_path",
     "require_direct_serial_maintenance",
