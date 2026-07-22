@@ -69,6 +69,7 @@ echo "Check only: ${CHECK_ONLY}"
 validate_sources() {
   bash -n scripts/setup_pi_hardware_stage.sh
   bash -n scripts/setup_system_packages.sh
+  bash -n scripts/preflight_firmware_host.sh
   bash -n scripts/setup_can0.sh
   bash -n scripts/run_can0_service.sh
   bash -n scripts/install_can0_service.sh
@@ -84,6 +85,10 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
   exit 0
 fi
 [[ "$(uname -s)" == "Linux" ]] || { echo "This stage requires Linux." >&2; exit 1; }
+
+# Reject 32-bit OS, inadequate storage, bad clock, or any Pi undervoltage history
+# before the first APT or pip write begins.
+bash scripts/preflight_firmware_host.sh --before-install
 
 if [[ "${EUID}" -eq 0 ]]; then sudo_cmd=()
 elif command -v sudo >/dev/null 2>&1; then sudo_cmd=(sudo)
@@ -168,13 +173,15 @@ fi
 if [[ "${CONFIGURE_AUDIO}" == "1" ]]; then bash scripts/configure_pi_audio_output.sh || true; fi
 
 if [[ "${INSTALL_RUNTIME_SERVICES}" == "1" ]]; then
-  KOALABYTE_SERVICE_USER="${SERVICE_USER}" INSTALL_BOOT_SERVICES=1 STRICT_BOOT_SERVICES=1 \
-    bash scripts/install_koalabyte_boot_services.sh
+  KOALABYTE_SERVICE_USER="${SERVICE_USER}" KOALABYTE_SERVICE_GROUP="${SERVICE_GROUP}" \
+    INSTALL_BOOT_SERVICES=1 STRICT_BOOT_SERVICES=1 bash scripts/install_koalabyte_boot_services.sh
   if [[ -f scripts/install_ble_node_manager_service.sh ]]; then
-    INSTALL_BLE_NODE_MANAGER_SERVICE=1 bash scripts/install_ble_node_manager_service.sh
+    KOALABYTE_SERVICE_USER="${SERVICE_USER}" KOALABYTE_SERVICE_GROUP="${SERVICE_GROUP}" \
+      INSTALL_BLE_NODE_MANAGER_SERVICE=1 bash scripts/install_ble_node_manager_service.sh
   fi
   if [[ -f scripts/install_esp32_dualeye_voice_bridge_service.sh ]]; then
-    INSTALL_DUALEYE_VOICE_BRIDGE_SERVICE=1 bash scripts/install_esp32_dualeye_voice_bridge_service.sh
+    KOALABYTE_SERVICE_USER="${SERVICE_USER}" KOALABYTE_SERVICE_GROUP="${SERVICE_GROUP}" \
+      INSTALL_DUALEYE_VOICE_BRIDGE_SERVICE=1 bash scripts/install_esp32_dualeye_voice_bridge_service.sh
   fi
 fi
 
