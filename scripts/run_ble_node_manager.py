@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pi-companion"))
 
 from koalablue.ble_node_manager import BleNodeManager  # noqa: E402
+from koalablue.runtime_serial_ownership import install_heltec_serial_owner  # noqa: E402
 
 
 def default_primary_ble_port() -> str:
@@ -37,6 +38,8 @@ def main() -> int:
     parser.add_argument("--log-dir", default="logs/ble_nodes")
     args = parser.parse_args()
 
+    install_heltec_serial_owner()
+
     primary_port = args.primary_port or args.dongle_port
     manager = BleNodeManager(
         primary_port=primary_port,
@@ -52,6 +55,7 @@ def main() -> int:
 
     duration = None if args.duration == 0 else args.duration
     for event in manager.run(duration_seconds=duration):
+        event.setdefault("serial_owner", "koalabyte-ble-node-manager")
         print(json.dumps(event, sort_keys=True))
 
     return 0
