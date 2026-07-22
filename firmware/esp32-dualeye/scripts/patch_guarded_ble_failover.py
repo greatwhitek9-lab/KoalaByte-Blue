@@ -3,7 +3,9 @@ Import("env")
 from pathlib import Path
 
 project = Path(env.subst("$PROJECT_DIR"))
-path = project / "src" / "integrated_main.cpp"
+# platformio.ini excludes integrated_main.cpp. Patch the generated wake-session
+# translation unit that is actually compiled and flashed.
+path = project / "src" / "integrated_main_wake_session.cpp"
 text = path.read_text(encoding="utf-8")
 
 
@@ -258,4 +260,4 @@ replace_once(
 )
 
 path.write_text(text, encoding="utf-8")
-print(f"Patched guarded Pi-to-ESP32 BLE failover: {path}")
+print(f"Patched guarded Pi-to-ESP32 BLE failover in compiled source: {path}")
