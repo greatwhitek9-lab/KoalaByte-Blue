@@ -25,8 +25,8 @@ usage() {
 Install/start the KoalaByte ESP32-S3 DualEye voice bridge service.
 
 The service is the exclusive ESP32 serial owner. Pi 3B+ defaults use a 768-token
-context, 64 predicted tokens, and two retained dialogue turns. Private overrides
-belong in /etc/koalabyte-blue/killerkoala.env.
+context, 64 predicted tokens, and two retained dialogue turns. Private Wi-Fi,
+audio, and API settings belong in /etc/koalabyte-blue/killerkoala.env.
 EOF
 }
 
@@ -48,16 +48,28 @@ import json, sys, time
 (path, status, reason, port, service, user, group, model, voice, env_file,
  num_ctx, bus_dir) = sys.argv[1:]
 payload = {
-    "status": status, "reason": reason, "port": port, "service": service,
-    "service_user": user, "service_group": group,
+    "status": status,
+    "reason": reason,
+    "port": port,
+    "service": service,
+    "service_user": user,
+    "service_group": group,
     "waveshare_local_vocabulary_first": True,
-    "tinyllama_fallback_model": model, "tts_voice_backend": voice,
-    "llm_num_ctx": int(num_ctx), "web_search_mode": "auto_when_internet_available",
-    "private_environment_file": env_file, "serial_bus_dir": bus_dir,
-    "exclusive_serial_owner": True, "required_for_install": False,
+    "tinyllama_fallback_model": model,
+    "tts_voice_backend": voice,
+    "llm_num_ctx": int(num_ctx),
+    "web_search_mode": "auto_when_internet_available",
+    "private_environment_file": env_file,
+    "private_environment_mode": "0600",
+    "serial_bus_dir": bus_dir,
+    "exclusive_serial_owner": True,
+    "wifi_usb_provisioning": True,
+    "ollama_started_only_by_ai_setup": True,
     "updated_at": time.time(),
 }
-open(path, "w", encoding="utf-8").write(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+open(path, "w", encoding="utf-8").write(
+    json.dumps(payload, indent=2, sort_keys=True) + "\n"
+)
 PY
 }
 
@@ -82,7 +94,10 @@ if [[ -z "${PYTHON_BIN}" || ! -x "${PYTHON_BIN}" ]]; then
   [[ "${STRICT_DUALEYE_VOICE_BRIDGE_SERVICE}" == "1" ]] && exit 1
   exit 0
 fi
-id "${SERVICE_USER}" >/dev/null 2>&1 || { write_status error "service user missing"; exit 1; }
+id "${SERVICE_USER}" >/dev/null 2>&1 || {
+  write_status error "service user missing"
+  exit 1
+}
 [[ -n "${SERVICE_GROUP}" ]] || SERVICE_GROUP="$(id -gn "${SERVICE_USER}")"
 
 if [[ "${EUID}" -eq 0 ]]; then sudo_cmd=()
@@ -109,6 +124,14 @@ KILLERKOALA_LLM_KEEP_ALIVE=60s
 ENVEOF
   "${sudo_cmd[@]}" install -m 0600 "${temp_env}" "${KILLERKOALA_ENV_FILE}"
   rm -f "${temp_env}"
+else
+  "${sudo_cmd[@]}" chmod 0600 "${KILLERKOALA_ENV_FILE}"
+fi
+
+if [[ -f "${REPO_ROOT}/scripts/provision_esp32_wifi_env.sh" ]]; then
+  KOALABYTE_ENV_FILE="${KILLERKOALA_ENV_FILE}" \
+    bash "${REPO_ROOT}/scripts/provision_esp32_wifi_env.sh" || \
+    echo "warning: ESP32 Wi-Fi auto-provisioning was unavailable; USB control remains enabled" >&2
 fi
 
 service_file="/etc/systemd/system/${SERVICE_NAME}"
@@ -116,8 +139,8 @@ temp_service="$(mktemp)"
 cat >"${temp_service}" <<SERVICEEOF
 [Unit]
 Description=KoalaByte exclusive ESP32 serial owner, voice and expression bridge
-After=network-online.target bluetooth.target systemd-udev-settle.service ollama.service koalabyte-swap.service
-Wants=network-online.target systemd-udev-settle.service ollama.service
+After=network-online.target bluetooth.target systemd-udev-settle.service koalabyte-swap.service
+Wants=network-online.target systemd-udev-settle.service
 StartLimitIntervalSec=0
 
 [Service]
@@ -152,8 +175,9 @@ SERVICEEOF
 "${sudo_cmd[@]}" install -m 0644 "${temp_service}" "${service_file}"
 rm -f "${temp_service}"
 "${sudo_cmd[@]}" systemctl daemon-reload
+"${sudo_cmd[@]}" systemctl reset-failed "${SERVICE_NAME}" >/dev/null 2>&1 || true
 "${sudo_cmd[@]}" systemctl enable "${SERVICE_NAME}" || true
 "${sudo_cmd[@]}" systemctl restart "${SERVICE_NAME}" || true
 
-write_status ok "Voice bridge installed with exclusive serial ownership, hot-plug retry, Pi 3B+ memory limits, and William TTS."
+write_status ok "Voice bridge installed with exclusive serial ownership, secure Wi-Fi provisioning, hot-plug retry, Pi 3B+ memory limits, and William TTS."
 echo "ESP32 DualEye voice bridge service installed: ${SERVICE_NAME}"
