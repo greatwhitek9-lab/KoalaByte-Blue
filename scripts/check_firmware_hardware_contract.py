@@ -167,7 +167,7 @@ def main() -> int:
             'EXPECTED_FW="${T114_EXPECTED_FW:-}"',
             "sed -n 's/^#define KOALA_FW",
             'EXPECTED_FW="$(resolve_expected_fw || true)"',
-            'payload.get("fw") == expected_fw',
+            "observed_fw == expected_fw",
         ),
     )
 
