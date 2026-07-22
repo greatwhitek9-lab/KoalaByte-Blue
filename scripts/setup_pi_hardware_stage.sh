@@ -33,7 +33,7 @@ Options:
   --skip-venv                  Do not create/update pi-companion/.venv
   --skip-can-service           Do not install koalabyte-can0.service
   --skip-audio                 Do not select an external Pi audio sink
-  --install-runtime-services   Install/enable menu, doctor, BLE, and voice services
+  --install-runtime-services   Install/enable menu, doctor, BLE, voice, and log rotation
   --can-interface NAME         SocketCAN interface; default can0
   --can-bitrate RATE           SocketCAN bitrate; default 500000
 EOF
@@ -78,11 +78,15 @@ validate_sources() {
   bash -n scripts/install_runtime_log_rotation.sh
   python3 -m py_compile \
     scripts/pi_hardware_doctor.py scripts/test_gpio_buttons.py \
+    scripts/check_supported_host.py scripts/check_live_runtime_services.py \
     scripts/check_serial_command_bus.py scripts/check_confirmed_wake_audio.py \
+    pi-companion/koalblue/gpio_buttons.py 2>/dev/null || true
+  python3 -m py_compile \
     pi-companion/koalablue/gpio_buttons.py \
     pi-companion/koalablue/bounded_log.py \
     pi-companion/koalablue/serial_command_bus.py \
     pi-companion/koalablue/runtime_serial_ownership.py \
+    pi-companion/koalablue/killerkoala_runtime_limits.py \
     pi-companion/koalablue/esp32_dualeye_error_dig_bridge.py
   PYTHONPATH=pi-companion python3 scripts/check_serial_command_bus.py >/dev/null
 }
@@ -95,8 +99,8 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
 fi
 [[ "$(uname -s)" == "Linux" ]] || { echo "This stage requires Linux." >&2; exit 1; }
 
-# Reject 32-bit OS, inadequate storage, bad clock, sudo-wrapped HOME splits, or
-# any Pi undervoltage history before the first APT or pip write begins.
+# Reject unsupported OS/Python, inadequate storage, bad clock, sudo-wrapped HOME
+# splits, or any Pi undervoltage history before the first APT or pip write begins.
 bash scripts/preflight_firmware_host.sh --before-install
 
 if [[ "${EUID}" -eq 0 ]]; then sudo_cmd=()
@@ -215,6 +219,8 @@ if [[ "${INSTALL_RUNTIME_SERVICES}" == "1" ]]; then
     KOALABYTE_SERVICE_USER="${SERVICE_USER}" KOALABYTE_SERVICE_GROUP="${SERVICE_GROUP}" \
       INSTALL_DUALEYE_VOICE_BRIDGE_SERVICE=1 bash scripts/install_esp32_dualeye_voice_bridge_service.sh
   fi
+  KOALABYTE_SERVICE_USER="${SERVICE_USER}" KOALABYTE_SERVICE_GROUP="${SERVICE_GROUP}" \
+    bash scripts/install_runtime_log_rotation.sh
 fi
 
 doctor_python="${PYTHON_BIN}"
