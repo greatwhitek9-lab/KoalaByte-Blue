@@ -11,6 +11,9 @@ APP_DIR="${T114_COMBINED_APP_DIR:-firmware/t114-combined-safe}"
 STATUS_PATH="${T114_COMBINED_STATUS_PATH:-logs/t114_combined_safe_build_status.json}"
 STRICT="${STRICT_T114_COMBINED_BUILD:-0}"
 T114_GNSS_UART_LABEL="${T114_GNSS_UART_LABEL:-UART_1}"
+EXPECTED_FW="0.10.0-t114-smooth-idle-and-speech-mouth"
+EXPECTED_PROTOCOL="killerkoala_face_v1"
+EXPECTED_REPO_PROTOCOL="2026.06-menu-sync-v1"
 
 mkdir -p "$(dirname "${STATUS_PATH}")"
 
@@ -38,12 +41,19 @@ cat > "${STATUS_PATH}" <<JSON
   "primary_ble": "heltec-t114-nrf52840",
   "primary_gnss": "heltec-t114-gnss",
   "gnss_uart_label": $(json_escape "${T114_GNSS_UART_LABEL}"),
+  "expected_runtime_identity": {
+    "device": "heltec-t114",
+    "fw": $(json_escape "${EXPECTED_FW}"),
+    "protocol": $(json_escape "${EXPECTED_PROTOCOL}"),
+    "repo_protocol_version": $(json_escape "${EXPECTED_REPO_PROTOCOL}")
+  },
   "secondary_ble_nodes": [
     "esp32-s3-dualeye",
     "raspberry-pi-bluez"
   ],
   "software_uf2_entry": true,
   "installer_owned_flash": true,
+  "linked_identity_markers_checked": true,
   "safety": "BLE RX/TX and GNSS can run together; LoRa driver guarded until pin validation.",
   "updated_at": $(date +%s)
 }
@@ -91,14 +101,30 @@ west build --no-sysbuild \
     -DKOALABYTE_GNSS_UART_LABEL="${T114_GNSS_UART_LABEL}"
 
 ELF_PATH="${BUILD_DIR}/zephyr/zephyr.elf"
-if [[ ! -f "${ELF_PATH}" ]]; then
-    write_status "failed" "T114 ELF is missing after west build."
+UF2_PATH="${BUILD_DIR}/zephyr/zephyr.uf2"
+if [[ ! -s "${ELF_PATH}" ]]; then
+    write_status "failed" "T114 ELF is missing or empty after west build."
     exit 1
 fi
+if [[ ! -s "${UF2_PATH}" ]]; then
+    write_status "failed" "T114 UF2 is missing or empty after west build."
+    exit 1
+fi
+command -v strings >/dev/null 2>&1 || {
+    write_status "failed" "binutils strings command is required for linked-image validation."
+    exit 1
+}
+LINKED_STRINGS="${BUILD_DIR}/zephyr/koalabyte-linked-strings.txt"
+strings "${ELF_PATH}" > "${LINKED_STRINGS}"
 
-# Prove the public lifecycle renderer and software-UF2 deployment path survived
-# archive linking and section garbage collection.
+# Prove runtime identity, lifecycle, and software-UF2 behavior survived archive
+# linking and section garbage collection.
 for marker in \
+    "${EXPECTED_FW}" \
+    "${EXPECTED_PROTOCOL}" \
+    "${EXPECTED_REPO_PROTOCOL}" \
+    heltec-t114 \
+    heltec_mouth_status \
     action_complete \
     koalagotchi_mode \
     koalagotchi_exit \
@@ -108,8 +134,8 @@ for marker in \
     bootloader_ack \
     REBOOT_UF2 \
     REPEATED\ FAILURES; do
-    if ! strings "${ELF_PATH}" | grep -Fq "${marker}"; then
-        write_status "failed" "T114 lifecycle/deployment marker missing from linked ELF: ${marker}"
+    if ! grep -Fq "${marker}" "${LINKED_STRINGS}"; then
+        write_status "failed" "T114 identity/lifecycle/deployment marker missing from linked ELF: ${marker}"
         echo "Missing linked T114 marker: ${marker}" >&2
         exit 1
     fi
@@ -124,18 +150,19 @@ for marker in \
     grin-cavity-jaw-cheeks-fangs \
     frame_signature \
     changed_pixels; do
-    if ! strings "${ELF_PATH}" | grep -Fq "${marker}"; then
+    if ! grep -Fq "${marker}" "${LINKED_STRINGS}"; then
         write_status "failed" "T114 articulated original-texture renderer marker missing from linked ELF: ${marker}"
         echo "Missing linked articulated original-texture renderer marker: ${marker}" >&2
         exit 1
     fi
 done
 
-write_status "built" "T114 firmware built with linked Koalagotchi lifecycle, software UF2 entry, and articulated original-texture mouth renderer."
+write_status "built" "T114 firmware built with exact linked identity, Koalagotchi lifecycle, software UF2 entry, and articulated original-texture mouth renderer."
 
 echo ""
 echo "======================================"
 echo "Build completed successfully."
+echo "Runtime identity: ${EXPECTED_FW} / ${EXPECTED_PROTOCOL}"
 echo "Koalagotchi lifecycle: linked and verified"
 echo "Software UF2 entry: linked and verified"
 echo "Mouth renderer: original texture articulated jaw v2"
