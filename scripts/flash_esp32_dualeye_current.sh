@@ -6,6 +6,7 @@ cd "${ROOT}"
 
 BUNDLE_DIR="${KOALABYTE_FIRMWARE_BUNDLE_DIR:-${ROOT}/releases/koalabyte-blue-current}"
 ESP32_DIR="${BUNDLE_DIR}/esp32"
+MANIFEST_PATH="${BUNDLE_DIR}/manifest.json"
 STATUS_PATH="${ESP32_FLASH_STATUS_PATH:-${ROOT}/logs/deployment/esp32_flash_status.json}"
 PORT="${ESP32_PORT:-${KOALABYTE_ESP32_FACE_PORT:-${KOALABYTE_ESP32_DUALEYE_BY_ID:-}}}"
 BAUD="${ESP32_UPLOAD_BAUD:-460800}"
@@ -31,12 +32,37 @@ while [[ $# -gt 0 ]]; do
 done
 mkdir -p "${ROOT}/logs/deployment" "${ROOT}/logs/preflight"
 
+python3 scripts/check_firmware_bundle.py --bundle "${BUNDLE_DIR}" --require esp32 >/dev/null
+mapfile -t expected_identity < <(python3 - "${MANIFEST_PATH}" <<'PY'
+import json, sys
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+identity = manifest["esp32"]["runtime_identity"]
+for key in ("device", "fw", "protocol", "repo_protocol_version"):
+    value = str(identity.get(key) or "").strip()
+    if not value:
+        raise SystemExit(f"missing ESP32 runtime identity field: {key}")
+    print(value)
+PY
+)
+[[ ${#expected_identity[@]} -eq 4 ]] || { echo "Invalid ESP32 runtime identity in ${MANIFEST_PATH}" >&2; exit 1; }
+EXPECTED_DEVICE="${expected_identity[0]}"
+EXPECTED_FW="${expected_identity[1]}"
+EXPECTED_PROTOCOL="${expected_identity[2]}"
+EXPECTED_REPO_PROTOCOL="${expected_identity[3]}"
+
 write_status() {
-  local status="$1" reason="$2" used_baud="${3:-}"
-  python3 - "${STATUS_PATH}" "${status}" "${reason}" "${PORT}" "${ESP32_DIR}" "${used_baud}" <<'PY'
+  local status="$1" reason="$2" used_baud="${3:-}" observed_payload="${4:-}"
+  python3 - "${STATUS_PATH}" "${status}" "${reason}" "${PORT}" "${ESP32_DIR}" \
+    "${used_baud}" "${EXPECTED_DEVICE}" "${EXPECTED_FW}" "${EXPECTED_PROTOCOL}" \
+    "${EXPECTED_REPO_PROTOCOL}" "${observed_payload}" <<'PY'
 import json, sys, time
 from pathlib import Path
-path, status, reason, port, bundle, used_baud = sys.argv[1:]
+(path, status, reason, port, bundle, used_baud, expected_device, expected_fw,
+ expected_protocol, expected_repo_protocol, observed_payload) = sys.argv[1:]
+try:
+    observed = json.loads(observed_payload) if observed_payload else None
+except Exception:
+    observed = {"raw": observed_payload}
 Path(path).write_text(json.dumps({
     "status": status,
     "reason": reason,
@@ -44,6 +70,13 @@ Path(path).write_text(json.dumps({
     "bundle_dir": bundle,
     "chip": "esp32s3",
     "identity_probe_required": True,
+    "expected_runtime_identity": {
+        "device": expected_device,
+        "fw": expected_fw,
+        "protocol": expected_protocol,
+        "repo_protocol_version": expected_repo_protocol,
+    },
+    "observed_runtime_identity": observed,
     "serial_privilege_fallback": True,
     "write_baud": int(used_baud) if used_baud.isdigit() else None,
     "low_baud_retry_enabled": True,
@@ -53,16 +86,8 @@ Path(path).write_text(json.dumps({
 PY
 }
 
-required=(bootloader.bin partitions.bin boot_app0.bin firmware.bin srmodels.bin)
-for file in "${required[@]}"; do
-  [[ -f "${ESP32_DIR}/${file}" ]] || {
-    write_status missing_artifact "Missing ESP32 bundle file: ${file}"
-    echo "Missing ESP32 bundle file: ${ESP32_DIR}/${file}" >&2
-    exit 1
-  }
-done
-
-STRICT_ESP32_TOOLS=1 bash scripts/setup_esp32_tools.sh
+PLATFORMIO_CORE_DIR="${PLATFORMIO_CORE_DIR}" STRICT_ESP32_TOOLS=1 \
+  bash scripts/setup_esp32_tools.sh
 esptool="$(find "${PLATFORMIO_CORE_DIR}/packages/tool-esptoolpy" -maxdepth 4 -type f \
   \( -name 'esptool.py' -o -name 'esptool' \) -print -quit 2>/dev/null || true)"
 [[ -n "${esptool}" ]] || esptool="$(command -v esptool.py || command -v esptool || true)"
@@ -93,7 +118,8 @@ probe_esp32s3() {
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   "${runner[@]}" version >/dev/null 2>&1
-  write_status check_only_ready "ESP32 bundle, esptool, identity probe, low-baud retry, and runtime polling contracts validated."
+  write_status check_only_ready \
+    "ESP32 checksums, partition bounds, exact runtime identity, esptool, low-baud retry, and polling contracts validated."
   exit 0
 fi
 
@@ -143,7 +169,7 @@ flash_at_baud() {
     0x00cb0000 "${ESP32_DIR}/srmodels.bin"
 }
 
-write_status flashing "Writing complete ESP32-S3 image set after chip verification." "${BAUD}"
+write_status flashing "Writing complete ESP32-S3 image set after chip and bundle verification." "${BAUD}"
 echo "Flashing verified ESP32-S3 DualEye on ${PORT} at ${BAUD} baud..."
 used_baud="${BAUD}"
 if ! flash_at_baud "${BAUD}"; then
@@ -166,10 +192,11 @@ query_node_status() {
   if [[ ! -r "${candidate}" || ! -w "${candidate}" ]] && command -v sudo >/dev/null 2>&1; then
     python_runner=(sudo env "PYTHONPATH=${ROOT}/pi-companion" python3)
   fi
-  PYTHONPATH=pi-companion "${python_runner[@]}" - "${candidate}" <<'PY'
+  PYTHONPATH=pi-companion "${python_runner[@]}" - "${candidate}" \
+    "${EXPECTED_DEVICE}" "${EXPECTED_FW}" "${EXPECTED_PROTOCOL}" "${EXPECTED_REPO_PROTOCOL}" <<'PY'
 import json, sys, time
 import serial
-port = sys.argv[1]
+port, expected_device, expected_fw, expected_protocol, expected_repo_protocol = sys.argv[1:]
 ser = serial.Serial()
 ser.port = port
 ser.baudrate = 115200
@@ -182,7 +209,7 @@ ser.rts = False
 ser.open()
 try:
     time.sleep(0.35)
-    deadline = time.time() + 3.5
+    deadline = time.time() + 4.0
     next_request = 0.0
     while time.time() < deadline:
         now = time.time()
@@ -197,7 +224,13 @@ try:
             payload = json.loads(line)
         except Exception:
             continue
-        if payload.get("type") == "node_status" and payload.get("device") == "esp32-s3-dualeye":
+        if (
+            payload.get("type") == "node_status"
+            and str(payload.get("device") or "") == expected_device
+            and str(payload.get("fw") or "") == expected_fw
+            and str(payload.get("protocol") or "") == expected_protocol
+            and str(payload.get("repo_protocol_version") or "") == expected_repo_protocol
+        ):
             print(json.dumps(payload, sort_keys=True))
             raise SystemExit(0)
 finally:
@@ -208,6 +241,7 @@ PY
 
 deadline=$(( $(date +%s) + WAIT_SECONDS ))
 verified_port=""
+verified_payload=""
 while (( $(date +%s) < deadline )); do
   PYTHONPATH=pi-companion python3 scripts/discover_koalabyte_ports.py --profile heltec --output-dir logs/preflight >/dev/null 2>&1 || true
   discovered=""
@@ -218,8 +252,9 @@ while (( $(date +%s) < deadline )); do
   fi
   for candidate in /dev/koalabyte-esp32-dualeye "${discovered}" "${PORT}"; do
     [[ -n "${candidate}" && -e "${candidate}" ]] || continue
-    if query_node_status "${candidate}"; then
+    if payload="$(query_node_status "${candidate}")"; then
       verified_port="${candidate}"
+      verified_payload="${payload}"
       break 2
     fi
   done
@@ -228,11 +263,15 @@ done
 
 if [[ -n "${verified_port}" ]]; then
   PORT="${verified_port}"
-  write_status flashed "ESP32 image set flashed and node_status verified after readiness polling." "${used_baud}"
-  echo "ESP32-S3 firmware flash complete."
+  write_status flashed \
+    "ESP32 image set flashed and exact firmware/protocol identity verified after readiness polling." \
+    "${used_baud}" "${verified_payload}"
+  echo "ESP32-S3 firmware flash complete and exact identity verified."
   exit 0
 fi
 
-write_status flashed_unverified "ESP32 image write completed, but node_status did not become ready before timeout." "${used_baud}"
-echo "ESP32 image write completed, but runtime node_status verification timed out." >&2
+write_status flashed_unverified \
+  "ESP32 image write completed, but the exact bundled firmware/protocol identity did not become ready before timeout." \
+  "${used_baud}"
+echo "ESP32 image write completed, but exact runtime identity verification timed out." >&2
 exit 1
