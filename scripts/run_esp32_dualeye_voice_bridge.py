@@ -9,12 +9,14 @@ from koalablue.esp32_dualeye_error_dig_bridge import (
     ESP32DualEyeVoiceBridge,
     default_esp32_port,
 )
+from koalablue.killerkoala_runtime_limits import install_killerkoala_runtime_limits
 from koalablue.music_speech_duck import install_music_speech_ducking
 from koalablue.runtime_serial_ownership import (
     install_display_command_clients,
     install_esp32_serial_owner,
 )
 
+install_killerkoala_runtime_limits()
 install_music_speech_ducking(ESP32DualEyeVoiceBridge)
 install_display_command_clients()
 install_esp32_serial_owner(ESP32DualEyeVoiceBridge)
@@ -54,6 +56,7 @@ def main() -> int:
             "port": args.port,
             "udp_port": args.udp_port,
             "serial_owner": "koalabyte-dualeye-voice-bridge",
+            "low_memory_limits": True,
         }
         print(json.dumps(payload, indent=2, sort_keys=True))
         return 0
@@ -78,6 +81,7 @@ def main() -> int:
                     "pi_host": args.pi_host,
                     "udp_port": args.udp_port,
                     "serial_owner": "koalabyte-dualeye-voice-bridge",
+                    "low_memory_limits": True,
                 },
                 indent=2,
                 sort_keys=True,
@@ -107,11 +111,13 @@ def main() -> int:
             "routed_count": len(routed),
             "routed": routed,
             "serial_owner": "koalabyte-dualeye-voice-bridge",
+            "low_memory_limits": True,
             "updated_at": time.time(),
         }
     else:
         result = bridge.run(seconds=args.seconds, once=args.once)
         result["serial_owner"] = "koalabyte-dualeye-voice-bridge"
+        result["low_memory_limits"] = True
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
 
