@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import stat
 import subprocess
 import time
 from dataclasses import asdict, dataclass
@@ -10,7 +11,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from .bounded_log import append_jsonl
 from .location_password_gate import ensure_unlocked
+from .serial_command_bus import socket_path, submit_command
 
 DEFAULT_FIX_PATH = Path("logs/gnss/current_fix.json")
 DEFAULT_GNSS_LOG = Path("logs/gnss/gnss_events.jsonl")
@@ -39,12 +42,15 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
-def location_logging_authorized(enabled: Optional[bool] = None, *, password: Optional[str] = None, prompt: bool = False) -> bool:
+def location_logging_authorized(
+    enabled: Optional[bool] = None,
+    *,
+    password: Optional[str] = None,
+    prompt: bool = False,
+) -> bool:
     if enabled is False:
         return False
-    if not ensure_unlocked(password=password, prompt=prompt):
-        return False
-    return True
+    return ensure_unlocked(password=password, prompt=prompt)
 
 
 def locked_location_dict(reason: str = "password_required") -> dict[str, object]:
@@ -57,12 +63,17 @@ def locked_location_dict(reason: str = "password_required") -> dict[str, object]
         "status": reason,
         "captured_at_utc": utc_now(),
         "safety_scope": "authorized password-protected location logging only",
-        "note": "location fields are present by default, but coordinates are not shown to protected actions until the operator unlocks the protected-actions password gate",
+        "note": "location fields remain hidden until the protected-actions password gate is unlocked",
     }
 
 
 def valid_lat_lon(latitude: Optional[float], longitude: Optional[float]) -> bool:
-    return latitude is not None and longitude is not None and -90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0
+    return (
+        latitude is not None
+        and longitude is not None
+        and -90.0 <= latitude <= 90.0
+        and -180.0 <= longitude <= 180.0
+    )
 
 
 def _float_env(name: str) -> Optional[float]:
@@ -75,10 +86,18 @@ def _float_env(name: str) -> Optional[float]:
         return None
 
 
+def _atomic_write_json(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_name(f".{path.name}.tmp.{os.getpid()}.{time.time_ns()}")
+    temp.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    os.replace(temp, path)
+
+
 def fix_to_dict(fix: Optional[GnssFix]) -> dict[str, object]:
-    if fix is None:
-        return locked_location_dict("password_required")
-    return asdict(fix)
+    return locked_location_dict("password_required") if fix is None else asdict(fix)
 
 
 def parse_meshtastic_info_text(text: str) -> Optional[GnssFix]:
@@ -100,7 +119,16 @@ def parse_meshtastic_info_text(text: str) -> Optional[GnssFix]:
             altitude = float(alt_match.group(1))
         except ValueError:
             altitude = None
-    return GnssFix(latitude, longitude, altitude, None, "meshtastic_info", "fix", utc_now(), note="parsed from meshtastic --info output")
+    return GnssFix(
+        latitude,
+        longitude,
+        altitude,
+        None,
+        "meshtastic_info",
+        "fix",
+        utc_now(),
+        note="parsed from meshtastic --info output",
+    )
 
 
 def env_fix() -> Optional[GnssFix]:
@@ -110,7 +138,16 @@ def env_fix() -> Optional[GnssFix]:
     accuracy = _float_env("KOALABYTE_GNSS_ACCURACY")
     if not valid_lat_lon(latitude, longitude):
         return None
-    return GnssFix(latitude, longitude, altitude, accuracy, "environment", "fix", utc_now(), note="manual/test fix from environment")
+    return GnssFix(
+        latitude,
+        longitude,
+        altitude,
+        accuracy,
+        "environment",
+        "fix",
+        utc_now(),
+        note="manual/test fix from environment",
+    )
 
 
 def saved_fix(path: str | Path = DEFAULT_FIX_PATH) -> Optional[GnssFix]:
@@ -147,7 +184,6 @@ def fix_from_t114_event(event: dict[str, object]) -> Optional[GnssFix]:
         return None
     if not valid_lat_lon(latitude, longitude):
         return None
-    altitude = None
     try:
         altitude = float(event["altitude_meters"]) if event.get("altitude_meters") is not None else None
     except (TypeError, ValueError):
@@ -160,38 +196,112 @@ def fix_from_t114_event(event: dict[str, object]) -> Optional[GnssFix]:
         source="heltec-t114-gnss",
         status="fix",
         captured_at_utc=utc_now(),
-        note="primary device GPS fix from Heltec T114 GNSS via nRF52840 USB CDC JSON",
+        note="primary GPS fix from Heltec T114 GNSS via the single serial owner",
     )
 
 
-def write_primary_t114_fix_event(event: dict[str, object], path: str | Path = DEFAULT_FIX_PATH, log_path: str | Path = DEFAULT_GNSS_LOG) -> Optional[dict[str, object]]:
+def write_primary_t114_fix_event(
+    event: dict[str, object],
+    path: str | Path = DEFAULT_FIX_PATH,
+    log_path: str | Path = DEFAULT_GNSS_LOG,
+) -> Optional[dict[str, object]]:
     fix = fix_from_t114_event(event)
     if fix is None:
         return None
     data = asdict(fix)
     data["main_device_gps"] = True
     data["works_alongside"] = ["ble", "lora", "wifi"]
-    target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
-    event_path = Path(log_path)
-    event_path.parent.mkdir(parents=True, exist_ok=True)
-    with event_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps({"event": "primary_t114_gnss_fix_saved", "timestamp": time.time(), "fix": data}, sort_keys=True) + "\n")
+    _atomic_write_json(Path(path), data)
+    append_jsonl(
+        log_path,
+        {
+            "event": "primary_t114_gnss_fix_saved",
+            "timestamp": time.time(),
+            "fix": data,
+        },
+    )
     return data
 
 
-def write_gnss_status_event(event: dict[str, object], log_path: str | Path = DEFAULT_GNSS_LOG) -> None:
-    event_path = Path(log_path)
-    event_path.parent.mkdir(parents=True, exist_ok=True)
-    with event_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps({"event": "primary_t114_gnss_status", "timestamp": time.time(), "status": event}, sort_keys=True) + "\n")
+def write_gnss_status_event(
+    event: dict[str, object],
+    log_path: str | Path = DEFAULT_GNSS_LOG,
+) -> None:
+    append_jsonl(
+        log_path,
+        {
+            "event": "primary_t114_gnss_status",
+            "timestamp": time.time(),
+            "status": event,
+        },
+    )
 
 
-def t114_serial_fix(port: str, baud: int = 115200, timeout: float = 2.5) -> Optional[GnssFix]:
+def _socket_ready(path: Path) -> bool:
+    try:
+        return stat.S_ISSOCK(path.stat().st_mode)
+    except OSError:
+        return False
+
+
+def brokered_t114_fix(
+    *,
+    saved_path: str | Path = DEFAULT_FIX_PATH,
+    timeout: float = 3.5,
+) -> Optional[GnssFix]:
+    """Request a fresh fix without competing for the Heltec serial device."""
+
+    bus_socket = socket_path("heltec")
+    if not _socket_ready(bus_socket):
+        return None
+    target = Path(saved_path)
+    previous_mtime = target.stat().st_mtime_ns if target.exists() else 0
+    submission = submit_command(
+        "heltec",
+        {"type": "gnss_current_fix"},
+        queue_if_unavailable=False,
+    )
+    if not submission.accepted:
+        return None
+    deadline = time.monotonic() + max(0.25, timeout)
+    while time.monotonic() < deadline:
+        try:
+            if target.exists() and target.stat().st_mtime_ns > previous_mtime:
+                fix = saved_fix(target)
+                if fix is not None:
+                    return fix
+        except OSError:
+            pass
+        time.sleep(0.1)
+    return None
+
+
+def t114_serial_fix(
+    port: str,
+    baud: int = 115200,
+    timeout: float = 2.5,
+) -> Optional[GnssFix]:
+    """Explicit manual fallback only; production uses ``brokered_t114_fix``."""
+
+    if os.getenv("KOALABYTE_ALLOW_DIRECT_HELTEC_SERIAL", "0").lower() not in {
+        "1",
+        "true",
+        "yes",
+    }:
+        return None
     try:
         import serial  # type: ignore
-        with serial.Serial(port, baudrate=baud, timeout=0.15, write_timeout=0.35) as ser:
+
+        with serial.Serial(
+            port,
+            baudrate=baud,
+            timeout=0.15,
+            write_timeout=0.35,
+            dsrdtr=False,
+            rtscts=False,
+        ) as ser:
+            ser.dtr = False
+            ser.rts = False
             ser.write(b'{"type":"gnss_current_fix"}\n')
             deadline = time.time() + timeout
             while time.time() < deadline:
@@ -209,30 +319,67 @@ def t114_serial_fix(port: str, baud: int = 115200, timeout: float = 2.5) -> Opti
     return None
 
 
-def meshtastic_info_fix(port: str = "/dev/ttyUSB0", timeout: float = 15.0) -> Optional[GnssFix]:
+def meshtastic_info_fix(
+    port: str = "/dev/ttyUSB0", timeout: float = 15.0
+) -> Optional[GnssFix]:
     try:
-        result = subprocess.run(["meshtastic", "--port", port, "--info"], capture_output=True, text=True, timeout=timeout, check=False)
+        result = subprocess.run(
+            ["meshtastic", "--port", port, "--info"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
     except Exception:
         return None
-    return parse_meshtastic_info_text("\n".join([result.stdout or "", result.stderr or ""]))
+    return parse_meshtastic_info_text(
+        "\n".join([result.stdout or "", result.stderr or ""])
+    )
 
 
-def current_fix(*, authorized: Optional[bool] = None, meshtastic_port: Optional[str] = None, heltec_port: Optional[str] = None, saved_path: str | Path = DEFAULT_FIX_PATH, password: Optional[str] = None, prompt: bool = False) -> Optional[GnssFix]:
-    if not location_logging_authorized(enabled=authorized, password=password, prompt=prompt):
+def current_fix(
+    *,
+    authorized: Optional[bool] = None,
+    meshtastic_port: Optional[str] = None,
+    heltec_port: Optional[str] = None,
+    saved_path: str | Path = DEFAULT_FIX_PATH,
+    password: Optional[str] = None,
+    prompt: bool = False,
+) -> Optional[GnssFix]:
+    if not location_logging_authorized(
+        enabled=authorized, password=password, prompt=prompt
+    ):
         return None
-    primary_port = heltec_port or os.environ.get("KOALABYTE_PRIMARY_GNSS_PORT") or os.environ.get("KOALABYTE_HELTEC_USB_PORT") or os.environ.get("KOALABYTE_PRIMARY_BLE_PORT")
-    return env_fix() or saved_fix(saved_path) or (t114_serial_fix(primary_port) if primary_port else None) or (meshtastic_info_fix(meshtastic_port) if meshtastic_port else None)
+    existing = env_fix() or saved_fix(saved_path)
+    if existing is not None:
+        return existing
+    brokered = brokered_t114_fix(saved_path=saved_path)
+    if brokered is not None:
+        return brokered
+    primary_port = (
+        heltec_port
+        or os.environ.get("KOALABYTE_PRIMARY_GNSS_PORT")
+        or os.environ.get("KOALABYTE_HELTEC_USB_PORT")
+        or os.environ.get("KOALABYTE_PRIMARY_BLE_PORT")
+    )
+    return (
+        t114_serial_fix(primary_port) if primary_port else None
+    ) or (meshtastic_info_fix(meshtastic_port) if meshtastic_port else None)
 
 
-def write_current_fix(fix: GnssFix, path: str | Path = DEFAULT_FIX_PATH, log_path: str | Path = DEFAULT_GNSS_LOG) -> dict[str, object]:
+def write_current_fix(
+    fix: GnssFix,
+    path: str | Path = DEFAULT_FIX_PATH,
+    log_path: str | Path = DEFAULT_GNSS_LOG,
+) -> dict[str, object]:
     if not location_logging_authorized(enabled=True):
-        raise PermissionError("location logging is locked; unlock with the protected-actions password before writing a GNSS fix")
+        raise PermissionError(
+            "location logging is locked; unlock the protected-actions password first"
+        )
     data = asdict(fix)
-    target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
-    event_path = Path(log_path)
-    event_path.parent.mkdir(parents=True, exist_ok=True)
-    with event_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps({"event": "gnss_fix_saved", "timestamp": time.time(), "fix": data}, sort_keys=True) + "\n")
+    _atomic_write_json(Path(path), data)
+    append_jsonl(
+        log_path,
+        {"event": "gnss_fix_saved", "timestamp": time.time(), "fix": data},
+    )
     return data
