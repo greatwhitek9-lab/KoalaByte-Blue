@@ -91,16 +91,16 @@ else echo "sudo or root is required." >&2; exit 1
 fi
 id "${SERVICE_USER}" >/dev/null 2>&1 || { echo "Service user does not exist: ${SERVICE_USER}" >&2; exit 1; }
 SERVICE_HOME="$(getent passwd "${SERVICE_USER}" | cut -d: -f6)"
+SERVICE_GROUP="$(id -gn "${SERVICE_USER}")"
+SERVICE_TMPDIR="${SERVICE_HOME}/.cache/koalabyte/tmp"
 
 run_as_service_user() {
   if [[ "$(id -un)" == "${SERVICE_USER}" ]]; then
     "$@"
   elif command -v sudo >/dev/null 2>&1; then
-    sudo -u "${SERVICE_USER}" -H env HOME="${SERVICE_HOME}" \
-      TMPDIR="${TMPDIR:-${SERVICE_HOME}/.cache/koalabyte/tmp}" "$@"
+    sudo -u "${SERVICE_USER}" -H env HOME="${SERVICE_HOME}" TMPDIR="${SERVICE_TMPDIR}" "$@"
   elif [[ "${EUID}" -eq 0 ]] && command -v runuser >/dev/null 2>&1; then
-    runuser -u "${SERVICE_USER}" -- env HOME="${SERVICE_HOME}" \
-      TMPDIR="${TMPDIR:-${SERVICE_HOME}/.cache/koalabyte/tmp}" "$@"
+    runuser -u "${SERVICE_USER}" -- env HOME="${SERVICE_HOME}" TMPDIR="${SERVICE_TMPDIR}" "$@"
   else
     echo "Cannot execute as service user ${SERVICE_USER}." >&2
     return 1
@@ -136,13 +136,20 @@ if (( ${#available_groups[@]} > 0 )); then
 fi
 
 if [[ "${INSTALL_VENV}" == "1" ]]; then
-  "${sudo_cmd[@]}" install -d -m 0755 -o "${SERVICE_USER}" -g "${SERVICE_USER}" \
-    "${SERVICE_HOME}/.cache/koalabyte/tmp"
+  "${sudo_cmd[@]}" install -d -m 0755 -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" "${SERVICE_TMPDIR}"
   if [[ ! -x "${PYTHON_BIN}" ]]; then
     run_as_service_user python3 -m venv --system-site-packages pi-companion/.venv
+  else
+    "${sudo_cmd[@]}" chown -R "${SERVICE_USER}:${SERVICE_GROUP}" pi-companion/.venv
   fi
   pip_retry --upgrade pip setuptools wheel
   pip_retry -r pi-companion/requirements.txt
+  if [[ "${INSTALL_CAN_SERVICE}" == "1" ]]; then
+    pip_retry 'python-can>=4.4.2'
+  else
+    pip_retry 'python-can>=4.4.2' || echo "warning: optional python-can installation failed" >&2
+  fi
+  pip_retry 'obd>=0.7.3' || echo "warning: optional Python OBD package installation failed" >&2
 fi
 
 if [[ -f scripts/install_koalabyte_udev_rules.sh ]]; then
