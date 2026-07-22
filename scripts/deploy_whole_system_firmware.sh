@@ -13,6 +13,7 @@ BUNDLE_DIR="${KOALABYTE_FIRMWARE_BUNDLE_DIR:-${ROOT}/releases/koalabyte-blue-cur
 STATUS_PATH="${KOALABYTE_FIRMWARE_DEPLOY_STATUS:-${ROOT}/logs/deployment/whole_system_deployment_status.json}"
 REQUIRE_ALL="${KOALABYTE_REQUIRE_ALL_PERIPHERALS:-1}"
 DEFER_SERVICE_RESTART="${KOALABYTE_DEFER_SERVICE_RESTART:-0}"
+CLEANUP_FIRMWARE_BUILD_TOOLS="${CLEANUP_FIRMWARE_BUILD_TOOLS:-1}"
 SERVICES=(
   koalabyte-dualeye-voice-bridge.service
   koalabyte-ble-node-manager.service
@@ -21,7 +22,7 @@ SERVICES=(
 )
 
 usage() {
-  cat <<'EOF'
+  cat <<'USAGE'
 Build and flash the complete KoalaByte Blue peripheral firmware set.
 
 Usage:
@@ -31,12 +32,17 @@ Usage:
   bash scripts/deploy_whole_system_firmware.sh --use-existing-bundle
   bash scripts/deploy_whole_system_firmware.sh --skip-esp32
   bash scripts/deploy_whole_system_firmware.sh --skip-t114
+  bash scripts/deploy_whole_system_firmware.sh --keep-build-tools
 
 Default behavior is strict: both the T114 and ESP32 must be connected and both
-must flash successfully. Standalone use restarts the previously stopped runtime
-services. The canonical one-shot sets KOALABYTE_DEFER_SERVICE_RESTART=1 because
-it provisions and starts the final services after flashing.
-EOF
+must flash successfully. After both devices are flashed and rediscovered, the
+large firmware-only toolchains are removed while the verified firmware bundle
+and all Raspberry Pi runtime dependencies are preserved. Use --keep-build-tools
+or CLEANUP_FIRMWARE_BUILD_TOOLS=0 to retain the toolchains for development.
+
+Standalone use restarts the previously stopped runtime services. The canonical
+one-shot may defer service restart because it provisions final services later.
+USAGE
 }
 
 while [[ $# -gt 0 ]]; do
@@ -46,6 +52,7 @@ while [[ $# -gt 0 ]]; do
     --use-existing-bundle) USE_EXISTING_BUNDLE=1 ;;
     --skip-esp32) SKIP_ESP32=1 ;;
     --skip-t114) SKIP_T114=1 ;;
+    --keep-build-tools) CLEANUP_FIRMWARE_BUILD_TOOLS=0 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -56,15 +63,22 @@ mkdir -p "${ROOT}/logs/deployment" "${ROOT}/logs/preflight"
 CURRENT_STEP="initializing"
 STARTED_AT="$(date +%s)"
 
+cleanup_enabled() {
+  case "${CLEANUP_FIRMWARE_BUILD_TOOLS}" in
+    1|true|True|yes|YES|on|ON|auto|AUTO) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 write_status() {
   local status="$1" reason="$2"
   python3 - "${STATUS_PATH}" "${status}" "${CURRENT_STEP}" "${reason}" \
     "${BUNDLE_DIR}" "${SKIP_ESP32}" "${SKIP_T114}" "${STARTED_AT}" \
-    "${DEFER_SERVICE_RESTART}" <<'PY'
+    "${DEFER_SERVICE_RESTART}" "${CLEANUP_FIRMWARE_BUILD_TOOLS}" <<'PY'
 import json, sys, time
 from pathlib import Path
 (path, status, step, reason, bundle, skip_esp32, skip_t114, started,
- defer_restart) = sys.argv[1:]
+ defer_restart, cleanup_tools) = sys.argv[1:]
 Path(path).write_text(json.dumps({
     "status": status,
     "step": step,
@@ -73,6 +87,7 @@ Path(path).write_text(json.dumps({
     "esp32_required": skip_esp32 != "1",
     "t114_required": skip_t114 != "1",
     "service_restart_deferred": defer_restart == "1",
+    "build_tool_cleanup_requested": cleanup_tools.lower() in {"1", "true", "yes", "on", "auto"},
     "can_transmit": False,
     "started_at": int(started),
     "updated_at": time.time(),
@@ -123,6 +138,7 @@ validate_contract() {
   bash -n scripts/flash_t114_current_uf2.sh
   bash -n scripts/flash_esp32_dualeye_current.sh
   bash -n scripts/enter_t114_uf2_bootloader.sh
+  bash -n scripts/cleanup_firmware_build_tools.sh
   python3 -m py_compile scripts/check_whole_system_deployment.py
 }
 
@@ -203,8 +219,19 @@ sleep 2
 PYTHONPATH=pi-companion python3 scripts/discover_koalabyte_ports.py --profile heltec --output-dir logs/preflight
 python3 scripts/check_whole_system_deployment.py --post-flash --bundle-dir "${BUNDLE_DIR}"
 
+if cleanup_enabled; then
+  if [[ "${SKIP_ESP32}" == "1" || "${SKIP_T114}" == "1" ]]; then
+    echo "Build-tool cleanup skipped because this was a partial firmware deployment."
+  else
+    CURRENT_STEP="cleanup_firmware_build_tools"
+    bash scripts/cleanup_firmware_build_tools.sh
+  fi
+else
+  echo "Firmware build toolchains retained by configuration."
+fi
+
 CURRENT_STEP="complete"
-write_status "complete" "T114 UF2 and complete ESP32-S3 image set were built, checksummed, flashed, and rediscovered."
+write_status "complete" "T114 UF2 and complete ESP32-S3 image set were built, checksummed, flashed, rediscovered, and build-only toolchains were handled according to cleanup policy."
 trap - ERR
 restore_services
 echo "Whole-system peripheral firmware deployment complete."
