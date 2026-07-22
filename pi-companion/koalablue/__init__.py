@@ -29,6 +29,15 @@ from .t114_runtime_broker import install as _install_t114_runtime_broker
 _install_t114_runtime_broker(_t114_bluez)
 del _install_t114_runtime_broker
 
+# Koala Kombat passive survey actions use the same two serial owners and bounded
+# event ledgers. The legacy direct-open helper remains in the source for explicit
+# offline maintenance, but production imports always replace its runtime route.
+from . import koala_kombat_kruisin as _koala_kombat_kruisin
+from .koala_kombat_runtime_broker import install as _install_koala_kombat_broker
+
+_install_koala_kombat_broker(_koala_kombat_kruisin)
+del _install_koala_kombat_broker
+
 try:
     from .greatwhite_reef import install_menu_catalog
 
