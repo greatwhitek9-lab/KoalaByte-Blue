@@ -1,0 +1,51 @@
+name: Installer Contract
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [Main, main]
+    paths:
+      - "install.sh"
+      - "one-shot-install.sh"
+      - "scripts/**"
+      - ".github/workflows/installer-contract.yml"
+  pull_request:
+    branches: [Main, main]
+    paths:
+      - "install.sh"
+      - "one-shot-install.sh"
+      - "scripts/**"
+      - ".github/workflows/installer-contract.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate shell entrypoints
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' script; do
+            bash -n "${script}"
+          done < <(find . -type f -name '*.sh' -print0)
+
+      - name: Validate Python entrypoints
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q scripts pi-companion firmware/esp32-dualeye/scripts firmware/t114-combined-safe/scripts
+
+      - name: Validate hardened installer invariants
+        run: |
+          set -euo pipefail
+          grep -Fq 'ZEPHYR_SDK_VERSION:-0.16.8' scripts/setup_nrf_connect_sdk_toolchain.sh
+          grep -Fq 'preflight_firmware_host.sh --before-build' scripts/build_whole_system_firmware.sh
+          grep -Fq 'preflight_firmware_host.sh --before-flash' scripts/deploy_whole_system_firmware.sh
+          grep -Fq 'esp32-source-backup' scripts/build_whole_system_firmware.sh
+          grep -Fq 'atomic_bundle_publish' scripts/build_whole_system_firmware.sh
+          grep -Fq 'DEBIAN_FRONTEND=noninteractive' scripts/setup_system_packages.sh
+          grep -Fq 'firmware_bundle_preserved' scripts/cleanup_firmware_build_tools.sh
