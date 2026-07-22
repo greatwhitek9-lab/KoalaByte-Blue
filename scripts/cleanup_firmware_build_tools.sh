@@ -30,9 +30,8 @@ Usage:
   bash scripts/cleanup_firmware_build_tools.sh
   bash scripts/cleanup_firmware_build_tools.sh --dry-run
 
-The verified release bundle and Raspberry Pi runtime environment are preserved.
-Generated PlatformIO libraries and source files are removed with the SDKs because
-they can be reconstructed from pinned sources on the next firmware build.
+The schema-2 release bundle, exact ESP32/T114 flash receipts, and Raspberry Pi
+runtime environment must all validate before any build-only path is removed.
 EOF
 }
 
@@ -59,6 +58,8 @@ Path(path).write_text(json.dumps({
     "reason": reason,
     "reclaimed_mib": round(int(reclaimed_kb) / 1024, 1),
     "firmware_bundle_preserved": bundle,
+    "bundle_schema_2_verified": True,
+    "both_flash_receipts_verified": True,
     "removed_build_tool_paths": [ncs, sdk, pio, ncs_tools],
     "generated_esp32_dependencies_removed": True,
     "pi_runtime_preserved": True,
@@ -67,26 +68,14 @@ Path(path).write_text(json.dumps({
 PY
 }
 
-required_bundle_files=(
-  manifest.json SHA256SUMS.txt
-  esp32/bootloader.bin esp32/partitions.bin esp32/boot_app0.bin
-  esp32/firmware.bin esp32/srmodels.bin
-  t114/koalabyte-t114-current.uf2
-)
-for relative in "${required_bundle_files[@]}"; do
-  [[ -f "${BUNDLE_DIR}/${relative}" ]] || {
-    write_status refused "Refusing cleanup because verified firmware bundle file is missing: ${relative}"
-    echo "Refusing cleanup: missing ${BUNDLE_DIR}/${relative}" >&2
-    exit 1
-  }
-done
-(
-  cd "${BUNDLE_DIR}"
-  sha256sum -c SHA256SUMS.txt
-) || {
-  write_status refused "Refusing cleanup because firmware bundle checksums failed."
+if ! python3 scripts/check_firmware_bundle.py --bundle "${BUNDLE_DIR}" --require all >/dev/null; then
+  write_status refused "Refusing cleanup because the complete schema-2 firmware bundle failed validation."
   exit 1
-}
+fi
+if ! python3 scripts/check_verified_firmware_flashes.py --bundle "${BUNDLE_DIR}" >/dev/null; then
+  write_status refused "Refusing cleanup because both exact firmware flash receipts were not verified."
+  exit 1
+fi
 
 runtime_python="${ROOT}/pi-companion/.venv/bin/python"
 [[ -x "${runtime_python}" ]] || {
@@ -172,5 +161,5 @@ if [[ "${DRY_RUN}" == "1" ]]; then
   write_status dry_run "Cleanup validation passed; no files were removed." "${before_kb}"
   exit 0
 fi
-write_status complete "Verified firmware bundle and Pi runtime were preserved; firmware-only SDKs, generated libraries, sources, and build outputs were removed." "${before_kb}"
+write_status complete "Schema-2 firmware bundle, exact dual-board flash receipts, and Pi runtime were preserved; firmware-only SDKs and build outputs were removed." "${before_kb}"
 echo "Firmware build-tool cleanup complete; approximately $((before_kb / 1024)) MiB removed."
