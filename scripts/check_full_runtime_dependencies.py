@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the current Raspberry Pi OS Lite runtime dependency contract.
-
-Firmware build tools, legacy Bluetooth utilities, PipeWire helpers, and SocketCAN
-commands are reported as optional unless their strict mode is explicitly enabled.
-"""
+"""Validate the Raspberry Pi OS Lite runtime dependency contract."""
 
 from __future__ import annotations
 
@@ -26,16 +22,21 @@ for path in (ROOT, PI_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-PYTHON_IMPORT_GROUPS: dict[str, tuple[str, ...]] = {
+REQUIRED_PYTHON_IMPORT_GROUPS: dict[str, tuple[str, ...]] = {
     "core_serial_ble": ("serial", "bleak"),
     "menu_and_gpio": ("rich", "pydantic", "pygame", "gpiozero"),
     "api_services": ("fastapi", "uvicorn", "requests", "httpx"),
-    "voice_ai": ("pyttsx3", "speech_recognition"),
+    "voice_ai": ("pyttsx3", "speech_recognition", "pocketsphinx"),
+}
+OPTIONAL_PYTHON_IMPORT_GROUPS: dict[str, tuple[str, ...]] = {
     "optional_can_runtime": ("can",),
     "optional_obd_review": ("obd",),
 }
 
 PROJECT_MODULES = (
+    "koalablue.bounded_log",
+    "koalablue.serial_command_bus",
+    "koalablue.runtime_serial_ownership",
     "koalablue.gpio_buttons",
     "koalablue.menu_catalog",
     "koalablue.menu_ui",
@@ -57,6 +58,8 @@ CURRENT_RUNTIME_FILES = (
     "install.sh",
     "one-shot-install.sh",
     "scripts/run_headless_menu.py",
+    "scripts/run_ble_node_manager.py",
+    "scripts/run_esp32_dualeye_voice_bridge.py",
     "scripts/setup_pi_hardware_stage.sh",
     "scripts/setup_system_packages.sh",
     "scripts/setup_gpio_buttons.py",
@@ -66,9 +69,11 @@ CURRENT_RUNTIME_FILES = (
     "scripts/install_power_controls.sh",
     "scripts/install_koalabyte_udev_rules.sh",
     "scripts/install_koalabyte_boot_services.sh",
+    "scripts/install_runtime_log_rotation.sh",
     "scripts/install_ble_node_manager_service.sh",
     "scripts/install_esp32_dualeye_voice_bridge_service.sh",
     "scripts/configure_pi_audio_output.sh",
+    "scripts/check_serial_command_bus.py",
     "scripts/check_one_shot_controls.py",
     "scripts/check_menu_actions.py",
     "scripts/check_menu_display_sync.py",
@@ -88,11 +93,7 @@ CURRENT_FIRMWARE_SOURCE_FILES = (
     "firmware/t114-combined-safe/src/original_texture_warp_renderer.c",
 )
 
-CORE_COMMANDS = (
-    "python3",
-    "git",
-)
-
+CORE_COMMANDS = ("python3", "git")
 PI_RUNTIME_COMMANDS = (
     "ip",
     "lsusb",
@@ -104,7 +105,6 @@ PI_RUNTIME_COMMANDS = (
     "ffmpeg",
     "espeak-ng",
 )
-
 OPTIONAL_COMMAND_GROUPS: dict[str, tuple[str, ...]] = {
     "socketcan": ("modprobe", "candump", "cansend"),
     "pipewire_pulseaudio": ("wpctl", "pactl"),
@@ -121,23 +121,26 @@ def command_path(command: str) -> str | None:
     return str(candidate) if candidate.exists() else None
 
 
-def import_checks() -> tuple[dict[str, dict[str, Any]], list[str]]:
+def inspect_import_groups(
+    groups: dict[str, tuple[str, ...]],
+) -> tuple[dict[str, dict[str, Any]], list[str]]:
     results: dict[str, dict[str, Any]] = {}
-    failures: list[str] = []
-    for group, modules in PYTHON_IMPORT_GROUPS.items():
-        results[group] = {}
+    missing: list[str] = []
+    for group, modules in groups.items():
+        group_results: dict[str, Any] = {}
         for module in modules:
             try:
                 imported = importlib.import_module(module)
                 version = getattr(imported, "__version__", None)
-                results[group][module] = {
+                group_results[module] = {
                     "available": True,
                     "version": str(version) if version else None,
                 }
             except Exception as exc:
-                results[group][module] = {"available": False, "error": str(exc)}
-                failures.append(f"missing Python runtime dependency for {group}: {module} ({exc})")
-    return results, failures
+                group_results[module] = {"available": False, "error": str(exc)}
+                missing.append(f"{group}:{module} ({exc})")
+        results[group] = group_results
+    return results, missing
 
 
 def project_import_checks() -> tuple[dict[str, Any], list[str]]:
@@ -166,7 +169,10 @@ def file_checks(paths: tuple[str, ...], label: str) -> tuple[dict[str, bool], li
 
 def command_checks(commands: tuple[str, ...]) -> dict[str, dict[str, Any]]:
     return {
-        command: {"available": command_path(command) is not None, "path": command_path(command)}
+        command: {
+            "available": command_path(command) is not None,
+            "path": command_path(command),
+        }
         for command in commands
     }
 
@@ -176,26 +182,48 @@ def can_required() -> bool:
     return value in {"1", "true", "yes", "on", "required"}
 
 
+def import_available(results: dict[str, dict[str, Any]], group: str, module: str) -> bool:
+    return bool(results.get(group, {}).get(module, {}).get("available"))
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check current KoalaByte Pi OS Lite runtime dependencies")
+    parser = argparse.ArgumentParser(
+        description="Check current KoalaByte Pi OS Lite runtime dependencies"
+    )
     parser.add_argument(
         "--strict-system",
         "--strict-commands",
         dest="strict_system",
         action="store_true",
-        help="Fail when Pi runtime or optional host commands are unavailable",
+        help="Promote optional host warnings to failures",
     )
     args = parser.parse_args()
 
     failures: list[str] = []
     warnings: list[str] = []
 
-    python_results, python_failures = import_checks()
-    project_results, project_failures = project_import_checks()
-    runtime_files, runtime_file_failures = file_checks(CURRENT_RUNTIME_FILES, "runtime")
-    firmware_files, firmware_file_failures = file_checks(CURRENT_FIRMWARE_SOURCE_FILES, "firmware source")
+    required_imports, required_missing = inspect_import_groups(
+        REQUIRED_PYTHON_IMPORT_GROUPS
+    )
+    optional_imports, optional_missing = inspect_import_groups(
+        OPTIONAL_PYTHON_IMPORT_GROUPS
+    )
+    failures.extend(
+        f"missing required Python runtime dependency: {item}"
+        for item in required_missing
+    )
+    warnings.extend(
+        f"missing optional Python runtime dependency: {item}"
+        for item in optional_missing
+    )
 
-    failures.extend(python_failures)
+    project_results, project_failures = project_import_checks()
+    runtime_files, runtime_file_failures = file_checks(
+        CURRENT_RUNTIME_FILES, "runtime"
+    )
+    firmware_files, firmware_file_failures = file_checks(
+        CURRENT_FIRMWARE_SOURCE_FILES, "firmware source"
+    )
     failures.extend(project_failures)
     failures.extend(runtime_file_failures)
     failures.extend(firmware_file_failures)
@@ -206,18 +234,19 @@ def main() -> int:
         group: command_checks(commands)
         for group, commands in OPTIONAL_COMMAND_GROUPS.items()
     }
-    edge_tts = {"available": command_path("edge-tts") is not None, "path": command_path("edge-tts")}
+    edge_tts = {
+        "available": command_path("edge-tts") is not None,
+        "path": command_path("edge-tts"),
+    }
 
     for command, result in core_commands.items():
         if not result["available"]:
             failures.append(f"missing core host command: {command}")
     if not edge_tts["available"]:
         failures.append("missing William TTS command: edge-tts")
-
     for command, result in pi_commands.items():
         if not result["available"]:
             warnings.append(f"missing Pi host command: {command}")
-
     for group, commands in optional_commands.items():
         for command, result in commands.items():
             if not result["available"]:
@@ -225,27 +254,40 @@ def main() -> int:
 
     required_can = can_required()
     if required_can:
-        can_import = python_results.get("optional_can_runtime", {}).get("can", {})
-        if not can_import.get("available"):
+        if not import_available(optional_imports, "optional_can_runtime", "can"):
             failures.append("SocketCAN is required but python-can is unavailable")
         for command in ("ip", "modprobe", "candump"):
             available = (
                 pi_commands.get(command, {}).get("available")
-                or optional_commands.get("socketcan", {}).get(command, {}).get("available")
+                or optional_commands.get("socketcan", {})
+                .get(command, {})
+                .get("available")
             )
             if not available:
-                failures.append(f"SocketCAN is required but host command is missing: {command}")
+                failures.append(
+                    f"SocketCAN is required but host command is missing: {command}"
+                )
 
-    strict_system = args.strict_system or os.getenv("STRICT_FULL_RUNTIME_DEPENDENCIES", "0") == "1"
+    strict_system = (
+        args.strict_system
+        or os.getenv("STRICT_FULL_RUNTIME_DEPENDENCIES", "0") == "1"
+    )
     if strict_system:
         failures.extend(f"strict system dependency: {warning}" for warning in warnings)
 
+    python_results = {**required_imports, **optional_imports}
     payload = {
-        "status": "FULL_RUNTIME_DEPENDENCIES_READY" if not failures else "FULL_RUNTIME_DEPENDENCIES_INCOMPLETE",
+        "status": (
+            "FULL_RUNTIME_DEPENDENCIES_READY"
+            if not failures
+            else "FULL_RUNTIME_DEPENDENCIES_INCOMPLETE"
+        ),
         "runtime_mode": "headless_pi_os_lite",
         "canonical_installer": "one-shot-install.sh",
         "firmware_flashing": False,
         "can_required": required_can,
+        "offline_stt_required": True,
+        "offline_stt_backend": "pocketsphinx",
         "python_imports": python_results,
         "project_modules": project_results,
         "runtime_files": runtime_files,
@@ -262,14 +304,21 @@ def main() -> int:
         "updated_at": time.time(),
     }
     STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    STATUS_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
-    print(json.dumps({
-        "status": payload["status"],
-        "status_path": str(STATUS_PATH),
-        "warning_count": len(warnings),
-        "failures": failures,
-    }, indent=2, sort_keys=True))
+    STATUS_PATH.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    print(
+        json.dumps(
+            {
+                "status": payload["status"],
+                "status_path": str(STATUS_PATH),
+                "warning_count": len(warnings),
+                "failures": failures,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
     return 1 if failures else 0
 
 
