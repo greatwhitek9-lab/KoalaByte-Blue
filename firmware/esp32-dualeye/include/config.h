@@ -4,8 +4,8 @@
 // Exact target: verified non-touch ESP32-S3 DualEye 1.28-inch variant.
 
 #define KOALABLUE_FW_VERSION "0.9.7-dualeye-sensitive-killerkoala-menu"
-#define KOALBLUE_PROTOCOL "menu_sync_v1"
-#define KOALBLUE_REPO_PROTOCOL_VERSION "2026.06-menu-sync-v1"
+#define KOALABLUE_PROTOCOL "menu_sync_v1"
+#define KOALABLUE_REPO_PROTOCOL_VERSION "2026.06-menu-sync-v1"
 #define COMPANION_NAME "killerkoala"
 #define WAKE_WORD "killerkoala"
 #define WAKE_WORD_ALTERNATE "hey killerkoala"
