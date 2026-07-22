@@ -10,6 +10,8 @@ UF2_VOLUME_NAME="${T114_UF2_VOLUME_NAME:-HT-n5262}"
 UF2_MOUNTPOINT="${T114_UF2_MOUNTPOINT:-/mnt/koalabyte-t114-uf2}"
 STATUS_PATH="${T114_FLASH_STATUS_PATH:-${ROOT}/logs/deployment/t114_flash_status.json}"
 WAIT_SECONDS="${T114_FLASH_WAIT_SECONDS:-75}"
+T114_SOURCE="${ROOT}/firmware/t114-combined-safe/src/main.c"
+EXPECTED_FW="${T114_EXPECTED_FW:-}"
 CHECK_ONLY=0
 
 while [[ $# -gt 0 ]]; do
@@ -26,12 +28,26 @@ done
 
 mkdir -p "${ROOT}/logs/deployment" "${ROOT}/logs/preflight"
 
+resolve_expected_fw() {
+  if [[ -n "${EXPECTED_FW}" ]]; then
+    printf '%s\n' "${EXPECTED_FW}"
+    return 0
+  fi
+  [[ -f "${T114_SOURCE}" ]] || return 1
+  sed -n 's/^#define KOALA_FW "\([^"]*\)".*/\1/p' "${T114_SOURCE}" | head -n 1
+}
+EXPECTED_FW="$(resolve_expected_fw || true)"
+[[ -n "${EXPECTED_FW}" ]] || {
+  echo "Unable to resolve the expected T114 firmware identity from ${T114_SOURCE}." >&2
+  exit 1
+}
+
 write_status() {
-  local status="$1" reason="$2" mount="${3:-}" runtime_port="${4:-}"
-  python3 - "${STATUS_PATH}" "${status}" "${reason}" "${UF2}" "${mount}" "${runtime_port}" <<'PY'
+  local status="$1" reason="$2" mount="${3:-}" runtime_port="${4:-}" observed_fw="${5:-}"
+  python3 - "${STATUS_PATH}" "${status}" "${reason}" "${UF2}" "${mount}" "${runtime_port}" "${EXPECTED_FW}" "${observed_fw}" <<'PY'
 import hashlib, json, sys, time
 from pathlib import Path
-path, status, reason, uf2, mount, runtime_port = sys.argv[1:]
+path, status, reason, uf2, mount, runtime_port, expected_fw, observed_fw = sys.argv[1:]
 source = Path(uf2)
 payload = {
     "status": status,
@@ -42,6 +58,8 @@ payload = {
     "runtime_port": runtime_port,
     "runtime_identity_required": True,
     "expected_runtime_device": "heltec-t114",
+    "expected_runtime_fw": expected_fw,
+    "observed_runtime_fw": observed_fw,
     "updated_at": time.time(),
 }
 Path(path).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -99,15 +117,15 @@ validate_contract() {
 }
 
 query_t114_status() {
-  local candidate="$1" python_runner=(python3)
+  local candidate="$1" expected_fw="$2" python_runner=(python3)
   [[ -e "${candidate}" ]] || return 1
   if [[ ! -r "${candidate}" || ! -w "${candidate}" ]] && command -v sudo >/dev/null 2>&1; then
     python_runner=(sudo env "PYTHONPATH=${ROOT}/pi-companion" python3)
   fi
-  PYTHONPATH=pi-companion "${python_runner[@]}" - "${candidate}" <<'PY'
+  PYTHONPATH=pi-companion "${python_runner[@]}" - "${candidate}" "${expected_fw}" <<'PY'
 import json, sys, time
 import serial
-port = sys.argv[1]
+port, expected_fw = sys.argv[1:]
 ser = serial.Serial()
 ser.port = port
 ser.baudrate = 115200
@@ -135,10 +153,11 @@ try:
             payload = json.loads(line)
         except Exception:
             continue
+        observed_fw = str(payload.get("fw") or "").strip()
         if (
             payload.get("type") == "heltec_mouth_status"
             and payload.get("device") == "heltec-t114"
-            and bool(str(payload.get("fw") or "").strip())
+            and observed_fw == expected_fw
         ):
             print(json.dumps(payload, sort_keys=True))
             raise SystemExit(0)
@@ -155,7 +174,7 @@ if [[ ! -f "${UF2}" ]]; then
 fi
 validate_contract
 if [[ "${CHECK_ONLY}" == "1" ]]; then
-  write_status check_only_ready "T114 UF2, vector, bootloader, and runtime identity contracts validated."
+  write_status check_only_ready "T114 UF2, vector, bootloader, and exact runtime identity contracts validated."
   exit 0
 fi
 
@@ -174,6 +193,7 @@ write_status copied "T114 UF2 copied; waiting for verified application USB." "${
 
 deadline=$(( $(date +%s) + WAIT_SECONDS ))
 verified_port=""
+observed_fw=""
 while (( $(date +%s) < deadline )); do
   PYTHONPATH=pi-companion python3 scripts/discover_koalabyte_ports.py --profile heltec --output-dir logs/preflight >/dev/null 2>&1 || true
   discovered=""
@@ -184,8 +204,10 @@ while (( $(date +%s) < deadline )); do
   fi
   for candidate in /dev/koalabyte-heltec /dev/koalabyte-heltec-t114 "${discovered}"; do
     [[ -n "${candidate}" && -e "${candidate}" ]] || continue
-    if query_t114_status "${candidate}"; then
+    status_json="$(query_t114_status "${candidate}" "${EXPECTED_FW}" 2>/dev/null || true)"
+    if [[ -n "${status_json}" ]]; then
       verified_port="${candidate}"
+      observed_fw="$(python3 -c 'import json,sys; print(json.loads(sys.stdin.read()).get("fw", ""))' <<<"${status_json}")"
       break 2
     fi
   done
@@ -193,11 +215,11 @@ while (( $(date +%s) < deadline )); do
 done
 
 if [[ -n "${verified_port}" ]]; then
-  write_status flashed "T114 UF2 accepted and heltec_mouth_status verified the intended application." "${mount}" "${verified_port}"
-  echo "T114 firmware flash complete."
+  write_status flashed "T114 UF2 accepted and exact heltec_mouth_status firmware identity verified." "${mount}" "${verified_port}" "${observed_fw}"
+  echo "T114 firmware flash complete: ${EXPECTED_FW}"
   exit 0
 fi
 
-write_status flashed_unverified "UF2 was copied, but the intended T114 application identity was not verified before timeout." "${mount}"
-echo "T114 UF2 copied, but runtime identity verification timed out." >&2
+write_status flashed_unverified "UF2 was copied, but the exact T114 application identity was not verified before timeout." "${mount}"
+echo "T114 UF2 copied, but runtime identity ${EXPECTED_FW} was not verified." >&2
 exit 1
