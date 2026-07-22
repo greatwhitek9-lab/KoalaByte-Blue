@@ -10,16 +10,17 @@ STRICT_SERVICE="${STRICT_BLE_NODE_MANAGER_SERVICE:-0}"
 PY="${PYTHON_BIN:-${ROOT}/pi-companion/.venv/bin/python}"
 SERVICE_USER="${KOALABYTE_SERVICE_USER:-${SUDO_USER:-${USER:-pi}}}"
 SERVICE_GROUP="${KOALABYTE_SERVICE_GROUP:-}"
+SERIAL_BUS_DIR="${KOALABYTE_SERIAL_BUS_DIR:-${ROOT}/logs/runtime/serial_bus}"
 
 if [[ -e /dev/koalabyte-heltec ]]; then
   DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec"
 elif [[ -e /dev/koalabyte-nrf52840 ]]; then
   DEFAULT_PRIMARY_PORT="/dev/koalabyte-nrf52840"
 else
-  DEFAULT_PRIMARY_PORT=""
+  DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec"
 fi
 PRIMARY_PORT="${KOALABYTE_PRIMARY_BLE_PORT:-${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-${KOALABYTE_NRF_BLE_PORT:-${NRF_BLE_PORT:-${DEFAULT_PRIMARY_PORT}}}}}}"
-ESP="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-}}"
+ESP="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-/dev/koalabyte-esp32-dualeye}}"
 PI_BLUEZ="${KOALABYTE_PI_BLUEZ_NODE:-1}"
 
 case "${INSTALL_SERVICE}" in
@@ -51,14 +52,14 @@ else
   exit 0
 fi
 
-mkdir -p "${ROOT}/logs/ble_nodes" "${ROOT}/logs/preflight"
+mkdir -p "${ROOT}/logs/ble_nodes" "${ROOT}/logs/preflight" "${SERIAL_BUS_DIR}"
 chmod +x "${ROOT}/scripts/run_ble_node_manager_service.sh"
 PYTHONPATH="${ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}" python3 \
   "${ROOT}/scripts/discover_koalabyte_ports.py" --profile heltec --output-dir "${ROOT}/logs/preflight" || true
 "${sudo_cmd[@]}" chown -R "${SERVICE_USER}:${SERVICE_GROUP}" \
-  "${ROOT}/logs/ble_nodes" "${ROOT}/logs/preflight" || true
+  "${ROOT}/logs/ble_nodes" "${ROOT}/logs/preflight" "${SERIAL_BUS_DIR}" || true
 
-env_tmp="$(mktemp)"
+ env_tmp="$(mktemp)"
 cat >"${env_tmp}" <<ENVEOF
 KOALABYTE_PRIMARY_BLE_PORT=${PRIMARY_PORT}
 KOALABYTE_HELTEC_USB_PORT=${PRIMARY_PORT}
@@ -66,6 +67,7 @@ KOALABYTE_ESP32_FACE_PORT=${ESP}
 KOALABYTE_PI_BLUEZ_NODE=${PI_BLUEZ}
 KOALABYTE_BLE_MANAGER_OWNS_ESP32=0
 KOALABYTE_BLE_ROLE_CHECK_SECONDS=30
+KOALABYTE_SERIAL_BUS_DIR=${SERIAL_BUS_DIR}
 PYTHON_BIN=${PY}
 KOALABYTE_PORT_ENV_FILE=${ROOT}/logs/preflight/koalabyte_ports.env
 ENVEOF
@@ -73,9 +75,10 @@ ENVEOF
 service_tmp="$(mktemp)"
 cat >"${service_tmp}" <<SERVICEEOF
 [Unit]
-Description=KoalaByte BLE Node Manager - Heltec primary with Pi/ESP32 failover
+Description=KoalaByte BLE Node Manager - exclusive Heltec serial owner
 After=network-online.target bluetooth.service systemd-udev-settle.service
 Wants=network-online.target bluetooth.service systemd-udev-settle.service
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -84,10 +87,12 @@ Group=${SERVICE_GROUP}
 WorkingDirectory=${ROOT}
 Environment=PYTHONPATH=${ROOT}/pi-companion
 Environment=PATH=${ROOT}/pi-companion/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=KOALABYTE_SERIAL_BUS_DIR=${SERIAL_BUS_DIR}
 EnvironmentFile=-${ENV_PATH}
 ExecStart=${ROOT}/scripts/run_ble_node_manager_service.sh
 Restart=always
 RestartSec=5
+TimeoutStopSec=15
 StandardOutput=append:${ROOT}/logs/ble_nodes/service.log
 StandardError=append:${ROOT}/logs/ble_nodes/service.err
 
@@ -106,6 +111,6 @@ sleep 1
 if "${sudo_cmd[@]}" systemctl is-active --quiet "${SERVICE}"; then
   echo "KoalaByte BLE node manager is active for ${SERVICE_USER}:${SERVICE_GROUP}."
 else
-  echo "BLE node manager installed but is not active yet; inspect logs/ble_nodes/service.err." >&2
+  echo "BLE node manager is waiting for the Heltec or restarting; final health gate will verify it." >&2
   [[ "${STRICT_SERVICE}" == "1" ]] && exit 1
 fi
