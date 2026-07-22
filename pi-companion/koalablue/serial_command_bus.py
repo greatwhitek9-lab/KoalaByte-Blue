@@ -52,6 +52,22 @@ def _owner_lock_path(target: str, bus_dir: str | Path | None = None) -> Path:
     return _root(bus_dir) / f"{_target(target)}.owner.lock"
 
 
+def owner_is_active(
+    target: str,
+    bus_dir: str | Path | None = None,
+) -> bool:
+    """Return whether another process currently holds the target owner lock."""
+
+    lock_path = _owner_lock_path(target, bus_dir)
+    with lock_path.open("a+") as handle:
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    return False
+
+
 def _queue_path(target: str, bus_dir: str | Path | None = None) -> Path:
     return _root(bus_dir) / f"{_target(target)}.queue.jsonl"
 
@@ -112,15 +128,27 @@ def submit_command(
     queue_if_unavailable: bool = True,
     bus_dir: str | Path | None = None,
 ) -> CommandSubmission:
-    """Persist a command first, then wake the exclusive serial owner.
+    """Persist a command and wake the exclusive serial owner.
 
-    The socket is only a notification channel. The JSON command remains in the
-    bounded spool until the owner writes the complete claimed batch and
-    acknowledges it. A power loss can therefore cause a harmless replay, but not
-    silent command loss.
+    When ``queue_if_unavailable`` is true, the command is durably spooled even
+    when the owner is offline. When false, an offline owner rejects the command
+    before it is persisted. If the owner exits after the lock check but before
+    notification, the already-persisted command remains queued rather than being
+    silently lost.
     """
 
     resolved_target = _target(target)
+    if not queue_if_unavailable and not owner_is_active(
+        resolved_target, bus_dir
+    ):
+        return CommandSubmission(
+            False,
+            False,
+            False,
+            resolved_target,
+            "owner_unavailable_not_queued",
+        )
+
     try:
         _bounded_queue_append(resolved_target, dict(payload), bus_dir=bus_dir)
     except Exception as exc:
@@ -143,7 +171,7 @@ def submit_command(
         status = (
             "queued_for_owner"
             if queue_if_unavailable
-            else f"owner_unavailable_command_persisted:{exc}"
+            else f"owner_raced_command_persisted:{exc}"
         )
         return CommandSubmission(
             True,
@@ -330,6 +358,7 @@ class JsonCommandInbox:
 __all__ = [
     "CommandSubmission",
     "JsonCommandInbox",
+    "owner_is_active",
     "socket_path",
     "submit_command",
 ]
