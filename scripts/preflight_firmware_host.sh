@@ -12,21 +12,23 @@ AUTO_BUILD_SWAP="${KOALABYTE_AUTO_BUILD_SWAP:-1}"
 
 usage() {
   cat <<'EOF'
-Validate the host before KoalaByte firmware builds or hardware flashing.
+Validate the host before KoalaByte installation, firmware building, or flashing.
 
 Usage:
+  bash scripts/preflight_firmware_host.sh --before-install
   bash scripts/preflight_firmware_host.sh --before-build
   bash scripts/preflight_firmware_host.sh --before-flash
 
-Build checks require a supported 64-bit host, persistent storage, valid HTTPS,
-writable media, and at least 2 GiB combined RAM/swap. A low-memory Pi may create
-a controlled KoalaByte swap file automatically. Raspberry Pi checks reject any
-under-voltage event recorded since boot; correct power and reboot first.
+The install gate checks architecture, storage, writability, clock, and Pi power
+before APT or pip writes begin. The build gate additionally checks HTTPS and
+provisions controlled swap when necessary. The flash gate rechecks power and
+storage immediately before either peripheral is modified.
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --before-install) MODE="before-install" ;;
     --before-build) MODE="before-build" ;;
     --before-flash) MODE="before-flash" ;;
     -h|--help) usage; exit 0 ;;
@@ -47,7 +49,7 @@ is_enabled() {
   case "$1" in 1|true|True|yes|YES|on|ON|auto|AUTO) return 0 ;; *) return 1 ;; esac
 }
 
-if [[ "${MODE}" == "before-build" ]]; then
+if [[ "${MODE}" == "before-install" || "${MODE}" == "before-build" ]]; then
   case "${arch}" in
     x86_64|amd64|aarch64|arm64) ;;
     armv6l|armv7l)
@@ -59,7 +61,9 @@ if [[ "${MODE}" == "before-build" ]]; then
 fi
 
 free_required_kb="${MIN_FLASH_FREE_KB}"
-[[ "${MODE}" == "before-build" ]] && free_required_kb="${MIN_BUILD_FREE_KB}"
+if [[ "${MODE}" == "before-install" || "${MODE}" == "before-build" ]]; then
+  free_required_kb="${MIN_BUILD_FREE_KB}"
+fi
 available_kb="$(df -Pk "${ROOT}" | awk 'NR == 2 {print $4}')"
 if [[ ! "${available_kb}" =~ ^[0-9]+$ ]]; then
   failures+=("unable to determine free space for ${ROOT}")
