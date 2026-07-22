@@ -5,7 +5,15 @@ import json
 import tempfile
 from pathlib import Path
 
+from koalablue.runtime_serial_ownership import (
+    HELTEC_MAX_LINE_BYTES,
+    compact_heltec_payload,
+)
 from koalablue.serial_command_bus import JsonCommandInbox, submit_command
+
+
+def wire_length(payload: dict[str, object]) -> int:
+    return len(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
 
 
 def main() -> int:
@@ -69,6 +77,32 @@ def main() -> int:
             ]
             heltec.acknowledge()
 
+        oversized_menu = {
+            "type": "killerkoala_face",
+            "state": "menu_highlight",
+            "message": "99/99 " + ("very long selected menu label " * 20),
+            "selected_label": "label" * 40,
+            "selected_command": "command" * 40,
+            "target_display": "heltec-t114",
+            "duration_ms": 60000,
+            "enabled": True,
+        }
+        compact_menu = compact_heltec_payload(oversized_menu)
+        assert compact_menu["type"] == "killerkoala_face"
+        assert "target_display" not in compact_menu
+        assert "selected_command" not in compact_menu
+        assert wire_length(compact_menu) <= HELTEC_MAX_LINE_BYTES
+
+        compact_speech = compact_heltec_payload(
+            {
+                "type": "killerkoala_speech",
+                "active": True,
+                "message": "speech " * 100,
+                "target_display": "heltec-t114",
+            }
+        )
+        assert wire_length(compact_speech) <= HELTEC_MAX_LINE_BYTES
+
         payload = {
             "status": "SERIAL_COMMAND_BUS_READY",
             "single_owner_enforced": True,
@@ -76,6 +110,8 @@ def main() -> int:
             "active_owner_notified": True,
             "claim_acknowledgement_required": True,
             "crash_replay_verified": True,
+            "heltec_wire_limit_bytes": HELTEC_MAX_LINE_BYTES,
+            "heltec_compaction_verified": True,
             "targets": ["esp32", "heltec"],
         }
         print(json.dumps(payload, indent=2, sort_keys=True))
