@@ -57,6 +57,17 @@ def main() -> int:
     for event in manager.run(duration_seconds=duration):
         event.setdefault("serial_owner", "koalabyte-ble-node-manager")
         print(json.dumps(event, sort_keys=True))
+        if (
+            event.get("type") == "node_error"
+            and event.get("source") == manager.primary_ble.name
+        ):
+            # A manager with no primary serial handle otherwise remains alive and
+            # never reconnects. Exit so systemd Restart=always retries hot-plug.
+            print(
+                "Heltec primary serial open failed; exiting for systemd retry.",
+                file=sys.stderr,
+            )
+            return 3
 
     return 0
 
