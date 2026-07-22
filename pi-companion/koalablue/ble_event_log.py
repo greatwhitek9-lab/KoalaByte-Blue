@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .bounded_log import append_jsonl
+
 PRIMARY_SOURCE = "heltec-t114-nrf52840"
 LEGACY_PRIMARY_SOURCES = {"nrf52840-dongle"}
 
@@ -16,12 +18,22 @@ def clean_addr(value: Any) -> str:
 
 def is_primary_source(source: str) -> bool:
     source_l = source.lower()
-    return source == PRIMARY_SOURCE or source in LEGACY_PRIMARY_SOURCES or "heltec" in source_l or "t114" in source_l
+    return (
+        source == PRIMARY_SOURCE
+        or source in LEGACY_PRIMARY_SOURCES
+        or "heltec" in source_l
+        or "t114" in source_l
+    )
 
 
-def normalize_ble_event(payload: dict[str, Any], *, default_source: str = "unknown") -> dict[str, Any]:
+def normalize_ble_event(
+    payload: dict[str, Any], *, default_source: str = "unknown"
+) -> dict[str, Any]:
     source = str(payload.get("source") or payload.get("device") or default_source)
-    role = str(payload.get("role") or ("primary" if is_primary_source(source) else "secondary"))
+    role = str(
+        payload.get("role")
+        or ("primary" if is_primary_source(source) else "secondary")
+    )
     now = time.time()
     return {
         "type": "ble_adv_seen",
@@ -31,7 +43,9 @@ def normalize_ble_event(payload: dict[str, Any], *, default_source: str = "unkno
         "addr_type": str(payload.get("addr_type") or payload.get("address_type") or ""),
         "rssi": payload.get("rssi"),
         "name": str(payload.get("name") or payload.get("local_name") or ""),
-        "manufacturer": str(payload.get("manufacturer") or payload.get("manufacturer_data") or ""),
+        "manufacturer": str(
+            payload.get("manufacturer") or payload.get("manufacturer_data") or ""
+        ),
         "service_uuids": payload.get("service_uuids") or [],
         "transport": str(payload.get("transport") or ""),
         "active_scan": bool(payload.get("active_scan", False)),
@@ -84,7 +98,10 @@ class BleEventDeduper:
 
         elapsed = now - float(previous.get("last_seen_ts") or 0)
         try:
-            moved = abs(int(event.get("rssi")) - int(previous.get("rssi"))) >= self.rssi_change_db
+            moved = (
+                abs(int(event.get("rssi")) - int(previous.get("rssi")))
+                >= self.rssi_change_db
+            )
         except Exception:
             moved = False
 
@@ -94,7 +111,9 @@ class BleEventDeduper:
             else:
                 merged = dict(previous)
                 merged["last_seen_ts"] = now
-                merged["secondary_sources"] = sorted(set(merged.get("secondary_sources", [])) | {new_source})
+                merged["secondary_sources"] = sorted(
+                    set(merged.get("secondary_sources", [])) | {new_source}
+                )
                 self.latest[key] = merged
             return True
         return False
@@ -108,6 +127,7 @@ class BleEventLog:
 
     def append(self, event: dict[str, Any]) -> None:
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        with self.event_path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(event, sort_keys=True) + "\n")
-        self.state_path.write_text(json.dumps(event, indent=2, sort_keys=True), encoding="utf-8")
+        append_jsonl(self.event_path, event)
+        self.state_path.write_text(
+            json.dumps(event, indent=2, sort_keys=True), encoding="utf-8"
+        )
