@@ -10,6 +10,15 @@ except Exception:
     pass
 
 try:
+    from .runtime_log_hardening import install_runtime_log_hardening
+
+    install_runtime_log_hardening()
+except Exception:
+    # Logging hardening is fail-soft at import time, but production entrypoints
+    # explicitly import the same package and source validation checks the module.
+    pass
+
+try:
     from .greatwhite_reef import install_menu_catalog
 
     install_menu_catalog()
