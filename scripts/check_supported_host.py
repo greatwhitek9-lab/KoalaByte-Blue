@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import os
 import platform
 import shutil
 import sys
@@ -93,7 +92,9 @@ def main() -> int:
     elif machine not in {"x86_64", "amd64", "aarch64", "arm64"}:
         failures.append(f"unsupported build host architecture: {machine}")
 
-    for command in ("apt-get", "systemctl", "git", "curl"):
+    # curl and compiler utilities are installed later by the package stage. These
+    # commands must already exist for the installer to manage the host safely.
+    for command in ("apt-get", "systemctl", "git"):
         if shutil.which(command) is None:
             failures.append(f"required host command is unavailable: {command}")
 
