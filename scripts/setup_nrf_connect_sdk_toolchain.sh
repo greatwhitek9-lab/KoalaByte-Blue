@@ -38,7 +38,8 @@ Usage:
 
 The project is pinned to NCS v2.9.0 with Zephyr SDK 0.16.8, matching its
 source-build workflow. Linux firmware builds require x86-64 or a 64-bit ARM
-userspace reporting aarch64. Downloads use persistent storage and can resume.
+userspace reporting aarch64. Downloads use persistent storage, can resume, and
+must match the publisher's release SHA-256 manifest before extraction.
 EOF
 }
 
@@ -97,6 +98,7 @@ write_status() {
   "zephyr_sdk_install_dir": "${ZEPHYR_SDK_INSTALL_DIR}",
   "zephyr_sdk_download_dir": "${ZEPHYR_SDK_DOWNLOAD_DIR}",
   "zephyr_base": "${NCS_WORKSPACE}/zephyr",
+  "publisher_checksum_required": true,
   "west_available": $([[ -x "${NCS_TOOLS_VENV}/bin/west" || -x "${NCS_WORKSPACE}/.venv/bin/west" ]] && echo true || echo false),
   "ncs_workspace_exists": $([[ -d "${NCS_WORKSPACE}/.west" ]] && echo true || echo false),
   "zephyr_sdk_compiler_exists": $([[ -x "${ZEPHYR_SDK_INSTALL_DIR}/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc" ]] && echo true || echo false),
@@ -145,10 +147,11 @@ ensure_build_tools() {
   have_tool curl || missing_packages+=(curl)
   have_tool xz || missing_packages+=(xz-utils)
   have_tool gperf || missing_packages+=(gperf)
+  have_tool sha256sum || missing_packages+=(coreutils)
   if (( ${#missing_packages[@]} > 0 )); then
     apt_install python3-venv ca-certificates device-tree-compiler ccache "${missing_packages[@]}" || true
   fi
-  for command in cmake ninja git curl xz; do
+  for command in cmake ninja git curl xz sha256sum; do
     have_tool "${command}" || { fail_or_warn "Required NCS host command is missing: ${command}"; return 1; }
   done
 }
@@ -179,6 +182,19 @@ ensure_west_venv() {
   "${NCS_TOOLS_VENV}/bin/west" --version
 }
 
+verify_publisher_checksum() {
+  local archive="$1" archive_path="$2" checksum_path="$3" expected_line
+  expected_line="$(awk -v wanted="${archive}" '$2 == wanted {print $1 "  " $2; found=1} END {if (!found) exit 1}' "${checksum_path}" || true)"
+  if [[ -z "${expected_line}" ]]; then
+    echo "Publisher checksum manifest has no entry for ${archive}." >&2
+    return 1
+  fi
+  (
+    cd "$(dirname "${archive_path}")"
+    printf '%s\n' "${expected_line}" | sha256sum -c -
+  )
+}
+
 install_zephyr_sdk() {
   [[ "${SKIP_ZEPHYR_SDK}" == "1" ]] && { echo "Skipping Zephyr SDK install."; return 0; }
   local compiler="${ZEPHYR_SDK_INSTALL_DIR}/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc"
@@ -188,27 +204,50 @@ install_zephyr_sdk() {
   fi
   [[ -d "${ZEPHYR_SDK_INSTALL_DIR}" ]] && rm -rf -- "${ZEPHYR_SDK_INSTALL_DIR}"
 
-  local arch archive url archive_path partial_path install_parent
+  local arch archive release_url archive_url archive_path partial_path install_parent
+  local checksum_url checksum_path checksum_partial
   arch="$(host_arch)" || { fail_or_warn "No Zephyr SDK archive exists for this host architecture."; return 1; }
   archive="zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-${arch}.tar.xz"
-  url="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/${archive}"
+  release_url="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}"
+  archive_url="${release_url}/${archive}"
+  checksum_url="${release_url}/sha256.sum"
   install_parent="$(dirname "${ZEPHYR_SDK_INSTALL_DIR}")"
   archive_path="${ZEPHYR_SDK_DOWNLOAD_DIR}/${archive}"
   partial_path="${archive_path}.part"
+  checksum_path="${ZEPHYR_SDK_DOWNLOAD_DIR}/sha256-${ZEPHYR_SDK_VERSION}.sum"
+  checksum_partial="${checksum_path}.part"
   mkdir -p "${ZEPHYR_SDK_DOWNLOAD_DIR}" "${install_parent}"
+
+  if [[ ! -f "${checksum_path}" ]]; then
+    echo "Downloading Zephyr SDK publisher checksum manifest..."
+    curl -L --fail --retry 10 --retry-all-errors --connect-timeout 30 \
+      --output "${checksum_partial}" "${checksum_url}" || {
+        rm -f "${checksum_partial}"
+        fail_or_warn "Zephyr SDK publisher checksum manifest download failed."
+        return 1
+      }
+    mv -f "${checksum_partial}" "${checksum_path}"
+  fi
 
   if [[ ! -f "${archive_path}" ]]; then
     [[ -f "${partial_path}" ]] && echo "Resuming Zephyr SDK download: ${partial_path}" || \
       echo "Downloading Zephyr SDK ${ZEPHYR_SDK_VERSION} for ${arch}"
     curl -L --fail --retry 10 --retry-all-errors --connect-timeout 30 \
-      --continue-at - --output "${partial_path}" "${url}" || {
+      --continue-at - --output "${partial_path}" "${archive_url}" || {
         fail_or_warn "Zephyr SDK download failed; partial data was retained at ${partial_path}"
         return 1
       }
     mv -f "${partial_path}" "${archive_path}"
   fi
 
-  echo "Validating Zephyr SDK archive..."
+  echo "Verifying Zephyr SDK publisher SHA-256..."
+  if ! verify_publisher_checksum "${archive}" "${archive_path}" "${checksum_path}"; then
+    rm -f "${archive_path}" "${partial_path}" "${checksum_path}" "${checksum_partial}"
+    fail_or_warn "Zephyr SDK publisher checksum verification failed; cached payload was removed."
+    return 1
+  fi
+
+  echo "Validating Zephyr SDK archive structure..."
   if ! tar -tJf "${archive_path}" >/dev/null; then
     rm -f "${archive_path}" "${partial_path}"
     fail_or_warn "Zephyr SDK archive was corrupt and has been removed."
@@ -222,7 +261,7 @@ install_zephyr_sdk() {
   [[ -x "${compiler}" ]] || {
     fail_or_warn "Zephyr SDK compiler validation failed: ${compiler}"; return 1;
   }
-  rm -f "${archive_path}" "${partial_path}"
+  rm -f "${archive_path}" "${partial_path}" "${checksum_partial}"
 }
 
 west_update_retry() {
