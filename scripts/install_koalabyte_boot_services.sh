@@ -18,8 +18,8 @@ while [[ $# -gt 0 ]]; do
       cat <<'EOF'
 Install KoalaByte Blue Raspberry Pi boot services.
 
-The installer links /opt/KoalaByte-Blue to the active repository and refuses to
-silently use a stale real directory at that path.
+The installer links /opt/KoalaByte-Blue to the active repository, refuses to
+silently use a stale real directory, and installs bounded runtime-log retention.
 EOF
       exit 0
       ;;
@@ -37,6 +37,10 @@ esac
 for svc in "${SERVICES[@]}"; do
   [[ -f "${REPO_ROOT}/systemd/${svc}" ]] || { echo "Missing service template: systemd/${svc}" >&2; exit 1; }
 done
+[[ -f "${REPO_ROOT}/scripts/install_runtime_log_rotation.sh" ]] || {
+  echo "Missing scripts/install_runtime_log_rotation.sh" >&2
+  exit 1
+}
 menu_service_text="$(cat "${REPO_ROOT}/systemd/koalabyte-menu.service")"
 for marker in \
   "scripts/run_headless_menu.py" \
@@ -51,6 +55,7 @@ done
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   bash -n scripts/install_koalabyte_boot_services.sh
+  bash scripts/install_runtime_log_rotation.sh --check-only
   python3 -m py_compile scripts/run_headless_menu.py
   echo "KoalaByte boot service templates are ready."
   exit 0
@@ -70,6 +75,9 @@ else
 fi
 id "${SERVICE_USER}" >/dev/null 2>&1 || { echo "Service user does not exist: ${SERVICE_USER}" >&2; exit 1; }
 [[ -n "${SERVICE_GROUP}" ]] || SERVICE_GROUP="$(id -gn "${SERVICE_USER}")"
+
+KOALABYTE_SERVICE_USER="${SERVICE_USER}" KOALABYTE_SERVICE_GROUP="${SERVICE_GROUP}" \
+  bash "${REPO_ROOT}/scripts/install_runtime_log_rotation.sh"
 
 if [[ "${REPO_ROOT}" != "${INSTALL_ROOT}" ]]; then
   "${sudo_cmd[@]}" mkdir -p "$(dirname "${INSTALL_ROOT}")"
