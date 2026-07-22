@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify that both boards reported the exact runtime identities in the bundle."""
+"""Verify that selected boards reported the exact identities in the bundle."""
 
 from __future__ import annotations
 
@@ -37,14 +37,18 @@ def normalized(identity: object, label: str) -> dict[str, str]:
 
 def verify_board(
     board: str,
-    bundle_identity: object,
+    bundle_section: object,
     status: dict[str, object],
 ) -> dict[str, str]:
+    if not isinstance(bundle_section, dict):
+        raise RuntimeError(f"firmware bundle is missing {board} section")
+    if not bundle_section.get("included"):
+        raise RuntimeError(f"firmware bundle does not include required board: {board}")
     if status.get("status") != "flashed":
         raise RuntimeError(
             f"{board} flash receipt is not successful: {status.get('status')!r}"
         )
-    expected = normalized(bundle_identity, f"{board} bundle")
+    expected = normalized(bundle_section.get("runtime_identity"), f"{board} bundle")
     recorded_expected = normalized(
         status.get("expected_runtime_identity"), f"{board} recorded expected"
     )
@@ -69,39 +73,25 @@ def main() -> int:
     parser.add_argument("--bundle", type=Path, default=DEFAULT_BUNDLE)
     parser.add_argument("--esp32-status", type=Path, default=DEFAULT_ESP32_STATUS)
     parser.add_argument("--t114-status", type=Path, default=DEFAULT_T114_STATUS)
+    parser.add_argument("--require", choices=("all", "esp32", "t114"), default="all")
     args = parser.parse_args()
 
     manifest = load(args.bundle / "manifest.json")
-    esp32_section = manifest.get("esp32")
-    t114_section = manifest.get("t114")
-    if not isinstance(esp32_section, dict) or not isinstance(t114_section, dict):
-        raise RuntimeError("firmware bundle manifest is missing board sections")
-    if not esp32_section.get("included") or not t114_section.get("included"):
-        raise RuntimeError("full flash verification requires both boards in the bundle")
-
-    esp32 = verify_board(
-        "esp32",
-        esp32_section.get("runtime_identity"),
-        load(args.esp32_status),
-    )
-    t114 = verify_board(
-        "t114",
-        t114_section.get("runtime_identity"),
-        load(args.t114_status),
-    )
-    print(
-        json.dumps(
-            {
-                "status": "BOTH_FIRMWARE_FLASHES_VERIFIED",
-                "bundle": str(args.bundle.resolve()),
-                "source_commit": manifest.get("source_commit"),
-                "esp32": esp32,
-                "t114": t114,
-            },
-            indent=2,
-            sort_keys=True,
+    result: dict[str, object] = {
+        "status": "FIRMWARE_FLASH_RECEIPTS_VERIFIED",
+        "bundle": str(args.bundle.resolve()),
+        "source_commit": manifest.get("source_commit"),
+        "required": args.require,
+    }
+    if args.require in {"all", "esp32"}:
+        result["esp32"] = verify_board(
+            "esp32", manifest.get("esp32"), load(args.esp32_status)
         )
-    )
+    if args.require in {"all", "t114"}:
+        result["t114"] = verify_board(
+            "t114", manifest.get("t114"), load(args.t114_status)
+        )
+    print(json.dumps(result, indent=2, sort_keys=True))
     return 0
 
 
