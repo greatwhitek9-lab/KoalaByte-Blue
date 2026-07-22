@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Any
+from typing import Any, Dict, Optional
 
 from .esp32_dualeye_speech_synced_bridge import (
     ESP32DualEyeVoiceBridge as _SpeechSyncedBridge,
@@ -13,12 +13,11 @@ from .killerkoala_error_dig import generate_error_dig
 
 
 class ESP32DualEyeVoiceBridge(_SpeechSyncedBridge):
-    """Canonical speech-synced bridge with generated, non-abusive error digs.
+    """Canonical speech-synced bridge with generated error digs.
 
-    The parent bridge owns the asynchronous alarm lifecycle, Heltec/ESP32 fanout,
-    explicit error clear, mouth recovery, and Pi-speaker playback. This subclass
-    replaces its fixed error-line list with the local Pi companion generator and
-    suppresses raw exception speech for every Pi-owned failure path.
+    The parent bridge owns alarm lifecycle, display fanout, mouth recovery, and
+    Pi-speaker playback. This subclass also accepts complex follow-up audio from
+    an ESP32 wake session without requiring the operator to repeat KillerKoala.
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -36,6 +35,84 @@ class ESP32DualEyeVoiceBridge(_SpeechSyncedBridge):
             ),
         )
         self._pending_failure_face = False
+
+    @staticmethod
+    def _wake_confirmed(meta: Dict[str, Any], payload: Dict[str, Any]) -> bool:
+        return bool(
+            meta.get("wake_already_confirmed")
+            or payload.get("wake_already_confirmed")
+            or meta.get("capture_purpose") == "complex_ai"
+        )
+
+    @staticmethod
+    def _route_confirmed_transcript(
+        transcript: str, meta: Dict[str, Any], payload: Dict[str, Any]
+    ) -> str:
+        clean = " ".join(str(transcript or "").split())
+        normalized = clean.lower().replace("killer koala", "killerkoala")
+        if normalized.startswith("killerkoala") or normalized.startswith(
+            "hey killerkoala"
+        ):
+            return clean
+        prefix = " ".join(
+            str(
+                meta.get("phrase_prefix")
+                or payload.get("phrase_prefix")
+                or "killerkoala"
+            ).split()
+        )
+        return f"{prefix} {clean}".strip()
+
+    def _finish_audio(
+        self, payload: Dict[str, Any]
+    ) -> Optional[ESP32DualEyeVoiceEvent]:
+        request_id = str(payload.get("request_id", ""))
+        meta_preview = dict(self._audio_meta.get(request_id, {}))
+        if not self._wake_confirmed(meta_preview, payload):
+            return super()._finish_audio(payload)
+
+        pcm = bytes(self._audio.pop(request_id, b""))
+        meta = self._audio_meta.pop(request_id, {})
+        transcript = self._transcribe_pcm(
+            pcm,
+            int(meta.get("sample_rate", 16000)),
+            int(meta.get("sample_width", 2)),
+        )
+        resume_menu = bool(
+            meta.get("menu_was_visible", payload.get("menu_was_visible", False))
+        )
+        if not transcript:
+            self._write_json(
+                {
+                    "type": "voice_rejected",
+                    "request_id": request_id,
+                    "reason": "speech_not_understood",
+                    "wake_already_confirmed": True,
+                    "resume_menu": resume_menu,
+                }
+            )
+            return None
+
+        routed_phrase = self._route_confirmed_transcript(transcript, meta, payload)
+        self._fanout_face("wake", "wake session confirmed", 1200)
+        event_payload: Dict[str, Any] = {
+            **meta,
+            **payload,
+            "transcript": transcript,
+            "routed_phrase": routed_phrase,
+            "wake_already_confirmed": True,
+            "wake_word_injected_for_routing": routed_phrase != transcript,
+        }
+        event = ESP32DualEyeVoiceEvent(
+            type="voice_command",
+            phrase=routed_phrase,
+            source="esp32_s3_es7210_confirmed_wake_followup",
+            request_id=request_id,
+            payload=event_payload,
+        )
+        self.events.put(event)
+        self._log_event(event)
+        return event
 
     def _select_error_dig(self, action: str, message: str) -> str:
         dig = generate_error_dig(action, message)
@@ -67,8 +144,6 @@ class ESP32DualEyeVoiceBridge(_SpeechSyncedBridge):
 
     def _play_response(self, text: str, channel: str) -> None:
         # Never read a raw exception, traceback, or failed command result aloud.
-        # The canonical timed service clears the alarm and speaks the generated
-        # dig through the Pi speaker on the dedicated pi-error-dig channel.
         if (
             str(channel or "").startswith("pi-")
             and channel != "pi-error-dig"
