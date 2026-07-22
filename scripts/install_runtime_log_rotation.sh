@@ -46,9 +46,17 @@ else
   exit 1
 fi
 
+apt_noninteractive() {
+  if [[ "${EUID}" -eq 0 ]]; then
+    env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 "$@"
+  else
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 "$@"
+  fi
+}
+
 if ! command -v logrotate >/dev/null 2>&1; then
-  DEBIAN_FRONTEND=noninteractive "${sudo_cmd[@]}" apt-get -o Acquire::Retries=3 update
-  DEBIAN_FRONTEND=noninteractive "${sudo_cmd[@]}" apt-get -o Acquire::Retries=3 install -y logrotate
+  apt_noninteractive update
+  apt_noninteractive install -y logrotate
 fi
 
 tmp="$(mktemp)"
