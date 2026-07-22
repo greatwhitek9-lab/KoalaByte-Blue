@@ -95,6 +95,7 @@ if command -v systemctl >/dev/null 2>&1; then
   [[ "${was_voice_active}" == "1" ]] && \
     "${sudo_cmd[@]}" systemctl restart "${VOICE_SERVICE}"
 
+  recovered=0
   deadline=$(( $(date +%s) + VERIFY_TIMEOUT ))
   while (( $(date +%s) < deadline )); do
     music_ready=1
@@ -107,7 +108,8 @@ if command -v systemctl >/dev/null 2>&1; then
       [[ "${was_voice_active}" == "0" ]] || voice_ready=0
 
     if [[ "${music_ready}" == "1" && "${voice_ready}" == "1" ]]; then
-      if [[ "${was_music_active}" == "1" ]] && command -v curl >/dev/null 2>&1; then
+      if [[ "${was_music_active}" == "1" ]]; then
+        command -v curl >/dev/null 2>&1 || { sleep 2; continue; }
         if ! curl -fsS --max-time 5 -H 'Content-Type: application/json' \
           -d '{"jsonrpc":"2.0","id":1,"method":"core.playback.get_state"}' \
           http://127.0.0.1:6680/mopidy/rpc | grep -q '"result"'; then
@@ -119,26 +121,24 @@ if command -v systemctl >/dev/null 2>&1; then
         sleep 2
         continue
       fi
+      recovered=1
       break
     fi
     sleep 2
   done
 
-  if [[ "${was_music_active}" == "1" ]] && \
-     ! "${sudo_cmd[@]}" systemctl is-active --quiet "${MUSIC_SERVICE}"; then
-    "${sudo_cmd[@]}" systemctl --no-pager --full status "${MUSIC_SERVICE}" >&2 || true
-    "${sudo_cmd[@]}" journalctl -u "${MUSIC_SERVICE}" -n 40 --no-pager >&2 || true
-    echo "Mopidy did not recover after shared ALSA configuration." >&2
-    exit 1
-  fi
-  if [[ "${was_voice_active}" == "1" ]]; then
-    if ! "${sudo_cmd[@]}" systemctl is-active --quiet "${VOICE_SERVICE}" || \
-       [[ ! -S "${ROOT}/logs/runtime/serial_bus/esp32.sock" ]]; then
+  if [[ "${recovered}" != "1" && \
+        ( "${was_music_active}" == "1" || "${was_voice_active}" == "1" ) ]]; then
+    [[ "${was_music_active}" == "1" ]] && {
+      "${sudo_cmd[@]}" systemctl --no-pager --full status "${MUSIC_SERVICE}" >&2 || true
+      "${sudo_cmd[@]}" journalctl -u "${MUSIC_SERVICE}" -n 40 --no-pager >&2 || true
+    }
+    [[ "${was_voice_active}" == "1" ]] && {
       "${sudo_cmd[@]}" systemctl --no-pager --full status "${VOICE_SERVICE}" >&2 || true
       "${sudo_cmd[@]}" journalctl -u "${VOICE_SERVICE}" -n 40 --no-pager >&2 || true
-      echo "Voice bridge did not recover after shared ALSA configuration." >&2
-      exit 1
-    fi
+    }
+    echo "Runtime services did not fully recover after shared ALSA configuration." >&2
+    exit 1
   fi
 fi
 
