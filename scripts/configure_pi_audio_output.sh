@@ -34,6 +34,7 @@ payload = {
     "service_environment_file": env_file,
     "pi_generated_speech_owner": "raspberry-pi",
     "esp32_local_speech_only": True,
+    "shared_with_mopidy": selected == "koalabyte",
     "reason": reason,
     "updated_at": time.time(),
 }
@@ -127,15 +128,25 @@ if command -v aplay >/dev/null 2>&1; then
   if [[ -n "${record}" ]]; then
     card="${record%%$'\t'*}"
     card_id="${record#*$'\t'}"
-    if [[ -n "${card_id}" && "${card_id}" != "${record}" ]]; then
-      device="plughw:CARD=${card_id},DEV=0"
-    else
-      device="plughw:${card},0"
+    device=""
+    if [[ "${CHECK_ONLY}" != "1" && -n "${card_id}" && "${card_id}" != "${record}" && \
+          -f "${REPO_ROOT}/scripts/configure_shared_alsa_output.sh" ]]; then
+      if KOALABYTE_ENV_FILE="${ENV_FILE}" \
+        bash "${REPO_ROOT}/scripts/configure_shared_alsa_output.sh" "${card_id}"; then
+        device="koalabyte"
+      fi
     fi
-    persist_env_value "KOALABYTE_PI_ALSA_DEVICE" "${device}"
-    restart_voice_service_if_installed
+    if [[ -z "${device}" ]]; then
+      if [[ -n "${card_id}" && "${card_id}" != "${record}" ]]; then
+        device="plughw:CARD=${card_id},DEV=0"
+      else
+        device="plughw:${card},0"
+      fi
+      persist_env_value "KOALABYTE_PI_ALSA_DEVICE" "${device}"
+      restart_voice_service_if_installed
+    fi
     write_status "PI_AUDIO_OUTPUT_READY" "alsa" "${device}" \
-      "External ALSA device selected and persisted for the William voice service."
+      "External ALSA device selected; shared mixing is enabled when supported."
     exit 0
   fi
 fi
