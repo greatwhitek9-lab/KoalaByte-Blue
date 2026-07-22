@@ -32,8 +32,9 @@ KoalaByte Blue ESP32/PlatformIO setup helper
 The isolated environment pins PlatformIO Core 6.1.19 and edge-tts 7.2.8.
 Python 3.13+ also receives audioop-lts because the embedded William response
 builder still uses the standard audioop import removed from Python 3.13.
-Pip, PlatformIO, and voice generation use persistent SD-card temporary storage;
-package downloads and individual Edge TTS synthesis calls retry transient failures.
+Pip, PlatformIO, and voice generation use persistent SD-card temporary storage.
+William clips are cached by their exact synthesis parameters, and missing clips
+retry transient network failures without rebuilding completed clips.
 EOF
 }
 
@@ -101,20 +102,63 @@ install_edge_tts_retry_wrapper() {
 
   run_as_install_user mv -f "${wrapper}" "${real}"
   temp_wrapper="$(mktemp)"
-  cat >"${temp_wrapper}" <<EOF
+  cat >"${temp_wrapper}" <<'EOF'
 #!/usr/bin/env bash
 # KOALABYTE_EDGE_TTS_RETRY_WRAPPER
 set -u
-real="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)/edge-tts-real"
-attempts="${EDGE_TTS_ATTEMPTS}"
+real="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/edge-tts-real"
+attempts="${KOALABYTE_EDGE_TTS_ATTEMPTS:-3}"
+cache_root="${KOALABYTE_EDGE_TTS_CACHE:-${HOME}/.cache/koalabyte/edge-tts}"
+args=("$@")
+key_args=()
+output=""
+expect_output=0
+
+for arg in "${args[@]}"; do
+  if (( expect_output )); then
+    output="${arg}"
+    key_args+=("<write-media-path>")
+    expect_output=0
+    continue
+  fi
+  case "${arg}" in
+    --write-media)
+      key_args+=("--write-media")
+      expect_output=1
+      ;;
+    --write-media=*)
+      output="${arg#*=}"
+      key_args+=("--write-media=<write-media-path>")
+      ;;
+    *) key_args+=("${arg}") ;;
+  esac
+done
+
+cache_file=""
+if [[ -n "${output}" ]] && command -v sha256sum >/dev/null 2>&1; then
+  mkdir -p "${cache_root}"
+  key="$(printf '%s\0' "${key_args[@]}" | sha256sum | awk '{print $1}')"
+  cache_file="${cache_root}/${key}.media"
+  if [[ -s "${cache_file}" ]]; then
+    install -D -m 0644 "${cache_file}" "${output}"
+    exit 0
+  fi
+fi
+
 rc=1
 for ((attempt=1; attempt<=attempts; attempt++)); do
-  "\${real}" "\$@" && exit 0
-  rc=\$?
-  echo "edge-tts synthesis attempt \${attempt}/\${attempts} failed" >&2
-  (( attempt < attempts )) && sleep \$((attempt * 2))
+  if "${real}" "$@"; then
+    if [[ -n "${cache_file}" && -n "${output}" && -s "${output}" ]]; then
+      cache_tmp="${cache_file}.tmp.$$"
+      cp -f "${output}" "${cache_tmp}" && mv -f "${cache_tmp}" "${cache_file}"
+    fi
+    exit 0
+  fi
+  rc=$?
+  echo "edge-tts synthesis attempt ${attempt}/${attempts} failed" >&2
+  (( attempt < attempts )) && sleep $((attempt * 2))
 done
-exit "\${rc}"
+exit "${rc}"
 EOF
   run_as_install_user install -m 0755 "${temp_wrapper}" "${wrapper}"
   rm -f "${temp_wrapper}"
