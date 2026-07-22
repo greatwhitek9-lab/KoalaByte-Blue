@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import time
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from .bounded_log import append_jsonl
@@ -13,14 +15,20 @@ from .esp32_dualeye_speech_synced_bridge import (
 )
 from .killerkoala_error_dig import generate_error_dig
 
+SURVEY_EVENT_TYPES = {
+    "wifi_ap_seen",
+    "ble_seen",
+    "ble_adv_seen",
+    "ble_role_status",
+}
+
 
 class ESP32DualEyeVoiceBridge(_SpeechSyncedBridge):
     """Canonical speech-synced bridge with bounded audio and error digs.
 
-    The parent bridge owns alarm lifecycle, display fanout, mouth recovery, and
-    Pi-speaker playback. This subclass accepts confirmed wake-session follow-up
-    audio without requiring the operator to repeat KillerKoala, while bounding
-    unfinished request memory and persistent event logs on the 1 GB Pi.
+    The service is also the exclusive ESP32 serial owner. Passive node survey
+    events are written to a bounded privacy-preserving ledger so other runtime
+    features never reopen the tty.
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -46,9 +54,40 @@ class ESP32DualEyeVoiceBridge(_SpeechSyncedBridge):
             10.0,
             min(float(os.getenv("KOALABYTE_AUDIO_SESSION_MAX_AGE", "45")), 120.0),
         )
+        self._node_events_path = Path(
+            os.getenv(
+                "KOALABYTE_NODE_EVENTS_PATH",
+                "logs/runtime/node_events.jsonl",
+            )
+        )
+        self._raw_node_addresses = os.getenv(
+            "KOALABYTE_NODE_LOG_RAW_ADDRESSES", "0"
+        ).strip().lower() in {"1", "true", "yes", "on"}
 
     def _log_event(self, event: ESP32DualEyeVoiceEvent) -> None:
         append_jsonl(self.events_path, asdict(event))
+
+    @staticmethod
+    def _address_fingerprint(value: str) -> str:
+        clean = str(value or "").strip().lower()
+        if not clean:
+            return ""
+        return hashlib.sha256(clean.encode("utf-8")).hexdigest()[:16]
+
+    def _record_survey_payload(self, payload: Dict[str, Any]) -> None:
+        clean = dict(payload)
+        clean["received_at"] = time.time()
+        clean["serial_owner"] = "koalabyte-dualeye-voice-bridge"
+        clean["passive_observation"] = True
+        clean["raw_addresses_logged"] = self._raw_node_addresses
+        for key in ("bssid", "addr", "address"):
+            value = str(clean.get(key) or "")
+            if not value:
+                continue
+            clean[f"{key}_fingerprint"] = self._address_fingerprint(value)
+            if not self._raw_node_addresses:
+                clean[key] = "redacted"
+        append_jsonl(self._node_events_path, clean)
 
     def _drop_audio_session(self, request_id: str, reason: str) -> None:
         existed = request_id in self._audio or request_id in self._audio_meta
@@ -79,6 +118,8 @@ class ESP32DualEyeVoiceBridge(_SpeechSyncedBridge):
     ) -> Optional[ESP32DualEyeVoiceEvent]:
         payload_type = str(payload.get("type") or "")
         request_id = str(payload.get("request_id") or "")
+        if payload_type in SURVEY_EVENT_TYPES:
+            self._record_survey_payload(payload)
         if payload_type.startswith("audio_"):
             self._prune_audio_sessions()
         if payload_type == "audio_utterance_start":
