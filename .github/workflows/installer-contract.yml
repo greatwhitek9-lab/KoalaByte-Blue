@@ -8,6 +8,8 @@ on:
       - "install.sh"
       - "one-shot-install.sh"
       - "scripts/**"
+      - "pi-companion/**"
+      - "systemd/**"
       - ".github/workflows/installer-contract.yml"
   pull_request:
     branches: [Main, main]
@@ -15,6 +17,8 @@ on:
       - "install.sh"
       - "one-shot-install.sh"
       - "scripts/**"
+      - "pi-companion/**"
+      - "systemd/**"
       - ".github/workflows/installer-contract.yml"
 
 permissions:
@@ -39,6 +43,11 @@ jobs:
           set -euo pipefail
           python3 -m compileall -q scripts pi-companion firmware/esp32-dualeye/scripts firmware/t114-combined-safe/scripts
 
+      - name: Validate single-owner serial command bus
+        env:
+          PYTHONPATH: pi-companion
+        run: python3 scripts/check_serial_command_bus.py
+
       - name: Validate hardened installer invariants
         run: |
           set -euo pipefail
@@ -49,3 +58,5 @@ jobs:
           grep -Fq 'atomic_bundle_publish' scripts/build_whole_system_firmware.sh
           grep -Fq 'DEBIAN_FRONTEND=noninteractive' scripts/setup_system_packages.sh
           grep -Fq 'firmware_bundle_preserved' scripts/cleanup_firmware_build_tools.sh
+          grep -Fq 'install_esp32_serial_owner' scripts/run_esp32_dualeye_voice_bridge.py
+          grep -Fq 'install_heltec_serial_owner' scripts/run_ble_node_manager.py
