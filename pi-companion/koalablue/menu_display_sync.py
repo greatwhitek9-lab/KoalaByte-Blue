@@ -7,6 +7,9 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from .bounded_log import append_jsonl
+from .runtime_log_hardening import atomic_write_json
+
 DEFAULT_STATE_PATH = Path("logs/menu_sync/current_menu_state.json")
 DEFAULT_EVENT_PATH = Path("logs/menu_sync/menu_sync_events.jsonl")
 
@@ -137,10 +140,8 @@ def build_ai_face_payload(
 
 
 def _write_local(payload: dict[str, object]) -> None:
-    DEFAULT_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    DEFAULT_STATE_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-    with DEFAULT_EVENT_PATH.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(payload, sort_keys=True) + "\n")
+    atomic_write_json(DEFAULT_STATE_PATH, payload)
+    append_jsonl(DEFAULT_EVENT_PATH, payload)
 
 
 def _send_json_line(port: str, payload: dict[str, object]) -> tuple[bool, str]:
@@ -150,9 +151,22 @@ def _send_json_line(port: str, payload: dict[str, object]) -> tuple[bool, str]:
         import serial  # type: ignore
 
         baud = int(os.getenv("KOALABYTE_MENU_SYNC_BAUD", os.getenv("SERIAL_BAUD", "115200")))
-        with serial.Serial(port, baudrate=baud, timeout=0.05, write_timeout=0.25) as serial_port:
+        serial_port = serial.Serial()
+        serial_port.port = port
+        serial_port.baudrate = baud
+        serial_port.timeout = 0.05
+        serial_port.write_timeout = 0.25
+        serial_port.dsrdtr = False
+        serial_port.rtscts = False
+        serial_port.dtr = False
+        serial_port.rts = False
+        try:
+            serial_port.open()
             serial_port.write((json.dumps(payload, separators=(",", ":")) + "\n").encode("utf-8"))
             serial_port.flush()
+        finally:
+            if serial_port.is_open:
+                serial_port.close()
         return True, "sent"
     except Exception as exc:
         return False, f"send_failed:{exc}"
@@ -250,15 +264,17 @@ def _send_to_displays(payload: dict[str, object]) -> dict[str, list[dict[str, ob
     return results
 
 
-def sync_menu_state(menu: Any, event: Any | None = None) -> dict[str, object]:
-    payload = build_menu_sync_payload(menu, event)
-    _write_local(payload)
+def _publish(payload: dict[str, object]) -> dict[str, object]:
     if not _enabled():
         payload["sync_status"] = "disabled"
     else:
         payload["sync_results"] = _send_to_displays(payload)
-    DEFAULT_STATE_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    _write_local(payload)
     return payload
+
+
+def sync_menu_state(menu: Any, event: Any | None = None) -> dict[str, object]:
+    return _publish(build_menu_sync_payload(menu, event))
 
 
 def sync_ai_face_display(
@@ -268,11 +284,4 @@ def sync_ai_face_display(
     state: str = "idle",
     message: str = "KillerKoala is watching the canopy",
 ) -> dict[str, object]:
-    payload = build_ai_face_payload(menu, event, state=state, message=message)
-    _write_local(payload)
-    if not _enabled():
-        payload["sync_status"] = "disabled"
-    else:
-        payload["sync_results"] = _send_to_displays(payload)
-    DEFAULT_STATE_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-    return payload
+    return _publish(build_ai_face_payload(menu, event, state=state, message=message))
