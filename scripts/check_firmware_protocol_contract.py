@@ -69,6 +69,7 @@ def validate_esp32(manifest: dict[str, object]) -> dict[str, str]:
 def validate_t114(manifest: dict[str, object]) -> dict[str, str]:
     protocol = str(manifest["heltec_t114_min_protocol"])
     repo_version = str(manifest["repo_protocol_version"])
+    tone_path = T114 / "scripts/generate_tone_aware_main.py"
     patch_path = T114 / "scripts/patch_protocol_status.py"
     patch_text = patch_path.read_text(encoding="utf-8")
     require_once(patch_text, f'PROTOCOL = "{protocol}"', "T114 protocol constant")
@@ -78,23 +79,28 @@ def validate_t114(manifest: dict[str, object]) -> dict[str, str]:
         "T114 repository protocol constant",
     )
 
-    module = load_module("koalabyte_t114_protocol_contract", patch_path)
+    tone_module = load_module("koalabyte_t114_tone_contract", tone_path)
+    protocol_module = load_module("koalabyte_t114_protocol_contract", patch_path)
     with tempfile.TemporaryDirectory(prefix="koalabyte-t114-protocol-") as temp_dir:
-        output = Path(temp_dir) / "patched-main.c"
-        module.patch(T114 / "src/main.c", output)
-        patched = output.read_text(encoding="utf-8")
+        temp_root = Path(temp_dir)
+        tone_output = temp_root / "tone-main.c"
+        protocol_output = temp_root / "protocol-main.c"
+        tone_module.generate(T114 / "src/main.c", tone_output)
+        protocol_module.patch(tone_output, protocol_output)
+        patched = protocol_output.read_text(encoding="utf-8")
     require_once(patched, f'#define KOALA_PROTOCOL "{protocol}"', "T114 patched protocol declaration")
     require_once(
         patched,
         f'#define KOALA_REPO_PROTOCOL_VERSION "{repo_version}"',
         "T114 patched repository protocol declaration",
     )
-    require_once(patched, '\"protocol\":\"%s\"', "T114 status protocol field")
+    require_once(patched, r'\"protocol\":\"%s\"', "T114 status protocol field")
     require_once(
         patched,
-        '\"repo_protocol_version\":\"%s\"',
+        r'\"repo_protocol_version\":\"%s\"',
         "T114 status repository protocol field",
     )
+    require_once(patched, r'\"tone\":\"%s\"', "T114 tone-aware status field")
 
     cmake = (T114 / "CMakeLists.txt").read_text(encoding="utf-8")
     tone_pos = cmake.find("generate_tone_aware_main.py")
