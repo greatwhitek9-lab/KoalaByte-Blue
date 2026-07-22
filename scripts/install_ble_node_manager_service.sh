@@ -14,6 +14,8 @@ SERIAL_BUS_DIR="${KOALABYTE_SERIAL_BUS_DIR:-${ROOT}/logs/runtime/serial_bus}"
 
 if [[ -e /dev/koalabyte-heltec ]]; then
   DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec"
+elif [[ -e /dev/koalabyte-heltec-t114 ]]; then
+  DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec-t114"
 elif [[ -e /dev/koalabyte-nrf52840 ]]; then
   DEFAULT_PRIMARY_PORT="/dev/koalabyte-nrf52840"
 else
@@ -40,8 +42,14 @@ if [[ -z "${PY}" || ! -x "${PY}" ]]; then
   [[ "${STRICT_SERVICE}" == "1" ]] && exit 1
   exit 0
 fi
-[[ -f "${ROOT}/scripts/run_ble_node_manager.py" ]] || { echo "Missing scripts/run_ble_node_manager.py" >&2; exit 1; }
-id "${SERVICE_USER}" >/dev/null 2>&1 || { echo "Service user does not exist: ${SERVICE_USER}" >&2; exit 1; }
+[[ -f "${ROOT}/scripts/run_ble_node_manager.py" ]] || {
+  echo "Missing scripts/run_ble_node_manager.py" >&2
+  exit 1
+}
+id "${SERVICE_USER}" >/dev/null 2>&1 || {
+  echo "Service user does not exist: ${SERVICE_USER}" >&2
+  exit 1
+}
 [[ -n "${SERVICE_GROUP}" ]] || SERVICE_GROUP="$(id -gn "${SERVICE_USER}")"
 
 if [[ "${EUID}" -eq 0 ]]; then sudo_cmd=()
@@ -55,11 +63,12 @@ fi
 mkdir -p "${ROOT}/logs/ble_nodes" "${ROOT}/logs/preflight" "${SERIAL_BUS_DIR}"
 chmod +x "${ROOT}/scripts/run_ble_node_manager_service.sh"
 PYTHONPATH="${ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}" python3 \
-  "${ROOT}/scripts/discover_koalabyte_ports.py" --profile heltec --output-dir "${ROOT}/logs/preflight" || true
+  "${ROOT}/scripts/discover_koalabyte_ports.py" --profile heltec \
+  --output-dir "${ROOT}/logs/preflight" || true
 "${sudo_cmd[@]}" chown -R "${SERVICE_USER}:${SERVICE_GROUP}" \
   "${ROOT}/logs/ble_nodes" "${ROOT}/logs/preflight" "${SERIAL_BUS_DIR}" || true
 
- env_tmp="$(mktemp)"
+env_tmp="$(mktemp)"
 cat >"${env_tmp}" <<ENVEOF
 KOALABYTE_PRIMARY_BLE_PORT=${PRIMARY_PORT}
 KOALABYTE_HELTEC_USB_PORT=${PRIMARY_PORT}
@@ -104,6 +113,7 @@ SERVICEEOF
 "${sudo_cmd[@]}" install -m 0644 "${service_tmp}" "${SERVICE_PATH}"
 rm -f "${env_tmp}" "${service_tmp}"
 "${sudo_cmd[@]}" systemctl daemon-reload
+"${sudo_cmd[@]}" systemctl reset-failed "${SERVICE}" >/dev/null 2>&1 || true
 "${sudo_cmd[@]}" systemctl enable "${SERVICE}"
 "${sudo_cmd[@]}" systemctl restart "${SERVICE}" || true
 
