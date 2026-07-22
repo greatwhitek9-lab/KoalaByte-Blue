@@ -10,5 +10,6 @@ gpiozero>=2.0.1
 pygame>=2.5.2
 pyttsx3>=2.90
 SpeechRecognition>=3.10.4
+pocketsphinx>=5.0.3,<6
 meshtastic>=2.5.0
 edge-tts==7.2.8
