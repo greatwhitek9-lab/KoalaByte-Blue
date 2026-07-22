@@ -36,7 +36,8 @@ Usage:
 
 Source builds finish before serial services are stopped or USB devices are
 required. Immediately before flashing, the host power state is checked again,
-then both selected devices are identified, flashed, and rediscovered.
+then both selected devices are identified, flashed, and rediscovered. A failed
+flash always restores any services stopped by this transaction.
 EOF
 }
 
@@ -85,6 +86,7 @@ Path(path).write_text(json.dumps({
     "service_restart_deferred": defer_restart == "1",
     "build_tool_cleanup_requested": cleanup_tools.lower() in {"1", "true", "yes", "on", "auto"},
     "pre_flash_power_gate": True,
+    "failure_restores_services": True,
     "can_transmit": False,
     "started_at": int(started),
     "updated_at": time.time(),
@@ -110,21 +112,24 @@ stop_serial_services() {
 }
 
 restore_services() {
-  local service
+  local force="${1:-0}" service
   [[ "${SERVICES_STOPPED}" == "1" ]] || return 0
   [[ "${CHECK_ONLY}" == "1" || "${BUILD_ONLY}" == "1" ]] && return 0
-  [[ "${DEFER_SERVICE_RESTART}" == "1" ]] && return 0
+  if [[ "${force}" != "1" && "${DEFER_SERVICE_RESTART}" == "1" ]]; then
+    return 0
+  fi
   for service in "${SERVICES[@]}"; do
     if sudo_systemctl list-unit-files "${service}" >/dev/null 2>&1; then
       sudo_systemctl restart "${service}" >/dev/null 2>&1 || true
     fi
   done
+  SERVICES_STOPPED=0
 }
 
 on_error() {
   local rc=$?
-  write_status failed "Deployment stopped at ${CURRENT_STEP} with exit ${rc}. The verified firmware bundle was retained; correct the reported condition and rerun."
-  restore_services
+  write_status failed "Deployment stopped at ${CURRENT_STEP} with exit ${rc}. The verified firmware bundle was retained and previously running services were restored; correct the reported condition and rerun."
+  restore_services 1
   exit "${rc}"
 }
 trap on_error ERR
@@ -216,7 +221,9 @@ fi
 CURRENT_STEP="post_flash_discovery"
 sleep 2
 PYTHONPATH=pi-companion python3 scripts/discover_koalabyte_ports.py --profile heltec --output-dir logs/preflight
-python3 scripts/check_whole_system_deployment.py --post-flash --bundle-dir "${BUNDLE_DIR}"
+python3 scripts/check_whole_system_deployment.py --post-flash --bundle-dir "${BUNDLE_DIR}" \
+  $([[ "${SKIP_ESP32}" == "1" ]] && printf '%s' '--skip-esp32') \
+  $([[ "${SKIP_T114}" == "1" ]] && printf '%s' '--skip-t114')
 
 if is_enabled "${CLEANUP_FIRMWARE_BUILD_TOOLS}"; then
   if [[ "${SKIP_ESP32}" == "1" || "${SKIP_T114}" == "1" ]]; then
@@ -234,5 +241,5 @@ fi
 CURRENT_STEP="complete"
 write_status complete "Firmware was built or selected, checksummed, power-gated, flashed, and rediscovered."
 trap - ERR
-restore_services
+restore_services 0
 echo "Whole-system peripheral firmware deployment complete."
