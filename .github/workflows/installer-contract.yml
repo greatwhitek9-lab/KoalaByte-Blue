@@ -90,6 +90,7 @@ jobs:
           grep -Fq 'pcm.koalabyte_dmix' scripts/configure_shared_alsa_output.sh
           grep -Fq 'systemctl reset-failed ollama.service' scripts/setup_killerkoala_ollama.sh
           grep -Fq 'systemctl reset-failed mopidy.service' scripts/setup_mopidy_player.sh
+          grep -Fq '#include "integrated_main.cpp"' firmware/esp32-dualeye/src/integrated_main_clean_voice.cpp
           for patch in patch_guarded_ble_failover.py patch_tone_expression_payloads.py patch_alarm_background.py; do
-            grep -Fq 'integrated_main_wake_session.cpp' "firmware/esp32-dualeye/scripts/${patch}"
+            grep -Fq 'integrated_main.cpp' "firmware/esp32-dualeye/scripts/${patch}"
           done
