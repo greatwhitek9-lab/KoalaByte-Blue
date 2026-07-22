@@ -53,8 +53,8 @@ ConditionPathExists=${SWAPFILE}
 
 [Service]
 Type=oneshot
-ExecStart=/sbin/swapon ${SWAPFILE}
-ExecStop=/sbin/swapoff ${SWAPFILE}
+ExecStart=/bin/sh -c '/sbin/swapon --show=NAME --noheadings | /usr/bin/grep -Fxq "${SWAPFILE}" || /sbin/swapon "${SWAPFILE}"'
+ExecStop=/bin/sh -c '/sbin/swapon --show=NAME --noheadings | /usr/bin/grep -Fxq "${SWAPFILE}" && /sbin/swapoff "${SWAPFILE}" || true'
 RemainAfterExit=yes
 
 [Install]
