@@ -6,7 +6,8 @@ cd "${ROOT}"
 
 UF2_VOLUME_NAME="${T114_UF2_VOLUME_NAME:-HT-n5262}"
 PORT="${T114_BOOTLOADER_PORT:-${KOALABYTE_HELTEC_USB_PORT:-${KOALABYTE_PRIMARY_BLE_PORT:-${HELTEC_PORT:-}}}}"
-TIMEOUT_SECONDS="${T114_BOOTLOADER_TIMEOUT_SECONDS:-45}"
+AUTO_TIMEOUT_SECONDS="${T114_AUTO_BOOTLOADER_TIMEOUT_SECONDS:-12}"
+MANUAL_TIMEOUT_SECONDS="${T114_BOOTLOADER_TIMEOUT_SECONDS:-45}"
 STATUS_PATH="${T114_BOOTLOADER_STATUS_PATH:-logs/deployment/t114_bootloader_entry_status.json}"
 
 mkdir -p "$(dirname "${STATUS_PATH}")"
@@ -23,6 +24,7 @@ Path(path).write_text(json.dumps({
     "port": port,
     "uf2_volume_name": label,
     "uf2_device": device,
+    "serial_privilege_fallback": True,
     "updated_at": time.time(),
 }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 PY
@@ -30,7 +32,8 @@ PY
 
 find_uf2_device() {
   command -v lsblk >/dev/null 2>&1 || return 1
-  lsblk -pnro NAME,LABEL,FSTYPE 2>/dev/null | awk -v label="${UF2_VOLUME_NAME}" '$2==label && ($3=="vfat" || $3=="fat") {print $1; exit}'
+  lsblk -pnro NAME,LABEL,FSTYPE 2>/dev/null | \
+    awk -v label="${UF2_VOLUME_NAME}" '$2==label && ($3=="vfat" || $3=="fat") {print $1; exit}'
 }
 
 pick_port() {
@@ -38,7 +41,11 @@ pick_port() {
     printf '%s\n' "${PORT}"
     return 0
   fi
-  for candidate in /dev/koalabyte-heltec /dev/koalabyte-heltec-t114 /dev/ttyACM0 /dev/ttyACM1 /dev/ttyUSB0 /dev/ttyUSB1; do
+  # Stable aliases only. Blind ttyACM/ttyUSB selection can target the ESP32.
+  for candidate in \
+    /dev/koalabyte-heltec \
+    /dev/koalabyte-heltec-t114 \
+    /dev/koalabyte-nrf52840; do
     if [[ -e "${candidate}" ]]; then
       printf '%s\n' "${candidate}"
       return 0
@@ -48,7 +55,7 @@ pick_port() {
 }
 
 wait_for_uf2() {
-  local deadline=$(( $(date +%s) + TIMEOUT_SECONDS )) dev=""
+  local timeout="$1" deadline=$(( $(date +%s) + timeout )) dev=""
   while (( $(date +%s) < deadline )); do
     dev="$(find_uf2_device || true)"
     if [[ -n "${dev}" ]]; then
@@ -60,9 +67,42 @@ wait_for_uf2() {
   return 1
 }
 
+write_serial_line() {
+  local line="$1"
+  if [[ -w "${PORT}" ]]; then
+    printf '%s\n' "${line}" >"${PORT}"
+  elif command -v sudo >/dev/null 2>&1; then
+    printf '%s\n' "${line}" | sudo tee "${PORT}" >/dev/null
+  else
+    return 1
+  fi
+}
+
+serial_touch_1200() {
+  if [[ -r "${PORT}" && -w "${PORT}" ]]; then
+    stty -F "${PORT}" 1200 hupcl 2>/dev/null || true
+    python3 - "${PORT}" >/dev/null 2>&1 <<'PY' || true
+import sys
+try:
+    open(sys.argv[1], "ab", buffering=0).close()
+except Exception:
+    pass
+PY
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo stty -F "${PORT}" 1200 hupcl 2>/dev/null || true
+    sudo python3 - "${PORT}" >/dev/null 2>&1 <<'PY' || true
+import sys
+try:
+    open(sys.argv[1], "ab", buffering=0).close()
+except Exception:
+    pass
+PY
+  fi
+}
+
 existing="$(find_uf2_device || true)"
 if [[ -n "${existing}" ]]; then
-  write_status "UF2_ALREADY_PRESENT" "HT-n5262 UF2 volume is already available." "${existing}"
+  write_status UF2_ALREADY_PRESENT "HT-n5262 UF2 volume is already available." "${existing}"
   exit 0
 fi
 
@@ -74,38 +114,31 @@ if [[ -n "${PORT}" ]]; then
     '{"type":"bootloader","mode":"uf2"}' \
     'KOALABYTE_BOOTLOADER_UF2' \
     'REBOOT_UF2'; do
-    printf '%s\n' "${line}" > "${PORT}" 2>/dev/null || true
+    write_serial_line "${line}" 2>/dev/null || true
     sleep 0.15
   done
-  if dev="$(wait_for_uf2 || true)" && [[ -n "${dev}" ]]; then
-    write_status "UF2_READY" "T114 entered UF2 through the KoalaByte serial command." "${dev}"
+  if dev="$(wait_for_uf2 "${AUTO_TIMEOUT_SECONDS}" || true)" && [[ -n "${dev}" ]]; then
+    write_status UF2_READY "T114 entered UF2 through the KoalaByte serial command." "${dev}"
     exit 0
   fi
 
   echo "Trying a 1200-baud serial touch..."
-  stty -F "${PORT}" 1200 hupcl 2>/dev/null || true
-  python3 - "${PORT}" >/dev/null 2>&1 <<'PY' || true
-import sys
-try:
-    open(sys.argv[1], "ab", buffering=0).close()
-except Exception:
-    pass
-PY
-  if dev="$(wait_for_uf2 || true)" && [[ -n "${dev}" ]]; then
-    write_status "UF2_READY" "T114 entered UF2 through a 1200-baud serial touch." "${dev}"
+  serial_touch_1200
+  if dev="$(wait_for_uf2 "${AUTO_TIMEOUT_SECONDS}" || true)" && [[ -n "${dev}" ]]; then
+    write_status UF2_READY "T114 entered UF2 through a 1200-baud serial touch." "${dev}"
     exit 0
   fi
 fi
 
 cat >&2 <<EOF
 The T114 UF2 volume did not appear automatically.
-Double-tap the T114 reset button now so ${UF2_VOLUME_NAME} appears, then leave this installer running.
+Double-tap the T114 reset button now so ${UF2_VOLUME_NAME} appears; the installer will continue watching for ${MANUAL_TIMEOUT_SECONDS} seconds.
 EOF
-if dev="$(wait_for_uf2 || true)" && [[ -n "${dev}" ]]; then
-  write_status "UF2_READY" "T114 entered UF2 after the physical reset fallback." "${dev}"
+if dev="$(wait_for_uf2 "${MANUAL_TIMEOUT_SECONDS}" || true)" && [[ -n "${dev}" ]]; then
+  write_status UF2_READY "T114 entered UF2 after the physical reset fallback." "${dev}"
   exit 0
 fi
 
-write_status "UF2_NOT_READY" "T114 UF2 volume did not appear before the deployment timeout."
+write_status UF2_NOT_READY "T114 UF2 volume did not appear before the deployment timeout."
 echo "T114 UF2 bootloader entry failed." >&2
 exit 1
