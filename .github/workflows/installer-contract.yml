@@ -55,6 +55,9 @@ jobs:
       - name: Validate complex microphone pre-roll patch
         run: python3 firmware/esp32-dualeye/scripts/patch_complex_capture_preroll.py --check
 
+      - name: Validate compiled ESP32 patch chain
+        run: python3 scripts/check_esp32_compiled_patch_chain.py
+
       - name: Validate hardened installer invariants
         run: |
           set -euo pipefail
@@ -77,6 +80,8 @@ jobs:
           grep -Fq 'new_restarts_during_health_check' scripts/check_live_runtime_services.py
           grep -Fq 'install_runtime_log_rotation.sh' scripts/setup_pi_hardware_stage.sh
           grep -Fq 'brokered_t114_fix' pi-companion/koalablue/gnss_location.py
+          grep -Fq 'serial_owner_snapshot' pi-companion/koalablue/t114_menu_status.py
+          grep -Fq 'direct_serial_open": False' pi-companion/koalablue/t114_runtime_broker.py
           grep -Fq 'append_jsonl' pi-companion/koalablue/menu_display_sync.py
           grep -Fq 'pocketsphinx>=5.0.3' pi-companion/requirements.txt
           grep -Fq 'wake_already_confirmed' pi-companion/koalablue/esp32_dualeye_error_dig_bridge.py
@@ -85,3 +90,6 @@ jobs:
           grep -Fq 'pcm.koalabyte_dmix' scripts/configure_shared_alsa_output.sh
           grep -Fq 'systemctl reset-failed ollama.service' scripts/setup_killerkoala_ollama.sh
           grep -Fq 'systemctl reset-failed mopidy.service' scripts/setup_mopidy_player.sh
+          for patch in patch_guarded_ble_failover.py patch_tone_expression_payloads.py patch_alarm_background.py; do
+            grep -Fq 'integrated_main_wake_session.cpp' "firmware/esp32-dualeye/scripts/${patch}"
+          done
