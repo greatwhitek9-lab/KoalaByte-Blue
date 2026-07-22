@@ -14,6 +14,7 @@ ESP32_BUILD="${ROOT}/firmware/esp32-dualeye/.pio/build/esp32s3_dualeye"
 T114_BUILD="${T114_COMBINED_BUILD_DIR:-${ROOT}/build/t114-combined-safe}"
 STATUS_PATH="${KOALABYTE_FIRMWARE_BUILD_STATUS:-${ROOT}/logs/deployment/firmware_build_status.json}"
 ESP32_TOOLS_VENV="${ESP32_TOOLS_VENV:-${HOME}/.venvs/platformio}"
+PLATFORMIO_CORE_DIR="${PLATFORMIO_CORE_DIR:-${HOME}/.platformio}"
 PIO_BIN="${PIO_BIN:-}"
 PIO_JOBS="${PIO_JOBS:-1}"
 CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-1}"
@@ -52,10 +53,12 @@ mkdir -p "${ROOT}/logs/deployment" "$(dirname "${BUNDLE_DIR}")"
 write_status() {
   local status="$1" reason="$2"
   python3 - "${STATUS_PATH}" "${status}" "${reason}" "${BUNDLE_DIR}" \
-    "${SKIP_ESP32}" "${SKIP_T114}" "${PIO_JOBS}" "${CMAKE_BUILD_PARALLEL_LEVEL}" <<'PY'
+    "${SKIP_ESP32}" "${SKIP_T114}" "${PIO_JOBS}" "${CMAKE_BUILD_PARALLEL_LEVEL}" \
+    "${PLATFORMIO_CORE_DIR}" <<'PY'
 import json, sys, time
 from pathlib import Path
-path, status, reason, bundle, skip_esp32, skip_t114, pio_jobs, cmake_jobs = sys.argv[1:]
+(path, status, reason, bundle, skip_esp32, skip_t114, pio_jobs,
+ cmake_jobs, platformio_core_dir) = sys.argv[1:]
 Path(path).write_text(json.dumps({
     "status": status,
     "reason": reason,
@@ -66,6 +69,7 @@ Path(path).write_text(json.dumps({
     "dependencies_gated_before_build": True,
     "atomic_bundle_publish": True,
     "esp32_source_restore": True,
+    "platformio_core_dir": platformio_core_dir,
     "pio_jobs": int(pio_jobs),
     "cmake_parallel_level": int(cmake_jobs),
     "updated_at": time.time(),
@@ -134,7 +138,8 @@ validate_sources() {
   python3 -m py_compile \
     scripts/inspect_uf2.py scripts/patch_uf2_family.py scripts/verify_uf2_vector.py \
     scripts/check_firmware_hardware_contract.py scripts/check_firmware_protocol_contract.py \
-    scripts/check_esp32_compiled_patch_chain.py
+    scripts/check_esp32_compiled_patch_chain.py scripts/write_firmware_bundle_manifest.py \
+    scripts/check_firmware_bundle.py
   python3 scripts/check_firmware_hardware_contract.py >/dev/null
   python3 scripts/check_firmware_protocol_contract.py >/dev/null
   python3 scripts/check_esp32_compiled_patch_chain.py >/dev/null
@@ -148,13 +153,14 @@ validate_sources() {
 prepare_all_dependencies() {
   echo "== Prepare all selected device build dependencies =="
   if [[ "${SKIP_ESP32}" != "1" ]]; then
-    STRICT_ESP32_TOOLS=1 bash scripts/setup_esp32_tools.sh
+    PLATFORMIO_CORE_DIR="${PLATFORMIO_CORE_DIR}" STRICT_ESP32_TOOLS=1 \
+      bash scripts/setup_esp32_tools.sh
     resolve_pio || { echo "PlatformIO executable not found after setup." >&2; return 1; }
     [[ -x "${ESP32_TOOLS_VENV}/bin/edge-tts" || -x "${ROOT}/pi-companion/.venv/bin/edge-tts" ]] || {
       echo "edge-tts is missing after ESP32 dependency setup." >&2; return 1;
     }
     command -v ffmpeg >/dev/null 2>&1 || { echo "ffmpeg is missing." >&2; return 1; }
-    "${PIO_BIN}" --version
+    PLATFORMIO_CORE_DIR="${PLATFORMIO_CORE_DIR}" "${PIO_BIN}" --version
   fi
   if [[ "${SKIP_T114}" != "1" ]]; then
     INSTALL_NCS_TOOLCHAIN=1 STRICT_NCS_TOOLCHAIN=1 bash scripts/setup_nrf_connect_sdk_toolchain.sh
@@ -195,16 +201,17 @@ if [[ "${SKIP_ESP32}" != "1" ]]; then
   echo "== Build ESP32-S3 DualEye with ${PIO_JOBS} job(s) =="
   backup_esp32_sources
   PATH="${ESP32_TOOLS_VENV}/bin:${ROOT}/pi-companion/.venv/bin:${HOME}/.local/bin:${PATH}" \
+    PLATFORMIO_CORE_DIR="${PLATFORMIO_CORE_DIR}" \
     "${PIO_BIN}" run -j "${PIO_JOBS}" -d firmware/esp32-dualeye
 
-  boot_app0="$(find "${HOME}/.platformio/packages" -path '*/tools/partitions/boot_app0.bin' -print -quit)"
-  srmodels="$(find "${HOME}/.platformio/packages" -path '*/esp_sr/srmodels.bin' -print -quit)"
+  boot_app0="$(find "${PLATFORMIO_CORE_DIR}/packages" -path '*/tools/partitions/boot_app0.bin' -print -quit)"
+  srmodels="$(find "${PLATFORMIO_CORE_DIR}/packages" -path '*/esp_sr/srmodels.bin' -print -quit)"
   for file in bootloader.bin partitions.bin firmware.bin; do
-    test -f "${ESP32_BUILD}/${file}"
+    test -s "${ESP32_BUILD}/${file}"
     cp "${ESP32_BUILD}/${file}" "${STAGING_DIR}/esp32/${file}"
   done
-  test -n "${boot_app0}" && test -f "${boot_app0}"
-  test -n "${srmodels}" && test -f "${srmodels}"
+  test -n "${boot_app0}" && test -s "${boot_app0}"
+  test -n "${srmodels}" && test -s "${srmodels}"
   cp "${boot_app0}" "${STAGING_DIR}/esp32/boot_app0.bin"
   cp "${srmodels}" "${STAGING_DIR}/esp32/srmodels.bin"
   restore_esp32_sources
@@ -217,8 +224,9 @@ if [[ "${SKIP_T114}" != "1" ]]; then
   STRICT_T114_COMBINED_BUILD=1 bash scripts/build_t114_combined_safe.sh
   raw="${T114_BUILD}/zephyr/zephyr.uf2"
   output="${STAGING_DIR}/t114/koalabyte-t114-current.uf2"
-  test -f "${raw}"
+  test -s "${raw}"
   python3 scripts/patch_uf2_family.py "${raw}" "${output}" 0x239a0071
+  test -s "${output}"
   python3 scripts/verify_uf2_vector.py "${output}" \
     --vector-address 0x26000 --application-min 0x26000 --application-max 0xec000 \
     --family 0x239a0071 > "${STAGING_DIR}/t114/vector-validation.txt"
@@ -227,44 +235,14 @@ fi
 
 source_commit="unknown"
 if git rev-parse HEAD >/dev/null 2>&1; then source_commit="$(git rev-parse HEAD)"; fi
-python3 - "${STAGING_DIR}" "${source_commit}" "${SKIP_ESP32}" "${SKIP_T114}" <<'PY'
-import hashlib, json, sys, time
-from pathlib import Path
-bundle = Path(sys.argv[1]); source_commit = sys.argv[2]
-skip_esp32 = sys.argv[3] == "1"; skip_t114 = sys.argv[4] == "1"
-def record(path: Path, address=None):
-    data = path.read_bytes()
-    row = {"path": str(path.relative_to(bundle)), "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
-    if address is not None: row["flash_address"] = address
-    return row
-esp32 = []
-for name, address in (("bootloader.bin", "0x00000000"), ("partitions.bin", "0x00008000"),
-                      ("boot_app0.bin", "0x0000e000"), ("firmware.bin", "0x00010000"),
-                      ("srmodels.bin", "0x00cb0000")):
-    path = bundle / "esp32" / name
-    if path.exists(): esp32.append(record(path, address))
-t114 = bundle / "t114" / "koalabyte-t114-current.uf2"
-manifest = {
-    "schema": 1, "bundle": "koalabyte-blue-current", "source_commit": source_commit,
-    "built_at": time.time(), "dependencies_gated_before_build": True,
-    "esp32": {"target": "Waveshare ESP32-S3 DualEye 1.28 non-touch", "included": not skip_esp32,
-              "chip": "esp32s3", "flash_mode": "qio", "flash_frequency": "80m",
-              "flash_size": "16MB", "files": esp32},
-    "t114": {"target": "Heltec T114 / HT-n5262 nRF52840 UF2", "included": not skip_t114,
-             "volume_label": "HT-n5262", "family_id": "0x239a0071",
-             "application_offset": "0x00026000", "file": record(t114) if t114.exists() else None},
-}
-(bundle / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-checksums = []
-for path in sorted(bundle.rglob("*")):
-    if path.is_file() and path.name != "SHA256SUMS.txt":
-        checksums.append(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.relative_to(bundle)}")
-(bundle / "SHA256SUMS.txt").write_text("\n".join(checksums) + "\n", encoding="utf-8")
-PY
-(
-  cd "${STAGING_DIR}"
-  sha256sum -c SHA256SUMS.txt
-)
+manifest_args=(--bundle "${STAGING_DIR}" --source-commit "${source_commit}")
+[[ "${SKIP_ESP32}" == "1" ]] && manifest_args+=(--skip-esp32)
+[[ "${SKIP_T114}" == "1" ]] && manifest_args+=(--skip-t114)
+python3 scripts/write_firmware_bundle_manifest.py "${manifest_args[@]}" >/dev/null
+verify_requirement=all
+[[ "${SKIP_ESP32}" == "1" ]] && verify_requirement=t114
+[[ "${SKIP_T114}" == "1" ]] && verify_requirement=esp32
+python3 scripts/check_firmware_bundle.py --bundle "${STAGING_DIR}" --require "${verify_requirement}"
 publish_bundle_atomically
-write_status built "All firmware built, validated, checksummed, and atomically published."
+write_status built "All firmware built, partition-bounded, identity-stamped, checksummed, and atomically published."
 echo "Firmware bundle ready: ${BUNDLE_DIR}"
