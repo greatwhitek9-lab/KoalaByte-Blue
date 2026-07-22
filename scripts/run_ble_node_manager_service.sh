@@ -16,9 +16,10 @@ fi
 
 if [[ -e /dev/koalabyte-heltec ]]; then
   DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec"
-elif [[ -e /dev/ttyACM0 ]]; then
-  DEFAULT_PRIMARY_PORT="/dev/ttyACM0"
+elif [[ -e /dev/koalabyte-heltec-t114 ]]; then
+  DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec-t114"
 else
+  # Never guess ttyACM0/ttyUSB0: either may be the ESP32 serial owner.
   DEFAULT_PRIMARY_PORT=""
 fi
 
