@@ -9,7 +9,11 @@ from koalablue.runtime_serial_ownership import (
     HELTEC_MAX_LINE_BYTES,
     compact_heltec_payload,
 )
-from koalablue.serial_command_bus import JsonCommandInbox, submit_command
+from koalablue.serial_command_bus import (
+    JsonCommandInbox,
+    owner_is_active,
+    submit_command,
+)
 
 
 def wire_length(payload: dict[str, object]) -> int:
@@ -20,6 +24,19 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="koalabyte-serial-bus-") as temp:
         root = Path(temp)
 
+        rejected = submit_command(
+            "heltec",
+            {"type": "ble_lab_advertise_start", "confirm": True},
+            queue_if_unavailable=False,
+            bus_dir=root,
+        )
+        assert not rejected.accepted
+        assert not rejected.delivered
+        assert not rejected.queued
+        assert rejected.status == "owner_unavailable_not_queued"
+        assert not (root / "heltec.queue.jsonl").exists()
+        assert not owner_is_active("heltec", root)
+
         queued = submit_command(
             "esp32",
             {"type": "menu_sync", "sequence": 1},
@@ -28,6 +45,7 @@ def main() -> int:
         assert queued.accepted and queued.queued and not queued.delivered
 
         with JsonCommandInbox("esp32", bus_dir=root) as inbox:
+            assert owner_is_active("esp32", root)
             replay = inbox.drain()
             assert replay == [{"sequence": 1, "type": "menu_sync"}]
             inbox.acknowledge()
@@ -58,6 +76,7 @@ def main() -> int:
             claimed_before_crash = inbox.drain()
             assert claimed_before_crash == [{"sequence": 3, "type": "menu_sync"}]
 
+        assert not owner_is_active("esp32", root)
         with JsonCommandInbox("esp32", bus_dir=root) as recovered:
             replay_after_crash = recovered.drain()
             assert replay_after_crash == [
@@ -66,6 +85,7 @@ def main() -> int:
             recovered.acknowledge()
 
         with JsonCommandInbox("heltec", bus_dir=root) as heltec:
+            assert owner_is_active("heltec", root)
             submitted = submit_command(
                 "heltec",
                 {"type": "killerkoala_speech", "active": True},
@@ -108,6 +128,8 @@ def main() -> int:
             "single_owner_enforced": True,
             "startup_spool_replayed": True,
             "active_owner_notified": True,
+            "offline_nonqueued_command_rejected": True,
+            "owner_lock_detection_verified": True,
             "claim_acknowledgement_required": True,
             "crash_replay_verified": True,
             "heltec_wire_limit_bytes": HELTEC_MAX_LINE_BYTES,
