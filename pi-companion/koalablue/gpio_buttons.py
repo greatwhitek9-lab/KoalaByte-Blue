@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import json
 import queue
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Optional
+
+from .bounded_log import append_jsonl
 
 
 @dataclass(frozen=True)
@@ -205,26 +206,26 @@ class GPIOButtonManager:
             return None
 
     def _log(self, event: ButtonEvent) -> None:
-        self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "type": "gpio_button",
-            "button_number": event.number,
-            "name": event.name,
-            "label": event.label,
-            "command": event.command,
-            "event_type": event.event_type,
-            "timestamp": event.timestamp,
-            "pin_bcm": event.pin_bcm,
-            "held_seconds": event.held_seconds,
-            "requires_hold": event.requires_hold,
-            "pull_up": self.electrical_mode.pull_up,
-            "idle_state": self.electrical_mode.idle_state,
-            "pressed_state": self.electrical_mode.pressed_state,
-            "wiring": self.electrical_mode.wiring,
-            "control_mode": self.control_mode,
-        }
-        with self.log_path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(payload, sort_keys=True) + "\n")
+        append_jsonl(
+            self.log_path,
+            {
+                "type": "gpio_button",
+                "button_number": event.number,
+                "name": event.name,
+                "label": event.label,
+                "command": event.command,
+                "event_type": event.event_type,
+                "timestamp": event.timestamp,
+                "pin_bcm": event.pin_bcm,
+                "held_seconds": event.held_seconds,
+                "requires_hold": event.requires_hold,
+                "pull_up": self.electrical_mode.pull_up,
+                "idle_state": self.electrical_mode.idle_state,
+                "pressed_state": self.electrical_mode.pressed_state,
+                "wiring": self.electrical_mode.wiring,
+                "control_mode": self.control_mode,
+            },
+        )
 
     def close(self) -> None:
         for button in self._button_objs:
