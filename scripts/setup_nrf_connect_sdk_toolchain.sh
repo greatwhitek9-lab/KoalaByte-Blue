@@ -7,6 +7,8 @@ NCS_WORKSPACE="${NCS_WORKSPACE:-${HOME}/ncs}"
 NCS_REVISION="${NCS_REVISION:-v2.9.0}"
 ZEPHYR_SDK_VERSION="${ZEPHYR_SDK_VERSION:-0.17.0}"
 ZEPHYR_SDK_INSTALL_DIR="${ZEPHYR_SDK_INSTALL_DIR:-${HOME}/zephyr-sdk-${ZEPHYR_SDK_VERSION}}"
+ZEPHYR_SDK_DOWNLOAD_DIR="${ZEPHYR_SDK_DOWNLOAD_DIR:-${HOME}/.cache/koalabyte/zephyr-sdk}"
+ZEPHYR_SDK_MIN_FREE_KB="${ZEPHYR_SDK_MIN_FREE_KB:-8388608}"
 INSTALL_NCS_TOOLCHAIN="${INSTALL_NCS_TOOLCHAIN:-auto}"
 STRICT_NCS_TOOLCHAIN="${STRICT_NCS_TOOLCHAIN:-0}"
 CHECK_ONLY=0
@@ -27,8 +29,13 @@ Usage:
   VALIDATE_BUILD=1 bash scripts/setup_nrf_connect_sdk_toolchain.sh
 
 This helper supports Raspberry Pi OS Bookworm and Trixie, resumes existing west
-workspaces, validates CMake/Ninja before building, and retries transient pip
-network failures.
+workspaces and interrupted Zephyr SDK downloads, validates CMake/Ninja before
+building, and retries transient pip network failures.
+
+The Zephyr SDK archive is downloaded under:
+  ZEPHYR_SDK_DOWNLOAD_DIR=$HOME/.cache/koalabyte/zephyr-sdk
+
+This avoids RAM-backed /tmp filesystems that are too small for the SDK archive.
 EOF
 }
 
@@ -75,6 +82,7 @@ write_status() {
   "ncs_revision": "${NCS_REVISION}",
   "zephyr_sdk_version": "${ZEPHYR_SDK_VERSION}",
   "zephyr_sdk_install_dir": "${ZEPHYR_SDK_INSTALL_DIR}",
+  "zephyr_sdk_download_dir": "${ZEPHYR_SDK_DOWNLOAD_DIR}",
   "zephyr_base": "${NCS_WORKSPACE}/zephyr",
   "env_file": "${REPO_ROOT}/logs/nrf_connect_sdk_env.sh",
   "west_available": $(have_tool west && echo true || echo false),
@@ -82,7 +90,7 @@ write_status() {
   "ninja_available": $(have_tool ninja && echo true || echo false),
   "ncs_workspace_exists": $([[ -d "${NCS_WORKSPACE}/.west" ]] && echo true || echo false),
   "zephyr_base_exists": $([[ -d "${NCS_WORKSPACE}/zephyr" ]] && echo true || echo false),
-  "zephyr_sdk_exists": $([[ -d "${ZEPHYR_SDK_INSTALL_DIR}" ]] && echo true || echo false),
+  "zephyr_sdk_exists": $([[ -x "${ZEPHYR_SDK_INSTALL_DIR}/setup.sh" ]] && echo true || echo false),
   "pip_retries": ${PIP_RETRIES},
   "pip_timeout_seconds": ${PIP_DEFAULT_TIMEOUT},
   "updated_at": $(date +%s)
@@ -98,6 +106,7 @@ export NCS_WORKSPACE="${NCS_WORKSPACE}"
 export ZEPHYR_BASE="${NCS_WORKSPACE}/zephyr"
 export ZEPHYR_TOOLCHAIN_VARIANT="zephyr"
 export ZEPHYR_SDK_INSTALL_DIR="${ZEPHYR_SDK_INSTALL_DIR}"
+export ZEPHYR_SDK_DOWNLOAD_DIR="${ZEPHYR_SDK_DOWNLOAD_DIR}"
 export PATH="${NCS_WORKSPACE}/.venv/bin:${REPO_ROOT}/pi-companion/.venv/bin:${HOME}/.local/bin:/usr/bin:/bin:\$PATH"
 export PIP_RETRIES="${PIP_RETRIES}"
 export PIP_DEFAULT_TIMEOUT="${PIP_DEFAULT_TIMEOUT}"
@@ -149,24 +158,80 @@ ensure_build_tools() {
   }
 }
 
+ensure_free_space() {
+  local path="$1" minimum_kb="$2" label="$3"
+  local available_kb
+  mkdir -p "${path}"
+  available_kb="$(df -Pk "${path}" | awk 'NR == 2 { print $4 }')"
+  if [[ -z "${available_kb}" || ! "${available_kb}" =~ ^[0-9]+$ ]]; then
+    fail_or_warn "Could not determine free space for ${label}: ${path}"
+    return 1
+  fi
+  if (( available_kb < minimum_kb )); then
+    fail_or_warn "${label} requires at least $((minimum_kb / 1024 / 1024)) GiB free at ${path}; only $((available_kb / 1024 / 1024)) GiB is available."
+    return 1
+  fi
+  echo "${label} free space: $((available_kb / 1024 / 1024)) GiB at ${path}"
+}
+
 install_zephyr_sdk() {
   [[ "${SKIP_ZEPHYR_SDK}" == "1" ]] && { echo "Skipping Zephyr SDK install."; return 0; }
-  [[ -d "${ZEPHYR_SDK_INSTALL_DIR}" ]] && { echo "Zephyr SDK already exists: ${ZEPHYR_SDK_INSTALL_DIR}"; return 0; }
-  local arch archive url tmpdir
+
+  if [[ -x "${ZEPHYR_SDK_INSTALL_DIR}/setup.sh" ]]; then
+    echo "Zephyr SDK already exists: ${ZEPHYR_SDK_INSTALL_DIR}"
+    return 0
+  fi
+
+  if [[ -d "${ZEPHYR_SDK_INSTALL_DIR}" ]]; then
+    echo "Removing incomplete Zephyr SDK directory: ${ZEPHYR_SDK_INSTALL_DIR}"
+    rm -rf "${ZEPHYR_SDK_INSTALL_DIR}"
+  fi
+
+  local arch archive url archive_path partial_path install_parent
   arch="$(host_arch)"
   archive="zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-${arch}.tar.xz"
   url="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/${archive}"
-  tmpdir="$(mktemp -d)"
-  echo "Downloading Zephyr SDK ${ZEPHYR_SDK_VERSION} for ${arch}"
-  curl -L --fail --retry 10 --retry-all-errors --connect-timeout 30 -o "${tmpdir}/${archive}" "${url}" || {
-    rm -rf "${tmpdir}"
-    fail_or_warn "Zephyr SDK download failed for ${arch}."
+  install_parent="$(dirname "${ZEPHYR_SDK_INSTALL_DIR}")"
+
+  mkdir -p "${ZEPHYR_SDK_DOWNLOAD_DIR}" "${install_parent}"
+  ensure_free_space "${install_parent}" "${ZEPHYR_SDK_MIN_FREE_KB}" "Zephyr SDK download and extraction" || return 1
+
+  archive_path="${ZEPHYR_SDK_DOWNLOAD_DIR}/${archive}"
+  partial_path="${archive_path}.part"
+
+  if [[ -f "${archive_path}" ]]; then
+    echo "Using cached Zephyr SDK archive: ${archive_path}"
+  else
+    if [[ -f "${partial_path}" ]]; then
+      echo "Resuming interrupted Zephyr SDK download: ${partial_path}"
+    else
+      echo "Downloading Zephyr SDK ${ZEPHYR_SDK_VERSION} for ${arch}"
+    fi
+
+    curl -L --fail --retry 10 --retry-all-errors --connect-timeout 30 \
+      --continue-at - --output "${partial_path}" "${url}" || {
+        fail_or_warn "Zephyr SDK download failed for ${arch}. Partial data was retained for the next retry: ${partial_path}"
+        return 1
+      }
+    mv -f "${partial_path}" "${archive_path}"
+  fi
+
+  echo "Validating Zephyr SDK archive..."
+  if ! tar -tJf "${archive_path}" >/dev/null; then
+    rm -f "${archive_path}" "${partial_path}"
+    fail_or_warn "Zephyr SDK archive validation failed; the corrupt cached archive was removed."
+    return 1
+  fi
+
+  echo "Extracting Zephyr SDK to ${install_parent}"
+  tar -xJf "${archive_path}" -C "${install_parent}"
+  rm -f "${archive_path}" "${partial_path}"
+
+  [[ -x "${ZEPHYR_SDK_INSTALL_DIR}/setup.sh" ]] || {
+    fail_or_warn "Zephyr SDK extraction completed, but setup.sh was not found in ${ZEPHYR_SDK_INSTALL_DIR}."
     return 1
   }
-  mkdir -p "$(dirname "${ZEPHYR_SDK_INSTALL_DIR}")"
-  tar -xJf "${tmpdir}/${archive}" -C "$(dirname "${ZEPHYR_SDK_INSTALL_DIR}")"
-  rm -rf "${tmpdir}"
-  [[ -x "${ZEPHYR_SDK_INSTALL_DIR}/setup.sh" ]] && "${ZEPHYR_SDK_INSTALL_DIR}/setup.sh" -t arm-zephyr-eabi -h -c || true
+  "${ZEPHYR_SDK_INSTALL_DIR}/setup.sh" -t arm-zephyr-eabi -h -c || true
 }
 
 install_ncs_workspace() {
@@ -218,6 +283,7 @@ echo "Repository root: ${REPO_ROOT}"
 echo "NCS_WORKSPACE=${NCS_WORKSPACE}"
 echo "NCS_REVISION=${NCS_REVISION}"
 echo "ZEPHYR_SDK_VERSION=${ZEPHYR_SDK_VERSION}"
+echo "ZEPHYR_SDK_DOWNLOAD_DIR=${ZEPHYR_SDK_DOWNLOAD_DIR}"
 echo "PIP_RETRIES=${PIP_RETRIES} PIP_DEFAULT_TIMEOUT=${PIP_DEFAULT_TIMEOUT}"
 write_env_file
 
@@ -228,7 +294,7 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
   have_tool ninja || missing+=(ninja)
   [[ -d "${NCS_WORKSPACE}/.west" ]] || missing+=("NCS workspace")
   [[ -d "${NCS_WORKSPACE}/zephyr" ]] || missing+=("Zephyr checkout")
-  [[ -d "${ZEPHYR_SDK_INSTALL_DIR}" ]] || missing+=("Zephyr SDK")
+  [[ -x "${ZEPHYR_SDK_INSTALL_DIR}/setup.sh" ]] || missing+=("Zephyr SDK")
   if (( ${#missing[@]} > 0 )); then
     fail_or_warn "NCS toolchain check found missing item(s): ${missing[*]}"
   else
