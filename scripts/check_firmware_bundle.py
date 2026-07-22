@@ -8,6 +8,8 @@ import hashlib
 import json
 from pathlib import Path
 
+from write_firmware_bundle_manifest import decode_uf2_payload, require_binary_markers
+
 ROOT = Path(__file__).resolve().parents[1]
 PROTOCOL_PATH = ROOT / "version/koalabyte_protocol.json"
 EXPECTED_ESP32_FILES = {
@@ -69,6 +71,8 @@ def verify_checksums(bundle: Path) -> int:
 def verify_identity(manifest: dict[str, object], protocol: dict[str, object]) -> None:
     if int(manifest.get("schema", 0)) < 2:
         raise RuntimeError("firmware bundle manifest predates exact runtime identity checks")
+    if manifest.get("compiled_identity_markers_checked") is not True:
+        raise RuntimeError("firmware bundle did not record compiled identity marker validation")
     esp32 = manifest.get("esp32")
     t114 = manifest.get("t114")
     if not isinstance(esp32, dict) or not isinstance(t114, dict):
@@ -105,6 +109,9 @@ def verify_esp32(bundle: Path, manifest: dict[str, object]) -> None:
     assert isinstance(section, dict)
     if not bool(section.get("included")):
         raise RuntimeError("ESP32 firmware is not included in this bundle")
+    identity = section.get("runtime_identity")
+    if not isinstance(identity, dict):
+        raise RuntimeError("ESP32 runtime identity is missing")
     listed = section.get("files")
     if not isinstance(listed, list):
         raise RuntimeError("ESP32 manifest file list is missing")
@@ -130,6 +137,16 @@ def verify_esp32(bundle: Path, manifest: dict[str, object]) -> None:
             raise RuntimeError(f"ESP32 manifest has wrong flash address for {name}")
         if int(row.get("bytes") or 0) != size or str(row.get("sha256") or "") != digest(path):
             raise RuntimeError(f"ESP32 manifest metadata does not match {name}")
+    require_binary_markers(
+        (bundle / "esp32" / "firmware.bin").read_bytes(),
+        (
+            str(identity["device"]),
+            str(identity["fw"]),
+            str(identity["protocol"]),
+            str(identity["repo_protocol_version"]),
+        ),
+        "ESP32 application image",
+    )
 
 
 def verify_t114(bundle: Path, manifest: dict[str, object]) -> None:
@@ -137,6 +154,9 @@ def verify_t114(bundle: Path, manifest: dict[str, object]) -> None:
     assert isinstance(section, dict)
     if not bool(section.get("included")):
         raise RuntimeError("T114 firmware is not included in this bundle")
+    identity = section.get("runtime_identity")
+    if not isinstance(identity, dict):
+        raise RuntimeError("T114 runtime identity is missing")
     path = bundle / "t114" / "koalabyte-t114-current.uf2"
     if not path.is_file() or path.stat().st_size < 64 * 1024:
         raise RuntimeError("T114 UF2 is missing or unexpectedly small")
@@ -151,6 +171,18 @@ def verify_t114(bundle: Path, manifest: dict[str, object]) -> None:
         raise RuntimeError("T114 UF2 family ID contract changed")
     if str(section.get("application_offset") or "").lower() != "0x00026000":
         raise RuntimeError("T114 application offset contract changed")
+    payload = decode_uf2_payload(path)
+    require_binary_markers(
+        payload,
+        (
+            str(identity["device"]),
+            "heltec_mouth_status",
+            str(identity["fw"]),
+            str(identity["protocol"]),
+            str(identity["repo_protocol_version"]),
+        ),
+        "T114 UF2 application payload",
+    )
 
 
 def main() -> int:
@@ -176,6 +208,7 @@ def main() -> int:
                 "bundle": str(bundle),
                 "required": args.require,
                 "checksums_verified": checked,
+                "compiled_identity_markers_rechecked": True,
                 "source_commit": manifest.get("source_commit"),
                 "esp32_identity": manifest["esp32"]["runtime_identity"],
                 "t114_identity": manifest["t114"]["runtime_identity"],
