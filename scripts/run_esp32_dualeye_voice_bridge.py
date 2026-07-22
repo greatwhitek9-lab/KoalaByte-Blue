@@ -10,8 +10,14 @@ from koalablue.esp32_dualeye_error_dig_bridge import (
     default_esp32_port,
 )
 from koalablue.music_speech_duck import install_music_speech_ducking
+from koalablue.runtime_serial_ownership import (
+    install_display_command_clients,
+    install_esp32_serial_owner,
+)
 
 install_music_speech_ducking(ESP32DualEyeVoiceBridge)
+install_display_command_clients()
+install_esp32_serial_owner(ESP32DualEyeVoiceBridge)
 
 
 def main() -> int:
@@ -47,6 +53,7 @@ def main() -> int:
             "status": "ESP32_DUALEYE_NODE_STATUS_REQUESTED",
             "port": args.port,
             "udp_port": args.udp_port,
+            "serial_owner": "koalabyte-dualeye-voice-bridge",
         }
         print(json.dumps(payload, indent=2, sort_keys=True))
         return 0
@@ -70,6 +77,7 @@ def main() -> int:
                     "ssid": args.wifi_ssid,
                     "pi_host": args.pi_host,
                     "udp_port": args.udp_port,
+                    "serial_owner": "koalabyte-dualeye-voice-bridge",
                 },
                 indent=2,
                 sort_keys=True,
@@ -98,10 +106,12 @@ def main() -> int:
             "udp_port": args.udp_port,
             "routed_count": len(routed),
             "routed": routed,
+            "serial_owner": "koalabyte-dualeye-voice-bridge",
             "updated_at": time.time(),
         }
     else:
         result = bridge.run(seconds=args.seconds, once=args.once)
+        result["serial_owner"] = "koalabyte-dualeye-voice-bridge"
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
 
