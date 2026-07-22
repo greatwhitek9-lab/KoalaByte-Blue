@@ -110,6 +110,7 @@ def main() -> int:
             "board_build.psram_type = opi",
             "pre:scripts/generate_wake_session_source.py",
             "pre:scripts/patch_complex_capture_preroll.py",
+            "pre:scripts/patch_protocol_status.py",
             "-<integrated_main.cpp>",
             "-<integrated_main_clean_voice.cpp>",
         ),
@@ -117,6 +118,20 @@ def main() -> int:
     require_lines(
         "firmware/esp32-dualeye/src/integrated_main_clean_voice.cpp",
         ('#include "integrated_main.cpp"',),
+    )
+    require_lines(
+        "scripts/flash_esp32_dualeye_current.sh",
+        (
+            'python3 scripts/check_firmware_bundle.py --bundle "${BUNDLE_DIR}" --require esp32',
+            'EXPECTED_DEVICE="${expected_identity[0]}"',
+            'EXPECTED_FW="${expected_identity[1]}"',
+            'EXPECTED_PROTOCOL="${expected_identity[2]}"',
+            'EXPECTED_REPO_PROTOCOL="${expected_identity[3]}"',
+            'str(payload.get("fw") or "") == expected_fw',
+            'str(payload.get("protocol") or "") == expected_protocol',
+            'str(payload.get("repo_protocol_version") or "") == expected_repo_protocol',
+            '0x00cb0000 "${ESP32_DIR}/srmodels.bin"',
+        ),
     )
 
     require_lines(
@@ -160,14 +175,27 @@ def main() -> int:
     require_lines(
         "scripts/flash_t114_current_uf2.sh",
         (
+            'python3 scripts/check_firmware_bundle.py --bundle "${BUNDLE_DIR}" --require t114',
             "--vector-address 0x26000",
             "--application-min 0x26000",
             "--application-max 0xec000",
             "--family 0x239a0071",
-            'EXPECTED_FW="${T114_EXPECTED_FW:-}"',
-            "sed -n 's/^#define KOALA_FW",
-            'EXPECTED_FW="$(resolve_expected_fw || true)"',
-            "observed_fw == expected_fw",
+            'EXPECTED_DEVICE="${expected_identity[0]}"',
+            'EXPECTED_FW="${expected_identity[1]}"',
+            'EXPECTED_PROTOCOL="${expected_identity[2]}"',
+            'EXPECTED_REPO_PROTOCOL="${expected_identity[3]}"',
+            'str(payload.get("fw") or "") == expected_fw',
+            'str(payload.get("protocol") or "") == expected_protocol',
+            'str(payload.get("repo_protocol_version") or "") == expected_repo_protocol',
+        ),
+    )
+    require_lines(
+        "scripts/write_firmware_bundle_manifest.py",
+        (
+            '("firmware.bin", 0x00010000, 0x00CB0000, 64 * 1024)',
+            '("srmodels.bin", 0x00CB0000, 0x01000000, 256 * 1024)',
+            '"runtime_identity": {',
+            '"schema": 2',
         ),
     )
 
@@ -176,11 +204,12 @@ def main() -> int:
         "esp32_target": "verified non-touch ESP32-S3 DualEye 1.28-inch",
         "esp32_pin_map_locked": True,
         "esp32_audio_map_locked": True,
+        "esp32_partition_bounds_locked": True,
         "t114_target": "heltec_t114_v2/nrf52840/uf2",
         "t114_application_offset": "0x26000",
         "t114_family": "0x239a0071",
         "t114_firmware_identity": "0.10.0-t114-smooth-idle-and-speech-mouth",
-        "t114_identity_source": "firmware/t114-combined-safe/src/main.c",
+        "flash_identity_source": "bundle manifest schema 2",
     }
     print(json.dumps(payload, indent=2, sort_keys=True))
     return 0
