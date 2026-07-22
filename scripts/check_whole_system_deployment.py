@@ -140,12 +140,18 @@ def validate_bundle(bundle: Path) -> tuple[list[str], dict[str, Any]]:
     return failures, manifest
 
 
-def validate_post_flash() -> list[str]:
+def validate_post_flash(*, skip_esp32: bool, skip_t114: bool) -> list[str]:
     failures: list[str] = []
-    status_specs = (
-        (ROOT / "logs/deployment/t114_flash_status.json", {"flashed"}),
-        (ROOT / "logs/deployment/esp32_flash_status.json", {"flashed"}),
-    )
+    status_specs: list[tuple[Path, set[str]]] = []
+    if not skip_t114:
+        status_specs.append(
+            (ROOT / "logs/deployment/t114_flash_status.json", {"flashed"})
+        )
+    if not skip_esp32:
+        status_specs.append(
+            (ROOT / "logs/deployment/esp32_flash_status.json", {"flashed"})
+        )
+
     for path, allowed in status_specs:
         if not path.exists():
             failures.append(f"missing post-flash status: {path}")
@@ -159,9 +165,12 @@ def validate_post_flash() -> list[str]:
             failures.append(f"post-flash status is not verified for {path.name}: {status}")
 
     if os.name == "posix" and Path("/dev").exists():
-        if not (Path("/dev/koalabyte-esp32-dualeye").exists()):
+        if not skip_esp32 and not Path("/dev/koalabyte-esp32-dualeye").exists():
             failures.append("ESP32 stable runtime alias missing after flash")
-        if not (Path("/dev/koalabyte-heltec").exists() or Path("/dev/koalabyte-heltec-t114").exists()):
+        if not skip_t114 and not (
+            Path("/dev/koalabyte-heltec").exists()
+            or Path("/dev/koalabyte-heltec-t114").exists()
+        ):
             failures.append("T114 stable runtime alias missing after flash")
     return failures
 
@@ -171,6 +180,8 @@ def main() -> int:
     parser.add_argument("--source-only", action="store_true")
     parser.add_argument("--bundle-only", action="store_true")
     parser.add_argument("--post-flash", action="store_true")
+    parser.add_argument("--skip-esp32", action="store_true")
+    parser.add_argument("--skip-t114", action="store_true")
     parser.add_argument("--bundle-dir", default=str(DEFAULT_BUNDLE))
     args = parser.parse_args()
 
@@ -180,13 +191,20 @@ def main() -> int:
         bundle_failures, manifest = validate_bundle(Path(args.bundle_dir))
         failures.extend(bundle_failures)
     if args.post_flash:
-        failures.extend(validate_post_flash())
+        failures.extend(
+            validate_post_flash(
+                skip_esp32=args.skip_esp32,
+                skip_t114=args.skip_t114,
+            )
+        )
 
     payload = {
         "status": "WHOLE_SYSTEM_DEPLOYMENT_READY" if not failures else "WHOLE_SYSTEM_DEPLOYMENT_INCOMPLETE",
         "source_contract": True,
         "bundle_checked": bool(args.bundle_only or args.post_flash),
         "post_flash_checked": bool(args.post_flash),
+        "esp32_skipped": args.skip_esp32,
+        "t114_skipped": args.skip_t114,
         "bundle_source_commit": manifest.get("source_commit") if manifest else None,
         "installer": "one-shot-install.sh",
         "firmware_targets": ["heltec-t114-uf2", "waveshare-esp32-s3-dualeye"],
