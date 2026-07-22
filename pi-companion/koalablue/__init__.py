@@ -18,6 +18,17 @@ except Exception:
     # explicitly import the same package and source validation checks the module.
     pass
 
+# T114 menu, status, scan, and bounded-lab TX actions must never compete with the
+# BLE/GNSS service for the Heltec tty. This is a required runtime safety layer;
+# import failures intentionally fail package validation rather than reverting to
+# direct serial access. Explicit maintenance mode remains available through
+# KOALABYTE_ALLOW_DIRECT_HELTEC_SERIAL=1 after the owner service is stopped.
+from . import t114_bluez as _t114_bluez
+from .t114_runtime_broker import install as _install_t114_runtime_broker
+
+_install_t114_runtime_broker(_t114_bluez)
+del _install_t114_runtime_broker
+
 try:
     from .greatwhite_reef import install_menu_catalog
 
