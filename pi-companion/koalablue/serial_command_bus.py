@@ -7,7 +7,7 @@ import socket
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 DEFAULT_BUS_DIR = Path(
     os.getenv("KOALABYTE_SERIAL_BUS_DIR", "logs/runtime/serial_bus")
@@ -19,6 +19,7 @@ MAX_QUEUED_COMMANDS = max(
     1, int(os.getenv("KOALABYTE_SERIAL_BUS_MAX_QUEUE", "256"))
 )
 VALID_TARGETS = {"esp32", "heltec"}
+_WAKE = b"K"
 
 
 @dataclass(frozen=True)
@@ -59,6 +60,10 @@ def _queue_lock_path(target: str, bus_dir: str | Path | None = None) -> Path:
     return _root(bus_dir) / f"{_target(target)}.queue.lock"
 
 
+def _claim_pattern(target: str) -> str:
+    return f".{_target(target)}.queue.claim.*.jsonl"
+
+
 def _encode(payload: dict[str, Any]) -> bytes:
     data = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
     if len(data) > MAX_DATAGRAM_BYTES:
@@ -66,6 +71,12 @@ def _encode(payload: dict[str, Any]) -> bytes:
             f"serial command is {len(data)} bytes; limit is {MAX_DATAGRAM_BYTES}"
         )
     return data
+
+
+def _atomic_write_lines(path: Path, lines: list[str]) -> None:
+    temp = path.with_name(f".{path.name}.tmp.{os.getpid()}.{time.time_ns()}")
+    temp.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+    os.replace(temp, path)
 
 
 def _bounded_queue_append(
@@ -90,11 +101,7 @@ def _bounded_queue_append(
             ]
         keep = MAX_QUEUED_COMMANDS - 1
         existing = existing[-keep:] if keep > 0 else []
-        temp = queue_path.with_name(
-            f".{queue_path.name}.tmp.{os.getpid()}.{time.time_ns()}"
-        )
-        temp.write_text("\n".join([*existing, line]) + "\n", encoding="utf-8")
-        os.replace(temp, queue_path)
+        _atomic_write_lines(queue_path, [*existing, line])
         fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
 
 
@@ -105,51 +112,52 @@ def submit_command(
     queue_if_unavailable: bool = True,
     bus_dir: str | Path | None = None,
 ) -> CommandSubmission:
+    """Persist a command first, then wake the exclusive serial owner.
+
+    The socket is only a notification channel. The JSON command remains in the
+    bounded spool until the owner writes the complete claimed batch and
+    acknowledges it. A power loss can therefore cause a harmless replay, but not
+    silent command loss.
+    """
+
     resolved_target = _target(target)
-    data = _encode(payload)
+    try:
+        _bounded_queue_append(resolved_target, dict(payload), bus_dir=bus_dir)
+    except Exception as exc:
+        return CommandSubmission(
+            False,
+            False,
+            False,
+            resolved_target,
+            f"queue_failed:{exc}",
+        )
+
     destination = socket_path(resolved_target, bus_dir)
     client = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
     try:
-        client.sendto(data, str(destination))
+        client.sendto(_WAKE, str(destination))
         return CommandSubmission(
-            True, True, False, resolved_target, "delivered_to_owner"
+            True, True, False, resolved_target, "owner_notified_command_persisted"
         )
     except OSError as exc:
-        if not queue_if_unavailable:
-            return CommandSubmission(
-                False,
-                False,
-                False,
-                resolved_target,
-                f"owner_unavailable:{exc}",
-            )
-        try:
-            _bounded_queue_append(
-                resolved_target,
-                payload,
-                bus_dir=bus_dir,
-            )
-            return CommandSubmission(
-                True,
-                False,
-                True,
-                resolved_target,
-                "queued_for_owner",
-            )
-        except Exception as queue_exc:
-            return CommandSubmission(
-                False,
-                False,
-                False,
-                resolved_target,
-                f"queue_failed:{queue_exc}",
-            )
+        status = (
+            "queued_for_owner"
+            if queue_if_unavailable
+            else f"owner_unavailable_command_persisted:{exc}"
+        )
+        return CommandSubmission(
+            True,
+            False,
+            True,
+            resolved_target,
+            status,
+        )
     finally:
         client.close()
 
 
 class JsonCommandInbox:
-    """Exclusive local command inbox for the process that owns one serial port."""
+    """Exclusive, crash-resilient command inbox for one serial-port owner."""
 
     def __init__(
         self,
@@ -162,6 +170,7 @@ class JsonCommandInbox:
         self.path = socket_path(self.target, self.bus_dir)
         self._owner_lock = _owner_lock_path(self.target, self.bus_dir).open("a+")
         self._socket: socket.socket | None = None
+        self._claimed_path: Path | None = None
         self._closed = True
         try:
             fcntl.flock(
@@ -185,65 +194,117 @@ class JsonCommandInbox:
         except Exception:
             if self._socket is not None:
                 self._socket.close()
+                self._socket = None
             self.path.unlink(missing_ok=True)
             fcntl.flock(self._owner_lock.fileno(), fcntl.LOCK_UN)
             self._owner_lock.close()
             raise
 
-    def _take_spooled(self) -> list[dict[str, Any]]:
+    def _drain_wake_notifications(self) -> None:
+        if self._socket is None:
+            return
+        while True:
+            try:
+                self._socket.recv(MAX_DATAGRAM_BYTES)
+            except BlockingIOError:
+                return
+            except OSError:
+                return
+
+    def _claim_next(self, max_items: int) -> Path | None:
+        if self._claimed_path is not None and self._claimed_path.exists():
+            return self._claimed_path
+
         queue_path = _queue_path(self.target, self.bus_dir)
         lock_path = _queue_lock_path(self.target, self.bus_dir)
-        processing: Path | None = None
         with lock_path.open("a+") as lock_handle:
             fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
-            if queue_path.exists():
-                processing = queue_path.with_name(
-                    f".{queue_path.name}.drain.{os.getpid()}.{time.time_ns()}"
-                )
-                os.replace(queue_path, processing)
+
+            # A claim left by a dead owner is replayed before newer commands.
+            stale_claims = sorted(
+                self.bus_dir.glob(_claim_pattern(self.target)),
+                key=lambda path: (path.stat().st_mtime_ns, path.name),
+            )
+            if stale_claims:
+                self._claimed_path = stale_claims[0]
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+                return self._claimed_path
+
+            if not queue_path.exists():
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+                return None
+
+            lines = [
+                row
+                for row in queue_path.read_text(
+                    encoding="utf-8", errors="ignore"
+                ).splitlines()
+                if row.strip()
+            ]
+            if not lines:
+                queue_path.unlink(missing_ok=True)
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+                return None
+
+            take = max(1, min(int(max_items), MAX_QUEUED_COMMANDS))
+            claimed_lines = lines[:take]
+            remaining = lines[take:]
+            claim = self.bus_dir / (
+                f".{self.target}.queue.claim.{time.time_ns()}.{os.getpid()}.jsonl"
+            )
+            _atomic_write_lines(claim, claimed_lines)
+            if remaining:
+                _atomic_write_lines(queue_path, remaining)
+            else:
+                queue_path.unlink(missing_ok=True)
+            self._claimed_path = claim
             fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
-        if processing is None:
+            return claim
+
+    def drain(self, *, max_items: int = 64) -> list[dict[str, Any]]:
+        if self._closed:
+            return []
+        self._drain_wake_notifications()
+        claim = self._claim_next(max_items)
+        if claim is None:
             return []
 
         commands: list[dict[str, Any]] = []
-        try:
-            for line in processing.read_text(
-                encoding="utf-8", errors="ignore"
-            ).splitlines():
-                try:
-                    payload = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if isinstance(payload, dict):
-                    commands.append(payload)
-        finally:
-            processing.unlink(missing_ok=True)
-        return commands
-
-    def drain(self, *, max_items: int = 64) -> list[dict[str, Any]]:
-        if self._closed or self._socket is None:
-            return []
-        limit = max(0, int(max_items))
-        commands = self._take_spooled()
-        while len(commands) < limit:
+        for line in claim.read_text(encoding="utf-8", errors="ignore").splitlines():
             try:
-                data = self._socket.recv(MAX_DATAGRAM_BYTES)
-            except BlockingIOError:
-                break
-            except OSError:
-                break
-            try:
-                payload = json.loads(data.decode("utf-8", errors="ignore"))
+                payload = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if isinstance(payload, dict) and not payload.get("_bus_probe"):
+            if isinstance(payload, dict):
                 commands.append(payload)
-        if len(commands) <= limit:
-            return commands
-        overflow = commands[limit:]
-        for payload in overflow:
-            _bounded_queue_append(self.target, payload, bus_dir=self.bus_dir)
-        return commands[:limit]
+        return commands
+
+    def acknowledge(self) -> None:
+        """Delete the active claim only after every command was written."""
+
+        claim = self._claimed_path
+        if claim is not None:
+            claim.unlink(missing_ok=True)
+        self._claimed_path = None
+
+    def drain_to_writer(
+        self,
+        writer: Callable[[dict[str, Any]], Any],
+        *,
+        max_items: int = 64,
+    ) -> int:
+        commands = self.drain(max_items=max_items)
+        if not commands:
+            # A claim containing only malformed lines must not block the queue.
+            if self._claimed_path is not None:
+                self.acknowledge()
+            return 0
+        written = 0
+        for payload in commands:
+            writer(payload)
+            written += 1
+        self.acknowledge()
+        return written
 
     def close(self) -> None:
         if self._closed:
@@ -255,6 +316,7 @@ class JsonCommandInbox:
                 self._socket = None
         finally:
             self.path.unlink(missing_ok=True)
+            # Unacknowledged claims intentionally remain for the next owner.
             fcntl.flock(self._owner_lock.fileno(), fcntl.LOCK_UN)
             self._owner_lock.close()
 
@@ -265,23 +327,9 @@ class JsonCommandInbox:
         self.close()
 
 
-def drain_to_writer(
-    inbox: JsonCommandInbox,
-    writer: Any,
-    *,
-    max_items: int = 64,
-) -> int:
-    written = 0
-    for payload in inbox.drain(max_items=max_items):
-        writer(payload)
-        written += 1
-    return written
-
-
 __all__ = [
     "CommandSubmission",
     "JsonCommandInbox",
-    "drain_to_writer",
     "socket_path",
     "submit_command",
 ]
