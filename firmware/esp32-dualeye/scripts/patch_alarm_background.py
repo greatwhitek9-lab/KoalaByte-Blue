@@ -3,7 +3,9 @@ Import("env")
 from pathlib import Path
 
 project = Path(env.subst("$PROJECT_DIR"))
-path = project / "src" / "integrated_main.cpp"
+# platformio.ini excludes integrated_main.cpp. The generated wake-session source
+# is the actual translation unit, so alarm behavior must be patched there.
+path = project / "src" / "integrated_main_wake_session.cpp"
 text = path.read_text(encoding="utf-8")
 
 
@@ -196,4 +198,4 @@ replace_once(
 )
 
 path.write_text(text, encoding="utf-8")
-print(f"Patched flashing purple/green DualEye alarm lifecycle: {path}")
+print(f"Patched flashing purple/green DualEye alarm lifecycle in compiled source: {path}")
