@@ -22,7 +22,7 @@ SERVICES=(
 )
 
 usage() {
-  cat <<'USAGE'
+  cat <<'EOF'
 Build and flash the complete KoalaByte Blue peripheral firmware set.
 
 Usage:
@@ -34,15 +34,10 @@ Usage:
   bash scripts/deploy_whole_system_firmware.sh --skip-t114
   bash scripts/deploy_whole_system_firmware.sh --keep-build-tools
 
-Default behavior is strict: both the T114 and ESP32 must be connected and both
-must flash successfully. After both devices are flashed and rediscovered, the
-large firmware-only toolchains are removed while the verified firmware bundle
-and all Raspberry Pi runtime dependencies are preserved. Use --keep-build-tools
-or CLEANUP_FIRMWARE_BUILD_TOOLS=0 to retain the toolchains for development.
-
-Standalone use restarts the previously stopped runtime services. The canonical
-one-shot may defer service restart because it provisions final services later.
-USAGE
+Source builds finish before serial services are stopped or USB devices are
+required. Immediately before flashing, the host power state is checked again,
+then both selected devices are identified, flashed, and rediscovered.
+EOF
 }
 
 while [[ $# -gt 0 ]]; do
@@ -62,9 +57,10 @@ done
 mkdir -p "${ROOT}/logs/deployment" "${ROOT}/logs/preflight"
 CURRENT_STEP="initializing"
 STARTED_AT="$(date +%s)"
+SERVICES_STOPPED=0
 
-cleanup_enabled() {
-  case "${CLEANUP_FIRMWARE_BUILD_TOOLS}" in
+is_enabled() {
+  case "$1" in
     1|true|True|yes|YES|on|ON|auto|AUTO) return 0 ;;
     *) return 1 ;;
   esac
@@ -88,6 +84,7 @@ Path(path).write_text(json.dumps({
     "t114_required": skip_t114 != "1",
     "service_restart_deferred": defer_restart == "1",
     "build_tool_cleanup_requested": cleanup_tools.lower() in {"1", "true", "yes", "on", "auto"},
+    "pre_flash_power_gate": True,
     "can_transmit": False,
     "started_at": int(started),
     "updated_at": time.time(),
@@ -97,10 +94,8 @@ PY
 
 sudo_systemctl() {
   command -v systemctl >/dev/null 2>&1 || return 0
-  if [[ "${EUID}" -eq 0 ]]; then
-    systemctl "$@"
-  elif command -v sudo >/dev/null 2>&1; then
-    sudo systemctl "$@"
+  if [[ "${EUID}" -eq 0 ]]; then systemctl "$@"
+  elif command -v sudo >/dev/null 2>&1; then sudo systemctl "$@"
   fi
 }
 
@@ -111,10 +106,12 @@ stop_serial_services() {
       sudo_systemctl stop "${service}" >/dev/null 2>&1 || true
     fi
   done
+  SERVICES_STOPPED=1
 }
 
 restore_services() {
   local service
+  [[ "${SERVICES_STOPPED}" == "1" ]] || return 0
   [[ "${CHECK_ONLY}" == "1" || "${BUILD_ONLY}" == "1" ]] && return 0
   [[ "${DEFER_SERVICE_RESTART}" == "1" ]] && return 0
   for service in "${SERVICES[@]}"; do
@@ -126,7 +123,7 @@ restore_services() {
 
 on_error() {
   local rc=$?
-  write_status "failed" "Deployment stopped at ${CURRENT_STEP} with exit ${rc}. Re-run the same one-shot command after correcting the reported hardware condition."
+  write_status failed "Deployment stopped at ${CURRENT_STEP} with exit ${rc}. The verified firmware bundle was retained; correct the reported condition and rerun."
   restore_services
   exit "${rc}"
 }
@@ -139,49 +136,47 @@ validate_contract() {
   bash -n scripts/flash_esp32_dualeye_current.sh
   bash -n scripts/enter_t114_uf2_bootloader.sh
   bash -n scripts/cleanup_firmware_build_tools.sh
+  bash -n scripts/preflight_firmware_host.sh
   python3 -m py_compile scripts/check_whole_system_deployment.py
+}
+
+verify_bundle() {
+  test -f "${BUNDLE_DIR}/SHA256SUMS.txt"
+  (
+    cd "${BUNDLE_DIR}"
+    sha256sum -c SHA256SUMS.txt
+  )
+  python3 scripts/check_whole_system_deployment.py --bundle-only --bundle-dir "${BUNDLE_DIR}"
+}
+
+discover_required_devices() {
+  PYTHONPATH=pi-companion python3 scripts/discover_koalabyte_ports.py --profile heltec --output-dir logs/preflight || true
+  if [[ -f logs/preflight/koalabyte_ports.env ]]; then
+    # shellcheck disable=SC1091
+    source logs/preflight/koalabyte_ports.env
+  fi
+  [[ "${REQUIRE_ALL}" == "1" ]] || return 0
+  if [[ "${SKIP_ESP32}" != "1" && -z "${ESP32_PORT:-${KOALABYTE_ESP32_FACE_PORT:-${KOALABYTE_ESP32_DUALEYE_BY_ID:-}}}" ]]; then
+    echo "ESP32-S3 DualEye was not detected immediately before flashing." >&2
+    return 1
+  fi
+  if [[ "${SKIP_T114}" != "1" && -z "${KOALABYTE_HELTEC_USB_PORT:-${KOALABYTE_PRIMARY_BLE_PORT:-${HELTEC_PORT:-}}}" && ! -e /dev/koalabyte-heltec ]]; then
+    echo "Heltec T114 was not detected immediately before flashing." >&2
+    return 1
+  fi
 }
 
 CURRENT_STEP="source_contract"
 validate_contract
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   bash scripts/build_whole_system_firmware.sh --check-only
-  bash scripts/flash_t114_current_uf2.sh --check-only 2>/dev/null || true
-  bash scripts/flash_esp32_dualeye_current.sh --check-only 2>/dev/null || true
   python3 scripts/check_whole_system_deployment.py --source-only
-  write_status "check_only_ready" "Whole-system build/flash/deployment source contract validated without touching hardware."
+  write_status check_only_ready "Whole-system build/flash source contract validated without touching hardware."
   trap - ERR
   exit 0
 fi
 
-if [[ "$(uname -s)" != "Linux" ]]; then
-  write_status "unsupported_host" "Whole-system deployment must run on the Raspberry Pi Linux host."
-  exit 1
-fi
-
-CURRENT_STEP="stop_runtime_services"
-write_status "running" "Stopping services that own ESP32/T114 serial ports."
-stop_serial_services
-
-CURRENT_STEP="device_preflight"
-PYTHONPATH=pi-companion python3 scripts/discover_koalabyte_ports.py --profile heltec --output-dir logs/preflight || true
-if [[ -f logs/preflight/koalabyte_ports.env ]]; then
-  # shellcheck disable=SC1091
-  source logs/preflight/koalabyte_ports.env
-fi
-
-if [[ "${REQUIRE_ALL}" == "1" ]]; then
-  if [[ "${SKIP_ESP32}" != "1" && -z "${ESP32_PORT:-${KOALABYTE_ESP32_FACE_PORT:-${KOALABYTE_ESP32_DUALEYE_BY_ID:-}}}" ]]; then
-    write_status "hardware_missing" "ESP32-S3 DualEye was not detected."
-    echo "Connect the ESP32-S3 DualEye before running the complete one-shot." >&2
-    exit 1
-  fi
-  if [[ "${SKIP_T114}" != "1" && -z "${KOALABYTE_HELTEC_USB_PORT:-${KOALABYTE_PRIMARY_BLE_PORT:-${HELTEC_PORT:-}}}" && ! -e /dev/koalabyte-heltec ]]; then
-    write_status "hardware_missing" "Heltec T114 was not detected."
-    echo "Connect the Heltec T114 before running the complete one-shot." >&2
-    exit 1
-  fi
-fi
+[[ "$(uname -s)" == "Linux" ]] || { echo "Firmware deployment requires Linux." >&2; exit 1; }
 
 CURRENT_STEP="build_firmware_bundle"
 if [[ "${USE_EXISTING_BUNDLE}" != "1" ]]; then
@@ -192,17 +187,21 @@ if [[ "${USE_EXISTING_BUNDLE}" != "1" ]]; then
 fi
 
 CURRENT_STEP="verify_bundle_checksums"
-(
-  cd "${BUNDLE_DIR}"
-  sha256sum -c SHA256SUMS.txt
-)
-python3 scripts/check_whole_system_deployment.py --bundle-only --bundle-dir "${BUNDLE_DIR}"
-
+verify_bundle
 if [[ "${BUILD_ONLY}" == "1" ]]; then
-  write_status "built" "Whole-system firmware bundle built and verified; hardware flash skipped by --build-only."
+  write_status built "Whole-system firmware bundle built and verified; flash skipped by --build-only."
   trap - ERR
   exit 0
 fi
+
+CURRENT_STEP="pre_flash_power_gate"
+bash scripts/preflight_firmware_host.sh --before-flash
+
+CURRENT_STEP="stop_runtime_services"
+stop_serial_services
+
+CURRENT_STEP="device_preflight"
+discover_required_devices
 
 if [[ "${SKIP_T114}" != "1" ]]; then
   CURRENT_STEP="flash_t114_uf2"
@@ -219,19 +218,21 @@ sleep 2
 PYTHONPATH=pi-companion python3 scripts/discover_koalabyte_ports.py --profile heltec --output-dir logs/preflight
 python3 scripts/check_whole_system_deployment.py --post-flash --bundle-dir "${BUNDLE_DIR}"
 
-if cleanup_enabled; then
+if is_enabled "${CLEANUP_FIRMWARE_BUILD_TOOLS}"; then
   if [[ "${SKIP_ESP32}" == "1" || "${SKIP_T114}" == "1" ]]; then
-    echo "Build-tool cleanup skipped because this was a partial firmware deployment."
+    echo "Build-tool cleanup skipped after partial deployment."
   else
     CURRENT_STEP="cleanup_firmware_build_tools"
-    bash scripts/cleanup_firmware_build_tools.sh
+    if ! bash scripts/cleanup_firmware_build_tools.sh; then
+      echo "warning: firmware was flashed successfully, but build-tool cleanup was incomplete" >&2
+    fi
   fi
 else
   echo "Firmware build toolchains retained by configuration."
 fi
 
 CURRENT_STEP="complete"
-write_status "complete" "T114 UF2 and complete ESP32-S3 image set were built, checksummed, flashed, rediscovered, and build-only toolchains were handled according to cleanup policy."
+write_status complete "Firmware was built or selected, checksummed, power-gated, flashed, and rediscovered."
 trap - ERR
 restore_services
 echo "Whole-system peripheral firmware deployment complete."
