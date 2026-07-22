@@ -60,8 +60,8 @@ persist_env_value() {
     sudo_prefix cat "${ENV_FILE}" | grep -v -E "^${key}=" >"${temp}" || true
   fi
   printf '%s=%s\n' "${key}" "${value}" >>"${temp}"
-  sudo_prefix install -d -m 0755 "$(dirname "${ENV_FILE}")"
-  sudo_prefix install -m 0644 "${temp}" "${ENV_FILE}"
+  sudo_prefix install -d -m 0750 "$(dirname "${ENV_FILE}")"
+  sudo_prefix install -m 0600 "${temp}" "${ENV_FILE}"
   rm -f "${temp}"
 }
 
