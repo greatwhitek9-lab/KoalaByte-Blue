@@ -93,9 +93,17 @@ id "${SERVICE_USER}" >/dev/null 2>&1 || { echo "Service user does not exist: ${S
 SERVICE_HOME="$(getent passwd "${SERVICE_USER}" | cut -d: -f6)"
 
 run_as_service_user() {
-  if [[ "$(id -un)" == "${SERVICE_USER}" ]]; then "$@"
-  else "${sudo_cmd[@]}" -u "${SERVICE_USER}" -H env HOME="${SERVICE_HOME}" \
+  if [[ "$(id -un)" == "${SERVICE_USER}" ]]; then
+    "$@"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo -u "${SERVICE_USER}" -H env HOME="${SERVICE_HOME}" \
       TMPDIR="${TMPDIR:-${SERVICE_HOME}/.cache/koalabyte/tmp}" "$@"
+  elif [[ "${EUID}" -eq 0 ]] && command -v runuser >/dev/null 2>&1; then
+    runuser -u "${SERVICE_USER}" -- env HOME="${SERVICE_HOME}" \
+      TMPDIR="${TMPDIR:-${SERVICE_HOME}/.cache/koalabyte/tmp}" "$@"
+  else
+    echo "Cannot execute as service user ${SERVICE_USER}." >&2
+    return 1
   fi
 }
 
@@ -128,8 +136,8 @@ if (( ${#available_groups[@]} > 0 )); then
 fi
 
 if [[ "${INSTALL_VENV}" == "1" ]]; then
-  mkdir -p "${SERVICE_HOME}/.cache/koalabyte/tmp"
-  "${sudo_cmd[@]}" chown -R "${SERVICE_USER}:${SERVICE_USER}" "${SERVICE_HOME}/.cache/koalabyte"
+  "${sudo_cmd[@]}" install -d -m 0755 -o "${SERVICE_USER}" -g "${SERVICE_USER}" \
+    "${SERVICE_HOME}/.cache/koalabyte/tmp"
   if [[ ! -x "${PYTHON_BIN}" ]]; then
     run_as_service_user python3 -m venv --system-site-packages pi-companion/.venv
   fi
@@ -150,15 +158,17 @@ if [[ "${INSTALL_CAN_SERVICE}" == "1" ]]; then
     bash scripts/setup_can0.sh --interface "${CAN_INTERFACE}" --bitrate "${CAN_BITRATE}"
 fi
 
-[[ "${CONFIGURE_AUDIO}" == "1" ]] && bash scripts/configure_pi_audio_output.sh || true
+if [[ "${CONFIGURE_AUDIO}" == "1" ]]; then bash scripts/configure_pi_audio_output.sh || true; fi
 
 if [[ "${INSTALL_RUNTIME_SERVICES}" == "1" ]]; then
   KOALABYTE_SERVICE_USER="${SERVICE_USER}" INSTALL_BOOT_SERVICES=1 STRICT_BOOT_SERVICES=1 \
     bash scripts/install_koalabyte_boot_services.sh
-  [[ -f scripts/install_ble_node_manager_service.sh ]] && \
+  if [[ -f scripts/install_ble_node_manager_service.sh ]]; then
     INSTALL_BLE_NODE_MANAGER_SERVICE=1 bash scripts/install_ble_node_manager_service.sh
-  [[ -f scripts/install_esp32_dualeye_voice_bridge_service.sh ]] && \
+  fi
+  if [[ -f scripts/install_esp32_dualeye_voice_bridge_service.sh ]]; then
     INSTALL_DUALEYE_VOICE_BRIDGE_SERVICE=1 bash scripts/install_esp32_dualeye_voice_bridge_service.sh
+  fi
 fi
 
 doctor_python="${PYTHON_BIN}"
