@@ -9,6 +9,7 @@ PLATFORMIO_VERSION="${PLATFORMIO_VERSION:-6.1.19}"
 EDGE_TTS_VERSION="${EDGE_TTS_VERSION:-7.2.8}"
 PIP_RETRIES="${PIP_RETRIES:-25}"
 PIP_DEFAULT_TIMEOUT="${PIP_DEFAULT_TIMEOUT:-300}"
+EDGE_TTS_ATTEMPTS="${EDGE_TTS_ATTEMPTS:-3}"
 CHECK_ONLY=0
 
 INSTALL_USER="${SUDO_USER:-${USER:-$(id -un)}}"
@@ -24,13 +25,9 @@ usage() {
   cat <<'EOF'
 KoalaByte Blue ESP32/PlatformIO setup helper
 
-Usage:
-  bash scripts/setup_esp32_tools.sh
-  STRICT_ESP32_TOOLS=1 bash scripts/setup_esp32_tools.sh
-  bash scripts/setup_esp32_tools.sh --check-only
-
 The isolated environment pins PlatformIO Core 6.1.19 and edge-tts 7.2.8.
-Downloads retry transient failures and do not modify the Pi runtime venv.
+Python package downloads and individual Edge TTS synthesis calls retry transient
+network failures without modifying the Pi runtime virtual environment.
 EOF
 }
 
@@ -83,10 +80,36 @@ pip_install_retry() {
   return "${rc}"
 }
 
+install_edge_tts_retry_wrapper() {
+  local bin_dir="${ESP32_TOOLS_VENV}/bin"
+  local real="${bin_dir}/edge-tts-real"
+  local wrapper="${bin_dir}/edge-tts"
+  [[ -x "${wrapper}" ]] || return 1
+  run_as_install_user mv -f "${wrapper}" "${real}"
+  temp_wrapper="$(mktemp)"
+  cat >"${temp_wrapper}" <<EOF
+#!/usr/bin/env bash
+set -u
+real="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)/edge-tts-real"
+attempts="${EDGE_TTS_ATTEMPTS}"
+rc=1
+for ((attempt=1; attempt<=attempts; attempt++)); do
+  "\${real}" "\$@" && exit 0
+  rc=\$?
+  echo "edge-tts synthesis attempt \${attempt}/\${attempts} failed" >&2
+  (( attempt < attempts )) && sleep \$((attempt * 2))
+done
+exit "\${rc}"
+EOF
+  run_as_install_user install -m 0755 "${temp_wrapper}" "${wrapper}"
+  rm -f "${temp_wrapper}"
+}
+
 install_python_tools() {
   ensure_venv || return 1
   pip_install_retry --upgrade pip wheel setuptools
   pip_install_retry --upgrade "platformio==${PLATFORMIO_VERSION}" "edge-tts==${EDGE_TTS_VERSION}"
+  install_edge_tts_retry_wrapper
   run_as_install_user mkdir -p "${ESP32_USER_BIN}"
   run_as_install_user ln -sfn "${ESP32_TOOLS_VENV}/bin/pio" "${ESP32_USER_BIN}/pio"
   run_as_install_user ln -sfn "${ESP32_TOOLS_VENV}/bin/platformio" "${ESP32_USER_BIN}/platformio"
@@ -113,16 +136,16 @@ echo "PlatformIO venv: ${ESP32_TOOLS_VENV}"
 if [[ -x "${ESP32_TOOLS_VENV}/bin/pio" ]]; then
   actual_pio="$("${ESP32_TOOLS_VENV}/bin/python" -c 'import importlib.metadata; print(importlib.metadata.version("platformio"))' 2>/dev/null || true)"
   echo "PlatformIO Core: ${actual_pio:-unknown}"
-  [[ "${actual_pio}" == "${PLATFORMIO_VERSION}" ]] || { echo "PlatformIO version mismatch: wanted ${PLATFORMIO_VERSION}" >&2; missing=1; }
+  [[ "${actual_pio}" == "${PLATFORMIO_VERSION}" ]] || { echo "PlatformIO version mismatch" >&2; missing=1; }
 else
   echo "PlatformIO/pio: MISSING" >&2; missing=1
 fi
-if [[ -x "${ESP32_TOOLS_VENV}/bin/edge-tts" ]]; then
+if [[ -x "${ESP32_TOOLS_VENV}/bin/edge-tts" && -x "${ESP32_TOOLS_VENV}/bin/edge-tts-real" ]]; then
   actual_edge="$("${ESP32_TOOLS_VENV}/bin/python" -c 'import importlib.metadata; print(importlib.metadata.version("edge-tts"))' 2>/dev/null || true)"
-  echo "edge-tts: ${actual_edge:-unknown}"
+  echo "edge-tts: ${actual_edge:-unknown}, retry wrapper: ready"
   [[ "${actual_edge}" == "${EDGE_TTS_VERSION}" ]] || { echo "edge-tts version mismatch" >&2; missing=1; }
 else
-  echo "edge-tts: MISSING" >&2; missing=1
+  echo "edge-tts retry wrapper: MISSING" >&2; missing=1
 fi
 if ensure_ffmpeg; then echo "ffmpeg: $(command -v ffmpeg)"
 else echo "ffmpeg: MISSING" >&2; missing=1
