@@ -5,13 +5,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT}"
 
 BUNDLE_DIR="${KOALABYTE_FIRMWARE_BUNDLE_DIR:-${ROOT}/releases/koalabyte-blue-current}"
+MANIFEST_PATH="${BUNDLE_DIR}/manifest.json"
 UF2="${T114_UF2_PATH:-${BUNDLE_DIR}/t114/koalabyte-t114-current.uf2}"
 UF2_VOLUME_NAME="${T114_UF2_VOLUME_NAME:-HT-n5262}"
 UF2_MOUNTPOINT="${T114_UF2_MOUNTPOINT:-/mnt/koalabyte-t114-uf2}"
 STATUS_PATH="${T114_FLASH_STATUS_PATH:-${ROOT}/logs/deployment/t114_flash_status.json}"
 WAIT_SECONDS="${T114_FLASH_WAIT_SECONDS:-75}"
-T114_SOURCE="${ROOT}/firmware/t114-combined-safe/src/main.c"
-EXPECTED_FW="${T114_EXPECTED_FW:-}"
 CHECK_ONLY=0
 
 while [[ $# -gt 0 ]]; do
@@ -27,28 +26,38 @@ while [[ $# -gt 0 ]]; do
 done
 
 mkdir -p "${ROOT}/logs/deployment" "${ROOT}/logs/preflight"
-
-resolve_expected_fw() {
-  if [[ -n "${EXPECTED_FW}" ]]; then
-    printf '%s\n' "${EXPECTED_FW}"
-    return 0
-  fi
-  [[ -f "${T114_SOURCE}" ]] || return 1
-  sed -n 's/^#define KOALA_FW "\([^"]*\)".*/\1/p' "${T114_SOURCE}" | head -n 1
-}
-EXPECTED_FW="$(resolve_expected_fw || true)"
-[[ -n "${EXPECTED_FW}" ]] || {
-  echo "Unable to resolve the expected T114 firmware identity from ${T114_SOURCE}." >&2
-  exit 1
-}
+python3 scripts/check_firmware_bundle.py --bundle "${BUNDLE_DIR}" --require t114 >/dev/null
+mapfile -t expected_identity < <(python3 - "${MANIFEST_PATH}" <<'PY'
+import json, sys
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+identity = manifest["t114"]["runtime_identity"]
+for key in ("device", "fw", "protocol", "repo_protocol_version"):
+    value = str(identity.get(key) or "").strip()
+    if not value:
+        raise SystemExit(f"missing T114 runtime identity field: {key}")
+    print(value)
+PY
+)
+[[ ${#expected_identity[@]} -eq 4 ]] || { echo "Invalid T114 runtime identity in ${MANIFEST_PATH}" >&2; exit 1; }
+EXPECTED_DEVICE="${expected_identity[0]}"
+EXPECTED_FW="${expected_identity[1]}"
+EXPECTED_PROTOCOL="${expected_identity[2]}"
+EXPECTED_REPO_PROTOCOL="${expected_identity[3]}"
 
 write_status() {
-  local status="$1" reason="$2" mount="${3:-}" runtime_port="${4:-}" observed_fw="${5:-}"
-  python3 - "${STATUS_PATH}" "${status}" "${reason}" "${UF2}" "${mount}" "${runtime_port}" "${EXPECTED_FW}" "${observed_fw}" <<'PY'
+  local status="$1" reason="$2" mount="${3:-}" runtime_port="${4:-}" observed_payload="${5:-}"
+  python3 - "${STATUS_PATH}" "${status}" "${reason}" "${UF2}" "${mount}" \
+    "${runtime_port}" "${EXPECTED_DEVICE}" "${EXPECTED_FW}" "${EXPECTED_PROTOCOL}" \
+    "${EXPECTED_REPO_PROTOCOL}" "${observed_payload}" <<'PY'
 import hashlib, json, sys, time
 from pathlib import Path
-path, status, reason, uf2, mount, runtime_port, expected_fw, observed_fw = sys.argv[1:]
+(path, status, reason, uf2, mount, runtime_port, expected_device, expected_fw,
+ expected_protocol, expected_repo_protocol, observed_payload) = sys.argv[1:]
 source = Path(uf2)
+try:
+    observed = json.loads(observed_payload) if observed_payload else None
+except Exception:
+    observed = {"raw": observed_payload}
 payload = {
     "status": status,
     "reason": reason,
@@ -57,9 +66,13 @@ payload = {
     "uf2_mount": mount,
     "runtime_port": runtime_port,
     "runtime_identity_required": True,
-    "expected_runtime_device": "heltec-t114",
-    "expected_runtime_fw": expected_fw,
-    "observed_runtime_fw": observed_fw,
+    "expected_runtime_identity": {
+        "device": expected_device,
+        "fw": expected_fw,
+        "protocol": expected_protocol,
+        "repo_protocol_version": expected_repo_protocol,
+    },
+    "observed_runtime_identity": observed,
     "updated_at": time.time(),
 }
 Path(path).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -117,15 +130,16 @@ validate_contract() {
 }
 
 query_t114_status() {
-  local candidate="$1" expected_fw="$2" python_runner=(python3)
+  local candidate="$1" python_runner=(python3)
   [[ -e "${candidate}" ]] || return 1
   if [[ ! -r "${candidate}" || ! -w "${candidate}" ]] && command -v sudo >/dev/null 2>&1; then
     python_runner=(sudo env "PYTHONPATH=${ROOT}/pi-companion" python3)
   fi
-  PYTHONPATH=pi-companion "${python_runner[@]}" - "${candidate}" "${expected_fw}" <<'PY'
+  PYTHONPATH=pi-companion "${python_runner[@]}" - "${candidate}" \
+    "${EXPECTED_DEVICE}" "${EXPECTED_FW}" "${EXPECTED_PROTOCOL}" "${EXPECTED_REPO_PROTOCOL}" <<'PY'
 import json, sys, time
 import serial
-port, expected_fw = sys.argv[1:]
+port, expected_device, expected_fw, expected_protocol, expected_repo_protocol = sys.argv[1:]
 ser = serial.Serial()
 ser.port = port
 ser.baudrate = 115200
@@ -153,11 +167,12 @@ try:
             payload = json.loads(line)
         except Exception:
             continue
-        observed_fw = str(payload.get("fw") or "").strip()
         if (
             payload.get("type") == "heltec_mouth_status"
-            and payload.get("device") == "heltec-t114"
-            and observed_fw == expected_fw
+            and str(payload.get("device") or "") == expected_device
+            and str(payload.get("fw") or "") == expected_fw
+            and str(payload.get("protocol") or "") == expected_protocol
+            and str(payload.get("repo_protocol_version") or "") == expected_repo_protocol
         ):
             print(json.dumps(payload, sort_keys=True))
             raise SystemExit(0)
@@ -167,14 +182,10 @@ raise SystemExit(1)
 PY
 }
 
-if [[ ! -f "${UF2}" ]]; then
-  write_status missing_artifact "T114 UF2 artifact is missing."
-  echo "Missing T114 UF2: ${UF2}" >&2
-  exit 1
-fi
 validate_contract
 if [[ "${CHECK_ONLY}" == "1" ]]; then
-  write_status check_only_ready "T114 UF2, vector, bootloader, and exact runtime identity contracts validated."
+  write_status check_only_ready \
+    "T114 checksums, UF2 vector/family, bootloader path, and exact runtime firmware/protocol identity contracts validated."
   exit 0
 fi
 
@@ -185,15 +196,15 @@ if [[ -z "${mount}" || ! -d "${mount}" ]]; then
   exit 1
 fi
 
-echo "Copying current T114 UF2 to ${mount}..."
+echo "Copying verified T114 UF2 to ${mount}..."
 cp "${UF2}" "${mount}/KOALABYTE.UF2" 2>/dev/null \
   || sudo_run cp "${UF2}" "${mount}/KOALABYTE.UF2"
 sync
-write_status copied "T114 UF2 copied; waiting for verified application USB." "${mount}"
+write_status copied "Verified T114 UF2 copied; waiting for exact application identity." "${mount}"
 
 deadline=$(( $(date +%s) + WAIT_SECONDS ))
 verified_port=""
-observed_fw=""
+verified_payload=""
 while (( $(date +%s) < deadline )); do
   PYTHONPATH=pi-companion python3 scripts/discover_koalabyte_ports.py --profile heltec --output-dir logs/preflight >/dev/null 2>&1 || true
   discovered=""
@@ -204,10 +215,9 @@ while (( $(date +%s) < deadline )); do
   fi
   for candidate in /dev/koalabyte-heltec /dev/koalabyte-heltec-t114 "${discovered}"; do
     [[ -n "${candidate}" && -e "${candidate}" ]] || continue
-    status_json="$(query_t114_status "${candidate}" "${EXPECTED_FW}" 2>/dev/null || true)"
-    if [[ -n "${status_json}" ]]; then
+    if payload="$(query_t114_status "${candidate}")"; then
       verified_port="${candidate}"
-      observed_fw="$(python3 -c 'import json,sys; print(json.loads(sys.stdin.read()).get("fw", ""))' <<<"${status_json}")"
+      verified_payload="${payload}"
       break 2
     fi
   done
@@ -215,11 +225,15 @@ while (( $(date +%s) < deadline )); do
 done
 
 if [[ -n "${verified_port}" ]]; then
-  write_status flashed "T114 UF2 accepted and exact heltec_mouth_status firmware identity verified." "${mount}" "${verified_port}" "${observed_fw}"
-  echo "T114 firmware flash complete: ${EXPECTED_FW}"
+  write_status flashed \
+    "T114 UF2 accepted and exact firmware/protocol identity verified." \
+    "${mount}" "${verified_port}" "${verified_payload}"
+  echo "T114 firmware flash complete and exact identity verified: ${EXPECTED_FW}"
   exit 0
 fi
 
-write_status flashed_unverified "UF2 was copied, but the exact T114 application identity was not verified before timeout." "${mount}"
-echo "T114 UF2 copied, but runtime identity ${EXPECTED_FW} was not verified." >&2
+write_status flashed_unverified \
+  "UF2 was copied, but the exact bundled T114 firmware/protocol identity was not verified before timeout." \
+  "${mount}"
+echo "T114 UF2 copied, but exact runtime identity ${EXPECTED_FW}/${EXPECTED_PROTOCOL} was not verified." >&2
 exit 1
