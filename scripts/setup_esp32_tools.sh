@@ -7,6 +7,7 @@ INSTALL_ESP32_TOOLS="${INSTALL_ESP32_TOOLS:-auto}"
 STRICT_ESP32_TOOLS="${STRICT_ESP32_TOOLS:-0}"
 PLATFORMIO_VERSION="${PLATFORMIO_VERSION:-6.1.19}"
 EDGE_TTS_VERSION="${EDGE_TTS_VERSION:-7.2.8}"
+AUDIOOP_LTS_VERSION="${AUDIOOP_LTS_VERSION:-0.2.2}"
 PIP_RETRIES="${PIP_RETRIES:-25}"
 PIP_DEFAULT_TIMEOUT="${PIP_DEFAULT_TIMEOUT:-300}"
 EDGE_TTS_ATTEMPTS="${EDGE_TTS_ATTEMPTS:-3}"
@@ -26,6 +27,8 @@ usage() {
 KoalaByte Blue ESP32/PlatformIO setup helper
 
 The isolated environment pins PlatformIO Core 6.1.19 and edge-tts 7.2.8.
+Python 3.13+ also receives audioop-lts because the embedded William response
+builder still uses the standard audioop import removed from Python 3.13.
 Python package downloads and individual Edge TTS synthesis calls retry transient
 network failures without modifying the Pi runtime virtual environment.
 EOF
@@ -84,6 +87,7 @@ install_edge_tts_retry_wrapper() {
   local bin_dir="${ESP32_TOOLS_VENV}/bin"
   local real="${bin_dir}/edge-tts-real"
   local wrapper="${bin_dir}/edge-tts"
+  local temp_wrapper
   [[ -x "${wrapper}" ]] || return 1
 
   if grep -Fq 'KOALABYTE_EDGE_TTS_RETRY_WRAPPER' "${wrapper}" 2>/dev/null && [[ -x "${real}" ]]; then
@@ -114,7 +118,10 @@ EOF
 install_python_tools() {
   ensure_venv || return 1
   pip_install_retry --upgrade pip wheel setuptools
-  pip_install_retry --upgrade "platformio==${PLATFORMIO_VERSION}" "edge-tts==${EDGE_TTS_VERSION}"
+  pip_install_retry --upgrade \
+    "platformio==${PLATFORMIO_VERSION}" \
+    "edge-tts==${EDGE_TTS_VERSION}" \
+    "audioop-lts==${AUDIOOP_LTS_VERSION}; python_version>='3.13'"
   install_edge_tts_retry_wrapper
   run_as_install_user mkdir -p "${ESP32_USER_BIN}"
   run_as_install_user ln -sfn "${ESP32_TOOLS_VENV}/bin/pio" "${ESP32_USER_BIN}/pio"
@@ -154,9 +161,16 @@ if [[ -x "${ESP32_TOOLS_VENV}/bin/edge-tts" && -x "${ESP32_TOOLS_VENV}/bin/edge-
 else
   echo "edge-tts retry wrapper: MISSING" >&2; missing=1
 fi
+if [[ -x "${ESP32_TOOLS_VENV}/bin/python" ]] && \
+   "${ESP32_TOOLS_VENV}/bin/python" -W ignore::DeprecationWarning -c 'import audioop' >/dev/null 2>&1; then
+  echo "audioop compatibility: ready"
+else
+  echo "audioop compatibility: MISSING" >&2; missing=1
+fi
 if ensure_ffmpeg; then echo "ffmpeg: $(command -v ffmpeg)"
 else echo "ffmpeg: MISSING" >&2; missing=1
 fi
 
 if [[ "${missing}" == "1" ]] && strict_enabled; then exit 1; fi
+[[ "${missing}" == "0" ]] || exit 1
 echo "ESP32 tool setup/check complete."
