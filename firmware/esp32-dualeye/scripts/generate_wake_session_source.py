@@ -19,27 +19,35 @@ def replace_once(old: str, new: str, label: str) -> None:
 
 
 replace_once(
-    """#define pollMicrophone koalaLegacyPollMicrophone
-#define pollSerial koalaLegacyPollSerial
-#define setup koalaLegacySetup
-#define loop koalaLegacyLoop
-#include \"integrated_main.cpp\"
-#undef loop
-#undef setup
-#undef pollSerial
-#undef pollMicrophone
-""",
-    """#define handleCommand koalaLegacyHandleCommand
-#define pollUdp koalaLegacyPollUdp
+    """#define beginUtterance koalaLegacyBeginUtterance
+#define endUtterance koalaLegacyEndUtterance
 #define pollMicrophone koalaLegacyPollMicrophone
 #define pollSerial koalaLegacyPollSerial
 #define setup koalaLegacySetup
 #define loop koalaLegacyLoop
-#include \"integrated_main.cpp\"
+#include "integrated_main.cpp"
 #undef loop
 #undef setup
 #undef pollSerial
 #undef pollMicrophone
+#undef endUtterance
+#undef beginUtterance
+""",
+    """#define handleCommand koalaLegacyHandleCommand
+#define pollUdp koalaLegacyPollUdp
+#define beginUtterance koalaLegacyBeginUtterance
+#define endUtterance koalaLegacyEndUtterance
+#define pollMicrophone koalaLegacyPollMicrophone
+#define pollSerial koalaLegacyPollSerial
+#define setup koalaLegacySetup
+#define loop koalaLegacyLoop
+#include "integrated_main.cpp"
+#undef loop
+#undef setup
+#undef pollSerial
+#undef pollMicrophone
+#undef endUtterance
+#undef beginUtterance
 #undef pollUdp
 #undef handleCommand
 """,
@@ -53,23 +61,23 @@ replace_once(
 )
 
 replace_once(
-    """    {kCmdWake, \"Killer Koala\"},
-    {kCmdWake, \"Hey Killer Koala\"},
-    {kCmdLocalStatus, \"Killer Koala status\"},
-    {kCmdLocalHelp, \"Killer Koala help\"},
-    {kCmdLocalGreeting, \"Killer Koala good day\"},
-    {kCmdLocalThanks, \"Killer Koala thank you\"},
-    {kCmdLocalBanter, \"Killer Koala say something funny\"},
-    {kCmdComplexAi, \"Killer Koala ask the AI\"},
+    """    {kCmdWake, "Killer Koala"},
+    {kCmdWake, "Hey Killer Koala"},
+    {kCmdLocalStatus, "Killer Koala status"},
+    {kCmdLocalHelp, "Killer Koala help"},
+    {kCmdLocalGreeting, "Killer Koala good day"},
+    {kCmdLocalThanks, "Killer Koala thank you"},
+    {kCmdLocalBanter, "Killer Koala say something funny"},
+    {kCmdComplexAi, "Killer Koala ask the AI"},
 """,
-    """    {kCmdWake, \"Killer Koala\"},
-    {kCmdWake, \"Hey Killer Koala\"},
-    {kCmdLocalStatus, \"Status\"},
-    {kCmdLocalHelp, \"Help\"},
-    {kCmdLocalGreeting, \"Good day\"},
-    {kCmdLocalThanks, \"Thank you\"},
-    {kCmdLocalBanter, \"Say something funny\"},
-    {kCmdComplexAi, \"Ask the AI\"},
+    """    {kCmdWake, "Killer Koala"},
+    {kCmdWake, "Hey Killer Koala"},
+    {kCmdLocalStatus, "Status"},
+    {kCmdLocalHelp, "Help"},
+    {kCmdLocalGreeting, "Good day"},
+    {kCmdLocalThanks, "Thank you"},
+    {kCmdLocalBanter, "Say something funny"},
+    {kCmdComplexAi, "Ask the AI"},
 """,
     "base command phrases",
 )
@@ -83,32 +91,32 @@ uint32_t complexCaptureArmMs = 0;
 bool generatedMenuActive = false;
 bool wakeSessionActive = false;
 uint32_t wakeSessionDeadlineMs = 0;
-char wakeSessionReason[48] = \"boot\";
+char wakeSessionReason[48] = "boot";
 uint32_t complexCaptureArmMs = 0;
 """,
     "wake-session state",
 )
 
 replace_once(
-    """  doc[\"sr_ready\"] = srReady;
-  doc[\"sr_timeouts\"] = pendingSrTimeoutCount;
-  doc[\"mic_ready\"] = dualEyeMicrophoneReady();
+    """  doc["sr_ready"] = srReady;
+  doc["sr_timeouts"] = pendingSrTimeoutCount;
+  doc["mic_ready"] = dualEyeMicrophoneReady();
 """,
-    """  doc[\"sr_ready\"] = srReady;
-  doc[\"sr_timeouts\"] = pendingSrTimeoutCount;
+    """  doc["sr_ready"] = srReady;
+  doc["sr_timeouts"] = pendingSrTimeoutCount;
   const uint32_t wakeNow = millis();
   const uint32_t wakeRemaining =
       wakeSessionActive && static_cast<int32_t>(wakeSessionDeadlineMs - wakeNow) > 0
           ? wakeSessionDeadlineMs - wakeNow
           : 0;
-  doc[\"wake_session_active\"] = wakeSessionActive;
-  doc[\"wake_session_timeout_ms\"] = kWakeSessionMs;
-  doc[\"wake_session_remaining_ms\"] = wakeRemaining;
-  doc[\"wake_session_reason\"] = wakeSessionReason;
-  doc[\"wake_gate\"] = \"killerkoala_then_10_second_session\";
-  doc[\"ambient_voice_commands_while_sleeping\"] = false;
-  doc[\"trusted_pi_input_wakes_session\"] = true;
-  doc[\"mic_ready\"] = dualEyeMicrophoneReady();
+  doc["wake_session_active"] = wakeSessionActive;
+  doc["wake_session_timeout_ms"] = kWakeSessionMs;
+  doc["wake_session_remaining_ms"] = wakeRemaining;
+  doc["wake_session_reason"] = wakeSessionReason;
+  doc["wake_gate"] = "killerkoala_then_10_second_session";
+  doc["ambient_voice_commands_while_sleeping"] = false;
+  doc["trusted_pi_input_wakes_session"] = true;
+  doc["mic_ready"] = dualEyeMicrophoneReady();
 """,
     "voice status diagnostics",
 )
@@ -123,7 +131,7 @@ void calculateStereoRms(const uint8_t *buffer, size_t length, float &left,
 }
 
 void setWakeSessionReason(const char *reason) {
-  copyText(wakeSessionReason, sizeof(wakeSessionReason), reason, \"activity\");
+  copyText(wakeSessionReason, sizeof(wakeSessionReason), reason, "activity");
 }
 
 void refreshWakeSession(const char *reason, bool announce = true) {
@@ -131,7 +139,7 @@ void refreshWakeSession(const char *reason, bool announce = true) {
   wakeSessionDeadlineMs = millis() + kWakeSessionMs;
   setWakeSessionReason(reason);
   if (announce) {
-    emitLocalVoiceStatus(\"wake_session_active\", reason ? reason : \"activity\");
+    emitLocalVoiceStatus("wake_session_active", reason ? reason : "activity");
   }
 }
 
@@ -145,7 +153,7 @@ void closeWakeSession(const char *reason) {
     showIdleEyes();
   }
   if (wasActive) {
-    emitLocalVoiceStatus(\"wake_session_closed\", reason ? reason : \"closed\");
+    emitLocalVoiceStatus("wake_session_closed", reason ? reason : "closed");
   }
 }
 
@@ -153,18 +161,18 @@ void serviceWakeSessionTimeout() {
   if (!wakeSessionActive) return;
   const uint32_t now = millis();
   if (static_cast<int32_t>(now - wakeSessionDeadlineMs) >= 0) {
-    closeWakeSession(\"ten_second_inactivity_timeout\");
+    closeWakeSession("ten_second_inactivity_timeout");
   }
 }
 
 bool trustedPiMenuActivity(JsonDocument &doc) {
-  const char *type = doc[\"type\"] | \"\";
-  const char *source = doc[\"source\"] | \"\";
-  if (strcmp(type, \"menu_sync\") || strcmp(source, \"koalabyte-blue-pi\")) {
+  const char *type = doc["type"] | "";
+  const char *source = doc["source"] | "";
+  if (strcmp(type, "menu_sync") || strcmp(source, "koalabyte-blue-pi")) {
     return false;
   }
-  const char *eventType = doc[\"event_type\"] | \"state\";
-  return strcmp(eventType, \"state\") && strcmp(eventType, \"idle_timeout\");
+  const char *eventType = doc["event_type"] | "state";
+  return strcmp(eventType, "state") && strcmp(eventType, "idle_timeout");
 }
 
 void calculateStereoRms(const uint8_t *buffer, size_t length, float &left,
@@ -173,10 +181,10 @@ void calculateStereoRms(const uint8_t *buffer, size_t length, float &left,
 )
 
 replace_once(
-    """  String phrase = \"killerkoala launch \";
+    """  String phrase = "killerkoala launch ";
   phrase += item->label;
 """,
-    """  String phrase = \"launch \";
+    """  String phrase = "launch ";
   phrase += item->label;
 """,
     "post-wake launch phrase",
@@ -212,7 +220,7 @@ replace_once(
       if (route) {
         handleGeneratedVoiceRoute(*route);
       } else {
-        emitLocalVoiceStatus(\"unknown_local_command\");
+        emitLocalVoiceStatus("unknown_local_command");
       }
       break;
     }
@@ -222,7 +230,7 @@ replace_once(
 """,
     """void processLocalCommand(int commandId, int phraseId) {
   if (commandId == kCmdWake) {
-    refreshWakeSession(\"killerkoala_wake_phrase\");
+    refreshWakeSession("killerkoala_wake_phrase");
     emitDetectedCommand(commandId, phraseId);
     playLocalResponse(LocalVoiceCategory::Wake);
     wakeSessionDeadlineMs = millis() + kWakeSessionMs;
@@ -231,13 +239,13 @@ replace_once(
   }
 
   if (!wakeSessionActive) {
-    setWakeSessionReason(\"ambient_command_rejected_while_sleeping\");
-    emitLocalVoiceStatus(\"voice_command_ignored_sleeping\", commandName(commandId));
+    setWakeSessionReason("ambient_command_rejected_while_sleeping");
+    emitLocalVoiceStatus("voice_command_ignored_sleeping", commandName(commandId));
     if (!complexCaptureArmed) ESP_SR.setMode(SR_MODE_COMMAND);
     return;
   }
 
-  refreshWakeSession(\"accepted_voice_command\", false);
+  refreshWakeSession("accepted_voice_command", false);
   emitDetectedCommand(commandId, phraseId);
   switch (commandId) {
     case kCmdLocalStatus:
@@ -263,7 +271,7 @@ replace_once(
       if (route) {
         handleGeneratedVoiceRoute(*route);
       } else {
-        emitLocalVoiceStatus(\"unknown_local_command\");
+        emitLocalVoiceStatus("unknown_local_command");
       }
       break;
     }
@@ -276,14 +284,14 @@ replace_once(
 )
 
 replace_once(
-    "\"recognizer remains in always-on command mode\"",
-    "\"recognizer rearmed; sleeping gate remains active until killerkoala\"",
+    '"recognizer remains in always-on command mode"',
+    '"recognizer rearmed; sleeping gate remains active until killerkoala"',
     "timeout status text",
 )
 
 replace_once(
-    "\"wake, K1-K8 and full catalog recognition active\"",
-    "\"sleeping gate or active 10-second session; see wake_session_active\"",
+    '"wake, K1-K8 and full catalog recognition active"',
+    '"sleeping gate or active 10-second session; see wake_session_active"',
     "heartbeat status text",
 )
 
@@ -293,16 +301,16 @@ replace_once(
     """void handleCommand(const String &line) {
   StaticJsonDocument<1024> gateDoc;
   if (!deserializeJson(gateDoc, line)) {
-    const char *type = gateDoc[\"type\"] | \"\";
+    const char *type = gateDoc["type"] | "";
     if (trustedPiMenuActivity(gateDoc)) {
-      refreshWakeSession(\"trusted_pi_button_or_keyboard_input\", false);
-    } else if (!strcmp(type, \"menu_sync\") && !wakeSessionActive) {
+      refreshWakeSession("trusted_pi_button_or_keyboard_input", false);
+    } else if (!strcmp(type, "menu_sync") && !wakeSessionActive) {
       // A passive Pi state replay must never wake or expose the menu.
       return;
-    } else if (!strcmp(type, \"trusted_input_activity\")) {
-      const char *source = gateDoc[\"source\"] | \"\";
-      if (!strcmp(source, \"gpio_buttons\") || !strcmp(source, \"external_keyboard\") ||
-          !strcmp(source, \"koalabyte-blue-pi\")) {
+    } else if (!strcmp(type, "trusted_input_activity")) {
+      const char *source = gateDoc["source"] | "";
+      if (!strcmp(source, "gpio_buttons") || !strcmp(source, "external_keyboard") ||
+          !strcmp(source, "koalabyte-blue-pi")) {
         refreshWakeSession(source, false);
       }
     }
@@ -326,12 +334,12 @@ void pollSerial() {
 )
 
 replace_once(
-    """        if (!strcmp(type, \"local_menu_test\")) {
-          openGeneratedMenu(doc[\"menu_name\"] | \"main\",
+    """        if (!strcmp(type, "local_menu_test")) {
+          openGeneratedMenu(doc["menu_name"] | "main",
 """,
-    """        if (!strcmp(type, \"local_menu_test\")) {
-          refreshWakeSession(\"serial_local_menu_test\", false);
-          openGeneratedMenu(doc[\"menu_name\"] | \"main\",
+    """        if (!strcmp(type, "local_menu_test")) {
+          refreshWakeSession("serial_local_menu_test", false);
+          openGeneratedMenu(doc["menu_name"] | "main",
 """,
     "local menu test activity",
 )
