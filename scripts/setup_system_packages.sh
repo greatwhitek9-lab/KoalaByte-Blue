@@ -18,9 +18,10 @@ Usage:
   bash scripts/setup_system_packages.sh --check-only
 
 The helper refreshes APT metadata before resolving Bookworm/Trixie package
-variants, fails early when core runtime/build packages are unavailable, treats
-packet-review/CAN/terminal utilities and distro PocketSphinx packages as optional,
-retries APT, and passes DEBIAN_FRONTEND through sudo explicitly.
+variants, fails early when core runtime/build packages are unavailable, accepts
+an available gpiozero backend instead of requiring one distro-specific package,
+treats packet-review/CAN/terminal utilities and distro PocketSphinx packages as
+optional, retries APT, and passes DEBIAN_FRONTEND through sudo explicitly.
 EOF
 }
 
@@ -77,7 +78,7 @@ apt_retry update
 
 required_packages=(
   git ca-certificates python3 python3-venv python3-pip python3-dev
-  python3-gpiozero python3-lgpio python3-serial python3-dbus python3-gi python3-httpx
+  python3-gpiozero python3-serial python3-dbus python3-gi python3-httpx
   build-essential pkg-config cmake ninja-build gperf ccache device-tree-compiler
   wget curl xz-utils file make gcc g++ libffi-dev libssl-dev usbutils udev kmod
   util-linux libusb-1.0-0 libusb-1.0-0-dev
@@ -94,8 +95,10 @@ optional_packages=(
   espeak pulseaudio-utils python3-pyaudio
   tshark wireshark
   python3-pocketsphinx pocketsphinx-en-us
+  python3-libgpiod
 )
 required_variant_groups=(
+  "python3-lgpio python3-rpi.gpio"
   "libgpiod3 libgpiod2"
   "libasound2t64 libasound2"
 )
