@@ -7,8 +7,10 @@ FROM tinyllama:1.1b
 # If a matching tuned adapter is available, uncomment and point this to it.
 # ADAPTER ./killerkoala_aussie_cyberpunk_lora.gguf
 
-PARAMETER num_ctx 2048
-PARAMETER num_predict 128
+# Conservative defaults for the Raspberry Pi 3B+ (1 GB RAM). Runtime requests may
+# lower these further, but direct `ollama run` and installer smoke tests remain safe.
+PARAMETER num_ctx 768
+PARAMETER num_predict 64
 PARAMETER temperature 0.72
 PARAMETER top_p 0.9
 PARAMETER repeat_penalty 1.12
