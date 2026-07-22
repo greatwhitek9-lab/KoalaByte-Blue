@@ -5,6 +5,9 @@ project(koalabyte_t114_combined_safe)
 set(KOALABYTE_TONE_MAIN_SOURCE
   ${CMAKE_CURRENT_BINARY_DIR}/generated/koalabyte_t114_tone_main.c
 )
+set(KOALABYTE_PROTOCOL_MAIN_SOURCE
+  ${CMAKE_CURRENT_BINARY_DIR}/generated/koalabyte_t114_protocol_main.c
+)
 set(KOALABYTE_FINAL_MAIN_SOURCE
   ${CMAKE_CURRENT_BINARY_DIR}/generated/koalabyte_t114_deployable_main.c
 )
@@ -26,8 +29,22 @@ endif()
 execute_process(
   COMMAND
     ${PYTHON_EXECUTABLE}
-    ${CMAKE_CURRENT_SOURCE_DIR}/scripts/patch_uf2_bootloader_entry.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/scripts/patch_protocol_status.py
     --source ${KOALABYTE_TONE_MAIN_SOURCE}
+    --output ${KOALABYTE_PROTOCOL_MAIN_SOURCE}
+  RESULT_VARIABLE KOALABYTE_PROTOCOL_PATCH_RESULT
+  ERROR_VARIABLE KOALABYTE_PROTOCOL_PATCH_ERROR
+)
+if(NOT KOALABYTE_PROTOCOL_PATCH_RESULT EQUAL 0)
+  message(FATAL_ERROR
+    "Failed to add T114 protocol status: ${KOALABYTE_PROTOCOL_PATCH_ERROR}"
+  )
+endif()
+execute_process(
+  COMMAND
+    ${PYTHON_EXECUTABLE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/scripts/patch_uf2_bootloader_entry.py
+    --source ${KOALABYTE_PROTOCOL_MAIN_SOURCE}
     --output ${KOALABYTE_FINAL_MAIN_SOURCE}
   RESULT_VARIABLE KOALABYTE_BOOTLOADER_PATCH_RESULT
   ERROR_VARIABLE KOALABYTE_BOOTLOADER_PATCH_ERROR
@@ -79,7 +96,7 @@ foreach(KOALABYTE_MOUTH_EXPRESSION IN ITEMS
     bite
     snarl
     sideways_grin
-)
+  )
   string(REPLACE "_" "-" KOALABYTE_MOUTH_ASSET_NAME
     ${KOALABYTE_MOUTH_EXPRESSION}
   )
