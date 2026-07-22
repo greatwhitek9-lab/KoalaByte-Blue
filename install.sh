@@ -21,11 +21,8 @@ Environment:
   KOALABYTE_INSTALL_DIR=$HOME/KoalaByte-Blue
   KOALABYTE_SERVICE_USER=<linux-user>
 
-This bootstrapper clones or updates the selected branch and invokes the single
-canonical entrypoint, one-shot-install.sh. The default one-shot builds and flashes
-the current Heltec T114 UF2 and complete ESP32-S3 image set, then provisions the
-Raspberry Pi runtime, TinyLlama, Mopidy, controls, services, and diagnostics.
-Connect both peripherals before running the default install.
+The bootstrapper recovers an interrupted ESP32 source-generation transaction,
+updates the selected branch, and invokes one-shot-install.sh.
 EOF
 }
 
@@ -36,28 +33,45 @@ case "${1:-install}" in
   -h|--help) usage; exit 0 ;;
   *) echo "Unknown mode: ${1}" >&2; usage >&2; exit 2 ;;
 esac
-
-if [[ $# -gt 0 ]]; then
-  echo "Unexpected arguments: $*" >&2
-  exit 2
-fi
+[[ $# -eq 0 ]] || { echo "Unexpected arguments: $*" >&2; exit 2; }
 
 if ! command -v git >/dev/null 2>&1; then
   if command -v apt-get >/dev/null 2>&1; then
-    if [[ "${EUID}" -eq 0 ]]; then
-      apt-get update
-      apt-get install -y git ca-certificates
-    else
-      sudo apt-get update
-      sudo apt-get install -y git ca-certificates
-    fi
+    if [[ "${EUID}" -eq 0 ]]; then runner=(apt-get); else runner=(sudo apt-get); fi
+    DEBIAN_FRONTEND=noninteractive "${runner[@]}" update
+    DEBIAN_FRONTEND=noninteractive "${runner[@]}" install -y git ca-certificates
   else
     echo "git is required." >&2
     exit 1
   fi
 fi
 
+restore_interrupted_esp32_sources() {
+  local backup_root="${INSTALL_DIR}/logs/deployment/esp32-source-backup"
+  local relative backup
+  [[ -d "${backup_root}" ]] || return 0
+  echo "Recovering tracked ESP32 sources from an interrupted build transaction..."
+  for relative in \
+    firmware/esp32-dualeye/src/integrated_main.cpp \
+    firmware/esp32-dualeye/src/integrated_main_wake_session.cpp \
+    firmware/esp32-dualeye/include/config.h; do
+    backup="${backup_root}/${relative}"
+    if [[ -f "${backup}" ]]; then
+      mkdir -p "$(dirname "${INSTALL_DIR}/${relative}")"
+      cp -f "${backup}" "${INSTALL_DIR}/${relative}"
+    fi
+  done
+  rm -rf -- "${backup_root}"
+}
+
 if [[ -d "${INSTALL_DIR}/.git" ]]; then
+  restore_interrupted_esp32_sources
+  if ! git -C "${INSTALL_DIR}" diff --quiet || ! git -C "${INSTALL_DIR}" diff --cached --quiet; then
+    echo "Repository has local changes; refusing to overwrite them during update:" >&2
+    git -C "${INSTALL_DIR}" status --short >&2
+    echo "Commit, stash, or intentionally discard those changes, then rerun." >&2
+    exit 1
+  fi
   git -C "${INSTALL_DIR}" fetch origin
   git -C "${INSTALL_DIR}" checkout "${BRANCH}"
   git -C "${INSTALL_DIR}" pull --ff-only origin "${BRANCH}"
@@ -69,15 +83,8 @@ else
 fi
 
 cd "${INSTALL_DIR}"
-
 case "${MODE}" in
-  repo-only)
-    echo "Repository ready: ${INSTALL_DIR}"
-    ;;
-  check-only)
-    bash one-shot-install.sh --check-only
-    ;;
-  install)
-    bash one-shot-install.sh
-    ;;
+  repo-only) echo "Repository ready: ${INSTALL_DIR}" ;;
+  check-only) bash one-shot-install.sh --check-only ;;
+  install) bash one-shot-install.sh ;;
 esac
