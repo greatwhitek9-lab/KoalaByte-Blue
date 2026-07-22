@@ -80,8 +80,6 @@ validate_sources() {
     scripts/pi_hardware_doctor.py scripts/test_gpio_buttons.py \
     scripts/check_supported_host.py scripts/check_live_runtime_services.py \
     scripts/check_serial_command_bus.py scripts/check_confirmed_wake_audio.py \
-    pi-companion/koalblue/gpio_buttons.py 2>/dev/null || true
-  python3 -m py_compile \
     pi-companion/koalablue/gpio_buttons.py \
     pi-companion/koalablue/bounded_log.py \
     pi-companion/koalablue/serial_command_bus.py \
