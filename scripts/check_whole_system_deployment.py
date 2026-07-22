@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
+import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,12 @@ REQUIRED_SOURCE_FILES = (
     "scripts/inspect_uf2.py",
     "scripts/patch_uf2_family.py",
     "scripts/verify_uf2_vector.py",
+    "scripts/check_firmware_hardware_contract.py",
+    "scripts/check_firmware_protocol_contract.py",
+    "scripts/check_esp32_compiled_patch_chain.py",
+    "scripts/write_firmware_bundle_manifest.py",
+    "scripts/check_firmware_bundle.py",
+    "scripts/check_verified_firmware_flashes.py",
     "firmware/esp32-dualeye/platformio.ini",
     "firmware/esp32-dualeye/partitions.csv",
     "firmware/t114-combined-safe/CMakeLists.txt",
@@ -38,20 +45,28 @@ SOURCE_MARKERS = {
         "scripts/deploy_whole_system_firmware.sh",
         "firmware_flashing",
     ),
+    "scripts/build_whole_system_firmware.sh": (
+        "check_firmware_hardware_contract.py",
+        "check_firmware_protocol_contract.py",
+        "write_firmware_bundle_manifest.py",
+        "check_firmware_bundle.py",
+    ),
     "scripts/deploy_whole_system_firmware.sh": (
         "flash_t114_uf2",
         "flash_esp32_complete_image",
-        "sha256sum -c SHA256SUMS.txt",
+        "check_firmware_bundle.py",
     ),
     "scripts/flash_esp32_dualeye_current.sh": (
         "0x00cb0000",
         "srmodels.bin",
-        "node_status",
+        "expected_repo_protocol",
+        "check_firmware_bundle.py",
     ),
     "scripts/flash_t114_current_uf2.sh": (
         "KOALABYTE.UF2",
         "verify_uf2_vector.py",
-        "HT-n5262",
+        "expected_repo_protocol",
+        "check_firmware_bundle.py",
     ),
     "firmware/t114-combined-safe/scripts/patch_uf2_bootloader_entry.py": (
         "GPREGRET = 0x57",
@@ -59,18 +74,6 @@ SOURCE_MARKERS = {
         "SYS_REBOOT_COLD",
     ),
 }
-
-EXPECTED_ESP32 = {
-    "bootloader.bin": "0x00000000",
-    "partitions.bin": "0x00008000",
-    "boot_app0.bin": "0x0000e000",
-    "firmware.bin": "0x00010000",
-    "srmodels.bin": "0x00cb0000",
-}
-
-
-def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def validate_source() -> list[str]:
@@ -96,74 +99,109 @@ def validate_source() -> list[str]:
             failures.append("T114 build does not produce UF2")
         if "CONFIG_REBOOT=y" not in text:
             failures.append("T114 firmware cannot software-reboot into UF2")
+    for checker in (
+        "scripts/check_firmware_hardware_contract.py",
+        "scripts/check_firmware_protocol_contract.py",
+        "scripts/check_esp32_compiled_patch_chain.py",
+    ):
+        path = ROOT / checker
+        if not path.exists():
+            continue
+        result = subprocess.run(
+            [sys.executable, str(path)],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+        if result.returncode:
+            failures.append(f"source checker failed: {checker}: {result.stdout.strip()}")
     return failures
 
 
-def validate_bundle(bundle: Path) -> tuple[list[str], dict[str, Any]]:
-    failures: list[str] = []
-    manifest_path = bundle / "manifest.json"
-    if not manifest_path.exists():
-        return [f"missing firmware bundle manifest: {manifest_path}"], {}
+def load_manifest(bundle: Path) -> tuple[dict[str, Any], list[str]]:
+    path = bundle / "manifest.json"
+    if not path.is_file():
+        return {}, [f"missing firmware bundle manifest: {path}"]
     try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        value = json.loads(path.read_text(encoding="utf-8"))
     except Exception as exc:
-        return [f"invalid firmware bundle manifest: {exc}"], {}
+        return {}, [f"invalid firmware bundle manifest: {exc}"]
+    if not isinstance(value, dict):
+        return {}, ["firmware bundle manifest is not an object"]
+    return value, []
 
-    esp32_files = manifest.get("esp32", {}).get("files", [])
-    indexed = {str(item.get("path", "")).split("/")[-1]: item for item in esp32_files}
-    if manifest.get("esp32", {}).get("included"):
-        for name, address in EXPECTED_ESP32.items():
-            item = indexed.get(name)
-            if not item:
-                failures.append(f"ESP32 manifest missing {name}")
-                continue
-            if str(item.get("flash_address")) != address:
-                failures.append(f"ESP32 {name} address is {item.get('flash_address')}, expected {address}")
-            path = bundle / str(item.get("path"))
-            if not path.exists():
-                failures.append(f"ESP32 bundle file missing: {path}")
-            elif sha256(path) != item.get("sha256"):
-                failures.append(f"ESP32 bundle checksum mismatch: {name}")
 
-    t114 = manifest.get("t114", {})
-    if t114.get("included"):
-        item = t114.get("file") or {}
-        path = bundle / str(item.get("path", ""))
-        if not path.exists():
-            failures.append(f"T114 UF2 missing: {path}")
-        elif sha256(path) != item.get("sha256"):
-            failures.append("T114 UF2 checksum mismatch")
-        if t114.get("family_id") != "0x239a0071":
-            failures.append("T114 UF2 family ID is not 0x239a0071")
-        if t114.get("application_offset") != "0x00026000":
-            failures.append("T114 application offset is not 0x00026000")
+def selected_requirement(manifest: dict[str, Any]) -> str:
+    esp32 = bool((manifest.get("esp32") or {}).get("included"))
+    t114 = bool((manifest.get("t114") or {}).get("included"))
+    if esp32 and t114:
+        return "all"
+    if esp32:
+        return "esp32"
+    if t114:
+        return "t114"
+    raise RuntimeError("firmware bundle includes neither board")
+
+
+def run_validator(arguments: list[str], label: str) -> list[str]:
+    result = subprocess.run(
+        [sys.executable, *arguments],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    if result.returncode:
+        return [f"{label} failed: {result.stdout.strip()}"]
+    return []
+
+
+def validate_bundle(bundle: Path) -> tuple[list[str], dict[str, Any]]:
+    manifest, failures = load_manifest(bundle)
+    if failures:
+        return failures, manifest
+    try:
+        requirement = selected_requirement(manifest)
+    except Exception as exc:
+        return [str(exc)], manifest
+    failures.extend(
+        run_validator(
+            [
+                str(ROOT / "scripts/check_firmware_bundle.py"),
+                "--bundle",
+                str(bundle),
+                "--require",
+                requirement,
+            ],
+            "schema-2 firmware bundle validation",
+        )
+    )
     return failures, manifest
 
 
-def validate_post_flash(*, skip_esp32: bool, skip_t114: bool) -> list[str]:
-    failures: list[str] = []
-    status_specs: list[tuple[Path, set[str]]] = []
-    if not skip_t114:
-        status_specs.append(
-            (ROOT / "logs/deployment/t114_flash_status.json", {"flashed"})
-        )
-    if not skip_esp32:
-        status_specs.append(
-            (ROOT / "logs/deployment/esp32_flash_status.json", {"flashed"})
-        )
-
-    for path, allowed in status_specs:
-        if not path.exists():
-            failures.append(f"missing post-flash status: {path}")
-            continue
-        try:
-            status = json.loads(path.read_text(encoding="utf-8")).get("status")
-        except Exception as exc:
-            failures.append(f"unreadable post-flash status {path}: {exc}")
-            continue
-        if status not in allowed:
-            failures.append(f"post-flash status is not verified for {path.name}: {status}")
-
+def validate_post_flash(
+    bundle: Path, *, skip_esp32: bool, skip_t114: bool
+) -> list[str]:
+    if skip_esp32 and skip_t114:
+        return ["post-flash validation cannot skip both boards"]
+    requirement = "all"
+    if skip_esp32:
+        requirement = "t114"
+    elif skip_t114:
+        requirement = "esp32"
+    failures = run_validator(
+        [
+            str(ROOT / "scripts/check_verified_firmware_flashes.py"),
+            "--bundle",
+            str(bundle),
+            "--require",
+            requirement,
+        ],
+        "exact firmware flash receipt validation",
+    )
     if os.name == "posix" and Path("/dev").exists():
         if not skip_esp32 and not Path("/dev/koalabyte-esp32-dualeye").exists():
             failures.append("ESP32 stable runtime alias missing after flash")
@@ -185,14 +223,16 @@ def main() -> int:
     parser.add_argument("--bundle-dir", default=str(DEFAULT_BUNDLE))
     args = parser.parse_args()
 
+    bundle = Path(args.bundle_dir)
     failures = validate_source()
     manifest: dict[str, Any] = {}
     if args.bundle_only or args.post_flash:
-        bundle_failures, manifest = validate_bundle(Path(args.bundle_dir))
+        bundle_failures, manifest = validate_bundle(bundle)
         failures.extend(bundle_failures)
     if args.post_flash:
         failures.extend(
             validate_post_flash(
+                bundle,
                 skip_esp32=args.skip_esp32,
                 skip_t114=args.skip_t114,
             )
@@ -203,6 +243,7 @@ def main() -> int:
         "source_contract": True,
         "bundle_checked": bool(args.bundle_only or args.post_flash),
         "post_flash_checked": bool(args.post_flash),
+        "exact_flash_identity_checked": bool(args.post_flash),
         "esp32_skipped": args.skip_esp32,
         "t114_skipped": args.skip_t114,
         "bundle_source_commit": manifest.get("source_commit") if manifest else None,
