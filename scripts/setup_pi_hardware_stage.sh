@@ -33,7 +33,7 @@ Options:
   --skip-venv                  Do not create/update pi-companion/.venv
   --skip-can-service           Do not install koalabyte-can0.service
   --skip-audio                 Do not select an external Pi audio sink
-  --install-runtime-services   Install/enable menu, sync, doctor, BLE, and voice services
+  --install-runtime-services   Install/enable menu, doctor, BLE, and voice services
   --can-interface NAME         SocketCAN interface; default can0
   --can-bitrate RATE           SocketCAN bitrate; default 500000
 EOF
@@ -55,7 +55,8 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 [[ "${CAN_BITRATE}" =~ ^[0-9]+$ && "${CAN_BITRATE}" != "0" ]] || {
-  echo "Invalid CAN bitrate: ${CAN_BITRATE}" >&2; exit 2;
+  echo "Invalid CAN bitrate: ${CAN_BITRATE}" >&2
+  exit 2
 }
 
 mkdir -p logs/pi_hardware logs/preflight logs/koala_kan_kommander
@@ -74,12 +75,15 @@ validate_sources() {
   bash -n scripts/run_can0_service.sh
   bash -n scripts/install_can0_service.sh
   bash -n scripts/configure_pi_audio_output.sh
+  bash -n scripts/install_runtime_log_rotation.sh
   python3 -m py_compile \
     scripts/pi_hardware_doctor.py scripts/test_gpio_buttons.py \
-    scripts/check_serial_command_bus.py \
+    scripts/check_serial_command_bus.py scripts/check_confirmed_wake_audio.py \
     pi-companion/koalablue/gpio_buttons.py \
+    pi-companion/koalablue/bounded_log.py \
     pi-companion/koalablue/serial_command_bus.py \
-    pi-companion/koalablue/runtime_serial_ownership.py
+    pi-companion/koalablue/runtime_serial_ownership.py \
+    pi-companion/koalablue/esp32_dualeye_error_dig_bridge.py
   PYTHONPATH=pi-companion python3 scripts/check_serial_command_bus.py >/dev/null
 }
 validate_sources
@@ -99,7 +103,10 @@ if [[ "${EUID}" -eq 0 ]]; then sudo_cmd=()
 elif command -v sudo >/dev/null 2>&1; then sudo_cmd=(sudo)
 else echo "sudo or root is required." >&2; exit 1
 fi
-id "${SERVICE_USER}" >/dev/null 2>&1 || { echo "Service user does not exist: ${SERVICE_USER}" >&2; exit 1; }
+id "${SERVICE_USER}" >/dev/null 2>&1 || {
+  echo "Service user does not exist: ${SERVICE_USER}" >&2
+  exit 1
+}
 SERVICE_HOME="$(getent passwd "${SERVICE_USER}" | cut -d: -f6)"
 SERVICE_GROUP="$(id -gn "${SERVICE_USER}")"
 SERVICE_TMPDIR="${SERVICE_HOME}/.cache/koalabyte/tmp"
@@ -133,7 +140,26 @@ pip_retry() {
   return "${rc}"
 }
 
-if [[ "${INSTALL_PACKAGES}" == "1" ]]; then bash scripts/setup_system_packages.sh; fi
+# Recover only generated/runtime state from an earlier root-wrapped attempt.
+# Tracked source ownership is intentionally left untouched.
+generated_dirs=(
+  logs
+  build
+  firmware/esp32-dualeye/.pio
+  releases/koalabyte-blue-current
+  "${SERVICE_HOME}/.cache/koalabyte"
+)
+for generated in "${generated_dirs[@]}"; do
+  [[ -e "${generated}" ]] || continue
+  "${sudo_cmd[@]}" chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${generated}"
+done
+"${sudo_cmd[@]}" install -d -m 0755 -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" \
+  logs logs/runtime logs/runtime/serial_bus logs/killerkoala logs/ble_nodes \
+  logs/preflight logs/deployment "${SERVICE_TMPDIR}"
+
+if [[ "${INSTALL_PACKAGES}" == "1" ]]; then
+  bash scripts/setup_system_packages.sh
+fi
 
 available_groups=()
 for group in gpio dialout audio video render plugdev; do
@@ -146,7 +172,6 @@ if (( ${#available_groups[@]} > 0 )); then
 fi
 
 if [[ "${INSTALL_VENV}" == "1" ]]; then
-  "${sudo_cmd[@]}" install -d -m 0755 -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" "${SERVICE_TMPDIR}"
   if [[ ! -x "${PYTHON_BIN}" ]]; then
     run_as_service_user python3 -m venv --system-site-packages pi-companion/.venv
   else
@@ -175,7 +200,9 @@ if [[ "${INSTALL_CAN_SERVICE}" == "1" ]]; then
     bash scripts/setup_can0.sh --interface "${CAN_INTERFACE}" --bitrate "${CAN_BITRATE}"
 fi
 
-if [[ "${CONFIGURE_AUDIO}" == "1" ]]; then bash scripts/configure_pi_audio_output.sh || true; fi
+if [[ "${CONFIGURE_AUDIO}" == "1" ]]; then
+  bash scripts/configure_pi_audio_output.sh || true
+fi
 
 if [[ "${INSTALL_RUNTIME_SERVICES}" == "1" ]]; then
   KOALABYTE_SERVICE_USER="${SERVICE_USER}" KOALABYTE_SERVICE_GROUP="${SERVICE_GROUP}" \
