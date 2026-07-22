@@ -13,6 +13,9 @@ def _target_for(port: str, payload: dict[str, Any]) -> str:
         return "heltec"
     if "esp32" in explicit or "dualeye" in explicit:
         return "esp32"
+    payload_type = str(payload.get("type") or "").lower()
+    if payload_type in {"killerkoala_speech", "koalagotchi_status"}:
+        return "heltec"
     lowered = str(port or "").lower()
     if any(token in lowered for token in ("heltec", "t114", "n5262", "nrf52840")):
         return "heltec"
@@ -50,18 +53,38 @@ def install_display_command_clients() -> None:
 
     from . import killerkoala_face_bridge, menu_display_sync
 
-    killerkoala_face_bridge._serial_write = _client_serial_write
+    if not getattr(killerkoala_face_bridge, "_serial_bus_clients_installed", False):
+        original_resolve_ports = killerkoala_face_bridge._resolve_ports
+
+        def logical_resolve_ports() -> tuple[str, str]:
+            esp32_port, heltec_port = original_resolve_ports()
+            return (
+                esp32_port or "/dev/koalabyte-esp32-dualeye",
+                heltec_port or "/dev/koalabyte-heltec",
+            )
+
+        killerkoala_face_bridge._resolve_ports = logical_resolve_ports
+        killerkoala_face_bridge._serial_write = _client_serial_write
+        killerkoala_face_bridge._serial_bus_clients_installed = True
+
     menu_display_sync._send_json_line = _client_menu_write
 
-    # The speech-synced bridge imports _serial_write by value. Update every loaded
-    # binding explicitly; modules imported later receive the patched helper.
+    # The speech-synced bridge imports both helpers by value. Update every loaded
+    # binding explicitly; modules imported later receive the patched helpers.
     for name in (
         "koalablue.esp32_dualeye_voice_bridge",
         "koalablue.esp32_dualeye_speech_synced_bridge",
     ):
         module = sys.modules.get(name)
-        if module is not None and hasattr(module, "_serial_write"):
-            setattr(module, "_serial_write", _client_serial_write)
+        if module is not None:
+            if hasattr(module, "_serial_write"):
+                setattr(module, "_serial_write", _client_serial_write)
+            if hasattr(module, "_resolve_ports"):
+                setattr(
+                    module,
+                    "_resolve_ports",
+                    killerkoala_face_bridge._resolve_ports,
+                )
 
 
 def install_esp32_serial_owner(bridge_class: type[Any]) -> None:
