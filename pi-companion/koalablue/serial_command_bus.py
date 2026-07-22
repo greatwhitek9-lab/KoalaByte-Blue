@@ -7,13 +7,17 @@ import socket
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 DEFAULT_BUS_DIR = Path(
     os.getenv("KOALABYTE_SERIAL_BUS_DIR", "logs/runtime/serial_bus")
 )
-MAX_DATAGRAM_BYTES = int(os.getenv("KOALABYTE_SERIAL_BUS_MAX_BYTES", "32768"))
-MAX_QUEUED_COMMANDS = int(os.getenv("KOALABYTE_SERIAL_BUS_MAX_QUEUE", "256"))
+MAX_DATAGRAM_BYTES = max(
+    1024, int(os.getenv("KOALABYTE_SERIAL_BUS_MAX_BYTES", "32768"))
+)
+MAX_QUEUED_COMMANDS = max(
+    1, int(os.getenv("KOALABYTE_SERIAL_BUS_MAX_QUEUE", "256"))
+)
 VALID_TARGETS = {"esp32", "heltec"}
 
 
@@ -84,7 +88,8 @@ def _bounded_queue_append(
                 ).splitlines()
                 if row.strip()
             ]
-        existing = existing[-max(0, MAX_QUEUED_COMMANDS - 1) :]
+        keep = MAX_QUEUED_COMMANDS - 1
+        existing = existing[-keep:] if keep > 0 else []
         temp = queue_path.with_name(
             f".{queue_path.name}.tmp.{os.getpid()}.{time.time_ns()}"
         )
@@ -156,6 +161,8 @@ class JsonCommandInbox:
         self.bus_dir = _root(bus_dir)
         self.path = socket_path(self.target, self.bus_dir)
         self._owner_lock = _owner_lock_path(self.target, self.bus_dir).open("a+")
+        self._socket: socket.socket | None = None
+        self._closed = True
         try:
             fcntl.flock(
                 self._owner_lock.fileno(),
@@ -167,16 +174,21 @@ class JsonCommandInbox:
                 f"another process already owns the {self.target} serial command bus"
             ) from exc
 
-        # Holding the exclusive owner lock proves any existing socket is stale.
         try:
-            self.path.unlink()
-        except FileNotFoundError:
-            pass
-        self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-        self._socket.bind(str(self.path))
-        self._socket.setblocking(False)
-        os.chmod(self.path, 0o660)
-        self._closed = False
+            # Holding the exclusive owner lock proves any existing socket is stale.
+            self.path.unlink(missing_ok=True)
+            self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+            self._socket.bind(str(self.path))
+            self._socket.setblocking(False)
+            os.chmod(self.path, 0o660)
+            self._closed = False
+        except Exception:
+            if self._socket is not None:
+                self._socket.close()
+            self.path.unlink(missing_ok=True)
+            fcntl.flock(self._owner_lock.fileno(), fcntl.LOCK_UN)
+            self._owner_lock.close()
+            raise
 
     def _take_spooled(self) -> list[dict[str, Any]]:
         queue_path = _queue_path(self.target, self.bus_dir)
@@ -209,10 +221,11 @@ class JsonCommandInbox:
         return commands
 
     def drain(self, *, max_items: int = 64) -> list[dict[str, Any]]:
-        if self._closed:
+        if self._closed or self._socket is None:
             return []
+        limit = max(0, int(max_items))
         commands = self._take_spooled()
-        while len(commands) < max_items:
+        while len(commands) < limit:
             try:
                 data = self._socket.recv(MAX_DATAGRAM_BYTES)
             except BlockingIOError:
@@ -225,24 +238,23 @@ class JsonCommandInbox:
                 continue
             if isinstance(payload, dict) and not payload.get("_bus_probe"):
                 commands.append(payload)
-        if len(commands) <= max_items:
+        if len(commands) <= limit:
             return commands
-        overflow = commands[max_items:]
+        overflow = commands[limit:]
         for payload in overflow:
             _bounded_queue_append(self.target, payload, bus_dir=self.bus_dir)
-        return commands[:max_items]
+        return commands[:limit]
 
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
         try:
-            self._socket.close()
+            if self._socket is not None:
+                self._socket.close()
+                self._socket = None
         finally:
-            try:
-                self.path.unlink()
-            except FileNotFoundError:
-                pass
+            self.path.unlink(missing_ok=True)
             fcntl.flock(self._owner_lock.fileno(), fcntl.LOCK_UN)
             self._owner_lock.close()
 
