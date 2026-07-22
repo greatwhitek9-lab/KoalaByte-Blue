@@ -47,8 +47,6 @@ def extract_esp32_fw() -> str:
         re.MULTILINE,
     )
     if not match:
-        # The source line itself uses ordinary quote characters inside a Python
-        # string; accept that representation as well.
         match = re.search(
             r'^new\s*=\s*[\'\"]#define KOALABLUE_FW_VERSION "([^"]+)"[\'\"]$',
             text,
@@ -79,7 +77,21 @@ def record(path: Path, bundle: Path, *, address: int | None = None) -> dict[str,
     return row
 
 
-def validate_esp32(bundle: Path, included: bool) -> list[dict[str, object]]:
+def require_binary_markers(path: Path, markers: tuple[str, ...], label: str) -> None:
+    data = path.read_bytes()
+    missing = [marker for marker in markers if marker.encode("utf-8") not in data]
+    if missing:
+        raise RuntimeError(f"{label} is missing compiled identity markers: {missing}")
+
+
+def validate_esp32(
+    bundle: Path,
+    included: bool,
+    *,
+    fw: str,
+    protocol: str,
+    repo_protocol: str,
+) -> list[dict[str, object]]:
     if not included:
         return []
     output: list[dict[str, object]] = []
@@ -98,6 +110,11 @@ def validate_esp32(bundle: Path, included: bool) -> list[dict[str, object]]:
                 f"ESP32 artifact overlaps the next partition: {name}={size} bytes, capacity={capacity}"
             )
         output.append(record(path, bundle, address=start))
+    require_binary_markers(
+        bundle / "esp32" / "firmware.bin",
+        ("esp32-s3-dualeye", fw, protocol, repo_protocol),
+        "ESP32 application image",
+    )
     return output
 
 
@@ -134,11 +151,19 @@ def main() -> int:
 
     bundle = args.bundle.resolve()
     bundle.mkdir(parents=True, exist_ok=True)
-    protocol = json.loads(required_text(PROTOCOL_MANIFEST))
-    repo_protocol = str(protocol["repo_protocol_version"])
+    protocol_manifest = json.loads(required_text(PROTOCOL_MANIFEST))
+    repo_protocol = str(protocol_manifest["repo_protocol_version"])
+    esp32_protocol = str(protocol_manifest["esp32_dualeye_min_protocol"])
+    t114_protocol = str(protocol_manifest["heltec_t114_min_protocol"])
     esp32_fw = extract_esp32_fw()
     t114_fw = extract_t114_fw()
-    esp32_files = validate_esp32(bundle, not args.skip_esp32)
+    esp32_files = validate_esp32(
+        bundle,
+        not args.skip_esp32,
+        fw=esp32_fw,
+        protocol=esp32_protocol,
+        repo_protocol=repo_protocol,
+    )
     t114_file = validate_t114(bundle, not args.skip_t114)
 
     manifest = {
@@ -149,6 +174,7 @@ def main() -> int:
         "dependencies_gated_before_build": True,
         "hardware_contract_checked": True,
         "protocol_contract_checked": True,
+        "compiled_identity_markers_checked": True,
         "esp32": {
             "target": "Waveshare ESP32-S3 DualEye 1.28 non-touch",
             "included": not args.skip_esp32,
@@ -159,7 +185,7 @@ def main() -> int:
             "runtime_identity": {
                 "device": "esp32-s3-dualeye",
                 "fw": esp32_fw,
-                "protocol": str(protocol["esp32_dualeye_min_protocol"]),
+                "protocol": esp32_protocol,
                 "repo_protocol_version": repo_protocol,
             },
             "files": esp32_files,
@@ -173,7 +199,7 @@ def main() -> int:
             "runtime_identity": {
                 "device": "heltec-t114",
                 "fw": t114_fw,
-                "protocol": str(protocol["heltec_t114_min_protocol"]),
+                "protocol": t114_protocol,
                 "repo_protocol_version": repo_protocol,
             },
             "file": t114_file,
