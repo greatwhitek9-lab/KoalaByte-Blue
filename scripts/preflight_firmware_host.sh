@@ -9,6 +9,7 @@ MIN_FLASH_FREE_KB="${KOALABYTE_MIN_FLASH_FREE_KB:-1048576}"
 MIN_TOTAL_MEMORY_KB="${KOALABYTE_MIN_TOTAL_MEMORY_KB:-2097152}"
 STRICT_POWER="${KOALABYTE_STRICT_POWER_PREFLIGHT:-1}"
 AUTO_BUILD_SWAP="${KOALABYTE_AUTO_BUILD_SWAP:-1}"
+ALLOW_SUDO_WRAPPED_INSTALL="${KOALABYTE_ALLOW_SUDO_WRAPPED_INSTALL:-0}"
 
 usage() {
   cat <<'EOF'
@@ -19,10 +20,9 @@ Usage:
   bash scripts/preflight_firmware_host.sh --before-build
   bash scripts/preflight_firmware_host.sh --before-flash
 
-The install gate checks architecture, storage, writability, clock, and Pi power
-before APT or pip writes begin. The build gate additionally checks HTTPS and
-provisions controlled swap when necessary. The flash gate rechecks power and
-storage immediately before either peripheral is modified.
+Run the installer as the normal SSH/login user, not with `sudo bash`. The scripts
+request sudo only for APT, systemd, udev, mounts, and other privileged operations.
+This keeps PlatformIO, NCS, cache, and build paths under one consistent HOME.
 EOF
 }
 
@@ -50,6 +50,9 @@ is_enabled() {
 }
 
 if [[ "${MODE}" == "before-install" || "${MODE}" == "before-build" ]]; then
+  if [[ "${EUID}" -eq 0 && -n "${SUDO_USER:-}" ]] && ! is_enabled "${ALLOW_SUDO_WRAPPED_INSTALL}"; then
+    failures+=("do not run the installer as 'sudo bash'; exit the root shell and run 'bash one-shot-install.sh' as ${SUDO_USER}, because sudo-wrapping splits HOME and firmware tool ownership")
+  fi
   case "${arch}" in
     x86_64|amd64|aarch64|arm64) ;;
     armv6l|armv7l)
@@ -142,13 +145,15 @@ WARNINGS_TEXT="$(printf '%s\n' "${warnings[@]:-}")" \
 FAILURES_TEXT="$(printf '%s\n' "${failures[@]:-}")" \
 python3 - "${STATUS_PATH}" "${status}" "${reason}" "${MODE}" "${arch}" \
   "${long_bits}" "${model}" "${available_kb:-0}" "${mem_kb}" "${swap_kb}" \
-  "${throttled_raw}" <<'PY'
+  "${throttled_raw}" "$(id -un)" "${SUDO_USER:-}" "${HOME}" <<'PY'
 import json, os, sys, time
 from pathlib import Path
-(path, status, reason, mode, arch, bits, model, free_kb, mem_kb, swap_kb, throttled) = sys.argv[1:]
+(path, status, reason, mode, arch, bits, model, free_kb, mem_kb, swap_kb,
+ throttled, effective_user, sudo_user, home) = sys.argv[1:]
 Path(path).write_text(json.dumps({
     "status": status, "reason": reason, "mode": mode, "architecture": arch,
     "userspace_bits": int(bits) if bits.isdigit() else 0, "model": model,
+    "effective_user": effective_user, "sudo_user": sudo_user, "home": home,
     "free_gib": round(int(free_kb) / 1024 / 1024, 2),
     "memory_mib": round(int(mem_kb) / 1024, 1),
     "swap_mib": round(int(swap_kb) / 1024, 1),
@@ -161,6 +166,7 @@ PY
 
 echo "== KoalaByte firmware host preflight (${MODE}) =="
 echo "Host: ${model:-unknown} ${arch} (${long_bits}-bit)"
+echo "User: $(id -un) HOME=${HOME}${SUDO_USER:+ sudo_user=${SUDO_USER}}"
 echo "Storage: $((available_kb / 1024 / 1024)) GiB free"
 echo "Memory: $((mem_kb / 1024)) MiB RAM + $((swap_kb / 1024)) MiB swap"
 echo "Power: ${throttled_raw}"
