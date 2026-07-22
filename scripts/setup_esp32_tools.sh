@@ -21,6 +21,9 @@ if command -v getent >/dev/null 2>&1; then
 fi
 ESP32_TOOLS_VENV="${ESP32_TOOLS_VENV:-${INSTALL_HOME}/.venvs/platformio}"
 ESP32_USER_BIN="${INSTALL_HOME}/.local/bin"
+ESP32_TMPDIR="${KOALABYTE_TMPDIR:-${TMPDIR:-${INSTALL_HOME}/.cache/koalabyte/tmp}}"
+mkdir -p "${ESP32_TMPDIR}"
+export TMPDIR="${ESP32_TMPDIR}" TMP="${ESP32_TMPDIR}" TEMP="${ESP32_TMPDIR}"
 
 usage() {
   cat <<'EOF'
@@ -29,8 +32,8 @@ KoalaByte Blue ESP32/PlatformIO setup helper
 The isolated environment pins PlatformIO Core 6.1.19 and edge-tts 7.2.8.
 Python 3.13+ also receives audioop-lts because the embedded William response
 builder still uses the standard audioop import removed from Python 3.13.
-Python package downloads and individual Edge TTS synthesis calls retry transient
-network failures without modifying the Pi runtime virtual environment.
+Pip, PlatformIO, and voice generation use persistent SD-card temporary storage;
+package downloads and individual Edge TTS synthesis calls retry transient failures.
 EOF
 }
 
@@ -52,7 +55,9 @@ install_enabled() {
 strict_enabled() { [[ "${STRICT_ESP32_TOOLS}" == "1" ]]; }
 run_as_install_user() {
   if [[ "$(id -u)" == "0" && "${INSTALL_USER}" != "root" ]]; then
-    sudo -u "${INSTALL_USER}" -H env HOME="${INSTALL_HOME}" "$@"
+    sudo -u "${INSTALL_USER}" -H env \
+      HOME="${INSTALL_HOME}" TMPDIR="${ESP32_TMPDIR}" \
+      TMP="${ESP32_TMPDIR}" TEMP="${ESP32_TMPDIR}" "$@"
   else
     "$@"
   fi
@@ -133,9 +138,13 @@ ensure_ffmpeg() {
   command -v ffmpeg >/dev/null 2>&1 && return 0
   [[ "${CHECK_ONLY}" == "1" ]] && return 1
   install_enabled || return 1
-  if [[ "$(id -u)" == "0" ]]; then runner=(apt-get); else runner=(sudo apt-get); fi
-  DEBIAN_FRONTEND=noninteractive "${runner[@]}" -o Acquire::Retries=3 update
-  DEBIAN_FRONTEND=noninteractive "${runner[@]}" -o Acquire::Retries=3 install -y ffmpeg
+  if [[ "$(id -u)" == "0" ]]; then
+    runner=(env DEBIAN_FRONTEND=noninteractive apt-get)
+  else
+    runner=(sudo env DEBIAN_FRONTEND=noninteractive apt-get)
+  fi
+  "${runner[@]}" -o Acquire::Retries=3 update
+  "${runner[@]}" -o Acquire::Retries=3 install -y ffmpeg
 }
 
 if [[ "${CHECK_ONLY}" != "1" ]] && install_enabled; then
@@ -146,6 +155,7 @@ missing=0
 echo "== KoalaByte Blue ESP32 tool setup =="
 echo "Install user: ${INSTALL_USER}"
 echo "PlatformIO venv: ${ESP32_TOOLS_VENV}"
+echo "Persistent temp: ${ESP32_TMPDIR}"
 if [[ -x "${ESP32_TOOLS_VENV}/bin/pio" ]]; then
   actual_pio="$("${ESP32_TOOLS_VENV}/bin/python" -c 'import importlib.metadata; print(importlib.metadata.version("platformio"))' 2>/dev/null || true)"
   echo "PlatformIO Core: ${actual_pio:-unknown}"
