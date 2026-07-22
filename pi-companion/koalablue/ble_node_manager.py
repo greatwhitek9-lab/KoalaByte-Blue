@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import glob
 import json
+import os
 import queue
 import threading
 import time
@@ -12,6 +13,7 @@ from typing import Any, Iterable
 
 from .ble_event_log import BleEventDeduper, BleEventLog, normalize_ble_event
 from .ble_role_coordinator import elect_ble_roles, write_role_status
+from .bounded_log import append_jsonl
 from .gnss_location import write_gnss_status_event, write_primary_t114_fix_event
 
 PRIMARY_USB_PORT_HINTS = (
@@ -26,12 +28,24 @@ PRIMARY_USB_PORT_HINTS = (
     "ttyacm",
 )
 DEFAULT_BAUD = 115200
+PRIMARY_STATUS_TYPES = {
+    "node_roles",
+    "ble_status",
+    "ble_tx_status",
+    "gnss_status",
+    "gnss_fix",
+    "heltec_mouth_status",
+    "killerkoala_tft_ack",
+    "status",
+    "boot",
+}
 
 
 def candidate_usb_ports() -> list[str]:
     ports: list[str] = []
     for pattern in (
         "/dev/koalabyte-heltec",
+        "/dev/koalabyte-heltec-t114",
         "/dev/serial/by-id/*",
         "/dev/ttyACM*",
         "/dev/ttyUSB*",
@@ -148,11 +162,8 @@ class PiBluezSecondaryScanner:
 class BleNodeManager:
     """Coordinate Heltec-primary BLE/GNSS with elected Pi-or-ESP32 BLE nodes.
 
-    The Heltec T114 remains the primary BLE controller and canonical passive BLE
-    source. Raspberry Pi BlueZ is the preferred companion BLE node. If the Pi
-    adapter is absent, powered off, blocked, or disabled, the serial-owning
-    DualEye voice bridge activates the ESP32-S3 guarded fallback node. This class
-    never competes for the ESP32 serial port during normal service operation.
+    This service is the exclusive Heltec serial owner. It publishes a sanitized,
+    atomic status snapshot so menu/status readers never reopen the T114 tty.
     """
 
     def __init__(
@@ -173,14 +184,35 @@ class BleNodeManager:
             baud,
         )
         self.dongle = self.primary_ble
-        # Retained only for explicit manual compatibility. The production service
-        # leaves this unset because the voice bridge owns the ESP32 serial port.
+        # Explicit diagnostics only. Production leaves this empty because the
+        # DualEye voice bridge exclusively owns ESP32 serial.
         self.esp32 = (
             SerialBleNode("esp32-s3-dualeye", esp32_port, "manual_secondary", baud)
             if esp32_port
             else None
         )
         self.log = BleEventLog(log_dir)
+        self.status_path = self.log.log_dir / "t114_status_snapshot.json"
+        self.status_history_path = self.log.log_dir / "t114_status_events.jsonl"
+        self._t114_status: dict[str, Any] = {
+            "status": "waiting_for_primary",
+            "source": self.primary_ble.name,
+            "port": self.primary_ble.port,
+            "online": False,
+            "responding": False,
+            "ble_ready": False,
+            "ble_scan_active": False,
+            "gnss_enabled": False,
+            "gnss_has_fix": False,
+            "tx_status": "off",
+            "tx_active": False,
+            "tx_reason": "",
+            "last_event_type": "",
+            "error": "",
+            "coordinates_persisted_here": False,
+            "updated_at": time.time(),
+        }
+        self._write_t114_status()
         self.deduper = BleEventDeduper()
         self.secondary_queue: queue.Queue[dict[str, Any]] = queue.Queue()
         self.election = elect_ble_roles(requested_by="ble_node_manager")
@@ -189,6 +221,106 @@ class BleNodeManager:
             self.secondary_queue,
             enabled=pi_bluez and self.election.pi_probe.available,
         )
+
+    def _write_t114_status(self) -> None:
+        self.status_path.parent.mkdir(parents=True, exist_ok=True)
+        self._t114_status["updated_at"] = time.time()
+        temp = self.status_path.with_name(
+            f".{self.status_path.name}.tmp.{os.getpid()}.{time.time_ns()}"
+        )
+        temp.write_text(
+            json.dumps(self._t114_status, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temp, self.status_path)
+        append_jsonl(self.status_history_path, dict(self._t114_status))
+
+    def _is_primary_payload(self, payload: dict[str, Any]) -> bool:
+        return payload.get("source") in {
+            "heltec-t114-nrf52840",
+            "heltec-t114",
+            self.primary_ble.name,
+        }
+
+    def _handle_primary_status_payload(self, payload: dict[str, Any]) -> None:
+        if not self._is_primary_payload(payload):
+            return
+        event_type = str(payload.get("type") or "")
+        if event_type == "node_error":
+            self._t114_status.update(
+                {
+                    "status": "serial_error",
+                    "online": False,
+                    "responding": False,
+                    "error": str(payload.get("message") or "Heltec serial error")[:240],
+                    "last_event_type": event_type,
+                }
+            )
+            self._write_t114_status()
+            return
+        if event_type not in PRIMARY_STATUS_TYPES and event_type != "ble_seen":
+            return
+
+        self._t114_status.update(
+            {
+                "status": "responding",
+                "online": True,
+                "responding": True,
+                "port": self.primary_ble.port,
+                "error": "",
+                "last_event_type": event_type,
+            }
+        )
+        if event_type == "node_roles":
+            self._t114_status["ble_ready"] = True
+        elif event_type == "ble_status":
+            self._t114_status["ble_ready"] = bool(
+                payload.get("ble_ready", self._t114_status["ble_ready"])
+            )
+            self._t114_status["ble_scan_active"] = bool(
+                payload.get(
+                    "scan_active",
+                    payload.get(
+                        "ble_scan_active", self._t114_status["ble_scan_active"]
+                    ),
+                )
+            )
+        elif event_type == "ble_tx_status":
+            raw = str(payload.get("status") or "").lower()
+            active = bool(payload.get("adv_active", False)) or raw == "started"
+            self._t114_status["tx_active"] = active
+            self._t114_status["tx_reason"] = str(payload.get("reason") or "")[:160]
+            self._t114_status["tx_status"] = (
+                "blocked" if raw == "blocked" else ("on" if active else "off")
+            )
+        elif event_type == "gnss_status":
+            self._t114_status["gnss_enabled"] = bool(
+                payload.get(
+                    "enabled",
+                    payload.get("gnss_ready", self._t114_status["gnss_enabled"]),
+                )
+            )
+            self._t114_status["gnss_has_fix"] = bool(
+                payload.get("has_fix", self._t114_status["gnss_has_fix"])
+            )
+        elif event_type == "gnss_fix":
+            # Coordinates are stored only by the protected GNSS module, not here.
+            self._t114_status["gnss_enabled"] = True
+            self._t114_status["gnss_has_fix"] = True
+        elif event_type in {"heltec_mouth_status", "killerkoala_tft_ack"}:
+            self._t114_status["gnss_enabled"] = bool(
+                payload.get("gnss_enabled", self._t114_status["gnss_enabled"])
+            )
+            self._t114_status["ble_scan_active"] = bool(
+                payload.get(
+                    "ble_scan_active", self._t114_status["ble_scan_active"]
+                )
+            )
+            active = bool(payload.get("ble_tx_active", self._t114_status["tx_active"]))
+            self._t114_status["tx_active"] = active
+            if active:
+                self._t114_status["tx_status"] = "on"
+        self._write_t114_status()
 
     def iter_serial_json(
         self,
@@ -221,9 +353,9 @@ class BleNodeManager:
                             payload.get("type") == "node_error"
                             and payload.get("source") == "raspberry-pi-bluez"
                         ):
-                            # The voice bridge independently polls the same health
-                            # state and owns the command that activates ESP32 BLE.
-                            election = elect_ble_roles(requested_by="bluez_runtime_error")
+                            election = elect_ble_roles(
+                                requested_by="bluez_runtime_error"
+                            )
                             write_role_status(
                                 election,
                                 self.log.log_dir / "ble_role_election.json",
@@ -257,11 +389,7 @@ class BleNodeManager:
                     pass
 
     def _handle_primary_gnss_payload(self, payload: dict[str, Any]) -> None:
-        if payload.get("source") not in {
-            "heltec-t114-nrf52840",
-            "heltec-t114",
-            self.primary_ble.name,
-        }:
+        if not self._is_primary_payload(payload):
             return
         if payload.get("type") == "gnss_fix":
             write_primary_t114_fix_event(payload)
@@ -274,6 +402,7 @@ class BleNodeManager:
             nodes.append(self.esp32)
 
         for payload in self.iter_serial_json(nodes, duration_seconds=duration_seconds):
+            self._handle_primary_status_payload(payload)
             self._handle_primary_gnss_payload(payload)
             if payload.get("type") == "ble_seen":
                 payload = dict(payload)
