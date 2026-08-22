@@ -20,7 +20,8 @@ Usage:
 The helper refreshes APT metadata before resolving Bookworm/Trixie package
 variants, fails early when core runtime/build packages are unavailable, accepts
 an available gpiozero backend instead of requiring one distro-specific package,
-treats packet-review/CAN/terminal utilities and distro PocketSphinx packages as
+requires Raspberry Pi power-state tooling for strict preflight, treats
+packet-review/CAN/terminal utilities and distro PocketSphinx packages as
 optional, retries APT, and passes DEBIAN_FRONTEND through sudo explicitly.
 EOF
 }
@@ -81,7 +82,7 @@ required_packages=(
   python3-gpiozero python3-serial python3-dbus python3-gi python3-httpx
   build-essential pkg-config cmake ninja-build gperf ccache device-tree-compiler
   wget curl xz-utils file make gcc g++ libffi-dev libssl-dev usbutils udev kmod
-  util-linux libusb-1.0-0 libusb-1.0-0-dev
+  util-linux raspi-utils libusb-1.0-0 libusb-1.0-0-dev
   libsdl2-2.0-0 fontconfig fonts-dejavu-core fonts-liberation
   network-manager wpasupplicant iw dhcpcd-base dnsutils iputils-ping
   bluetooth bluez rfkill sqlite3 iproute2 gpiod
@@ -148,7 +149,7 @@ fi
 apt_retry install -y "${packages[@]}"
 
 echo "System package setup complete."
-for command in cmake ninja espeak-ng ffmpeg fc-list lsusb udevadm bluetoothctl aplay; do
+for command in cmake ninja espeak-ng ffmpeg fc-list lsusb udevadm bluetoothctl aplay vcgencmd; do
   if command -v "${command}" >/dev/null 2>&1; then
     echo "  ${command}: $(command -v "${command}")"
   else

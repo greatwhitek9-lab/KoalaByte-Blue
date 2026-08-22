@@ -40,7 +40,8 @@ required. Immediately before flashing, the host power state is checked again.
 Only schema-2, partition-bounded bundles are accepted, and each selected board
 must report the exact bundled firmware and protocol identity after flashing.
 Recovery states are accepted: a T114 already exposing HT-n5262 UF2 is flashable,
-and ESP32 presence is proven by the flasher's non-destructive chip_id probe.
+and ESP32-S3 identity is proven by a non-writing chip_id probe before either
+board is written, then confirmed again immediately before ESP32 write_flash.
 EOF
 }
 
@@ -93,6 +94,7 @@ Path(path).write_text(json.dumps({
     "service_restart_deferred": defer_restart == "1",
     "build_tool_cleanup_requested": cleanup_tools.lower() in {"1", "true", "yes", "on", "auto"},
     "pre_flash_power_gate": True,
+    "transactional_target_preflight": True,
     "schema_2_bundle_required": True,
     "exact_runtime_identity_required": True,
     "failure_restores_services": True,
@@ -148,6 +150,7 @@ validate_contract() {
   bash -n scripts/build_whole_system_firmware.sh
   bash -n scripts/flash_t114_current_uf2.sh
   bash -n scripts/flash_esp32_dualeye_current.sh
+  bash -n scripts/probe_esp32_s3.sh
   bash -n scripts/enter_t114_uf2_bootloader.sh
   bash -n scripts/cleanup_firmware_build_tools.sh
   bash -n scripts/preflight_firmware_host.sh
@@ -188,14 +191,9 @@ discover_required_devices() {
     # shellcheck disable=SC1091
     source logs/preflight/koalabyte_ports.env
   fi
-  [[ "${REQUIRE_ALL}" == "1" ]] || return 0
 
-  # Do not reject an ESP32-S3 simply because it is already in ROM/download mode
-  # and lacks the normal runtime alias. The ESP32 flasher is the authoritative
-  # presence/identity gate: it probes candidate ports with `esptool chip_id`
-  # before the first write_flash command and fails closed if no ESP32-S3 answers.
-  if [[ "${SKIP_ESP32}" != "1" ]]; then
-    echo "ESP32-S3 presence will be validated by the non-destructive chip_id probe immediately before write_flash."
+  if [[ "${REQUIRE_ALL}" != "1" ]]; then
+    echo "KOALABYTE_REQUIRE_ALL_PERIPHERALS=${REQUIRE_ALL} no longer bypasses selected-target safety preflight; every selected target must be proven before the first write." >&2
   fi
 
   if [[ "${SKIP_T114}" != "1" ]]; then
@@ -211,6 +209,22 @@ discover_required_devices() {
       return 1
     fi
   fi
+
+  if [[ "${SKIP_ESP32}" != "1" ]]; then
+    bash scripts/probe_esp32_s3.sh
+    [[ -f logs/preflight/esp32_chip_probe.env ]] || {
+      echo "ESP32-S3 probe succeeded without producing the verified-port environment." >&2
+      return 1
+    }
+    # shellcheck disable=SC1091
+    source logs/preflight/esp32_chip_probe.env
+    export ESP32_PORT KOALABYTE_ESP32_FACE_PORT
+    [[ -n "${ESP32_PORT:-}" && -e "${ESP32_PORT}" ]] || {
+      echo "ESP32-S3 verified port disappeared before the transactional preflight completed." >&2
+      return 1
+    }
+    echo "ESP32-S3 transactional preflight verified: ${ESP32_PORT}"
+  fi
 }
 
 CURRENT_STEP="source_contract"
@@ -218,7 +232,7 @@ validate_contract
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   bash scripts/build_whole_system_firmware.sh --check-only
   python3 scripts/check_whole_system_deployment.py --source-only
-  write_status check_only_ready "Whole-system build/flash source, hardware, protocol, recovery-state, and bundle contracts validated without touching hardware."
+  write_status check_only_ready "Whole-system build/flash source, hardware, protocol, recovery-state, transactional-target, and bundle contracts validated without touching hardware."
   trap - ERR
   exit 0
 fi
@@ -284,7 +298,7 @@ else
 fi
 
 CURRENT_STEP="complete"
-write_status complete "Firmware was built or selected, schema-2 validated, power-gated, recovery-state checked, flashed, and exact firmware/protocol identities were rediscovered."
+write_status complete "Firmware was built or selected, schema-2 validated, power-gated, all selected targets transactionally preflighted, flashed, and exact firmware/protocol identities were rediscovered."
 trap - ERR
 restore_services 0
 echo "Whole-system peripheral firmware deployment complete."

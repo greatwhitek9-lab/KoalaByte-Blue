@@ -23,9 +23,11 @@ Usage:
 
 Installation/build requires 64-bit Raspberry Pi OS Bookworm or Trixie, Python
 3.10-3.13, a consistent non-root HOME, adequate persistent storage and memory,
-and a clean Raspberry Pi power state. CI source builds may explicitly set
-KOALABYTE_ALLOW_GENERIC_LINUX_BUILD_HOST=1 to use a supported 64-bit Linux
-Zephyr build host without relaxing real install or flash policy.
+and a clean Raspberry Pi power state. With strict power preflight enabled, an
+actual Raspberry Pi must provide a parseable vcgencmd power/throttle state.
+CI source builds may explicitly set KOALABYTE_ALLOW_GENERIC_LINUX_BUILD_HOST=1
+to use a supported 64-bit Linux Zephyr build host without relaxing real install
+or flash policy.
 EOF
 }
 
@@ -47,6 +49,8 @@ arch="$(uname -m)"
 long_bits="$(getconf LONG_BIT 2>/dev/null || echo 0)"
 model=""
 [[ -r /proc/device-tree/model ]] && model="$(tr -d '\0' </proc/device-tree/model)"
+is_raspberry_pi=0
+[[ "${model}" == *"Raspberry Pi"* ]] && is_raspberry_pi=1
 
 is_enabled() {
   case "$1" in 1|true|True|yes|YES|on|ON|auto|AUTO) return 0 ;; *) return 1 ;; esac
@@ -115,7 +119,19 @@ if command -v vcgencmd >/dev/null 2>&1; then
     (( throttled_value & 0x80008 )) && warnings+=("Raspberry Pi temperature limiting is current or has occurred since boot (${throttled_raw}); provide airflow")
     (( throttled_value & 0x60006 )) && warnings+=("Raspberry Pi frequency capping or throttling is current or has occurred since boot (${throttled_raw})")
   else
-    warnings+=("could not parse Raspberry Pi power state: ${throttled_raw}")
+    message="could not parse Raspberry Pi power state: ${throttled_raw}"
+    if [[ "${is_raspberry_pi}" == "1" ]] && is_enabled "${STRICT_POWER}"; then
+      failures+=("${message}; strict power preflight requires a valid vcgencmd get_throttled result")
+    else
+      warnings+=("${message}")
+    fi
+  fi
+elif [[ "${is_raspberry_pi}" == "1" ]]; then
+  message="vcgencmd is unavailable on Raspberry Pi hardware, so under-voltage/throttle state cannot be verified"
+  if is_enabled "${STRICT_POWER}"; then
+    failures+=("${message}; install/restore Raspberry Pi vcgencmd tooling before flashing")
+  else
+    warnings+=("${message}")
   fi
 fi
 
@@ -163,19 +179,21 @@ WARNINGS_TEXT="$(printf '%s\n' "${warnings[@]:-}")" \
 FAILURES_TEXT="$(printf '%s\n' "${failures[@]:-}")" \
 python3 - "${STATUS_PATH}" "${status}" "${reason}" "${MODE}" "${arch}" \
   "${long_bits}" "${model}" "${available_kb:-0}" "${mem_kb}" "${swap_kb}" \
-  "${throttled_raw}" "$(id -un)" "${SUDO_USER:-}" "${HOME}" <<'PY'
+  "${throttled_raw}" "$(id -un)" "${SUDO_USER:-}" "${HOME}" "${is_raspberry_pi}" <<'PY'
 import json, os, sys, time
 from pathlib import Path
 (path, status, reason, mode, arch, bits, model, free_kb, mem_kb, swap_kb,
- throttled, effective_user, sudo_user, home) = sys.argv[1:]
+ throttled, effective_user, sudo_user, home, is_raspberry_pi) = sys.argv[1:]
 Path(path).write_text(json.dumps({
     "status": status, "reason": reason, "mode": mode, "architecture": arch,
     "userspace_bits": int(bits) if bits.isdigit() else 0, "model": model,
+    "is_raspberry_pi": is_raspberry_pi == "1",
     "effective_user": effective_user, "sudo_user": sudo_user, "home": home,
     "free_gib": round(int(free_kb) / 1024 / 1024, 2),
     "memory_mib": round(int(mem_kb) / 1024, 1),
     "swap_mib": round(int(swap_kb) / 1024, 1),
     "raspberry_pi_throttled": throttled,
+    "strict_power_unknown_is_failure": True,
     "warnings": [x for x in os.environ.get("WARNINGS_TEXT", "").splitlines() if x],
     "failures": [x for x in os.environ.get("FAILURES_TEXT", "").splitlines() if x],
     "updated_at": time.time(),
