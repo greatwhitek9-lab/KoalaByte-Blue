@@ -29,6 +29,16 @@ def require_once(text: str, marker: str, label: str) -> None:
         raise AssertionError(f"{label} expected exactly once, found {count}: {marker}")
 
 
+def function_block(text: str, signature: str, label: str) -> str:
+    start = text.find(signature)
+    if start < 0:
+        raise AssertionError(f"{label} function signature not found: {signature}")
+    end = text.find("\n}\n\nstatic ", start)
+    if end < 0:
+        raise AssertionError(f"{label} function terminator not found")
+    return text[start : end + 2]
+
+
 def validate_esp32(manifest: dict[str, object]) -> dict[str, str]:
     config = (ESP32 / "include/config.h").read_text(encoding="utf-8")
     protocol = str(manifest["esp32_dualeye_min_protocol"])
@@ -107,13 +117,18 @@ def validate_t114(manifest: dict[str, object]) -> dict[str, str]:
         f'#define KOALA_REPO_PROTOCOL_VERSION "{repo_version}"',
         "T114 patched repository protocol declaration",
     )
-    require_once(patched, r'\"protocol\":\"%s\"', "T114 status protocol field")
-    require_once(
+    mouth_status = function_block(
         patched,
+        "static void emit_mouth_status(void)",
+        "T114 mouth status",
+    )
+    require_once(mouth_status, r'\"protocol\":\"%s\"', "T114 status protocol field")
+    require_once(
+        mouth_status,
         r'\"repo_protocol_version\":\"%s\"',
         "T114 status repository protocol field",
     )
-    require_once(patched, r'\"tone\":\"%s\"', "T114 tone-aware status field")
+    require_once(mouth_status, r'\"tone\":\"%s\"', "T114 tone-aware status field")
     require_once(
         patched,
         'strstr(line, "\\\"type\\\":\\\"status\\\"")',
