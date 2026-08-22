@@ -43,6 +43,11 @@ def validate_esp32(manifest: dict[str, object]) -> dict[str, str]:
     source = (ESP32 / "src/integrated_main.cpp").read_text(encoding="utf-8")
     old = '  doc["fw"] = KOALABLUE_FW_VERSION;\n  doc["touch"] = false;\n'
     require_once(source, old, "ESP32 node-status protocol anchor")
+    require_once(
+        source,
+        '!strcmp(type, "node_status")',
+        "ESP32 post-flash node_status request route",
+    )
     patched = source.replace(
         old,
         '  doc["fw"] = KOALABLUE_FW_VERSION;\n'
@@ -63,7 +68,11 @@ def validate_esp32(manifest: dict[str, object]) -> dict[str, str]:
     protocol_pos = platformio.find("pre:scripts/patch_protocol_status.py")
     if release_pos < 0 or protocol_pos < 0 or protocol_pos <= release_pos:
         raise AssertionError("ESP32 protocol patch must run after release-version stamping")
-    return {"protocol": protocol, "repo_protocol_version": repo_version}
+    return {
+        "protocol": protocol,
+        "repo_protocol_version": repo_version,
+        "post_flash_probe": "node_status",
+    }
 
 
 def validate_t114(manifest: dict[str, object]) -> dict[str, str]:
@@ -105,6 +114,11 @@ def validate_t114(manifest: dict[str, object]) -> dict[str, str]:
         "T114 status repository protocol field",
     )
     require_once(patched, r'\"tone\":\"%s\"', "T114 tone-aware status field")
+    require_once(
+        patched,
+        'strstr(line, "\\\"type\\\":\\\"status\\\"")',
+        "T114 post-flash status request route",
+    )
     require_once(patched, "NRF_POWER->GPREGRET = 0x57;", "T114 UF2 GPREGRET path")
     require_once(patched, r'\"type\":\"bootloader_ack\"', "T114 UF2 acknowledgement")
     require_once(patched, 'strcmp(line, "REBOOT_UF2") == 0', "T114 UF2 command route")
@@ -117,7 +131,11 @@ def validate_t114(manifest: dict[str, object]) -> dict[str, str]:
         tone_pos < protocol_pos < bootloader_pos
     ):
         raise AssertionError("T114 generated-source order must be tone, protocol, then UF2 entry")
-    return {"protocol": protocol, "repo_protocol_version": repo_version}
+    return {
+        "protocol": protocol,
+        "repo_protocol_version": repo_version,
+        "post_flash_probe": "status",
+    }
 
 
 def main() -> int:
