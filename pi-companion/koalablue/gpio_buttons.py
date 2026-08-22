@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import os
 import queue
 import time
 from dataclasses import dataclass
@@ -31,6 +33,7 @@ class ButtonElectricalMode:
 
 
 DEFAULT_ELECTRICAL_MODE = ButtonElectricalMode()
+DEFAULT_BUTTON_MAP_PATH = Path("logs/gpio_buttons/k1_k8_map.json")
 
 
 DEFAULT_BUTTONS: Dict[str, Dict[str, object]] = {
@@ -63,6 +66,92 @@ DEFAULT_BUTTONS: Dict[str, Dict[str, object]] = {
 }
 
 
+def validate_button_map(buttons: Dict[str, Dict[str, object]]) -> None:
+    """Validate a complete K1-K8 runtime map before GPIO objects are created."""
+    if not isinstance(buttons, dict) or len(buttons) != 8:
+        raise ValueError("K1-K8 map must contain exactly eight button entries")
+
+    numbers: set[int] = set()
+    pins: set[int] = set()
+    module_keys: set[str] = set()
+    by_number: Dict[int, Dict[str, object]] = {}
+
+    for name, cfg in buttons.items():
+        if not isinstance(cfg, dict):
+            raise ValueError(f"button map entry {name!r} is not an object")
+        number = int(cfg.get("number", 0))
+        pin = int(cfg.get("pin", cfg.get("pin_bcm", -1)))
+        module_key = str(cfg.get("module_key", f"K{number}"))
+        if number not in range(1, 9):
+            raise ValueError(f"invalid K1-K8 button number in {name!r}: {number}")
+        if pin < 0:
+            raise ValueError(f"missing BCM pin for {module_key}")
+        if module_key != f"K{number}":
+            raise ValueError(f"module key {module_key!r} does not match button number {number}")
+        numbers.add(number)
+        pins.add(pin)
+        module_keys.add(module_key)
+        by_number[number] = cfg
+
+    if numbers != set(range(1, 9)):
+        raise ValueError(f"K1-K8 numbering is incomplete: {sorted(numbers)}")
+    if module_keys != {f"K{i}" for i in range(1, 9)}:
+        raise ValueError(f"K1-K8 module keys are incomplete: {sorted(module_keys)}")
+    if len(pins) != 8:
+        raise ValueError("K1-K8 BCM GPIO pins must be unique")
+
+    protected = ((7, "power_toggle", 2.5), (8, "reset", 3.0))
+    for number, command, minimum_hold in protected:
+        cfg = by_number[number]
+        actual_command = str(cfg.get("press_command", cfg.get("command", "")))
+        if actual_command != command:
+            raise ValueError(f"K{number} must remain mapped to {command}")
+        if not bool(cfg.get("requires_hold", False)):
+            raise ValueError(f"K{number} must require a deliberate hold")
+        if float(cfg.get("hold_seconds", 0.0)) < minimum_hold:
+            raise ValueError(f"K{number} hold must be at least {minimum_hold:.1f} seconds")
+
+
+def _button_map_path(path: str | Path | None = None) -> Path:
+    if path is not None:
+        return Path(path)
+    override = os.environ.get("KOALABYTE_GPIO_BUTTON_MAP", "").strip()
+    return Path(override) if override else DEFAULT_BUTTON_MAP_PATH
+
+
+def load_button_map(path: str | Path | None = None) -> Dict[str, Dict[str, object]]:
+    """Load the installer-generated K1-K8 map, falling back safely to production defaults."""
+    map_path = _button_map_path(path)
+    try:
+        payload = json.loads(map_path.read_text(encoding="utf-8"))
+        buttons = payload.get("buttons", payload)
+        if not isinstance(buttons, dict):
+            raise ValueError("button map payload does not contain a buttons object")
+        normalized: Dict[str, Dict[str, object]] = {
+            str(name): dict(cfg) for name, cfg in buttons.items() if isinstance(cfg, dict)
+        }
+        validate_button_map(normalized)
+        return normalized
+    except FileNotFoundError:
+        return {name: dict(cfg) for name, cfg in DEFAULT_BUTTONS.items()}
+    except Exception as exc:
+        # A bad generated/custom map must never disable the controls or weaken K7/K8.
+        try:
+            append_jsonl(
+                "logs/gpio_buttons/gpio_button_map_errors.jsonl",
+                {
+                    "type": "gpio_button_map_error",
+                    "path": str(map_path),
+                    "error": str(exc),
+                    "fallback": "production_defaults",
+                    "timestamp": time.time(),
+                },
+            )
+        except Exception:
+            pass
+        return {name: dict(cfg) for name, cfg in DEFAULT_BUTTONS.items()}
+
+
 class GPIOButtonManager:
     def __init__(
         self,
@@ -70,7 +159,7 @@ class GPIOButtonManager:
         log_path: str | Path = "logs/gpio_buttons.jsonl",
         electrical_mode: ButtonElectricalMode = DEFAULT_ELECTRICAL_MODE,
     ) -> None:
-        self.buttons_config = buttons or DEFAULT_BUTTONS
+        self.buttons_config = buttons if buttons is not None else load_button_map()
         self.electrical_mode = electrical_mode
         self.log_path = Path(log_path)
         self.events: "queue.Queue[ButtonEvent]" = queue.Queue()
@@ -113,6 +202,7 @@ class GPIOButtonManager:
             return
 
         try:
+            validate_button_map(self.buttons_config)
             for name, cfg in self.buttons_config.items():
                 pin = int(cfg.get("pin", cfg.get("pin_bcm")))
                 number = int(cfg.get("number", 0))
@@ -157,10 +247,11 @@ class GPIOButtonManager:
                     source="gpio_button_manager",
                     buttons_available=True,
                     extra={
+                        "button_map_path": str(_button_map_path()),
                         "protected_buttons": {
                             "K7": {"command": "power_toggle", "label": "Safe Shutdown", "hold_seconds": 2.5},
                             "K8": {"command": "reset", "label": "Reset / Reboot", "hold_seconds": 3.0},
-                        }
+                        },
                     },
                 )
             except Exception:
@@ -224,6 +315,7 @@ class GPIOButtonManager:
                 "pressed_state": self.electrical_mode.pressed_state,
                 "wiring": self.electrical_mode.wiring,
                 "control_mode": self.control_mode,
+                "button_map_path": str(_button_map_path()),
             },
         )
 
