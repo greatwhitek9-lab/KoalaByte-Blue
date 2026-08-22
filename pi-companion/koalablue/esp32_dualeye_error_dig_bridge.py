@@ -217,7 +217,9 @@ class ESP32DualEyeVoiceBridge(_SpeechSyncedBridge):
             self._log_event(event)
             return event
         finally:
-            self._audio_session_started.pop(request_id, None)
+            audio_sessions = getattr(self, "_audio_session_started", None)
+            if audio_sessions is not None:
+                audio_sessions.pop(request_id, None)
 
     def _select_error_dig(self, action: str, message: str) -> str:
         dig = generate_error_dig(action, message)
