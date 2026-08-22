@@ -38,12 +38,10 @@ def patch(source: Path, output: Path) -> None:
     )
     text = replace_once(
         text,
+        'mouth_blend_amount, speaking_active ? "true" : "false", KOALA_FW,\n',
         'mouth_blend_amount, speaking_active ? "true" : "false", KOALA_FW,\n'
-        '            (long long)(k_uptime_get() - boot_ms));',
-        'mouth_blend_amount, speaking_active ? "true" : "false", KOALA_FW,\n'
-        '            KOALA_PROTOCOL, KOALA_REPO_PROTOCOL_VERSION,\n'
-        '            (long long)(k_uptime_get() - boot_ms));',
-        "mouth status protocol arguments",
+        '           KOALA_PROTOCOL, KOALA_REPO_PROTOCOL_VERSION,\n',
+        "mouth status protocol argument tail",
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(text, encoding="utf-8")

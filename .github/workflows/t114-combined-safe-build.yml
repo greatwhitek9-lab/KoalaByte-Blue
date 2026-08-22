@@ -16,6 +16,7 @@ on:
       - "scripts/patch_uf2_family.py"
       - "scripts/verify_uf2_vector.py"
       - "scripts/setup_nrf_connect_sdk_toolchain.sh"
+      - "scripts/preflight_firmware_host.sh"
   push:
     branches: [Main, main]
     paths:
@@ -30,6 +31,7 @@ on:
       - "scripts/patch_uf2_family.py"
       - "scripts/verify_uf2_vector.py"
       - "scripts/setup_nrf_connect_sdk_toolchain.sh"
+      - "scripts/preflight_firmware_host.sh"
 
 permissions:
   contents: read
@@ -52,6 +54,7 @@ jobs:
       STRICT_NCS_TOOLCHAIN: "1"
       SKIP_NCS_UPDATE: "0"
       VALIDATE_BUILD: "0"
+      KOALABYTE_ALLOW_GENERIC_LINUX_BUILD_HOST: "1"
       T114_BOARD: heltec_t114_v2/nrf52840/uf2
       T114_BOARD_ROOT: ${{ github.workspace }}
       T114_COMBINED_APP_DIR: firmware/t114-combined-safe

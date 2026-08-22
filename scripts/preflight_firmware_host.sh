@@ -10,6 +10,7 @@ MIN_TOTAL_MEMORY_KB="${KOALABYTE_MIN_TOTAL_MEMORY_KB:-2097152}"
 STRICT_POWER="${KOALABYTE_STRICT_POWER_PREFLIGHT:-1}"
 AUTO_BUILD_SWAP="${KOALABYTE_AUTO_BUILD_SWAP:-1}"
 ALLOW_SUDO_WRAPPED_INSTALL="${KOALABYTE_ALLOW_SUDO_WRAPPED_INSTALL:-0}"
+ALLOW_GENERIC_LINUX_BUILD_HOST="${KOALABYTE_ALLOW_GENERIC_LINUX_BUILD_HOST:-0}"
 
 usage() {
   cat <<'EOF'
@@ -22,7 +23,9 @@ Usage:
 
 Installation/build requires 64-bit Raspberry Pi OS Bookworm or Trixie, Python
 3.10-3.13, a consistent non-root HOME, adequate persistent storage and memory,
-and a clean Raspberry Pi power state. Run as the normal SSH user, not sudo bash.
+and a clean Raspberry Pi power state. CI source builds may explicitly set
+KOALABYTE_ALLOW_GENERIC_LINUX_BUILD_HOST=1 to use a supported 64-bit Linux
+Zephyr build host without relaxing real install or flash policy.
 EOF
 }
 
@@ -50,7 +53,19 @@ is_enabled() {
 }
 
 if [[ "${MODE}" == "before-install" || "${MODE}" == "before-build" ]]; then
-  if ! python3 "${ROOT}/scripts/check_supported_host.py"; then
+  if [[ "${MODE}" == "before-build" ]] && is_enabled "${ALLOW_GENERIC_LINUX_BUILD_HOST}"; then
+    if ! python3 - <<'PY'
+import platform
+import sys
+ok = platform.system() == "Linux" and (3, 10) <= sys.version_info[:2] < (3, 14)
+raise SystemExit(0 if ok else 1)
+PY
+    then
+      failures+=("generic Linux firmware-build override still requires Linux with Python 3.10-3.13")
+    else
+      warnings+=("generic Linux firmware-build host override enabled; Raspberry Pi install/flash policy remains unchanged")
+    fi
+  elif ! python3 "${ROOT}/scripts/check_supported_host.py"; then
     failures+=("unsupported Raspberry Pi OS/Python host; inspect logs/preflight/supported_host.json")
   fi
   if [[ "${EUID}" -eq 0 && -n "${SUDO_USER:-}" ]] && ! is_enabled "${ALLOW_SUDO_WRAPPED_INSTALL}"; then
