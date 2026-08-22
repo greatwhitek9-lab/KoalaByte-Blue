@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify that selected boards reported the exact identities in the bundle."""
+"""Verify that selected boards reported the exact identities in the current bundle."""
 
 from __future__ import annotations
 
@@ -35,11 +35,23 @@ def normalized(identity: object, label: str) -> dict[str, str]:
     return output
 
 
+def timestamp(value: object, label: str) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(f"{label} timestamp is missing or invalid: {value!r}") from exc
+    if parsed <= 0:
+        raise RuntimeError(f"{label} timestamp must be positive: {parsed!r}")
+    return parsed
+
+
 def verify_board(
     board: str,
     bundle_section: object,
     status: dict[str, object],
-) -> dict[str, str]:
+    *,
+    bundle_built_at: float,
+) -> dict[str, object]:
     if not isinstance(bundle_section, dict):
         raise RuntimeError(f"firmware bundle is missing {board} section")
     if not bundle_section.get("included"):
@@ -48,6 +60,14 @@ def verify_board(
         raise RuntimeError(
             f"{board} flash receipt is not successful: {status.get('status')!r}"
         )
+
+    receipt_updated_at = timestamp(status.get("updated_at"), f"{board} receipt")
+    if receipt_updated_at + 0.001 < bundle_built_at:
+        raise RuntimeError(
+            f"{board} flash receipt predates the current firmware bundle: "
+            f"receipt={receipt_updated_at:.6f} bundle={bundle_built_at:.6f}"
+        )
+
     expected = normalized(bundle_section.get("runtime_identity"), f"{board} bundle")
     recorded_expected = normalized(
         status.get("expected_runtime_identity"), f"{board} recorded expected"
@@ -65,7 +85,12 @@ def verify_board(
             f"{board} observed identity does not match bundle: "
             f"bundle={expected} observed={observed}"
         )
-    return observed
+    return {
+        "identity": observed,
+        "receipt_updated_at": receipt_updated_at,
+        "bundle_built_at": bundle_built_at,
+        "receipt_is_newer_than_bundle": True,
+    }
 
 
 def main() -> int:
@@ -77,19 +102,32 @@ def main() -> int:
     args = parser.parse_args()
 
     manifest = load(args.bundle / "manifest.json")
+    if manifest.get("schema") != 2:
+        raise RuntimeError(
+            f"firmware flash verification requires schema-2 bundle, found {manifest.get('schema')!r}"
+        )
+    bundle_built_at = timestamp(manifest.get("built_at"), "firmware bundle")
     result: dict[str, object] = {
         "status": "FIRMWARE_FLASH_RECEIPTS_VERIFIED",
         "bundle": str(args.bundle.resolve()),
         "source_commit": manifest.get("source_commit"),
+        "bundle_built_at": bundle_built_at,
         "required": args.require,
+        "stale_receipts_rejected": True,
     }
     if args.require in {"all", "esp32"}:
         result["esp32"] = verify_board(
-            "esp32", manifest.get("esp32"), load(args.esp32_status)
+            "esp32",
+            manifest.get("esp32"),
+            load(args.esp32_status),
+            bundle_built_at=bundle_built_at,
         )
     if args.require in {"all", "t114"}:
         result["t114"] = verify_board(
-            "t114", manifest.get("t114"), load(args.t114_status)
+            "t114",
+            manifest.get("t114"),
+            load(args.t114_status),
+            bundle_built_at=bundle_built_at,
         )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
