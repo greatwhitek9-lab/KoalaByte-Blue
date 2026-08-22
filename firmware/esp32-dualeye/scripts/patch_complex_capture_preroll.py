@@ -216,16 +216,23 @@ def standalone_main() -> int:
         description="Apply or validate the ESP32 complex-capture pre-roll patch"
     )
     parser.add_argument("--check", action="store_true")
-    parser.add_argument(
-        "--source",
-        default=str(
-            Path(__file__).resolve().parents[1]
-            / "src"
-            / "integrated_main_wake_session.cpp"
-        ),
-    )
+    parser.add_argument("--source")
     args = parser.parse_args()
-    apply_to_source(Path(args.source), check_only=args.check)
+
+    project = Path(__file__).resolve().parents[1]
+    if args.source:
+        source = Path(args.source)
+    elif args.check:
+        # The committed wake-session source is intentionally only a placeholder.
+        # PlatformIO materializes it from the clean-voice source immediately before
+        # this patch runs. Standalone contract checks therefore validate the same
+        # stable pre-roll anchors in that canonical upstream source; the ESP32 build
+        # validates the complete generated-source pipeline.
+        source = project / "src" / "integrated_main_clean_voice.cpp"
+    else:
+        source = project / "src" / "integrated_main_wake_session.cpp"
+
+    apply_to_source(source, check_only=args.check)
     return 0
 
 
