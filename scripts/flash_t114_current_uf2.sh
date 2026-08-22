@@ -184,8 +184,7 @@ PY
 
 validate_contract
 if [[ "${CHECK_ONLY}" == "1" ]]; then
-  write_status check_only_ready \
-    "T114 checksums, UF2 vector/family, bootloader path, and exact runtime firmware/protocol identity contracts validated."
+  echo "T114 check-only validation ready; existing flash receipt preserved."
   exit 0
 fi
 

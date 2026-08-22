@@ -118,8 +118,7 @@ probe_esp32s3() {
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   "${runner[@]}" version >/dev/null 2>&1
-  write_status check_only_ready \
-    "ESP32 checksums, partition bounds, exact runtime identity, esptool, low-baud retry, and polling contracts validated."
+  echo "ESP32 check-only validation ready; existing flash receipt preserved."
   exit 0
 fi
 
