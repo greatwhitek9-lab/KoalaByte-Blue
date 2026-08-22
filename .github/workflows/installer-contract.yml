@@ -107,7 +107,7 @@ jobs:
           grep -Fq 'systemctl reset-failed ollama.service' scripts/setup_killerkoala_ollama.sh
           grep -Fq 'systemctl reset-failed mopidy.service' scripts/setup_mopidy_player.sh
           grep -Fq '#include "integrated_main.cpp"' firmware/esp32-dualeye/src/integrated_main_clean_voice.cpp
-          grep -Fq 'owned_scan_reason' pi-companion/koalublue/owned_scan_runtime.py || grep -Fq 'owned_scan_reason' pi-companion/koalablue/owned_scan_runtime.py
+          grep -Fq 'owned_scan_reason' pi-companion/koalablue/owned_scan_runtime.py
           grep -Fq 'install_owned_scan_allowlist' pi-companion/koalablue/__init__.py
           grep -Fq 'stale_receipts_rejected' scripts/check_verified_firmware_flashes.py
           for patch in patch_guarded_ble_failover.py patch_tone_expression_payloads.py patch_alarm_background.py; do
