@@ -6,7 +6,8 @@ present as runtime USB or its UF2 recovery volume. ESP32-S3 must answer a
 non-writing esptool chip_id probe before T114 flashing starts, and its flasher
 must still repeat the identity probe immediately before write_flash. On actual
 Raspberry Pi hardware, strict power mode must fail closed when vcgencmd power
-state is unavailable or unparseable.
+state is unavailable or unparseable, and the one-shot package stage must install
+the Raspberry Pi utility package that supplies that probe path.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ ESP32_PROBE = ROOT / "scripts/probe_esp32_s3.sh"
 ESP32_FLASH = ROOT / "scripts/flash_esp32_dualeye_current.sh"
 T114_BOOT = ROOT / "scripts/enter_t114_uf2_bootloader.sh"
 HOST_PREFLIGHT = ROOT / "scripts/preflight_firmware_host.sh"
+SYSTEM_PACKAGES = ROOT / "scripts/setup_system_packages.sh"
 
 
 def require(text: str, markers: tuple[str, ...], label: str) -> list[str]:
@@ -37,6 +39,7 @@ def main() -> int:
     esp32 = ESP32_FLASH.read_text(encoding="utf-8")
     t114_boot = T114_BOOT.read_text(encoding="utf-8")
     host = HOST_PREFLIGHT.read_text(encoding="utf-8")
+    packages = SYSTEM_PACKAGES.read_text(encoding="utf-8")
 
     failures.extend(
         require(
@@ -110,6 +113,17 @@ def main() -> int:
             "firmware host preflight",
         )
     )
+    failures.extend(
+        require(
+            packages,
+            (
+                "util-linux raspi-utils libusb-1.0-0",
+                "aplay vcgencmd",
+                "requires Raspberry Pi power-state tooling for strict preflight",
+            ),
+            "system package setup",
+        )
+    )
 
     obsolete = "ESP32-S3 DualEye was not detected immediately before flashing."
     if obsolete in deploy:
@@ -146,6 +160,7 @@ def main() -> int:
         "esp32_chip_id_repeated_before_write": not failures,
         "no_selected_target_written_before_global_probe": not failures,
         "strict_pi_power_unknown_rejected": not failures,
+        "pi_power_tooling_installed": not failures,
         "esp32_filename_only_rejection_removed": obsolete not in deploy,
         "failures": failures,
     }
