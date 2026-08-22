@@ -28,6 +28,7 @@ uint8_t complexPreRoll[MIC_PRE_ROLL_BLOCKS][MIC_PCM_CHUNK_BYTES] = {};
 size_t complexPreRollLengths[MIC_PRE_ROLL_BLOCKS] = {};
 uint8_t complexPreRollWrite = 0;
 uint8_t complexPreRollCount = 0;
+void resetComplexPreRoll();
 """,
         "pre-roll state",
     )
@@ -189,6 +190,7 @@ void cleanBeginUtterance(float rms) {
 
     required_markers = (
         "complexPreRoll[MIC_PRE_ROLL_BLOCKS][MIC_PCM_CHUNK_BYTES]",
+        "void resetComplexPreRoll();",
         "flushComplexPreRoll(rms);",
         'doc["pre_roll"] = preRoll;',
         "rememberComplexPreRoll(monoMic, frames * sizeof(int16_t));",
