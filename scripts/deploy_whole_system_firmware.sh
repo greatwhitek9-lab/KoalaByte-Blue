@@ -12,6 +12,7 @@ SKIP_T114=0
 BUNDLE_DIR="${KOALABYTE_FIRMWARE_BUNDLE_DIR:-${ROOT}/releases/koalabyte-blue-current}"
 STATUS_PATH="${KOALABYTE_FIRMWARE_DEPLOY_STATUS:-${ROOT}/logs/deployment/whole_system_deployment_status.json}"
 REQUIRE_ALL="${KOALABYTE_REQUIRE_ALL_PERIPHERALS:-1}"
+T114_UF2_VOLUME_NAME="${T114_UF2_VOLUME_NAME:-HT-n5262}"
 DEFER_SERVICE_RESTART="${KOALABYTE_DEFER_SERVICE_RESTART:-0}"
 CLEANUP_FIRMWARE_BUILD_TOOLS="${CLEANUP_FIRMWARE_BUILD_TOOLS:-1}"
 SERVICES=(
@@ -38,6 +39,8 @@ Source builds finish before serial services are stopped or USB devices are
 required. Immediately before flashing, the host power state is checked again.
 Only schema-2, partition-bounded bundles are accepted, and each selected board
 must report the exact bundled firmware and protocol identity after flashing.
+Recovery states are accepted: a T114 already exposing HT-n5262 UF2 is flashable,
+and ESP32 presence is proven by the flasher's non-destructive chip_id probe.
 EOF
 }
 
@@ -150,7 +153,9 @@ validate_contract() {
   bash -n scripts/preflight_firmware_host.sh
   python3 -m py_compile \
     scripts/check_whole_system_deployment.py scripts/check_firmware_bundle.py \
-    scripts/check_verified_firmware_flashes.py scripts/write_firmware_bundle_manifest.py
+    scripts/check_verified_firmware_flashes.py scripts/write_firmware_bundle_manifest.py \
+    scripts/check_flash_recovery_preflight.py
+  python3 scripts/check_flash_recovery_preflight.py
 }
 
 selected_requirement() {
@@ -169,20 +174,42 @@ verify_bundle() {
     --bundle-only --bundle-dir "${BUNDLE_DIR}"
 }
 
+t114_uf2_present() {
+  command -v lsblk >/dev/null 2>&1 || return 1
+  lsblk -pnro LABEL,FSTYPE 2>/dev/null | \
+    awk -v label="${T114_UF2_VOLUME_NAME}" \
+      '$1 == label && ($2 == "vfat" || $2 == "fat") { found=1 } END { exit(found ? 0 : 1) }'
+}
+
 discover_required_devices() {
+  local t114_runtime=""
   PYTHONPATH=pi-companion python3 scripts/discover_koalabyte_ports.py --profile heltec --output-dir logs/preflight || true
   if [[ -f logs/preflight/koalabyte_ports.env ]]; then
     # shellcheck disable=SC1091
     source logs/preflight/koalabyte_ports.env
   fi
   [[ "${REQUIRE_ALL}" == "1" ]] || return 0
-  if [[ "${SKIP_ESP32}" != "1" && -z "${ESP32_PORT:-${KOALABYTE_ESP32_FACE_PORT:-${KOALABYTE_ESP32_DUALEYE_BY_ID:-}}}" ]]; then
-    echo "ESP32-S3 DualEye was not detected immediately before flashing." >&2
-    return 1
+
+  # Do not reject an ESP32-S3 simply because it is already in ROM/download mode
+  # and lacks the normal runtime alias. The ESP32 flasher is the authoritative
+  # presence/identity gate: it probes candidate ports with `esptool chip_id`
+  # before the first write_flash command and fails closed if no ESP32-S3 answers.
+  if [[ "${SKIP_ESP32}" != "1" ]]; then
+    echo "ESP32-S3 presence will be validated by the non-destructive chip_id probe immediately before write_flash."
   fi
-  if [[ "${SKIP_T114}" != "1" && -z "${KOALABYTE_HELTEC_USB_PORT:-${KOALABYTE_PRIMARY_BLE_PORT:-${HELTEC_PORT:-}}}" && ! -e /dev/koalabyte-heltec ]]; then
-    echo "Heltec T114 was not detected immediately before flashing." >&2
-    return 1
+
+  if [[ "${SKIP_T114}" != "1" ]]; then
+    t114_runtime="${KOALABYTE_HELTEC_USB_PORT:-${KOALABYTE_PRIMARY_BLE_PORT:-${HELTEC_PORT:-}}}"
+    if [[ -n "${t114_runtime}" && -e "${t114_runtime}" ]]; then
+      echo "Heltec T114 runtime USB detected: ${t114_runtime}"
+    elif [[ -e /dev/koalabyte-heltec || -e /dev/koalabyte-heltec-t114 ]]; then
+      echo "Heltec T114 runtime alias detected."
+    elif t114_uf2_present; then
+      echo "Heltec T114 recovery UF2 volume detected: ${T114_UF2_VOLUME_NAME}"
+    else
+      echo "Heltec T114 was not detected as runtime USB or ${T114_UF2_VOLUME_NAME} UF2 recovery volume immediately before flashing." >&2
+      return 1
+    fi
   fi
 }
 
@@ -191,7 +218,7 @@ validate_contract
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   bash scripts/build_whole_system_firmware.sh --check-only
   python3 scripts/check_whole_system_deployment.py --source-only
-  write_status check_only_ready "Whole-system build/flash source, hardware, protocol, and bundle contracts validated without touching hardware."
+  write_status check_only_ready "Whole-system build/flash source, hardware, protocol, recovery-state, and bundle contracts validated without touching hardware."
   trap - ERR
   exit 0
 fi
@@ -257,7 +284,7 @@ else
 fi
 
 CURRENT_STEP="complete"
-write_status complete "Firmware was built or selected, schema-2 validated, power-gated, flashed, and exact firmware/protocol identities were rediscovered."
+write_status complete "Firmware was built or selected, schema-2 validated, power-gated, recovery-state checked, flashed, and exact firmware/protocol identities were rediscovered."
 trap - ERR
 restore_services 0
 echo "Whole-system peripheral firmware deployment complete."
