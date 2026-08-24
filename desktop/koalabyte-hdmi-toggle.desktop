@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Toggle KoalaByte HDMI
+Comment=Switch HDMI between KoalaByte Blue and Raspberry Pi OS
+Exec=/opt/KoalaByte-Blue/pi-companion/.venv/bin/python /opt/KoalaByte-Blue/scripts/set_hdmi_display_mode.py toggle
+Icon=video-display
+Terminal=false
+StartupNotify=false
+Categories=Utility;System;
+Keywords=KoalaByte;HDMI;Display;Raspberry Pi;

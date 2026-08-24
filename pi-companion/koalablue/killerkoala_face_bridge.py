@@ -199,8 +199,19 @@ def _write_result_log(filename: str, result: dict) -> None:
         fh.write(json.dumps(result, sort_keys=True) + "\n")
 
 
+def _publish_hdmi(payload: dict) -> None:
+    try:
+        from .hdmi_display_state import publish_display_event
+
+        publish_display_event(payload)
+    except Exception:
+        # HDMI is a read-only optional consumer and cannot block face fan-out.
+        pass
+
+
 def emit_face(state: str, message: str = "", *, enabled: bool = True, duration_ms: int = 4500) -> dict:
     payload = build_face_payload(state, message, enabled=enabled, duration_ms=duration_ms)
+    _publish_hdmi(payload)
     esp32_port, heltec_port = _resolve_ports()
     baud = int(os.getenv("KOALABYTE_FACE_BAUD", str(DEFAULT_BAUD)))
     disabled = bool(os.getenv("KOALABYTE_FACE_DISABLED"))
@@ -224,6 +235,7 @@ def emit_koalagotchi_status(health: int, mood: str = "") -> dict:
     """Drive the T114 cyber-mouth from the shared Koalagotchi state."""
 
     payload = build_koalagotchi_status_payload(health, mood)
+    _publish_hdmi(payload)
     _, heltec_port = _resolve_ports()
     baud = int(os.getenv("KOALABYTE_FACE_BAUD", str(DEFAULT_BAUD)))
     disabled = bool(os.getenv("KOALABYTE_FACE_DISABLED"))
@@ -243,6 +255,7 @@ def emit_speech_state(active: bool, message: str = "", *, channel: str = "pi-ai"
     """Start or stop the T114 speaking mouth for local or Pi-side AI audio."""
 
     payload = build_speech_payload(active, message, channel)
+    _publish_hdmi(payload)
     _, heltec_port = _resolve_ports()
     baud = int(os.getenv("KOALABYTE_FACE_BAUD", str(DEFAULT_BAUD)))
     disabled = bool(os.getenv("KOALABYTE_FACE_DISABLED"))
@@ -263,6 +276,8 @@ def emit_loading_frame(frame: str, action_title: str = "", *, duration_ms: int =
 
     heltec_payload = build_heltec_loading_payload(frame, action_title, duration_ms)
     esp32_payload = build_esp32_loading_eyes_payload(action_title, duration_ms)
+    _publish_hdmi(heltec_payload)
+    _publish_hdmi(esp32_payload)
     esp32_port, heltec_port = _resolve_ports()
     baud = int(os.getenv("KOALABYTE_FACE_BAUD", str(DEFAULT_BAUD)))
     disabled = bool(os.getenv("KOALABYTE_FACE_DISABLED"))

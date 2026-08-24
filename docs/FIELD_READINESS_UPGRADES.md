@@ -50,7 +50,7 @@ Templates live in `systemd/`:
 
 ```text
 koalabyte-menu.service
-koalabyte-menu-sync.service
+koalabyte-hdmi.service
 koalabyte-doctor.service
 ```
 

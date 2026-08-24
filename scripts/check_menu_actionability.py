@@ -85,6 +85,7 @@ def main() -> int:
         "xp_status": {"XP_STATUS_READY"},
         "button_map": {"BUTTON_MAP_READY"},
         "firmware_version": {"FIRMWARE_VERSION_READY"},
+        "hdmi_display_status": {"HDMI_DISPLAY_MODE_STATUS"},
         "location_gate_gnss_current": {"GNSS_FIX_READY", "GNSS_FIX_LOCKED_OR_UNAVAILABLE"},
         "koala_kapture_transmit_placeholder": {"RF_BLE_TRANSMIT_SAFETY_CHECK_COMPLETE"},
         "koala_kry_transmit_placeholder": {"RF_BLE_TRANSMIT_SAFETY_CHECK_COMPLETE"},

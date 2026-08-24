@@ -7,7 +7,7 @@ cd ~/KoalaByte-Blue
 KOALABYTE_SERVICE_USER="$(whoami)" bash one-shot-install.sh
 ```
 
-It is designed for Raspberry Pi OS Lite. No HDMI display or desktop session is required.
+It is designed for Raspberry Pi OS Lite and also supports a Raspberry Pi OS desktop. No HDMI display or desktop session is required; when a monitor is connected, the optional read-only compositor automatically shows the synchronized KoalaByte eyes, mouth, menu, and Koalagotchi.
 
 ## What the installer configures
 
@@ -16,6 +16,7 @@ It is designed for Raspberry Pi OS Lite. No HDMI display or desktop session is r
 - K1-K8 GPIO support
 - Stable Heltec and ESP32 USB aliases
 - Headless menu/action/display-sync service
+- Optional auto-detected HDMI compositor and Raspberry Pi OS display switch
 - BLE node manager service
 - ESP32 voice bridge service
 - Hardware doctor service
@@ -90,6 +91,26 @@ journalctl -u koalabyte-menu.service -n 100 --no-pager
 cat logs/runtime/headless_menu_status.json
 ```
 
+## Optional HDMI monitor
+
+`koalabyte-hdmi.service` consumes the same local display state without opening either board serial port. It preserves voice, K1-K8, ESP32, Heltec, BLE, music, and all other commands in both display modes.
+
+```bash
+./pi-companion/.venv/bin/python scripts/set_hdmi_display_mode.py desktop
+./pi-companion/.venv/bin/python scripts/set_hdmi_display_mode.py koalabyte
+./pi-companion/.venv/bin/python scripts/set_hdmi_display_mode.py toggle
+```
+
+Voice equivalents are `killerkoala show Pi OS on HDMI` and `killerkoala show KoalaByte on HDMI`. A desktop image also receives a **Toggle KoalaByte HDMI** application-menu entry. Pi OS Lite reveals its console in `desktop` mode.
+
+```bash
+systemctl status koalabyte-hdmi.service --no-pager -l
+journalctl -u koalabyte-hdmi.service -n 100 --no-pager
+PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python scripts/check_hdmi_display.py
+```
+
+See [Raspberry Pi HDMI Display Switch](HDMI_DISPLAY.md) for controls, configuration, and troubleshooting.
+
 ## USB discovery
 
 ```bash
@@ -131,7 +152,7 @@ Do not use `cansend` during installation or initial validation.
   --can-interface can0 --gpio-live
 ```
 
-The doctor inventories the Pi model, OS, service user and groups, K1-K8 states, USB aliases, serial devices, audio devices, Bluetooth, optional SocketCAN state, dependencies, and installed services.
+The doctor inventories the Pi model, OS, service user and groups, K1-K8 states, USB aliases, serial devices, audio devices, Bluetooth, optional HDMI and SocketCAN state, dependencies, and installed services.
 
 Report:
 

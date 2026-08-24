@@ -8,6 +8,7 @@
 /logs/**/*.jsonl
 /logs/**/*.log
 /logs/**/*.txt
+/logs/**/*.lock
 /logs/nrf_connect_sdk_env.sh
 /logs/nrf_connect_sdk_status.json
 

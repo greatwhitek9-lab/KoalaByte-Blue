@@ -304,6 +304,12 @@ class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
 
     def _write_heltec(self, payload: Dict[str, Any]) -> None:
         try:
+            from .hdmi_display_state import publish_display_event
+
+            publish_display_event(payload)
+        except Exception:
+            pass
+        try:
             _, heltec_port = _resolve_ports()
             _serial_write(heltec_port, self.baud, payload)
         except Exception:

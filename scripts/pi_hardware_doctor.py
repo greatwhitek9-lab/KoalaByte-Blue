@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Read-only KoalaByte Raspberry Pi OS Lite hardware and runtime inventory."""
+"""Read-only KoalaByte Raspberry Pi hardware and runtime inventory."""
 
 from __future__ import annotations
 
 import argparse
 import getpass
+import grp
 import importlib
 import json
 import os
@@ -67,6 +68,7 @@ PYTHON_IMPORTS = (
 
 SERVICES = (
     "koalabyte-menu.service",
+    "koalabyte-hdmi.service",
     "koalabyte-doctor.service",
     "koalabyte-dualeye-voice-bridge.service",
     "koalabyte-ble-node-manager.service",
@@ -227,6 +229,52 @@ def serial_inventory() -> dict[str, Any]:
     }
 
 
+def hdmi_inventory() -> dict[str, Any]:
+    connectors: dict[str, str] = {}
+    for path in sorted(Path("/sys/class/drm").glob("card*-HDMI-*/status")):
+        try:
+            connectors[str(path)] = path.read_text(encoding="utf-8").strip().lower()
+        except OSError as exc:
+            connectors[str(path)] = f"unreadable: {exc}"
+
+    state_root = Path(
+        os.getenv("KOALABYTE_HDMI_STATE_DIR", str(ROOT / "logs" / "hdmi"))
+    )
+    mode = "koalabyte"
+    mode_payload: dict[str, Any] = {}
+    mode_path = state_root / "display_mode.json"
+    try:
+        raw = json.loads(mode_path.read_text(encoding="utf-8"))
+        if isinstance(raw, dict):
+            mode_payload = raw
+            candidate = str(raw.get("mode") or "").strip().lower()
+            if candidate in {"koalabyte", "desktop"}:
+                mode = candidate
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        pass
+
+    service_status: dict[str, Any] = {}
+    status_path = state_root / "hdmi_display_status.json"
+    try:
+        raw = json.loads(status_path.read_text(encoding="utf-8"))
+        if isinstance(raw, dict):
+            service_status = raw
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        pass
+
+    return {
+        "policy": os.getenv("KOALABYTE_HDMI", "auto"),
+        "connected": any(value == "connected" for value in connectors.values()),
+        "connectors": connectors,
+        "mode": mode,
+        "mode_state": mode_payload,
+        "service_status": service_status,
+        "state_root": str(state_root),
+        "read_only_renderer": True,
+        "serial_ports_opened": False,
+    }
+
+
 def service_inventory(include_can: bool) -> dict[str, Any]:
     names = list(SERVICES)
     if include_can:
@@ -264,6 +312,11 @@ def derive_findings(payload: dict[str, Any]) -> tuple[str, list[str], list[str]]
         findings.append("Host does not identify itself as a Raspberry Pi.")
     else:
         needed_groups = {"gpio", "dialout", "audio", "video", "render", "plugdev"}
+        try:
+            grp.getgrnam("input")
+            needed_groups.add("input")
+        except KeyError:
+            pass
         missing_groups = sorted(needed_groups.difference(pi.get("groups", [])))
         if missing_groups:
             findings.append("Service user is missing hardware groups: " + ", ".join(missing_groups))
@@ -286,6 +339,13 @@ def derive_findings(payload: dict[str, Any]) -> tuple[str, list[str], list[str]]
     elif not payload["can"]["socketcan_ready"]:
         notes.append("Optional SocketCAN adapter is not present; CAN setup is skipped.")
 
+    if not payload["hdmi"]["connected"]:
+        notes.append("No connected HDMI connector was detected; the optional compositor remains idle.")
+    elif payload["hdmi"]["mode"] == "desktop":
+        notes.append("HDMI is connected and currently released to Raspberry Pi OS/console.")
+    else:
+        notes.append("HDMI is connected and currently assigned to the KoalaByte display.")
+
     if not any(item["exists"] for item in payload["serial"]["aliases"].values()):
         findings.append("KoalaByte stable serial aliases are not present.")
 
@@ -299,7 +359,7 @@ def derive_findings(payload: dict[str, Any]) -> tuple[str, list[str], list[str]]
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Inventory KoalaByte Raspberry Pi hardware and headless runtime readiness")
+    parser = argparse.ArgumentParser(description="Inventory KoalaByte Raspberry Pi hardware and optional-HDMI runtime readiness")
     parser.add_argument("--report", default=str(DEFAULT_REPORT))
     parser.add_argument("--can-interface", default=os.getenv("CAN_INTERFACE", "can0"))
     parser.add_argument("--gpio-live", action="store_true")
@@ -314,6 +374,7 @@ def main() -> int:
         "gpio": gpio_inventory(args.gpio_live),
         "can": can,
         "audio": audio_inventory(),
+        "hdmi": hdmi_inventory(),
         "serial": serial_inventory(),
         "power_controls": power_control_inventory(),
         "services": service_inventory(can["required"] or can["socketcan_ready"]),
@@ -332,6 +393,7 @@ def main() -> int:
     print(f"Pi: {payload['pi'].get('model') or payload['pi'].get('platform')}")
     print(f"GPIO live read: {payload['gpio'].get('live_read')}")
     print(f"CAN interfaces: {', '.join(can['interfaces']) if can['interfaces'] else 'none (optional)'}")
+    print(f"HDMI: {'connected' if payload['hdmi']['connected'] else 'not connected (optional)'} / {payload['hdmi']['mode']}")
     print(f"Serial aliases: {sum(1 for item in payload['serial']['aliases'].values() if item['exists'])}")
     for finding in findings:
         print(f"- {finding}")

@@ -8,6 +8,7 @@ This directory contains operational, hardware, runtime, and authorized-lab refer
 - [Install dependencies](INSTALL_DEPENDENCIES.md) — host and toolchain prerequisites.
 - [nRF Connect SDK local setup](NCS_LOCAL_SETUP.md) — Nordic/Zephyr environment setup.
 - [Pi hardware stage](PI_HARDWARE_STAGE.md) — Raspberry Pi hardware preparation.
+- [HDMI display switch](HDMI_DISPLAY.md) — optional eyes, mouth, menu, and Koalagotchi monitor output with Raspberry Pi OS switching.
 - [SD card formatter](SD_CARD_FORMATTER.md) — media preparation.
 - [Live-boot SD maintenance](LIVE_BOOT_SD_MAINTENANCE.md) — offline repair and maintenance.
 

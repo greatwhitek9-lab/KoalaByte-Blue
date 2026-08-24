@@ -66,6 +66,7 @@ def build_menu_sync_payload(menu: Any, event: Any | None = None) -> dict[str, ob
         "source": "koalabyte-blue-pi",
         "menu_name": str(getattr(menu, "menu_name", "main")),
         "menu_title": str(getattr(menu, "menu_title", "Main Canopy")),
+        "display_mode": str(getattr(menu, "display_mode", "menu")),
         "selected_index": int(getattr(menu, "selected_index", 0)),
         "selected_position": int(getattr(menu, "selected_index", 0)) + 1,
         "total_items": len(getattr(menu, "items", [])),
@@ -89,7 +90,7 @@ def build_menu_sync_payload(menu: Any, event: Any | None = None) -> dict[str, ob
         },
         "execute_hint": "Highlight a menu item, then press K3/select or touchscreen long-press to execute it. B3/select or touchscreen long-press remains a legacy alias.",
         "idle_face_rule": "After 30 seconds idle, the menu returns to animated idle eyes. Confirmed wake-word and voice-command states also show eyes.",
-        "synced_displays": ["heltec-t114", "esp32-s3-dualeye"],
+        "synced_displays": ["heltec-t114", "esp32-s3-dualeye", "raspberry-pi-hdmi"],
         "updated_at": time.time(),
     }
     if event is not None:
@@ -125,7 +126,7 @@ def build_ai_face_payload(
         "selected_command": str(getattr(selected, "command", "")) if selected else "",
         "menu_reopen_hint": "Press K1/menu or double-tap touchscreen to reopen the menu. B1 remains a legacy alias.",
         "idle_timeout_seconds": int(getattr(menu, "idle_face_seconds", 30)),
-        "synced_displays": ["heltec-t114", "esp32-s3-dualeye"],
+        "synced_displays": ["heltec-t114", "esp32-s3-dualeye", "raspberry-pi-hdmi"],
         "updated_at": time.time(),
     }
     if event is not None:
@@ -142,6 +143,14 @@ def build_ai_face_payload(
 def _write_local(payload: dict[str, object]) -> None:
     atomic_write_json(DEFAULT_STATE_PATH, payload)
     append_jsonl(DEFAULT_EVENT_PATH, payload)
+    try:
+        from .hdmi_display_state import publish_display_event
+
+        publish_display_event(payload)
+    except Exception:
+        # HDMI is an optional presentation surface. It must never break the
+        # Pi-owned menu or either board's display synchronization.
+        pass
 
 
 def _send_json_line(port: str, payload: dict[str, object]) -> tuple[bool, str]:

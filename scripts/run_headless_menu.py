@@ -11,6 +11,7 @@ from pathlib import Path
 
 from koalablue.bounded_log import append_jsonl
 from koalablue.gpio_buttons import GPIOButtonManager
+from koalablue.hdmi_display_state import drain_menu_commands
 from koalablue.killerkoala_error_dig import run_standalone_error_sequence
 from koalablue.killerkoala_runtime_limits import install_killerkoala_runtime_limits
 from koalablue.menu_display_sync import sync_menu_state
@@ -84,6 +85,8 @@ def main() -> int:
     try:
         while not stop_requested:
             button_event = buttons.get_event(timeout=max(0.01, args.poll_seconds))
+            event_payload: dict[str, object] | None = None
+            command = ""
             if button_event is not None:
                 event_payload = {
                     "type": "gpio_button_dispatch",
@@ -94,13 +97,28 @@ def main() -> int:
                     "held_seconds": button_event.held_seconds,
                     "timestamp": time.time(),
                 }
+                command = button_event.command
+            else:
+                queued = drain_menu_commands(max_items=1)
+                if queued:
+                    request = queued[0]
+                    command = str(request.get("command") or "").strip()
+                    event_payload = {
+                        "type": "hdmi_menu_command_dispatch",
+                        "command": command,
+                        "source": str(request.get("source") or "hdmi"),
+                        "submitted_at": request.get("submitted_at"),
+                        "timestamp": time.time(),
+                    }
+
+            if event_payload is not None and command:
                 append_event(event_payload)
                 try:
-                    menu_event = menu.handle_command(button_event.command)
+                    menu_event = menu.handle_command(command)
                     write_status(
                         "HEADLESS_MENU_RUNNING",
                         buttons_available=buttons.available,
-                        last_button=event_payload,
+                        last_command=event_payload,
                         last_menu_event=(
                             menu_event.__dict__ if menu_event is not None else None
                         ),
@@ -110,13 +128,13 @@ def main() -> int:
                 except Exception as exc:
                     error_event: dict[str, object] = {
                         "type": "menu_action_error",
-                        "command": button_event.command,
+                        "command": command,
                         "error": str(exc),
                         "timestamp": time.time(),
                     }
                     try:
                         error_event["error_dig_sequence"] = run_standalone_error_sequence(
-                            button_event.command,
+                            command,
                             str(exc),
                         )
                     except Exception as sequence_exc:
@@ -129,7 +147,7 @@ def main() -> int:
                     write_status(
                         "HEADLESS_MENU_ACTION_ERROR",
                         buttons_available=buttons.available,
-                        command=button_event.command,
+                        command=command,
                         error=str(exc),
                         error_dig_sequence=error_event.get("error_dig_sequence"),
                     )

@@ -8,8 +8,9 @@ CHECK_ONLY=0
 SERVICE_USER="${KOALABYTE_SERVICE_USER:-${SUDO_USER:-${USER:-pi}}}"
 SERVICE_GROUP="${KOALABYTE_SERVICE_GROUP:-}"
 INSTALL_ROOT="${KOALABYTE_SERVICE_ROOT:-/opt/KoalaByte-Blue}"
-SERVICES=(koalabyte-menu.service koalabyte-doctor.service)
+SERVICES=(koalabyte-menu.service koalabyte-hdmi.service koalabyte-doctor.service)
 OBSOLETE_SERVICE="koalabyte-menu-sync.service"
+DESKTOP_LAUNCHER="desktop/koalabyte-hdmi-toggle.desktop"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -44,6 +45,10 @@ done
   echo "Missing scripts/install_runtime_log_rotation.sh" >&2
   exit 1
 }
+[[ -f "${REPO_ROOT}/${DESKTOP_LAUNCHER}" ]] || {
+  echo "Missing Raspberry Pi OS HDMI launcher: ${DESKTOP_LAUNCHER}" >&2
+  exit 1
+}
 menu_service_text="$(cat "${REPO_ROOT}/systemd/koalabyte-menu.service")"
 for marker in \
   "scripts/run_headless_menu.py" \
@@ -56,13 +61,39 @@ for marker in \
     exit 1
   }
 done
+hdmi_service_text="$(cat "${REPO_ROOT}/systemd/koalabyte-hdmi.service")"
+for marker in \
+  "scripts/run_hdmi_display.py" \
+  "WantedBy=multi-user.target" \
+  "Restart=always" \
+  "Environment=KOALABYTE_HDMI=auto" \
+  "User=pi"; do
+  [[ "${hdmi_service_text}" == *"${marker}"* ]] || {
+    echo "koalabyte-hdmi.service missing marker: ${marker}" >&2
+    exit 1
+  }
+done
+launcher_text="$(cat "${REPO_ROOT}/${DESKTOP_LAUNCHER}")"
+for marker in \
+  "scripts/set_hdmi_display_mode.py toggle" \
+  "Terminal=false" \
+  "Type=Application"; do
+  [[ "${launcher_text}" == *"${marker}"* ]] || {
+    echo "${DESKTOP_LAUNCHER} missing marker: ${marker}" >&2
+    exit 1
+  }
+done
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   bash -n scripts/install_koalabyte_boot_services.sh
   KOALABYTE_SERVICE_USER="${SERVICE_USER}" \
     KOALABYTE_SERVICE_GROUP="${SERVICE_GROUP}" \
     bash scripts/install_runtime_log_rotation.sh --check-only
-  python3 -m py_compile scripts/run_headless_menu.py
+  python3 -m py_compile \
+    scripts/run_headless_menu.py scripts/run_hdmi_display.py \
+    scripts/set_hdmi_display_mode.py scripts/check_hdmi_display.py \
+    pi-companion/koalablue/hdmi_display.py \
+    pi-companion/koalablue/hdmi_display_state.py
   echo "KoalaByte boot service templates are ready."
   exit 0
 fi
@@ -105,6 +136,14 @@ if [[ "${REPO_ROOT}" != "${INSTALL_ROOT}" ]]; then
   fi
 fi
 
+launcher_tmp="$(mktemp)"
+sed -e "s#/opt/KoalaByte-Blue#${INSTALL_ROOT}#g" \
+  "${REPO_ROOT}/${DESKTOP_LAUNCHER}" >"${launcher_tmp}"
+"${sudo_cmd[@]}" install -d -m 0755 /usr/share/applications
+"${sudo_cmd[@]}" install -m 0644 "${launcher_tmp}" \
+  /usr/share/applications/koalabyte-hdmi-toggle.desktop
+rm -f "${launcher_tmp}"
+
 "${sudo_cmd[@]}" systemctl disable --now "${OBSOLETE_SERVICE}" >/dev/null 2>&1 || true
 "${sudo_cmd[@]}" rm -f "/etc/systemd/system/${OBSOLETE_SERVICE}"
 
@@ -124,4 +163,4 @@ for svc in "${SERVICES[@]}"; do
   "${sudo_cmd[@]}" systemctl reset-failed "${svc}" >/dev/null 2>&1 || true
 done
 "${sudo_cmd[@]}" systemctl enable "${SERVICES[@]}"
-echo "Installed KoalaByte menu/live-sync and doctor services for ${SERVICE_USER}:${SERVICE_GROUP}."
+echo "Installed KoalaByte menu/live-sync, HDMI compositor, Pi OS toggle launcher, and doctor services for ${SERVICE_USER}:${SERVICE_GROUP}."

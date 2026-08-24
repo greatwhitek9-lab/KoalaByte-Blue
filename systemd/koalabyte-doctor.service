@@ -1,7 +1,7 @@
 [Unit]
 Description=KoalaByte Blue Pi Hardware Doctor
-After=network-online.target bluetooth.service koalabyte-menu.service
-Wants=network-online.target bluetooth.service
+After=network-online.target bluetooth.service koalabyte-menu.service koalabyte-hdmi.service
+Wants=network-online.target bluetooth.service koalabyte-hdmi.service
 
 [Service]
 Type=oneshot
