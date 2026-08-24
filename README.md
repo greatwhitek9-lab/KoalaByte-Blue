@@ -14,7 +14,7 @@ The deployment includes:
 
 - **Heltec T114 / HT-n5262** — primary BLE controller, GNSS source, guarded LoRa/Meshtastic hooks, articulated KillerKoala mouth, and Koalagotchi action/alarm display.
 - **Waveshare ESP32-S3 DualEye** — wake word, saved local responses, microphone, local speaker, menu/eye display, Pi Wi-Fi/serial node, and guarded BLE fallback.
-- **Raspberry Pi OS Lite** — main brain, K1-K8 menu controller, action executor, Heltec BLE node, Wi-Fi host, TinyLlama AI, optional web research, Australian speech, Mopidy music player, logs, services, and diagnostics.
+- **Raspberry Pi OS Lite or Desktop** — main brain, K1-K8 menu controller, action executor, Heltec BLE node, Wi-Fi host, TinyLlama AI, optional web research, Australian speech, Mopidy music player, logs, services, diagnostics, and optional HDMI eyes/menu/Koalagotchi display.
 - **K1-K8 front-panel board** — physical menu navigation, protected shutdown, and protected reboot.
 
 Use the project only with systems, networks, radios, captures, vehicles, and test benches you own or are authorized to assess.
@@ -53,6 +53,8 @@ The Pi is the project’s main brain:
 
 - Executes all menu and voice actions.
 - Owns headless K1-K8 navigation and synchronized display state.
+- Auto-detects an optional HDMI monitor and renders the eyes, animated mouth, menu, Koalagotchi, speech, and alarm state without taking ownership of either board serial port.
+- Switches the same HDMI output between KoalaByte Blue and Raspberry Pi OS while voice, K1-K8, ESP32, Heltec, BLE, AI, music, and other commands keep running.
 - Preferred Heltec BLE companion node through BlueZ.
 - Coordinates fallback to ESP32 BLE when the Pi Bluetooth adapter is unavailable.
 - Runs local `killerkoala-tinyllama:latest` through Ollama.
@@ -188,6 +190,18 @@ Never connect the button board to Pi 5 V. Short taps on K7 and K8 do not emit de
 
 The current BCM20 K7 is a safe shutdown input while Linux is running. For a future wake-from-halt/power-control design, the wiring documentation retains GPIO3/physical pin 5 as an optional hardware redesign path; it is not the current default map.
 
+## Optional HDMI display and Pi OS switch
+
+Connect a monitor to the Pi to mirror the synchronized eyes, animated mouth, menu, Koalagotchi, speech, and error alarm. Switch HDMI to Raspberry Pi OS without stopping voice or any other command service:
+
+```bash
+./pi-companion/.venv/bin/python scripts/set_hdmi_display_mode.py desktop
+./pi-companion/.venv/bin/python scripts/set_hdmi_display_mode.py koalabyte
+./pi-companion/.venv/bin/python scripts/set_hdmi_display_mode.py toggle
+```
+
+You can also say `killerkoala show Pi OS on HDMI` or `killerkoala show KoalaByte on HDMI`, use the System / Companion menu, press F12 from the KoalaByte view, or select **Toggle KoalaByte HDMI** in the Raspberry Pi OS application menu. Pi OS Lite shows its normal console in desktop mode. See [Raspberry Pi HDMI Display Switch](docs/HDMI_DISPLAY.md).
+
 ## Button and menu sequence
 
 1. K1 opens the main menu.
@@ -248,11 +262,12 @@ Playback actions are integrated into the same menu, voice, display, and error li
 1. Raspberry Pi network, Bluetooth, udev, and hardware targets become available.
 2. Ollama and Mopidy start when installed.
 3. `koalabyte-menu.service` initializes K1-K8 and owns live display synchronization.
-4. `koalabyte-ble-node-manager.service` establishes Heltec-primary BLE roles.
-5. `koalabyte-dualeye-voice-bridge.service` coordinates local vocabulary, Pi execution, TinyLlama, TTS, music ducking, BLE election, and display expressions.
-6. `koalabyte-doctor.service` records diagnostics.
-7. T114 shows the boot image and transitions to the articulated mouth.
-8. DualEye enters the active cyberpunk eye/menu state.
+4. `koalabyte-hdmi.service` auto-detects an optional monitor and presents the selected KoalaByte or Pi OS mode.
+5. `koalabyte-ble-node-manager.service` establishes Heltec-primary BLE roles.
+6. `koalabyte-dualeye-voice-bridge.service` coordinates local vocabulary, Pi execution, TinyLlama, TTS, music ducking, BLE election, and display expressions.
+7. `koalabyte-doctor.service` records diagnostics.
+8. T114 shows the boot image and transitions to the articulated mouth.
+9. DualEye enters the active cyberpunk eye/menu state.
 
 The obsolete `koalabyte-menu-sync.service` is not used. Display synchronization belongs to the headless menu runtime.
 
@@ -264,10 +279,12 @@ cd ~/KoalaByte-Blue
 systemctl status ollama.service --no-pager -l
 systemctl status mopidy.service --no-pager -l
 systemctl status koalabyte-menu.service --no-pager -l
+systemctl status koalabyte-hdmi.service --no-pager -l
 systemctl status koalabyte-ble-node-manager.service --no-pager -l
 systemctl status koalabyte-dualeye-voice-bridge.service --no-pager -l
 
 ./pi-companion/.venv/bin/python scripts/test_gpio_buttons.py
+PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python scripts/check_hdmi_display.py
 ./pi-companion/.venv/bin/python scripts/pi_hardware_doctor.py \
   --can-interface can0 --gpio-live
 ```
@@ -284,6 +301,8 @@ logs/deployment/whole_system_readiness.json
 logs/preflight/koalabyte_ports.json
 logs/gpio_buttons/gpio_button_status.json
 logs/runtime/headless_menu_status.json
+logs/hdmi/hdmi_display_status.json
+logs/one_shot/hdmi_display_contract.json
 logs/killerkoala/ollama_setup_status.json
 logs/killerkoala/killerkoala_ai_readiness.json
 logs/killerkoala/error_sequence_readiness.json
@@ -301,6 +320,7 @@ PYTHONPATH=pi-companion python3 scripts/check_music_player.py
 PYTHONPATH=pi-companion python3 scripts/check_killerkoala_ai.py
 PYTHONPATH=pi-companion python3 scripts/check_ble_role_failover.py
 PYTHONPATH=pi-companion python3 scripts/check_killerkoala_error_sequence.py
+PYTHONPATH=pi-companion python3 scripts/check_hdmi_display.py
 bash scripts/check_deployability.sh
 bash one-shot-install.sh --check-only
 ```

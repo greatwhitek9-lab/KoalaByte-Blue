@@ -177,6 +177,12 @@ class ESP32DualEyeVoiceBridge:
         return True
 
     def _write_json(self, payload: Dict[str, Any], *, prefer_udp: bool = True) -> None:
+        try:
+            from .hdmi_display_state import publish_display_event
+
+            publish_display_event(payload)
+        except Exception:
+            pass
         if not (prefer_udp and self._udp_write_json(payload)):
             self._serial_write_json(payload)
 
@@ -276,10 +282,17 @@ class ESP32DualEyeVoiceBridge:
             )
 
             _, heltec_port = _resolve_ports()
+            speech_payload = build_speech_payload(active, message, channel)
+            try:
+                from .hdmi_display_state import publish_display_event
+
+                publish_display_event(speech_payload)
+            except Exception:
+                pass
             _serial_write(
                 heltec_port,
                 self.baud,
-                build_speech_payload(active, message, channel),
+                speech_payload,
             )
         except Exception:
             pass

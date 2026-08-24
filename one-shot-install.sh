@@ -71,7 +71,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 mkdir -p logs/one_shot logs/deployment logs/preflight logs/pi_hardware \
-  logs/gpio_buttons logs/runtime logs/killerkoala logs/ble_nodes logs/music_player
+  logs/gpio_buttons logs/runtime logs/killerkoala logs/ble_nodes logs/music_player \
+  logs/hdmi logs/hdmi/state logs/hdmi/commands
 
 enabled() {
   case "$1" in 1|true|True|yes|YES|on|ON|auto|AUTO) return 0 ;; *) return 1 ;; esac
@@ -94,7 +95,10 @@ Path(path).write_text(json.dumps({
     "reason": reason,
     "check_only": check_only == "1",
     "service_user": service_user,
-    "runtime_mode": "headless_pi_os_lite",
+    "runtime_mode": "headless_pi_os_lite_with_optional_hdmi",
+    "hdmi_display": "read_only_auto_detect_with_koalabyte_pi_os_switch",
+    "hdmi_default_mode": "koalabyte",
+    "hdmi_commands": ["menu", "voice", "keyboard", "touch", "cli"],
     "persistent_temp_dir": temp_dir,
     "firmware_flashing": firmware_enabled and build_only != "1",
     "firmware_build": firmware_enabled,
@@ -160,18 +164,22 @@ validate_sources() {
     bash -n "${script}"
   done
   python3 -m py_compile \
-    scripts/run_headless_menu.py scripts/run_esp32_dualeye_voice_bridge.py \
+    scripts/run_headless_menu.py scripts/run_hdmi_display.py \
+    scripts/set_hdmi_display_mode.py scripts/run_esp32_dualeye_voice_bridge.py \
     scripts/run_ble_node_manager.py scripts/setup_gpio_buttons.py scripts/test_gpio_buttons.py \
     scripts/pi_hardware_doctor.py scripts/discover_koalabyte_ports.py \
     scripts/check_serial_command_bus.py scripts/check_live_runtime_services.py \
     scripts/check_one_shot_controls.py scripts/check_whole_system_deployment.py \
     scripts/check_killerkoala_ai.py scripts/check_ble_role_failover.py \
-    scripts/check_killerkoala_error_sequence.py scripts/check_music_player.py \
+    scripts/check_killerkoala_error_sequence.py scripts/check_hdmi_display.py \
+    scripts/check_music_player.py \
     scripts/check_full_runtime_dependencies.py \
     pi-companion/koalablue/gpio_buttons.py pi-companion/koalablue/ble_role_coordinator.py \
     pi-companion/koalablue/ble_node_manager.py pi-companion/koalablue/dualeye_tts.py \
     pi-companion/koalablue/serial_command_bus.py \
     pi-companion/koalablue/runtime_serial_ownership.py \
+    pi-companion/koalablue/hdmi_display.py \
+    pi-companion/koalablue/hdmi_display_state.py \
     pi-companion/koalablue/killerkoala_runtime_limits.py \
     pi-companion/koalablue/killerkoala_expression.py \
     pi-companion/koalablue/killerkoala_hybrid_companion.py \
@@ -201,6 +209,7 @@ run_runtime_checks() {
   PYTHONPATH=pi-companion "${py}" scripts/check_killerkoala_face_mouth_sync.py
   PYTHONPATH=pi-companion "${py}" scripts/check_ble_role_failover.py
   PYTHONPATH=pi-companion "${py}" scripts/check_killerkoala_error_sequence.py
+  PYTHONPATH=pi-companion "${py}" scripts/check_hdmi_display.py
   PYTHONPATH=pi-companion "${py}" scripts/check_music_player.py
   INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN}" \
     PYTHONPATH=pi-companion "${py}" scripts/check_full_runtime_dependencies.py
@@ -212,6 +221,7 @@ restart_services() {
   [[ "${EUID}" -ne 0 ]] && sudo_cmd=(sudo)
   "${sudo_cmd[@]}" systemctl daemon-reload
   for service in ollama.service mopidy.service koalabyte-menu.service \
+    koalabyte-hdmi.service \
     koalabyte-doctor.service koalabyte-ble-node-manager.service \
     koalabyte-dualeye-voice-bridge.service koalabyte-swap.service; do
     if "${sudo_cmd[@]}" systemctl list-unit-files "${service}" >/dev/null 2>&1; then
@@ -233,7 +243,7 @@ verify_runtime_services() {
   local sudo_cmd=() deadline service failed=0
   local health_args=(--timeout "${RUNTIME_HEALTH_TIMEOUT}")
   [[ "${EUID}" -ne 0 ]] && sudo_cmd=(sudo)
-  required=(koalabyte-menu.service koalabyte-doctor.service)
+  required=(koalabyte-menu.service koalabyte-hdmi.service koalabyte-doctor.service)
   if [[ "${SKIP_FIRMWARE}" != "1" && "${FIRMWARE_BUILD_ONLY}" != "1" ]]; then
     required+=(koalabyte-ble-node-manager.service koalabyte-dualeye-voice-bridge.service)
   else
@@ -378,7 +388,7 @@ run_step "Runtime service, serial-owner, and local API health" verify_runtime_se
 run_step "Final Pi hardware doctor" run_final_doctor
 run_step "Remove firmware-only build toolchains" run_cleanup
 
-write_status complete whole_system_deployment "Firmware and Pi runtime deployed; services, serial ownership, Ollama model, and Mopidy API verified; build tools cleaned according to policy."
+write_status complete whole_system_deployment "Firmware and Pi runtime deployed; HDMI mode switching, services, serial ownership, Ollama model, and Mopidy API verified; build tools cleaned according to policy."
 trap - ERR
 
 cat <<EOF
@@ -396,6 +406,7 @@ Live runtime health: logs/runtime/live_service_health.json
 BLE roles: logs/ble_nodes/ble_role_election.json
 Device map: logs/preflight/koalabyte_ports.json
 Serial owners: logs/runtime/serial_bus/esp32.sock and heltec.sock
+HDMI: logs/hdmi/hdmi_display_status.json (switch with scripts/set_hdmi_display_mode.py)
 
 Reboot once after the first installation so ${SERVICE_USER} receives all hardware group memberships.
 EOF

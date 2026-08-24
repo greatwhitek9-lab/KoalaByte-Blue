@@ -439,6 +439,22 @@ def _system_status(command: str) -> dict[str, Any]:
         return module_manifest()
     if command == "koala_mode_switcher":
         return {"status": "MODE_SWITCHER_STATUS_READY", "note": "Legacy dongle mode package helper is selectable without extra prompt."}
+    if command in {
+        "hdmi_display_status",
+        "hdmi_show_koalabyte",
+        "hdmi_show_desktop",
+        "hdmi_toggle",
+    }:
+        from .hdmi_display_state import display_mode_status, set_display_mode
+
+        if command == "hdmi_display_status":
+            return display_mode_status()
+        mode = {
+            "hdmi_show_koalabyte": "koalabyte",
+            "hdmi_show_desktop": "desktop",
+            "hdmi_toggle": "toggle",
+        }[command]
+        return set_display_mode(mode, source=f"menu:{command}")
     if command in {"shutdown_confirm", "power_toggle", "power_on_off"}:
         payload = {"status": "SHUTDOWN_REQUESTED", "command": "sudo shutdown -h now", "source": "front_panel_power_or_menu"}
         if os.getenv("KOALABYTE_MENU_SHUTDOWN_DRY_RUN", "0") == "1":
@@ -513,7 +529,7 @@ def run_automated_menu_action(command: str, label: str = "", group: str = "") ->
             return _ok(command, label, asdict(run_once(scan_seconds=12.0)))
         if command in {"ear_tag", "ear_tag_tx_lab"}:
             return _ok(command, label, _ear_tag_plan())
-        if command in {"killerkoala_voice", "buttons", "level/status", "wake killerkoala", "settings", "koala_mode_switcher", "shutdown_confirm", "power_toggle", "power_on_off", "reset_confirm", "reset", "reboot", "reset_reboot"}:
+        if command in {"killerkoala_voice", "buttons", "level/status", "wake killerkoala", "settings", "koala_mode_switcher", "hdmi_display_status", "hdmi_show_koalabyte", "hdmi_show_desktop", "hdmi_toggle", "shutdown_confirm", "power_toggle", "power_on_off", "reset_confirm", "reset", "reboot", "reset_reboot"}:
             return _ok(command, label, _system_status(command))
         if command == "quit":
             return _ok(command, label, {"status": "QUIT_REQUEST_RECORDED"})

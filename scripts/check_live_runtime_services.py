@@ -122,6 +122,7 @@ def main() -> int:
     firmware_runtime = not args.skip_firmware and not args.firmware_build_only
     required_services = [
         "koalabyte-menu.service",
+        "koalabyte-hdmi.service",
         "koalabyte-doctor.service",
     ]
     if firmware_runtime:

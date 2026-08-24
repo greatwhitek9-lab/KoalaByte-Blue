@@ -33,7 +33,7 @@ Options:
   --skip-venv                  Do not create/update pi-companion/.venv
   --skip-can-service           Do not install koalabyte-can0.service
   --skip-audio                 Do not select an external Pi audio sink
-  --install-runtime-services   Install/enable menu, doctor, BLE, voice, and log rotation
+  --install-runtime-services   Install/enable menu, HDMI, doctor, BLE, voice, and log rotation
   --can-interface NAME         SocketCAN interface; default can0
   --can-bitrate RATE           SocketCAN bitrate; default 500000
 EOF
@@ -78,15 +78,20 @@ validate_sources() {
   bash -n scripts/install_runtime_log_rotation.sh
   python3 -m py_compile \
     scripts/pi_hardware_doctor.py scripts/test_gpio_buttons.py \
+    scripts/run_hdmi_display.py scripts/set_hdmi_display_mode.py \
+    scripts/check_hdmi_display.py \
     scripts/check_supported_host.py scripts/check_live_runtime_services.py \
     scripts/check_serial_command_bus.py scripts/check_confirmed_wake_audio.py \
     pi-companion/koalablue/gpio_buttons.py \
     pi-companion/koalablue/bounded_log.py \
     pi-companion/koalablue/serial_command_bus.py \
     pi-companion/koalablue/runtime_serial_ownership.py \
+    pi-companion/koalablue/hdmi_display.py \
+    pi-companion/koalablue/hdmi_display_state.py \
     pi-companion/koalablue/killerkoala_runtime_limits.py \
     pi-companion/koalablue/esp32_dualeye_error_dig_bridge.py
   PYTHONPATH=pi-companion python3 scripts/check_serial_command_bus.py >/dev/null
+  PYTHONPATH=pi-companion python3 scripts/check_hdmi_display.py >/dev/null
 }
 validate_sources
 
@@ -157,14 +162,15 @@ for generated in "${generated_dirs[@]}"; do
 done
 "${sudo_cmd[@]}" install -d -m 0755 -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" \
   logs logs/runtime logs/runtime/serial_bus logs/killerkoala logs/ble_nodes \
-  logs/preflight logs/deployment "${SERVICE_TMPDIR}"
+  logs/preflight logs/deployment logs/hdmi logs/hdmi/state logs/hdmi/commands \
+  "${SERVICE_TMPDIR}"
 
 if [[ "${INSTALL_PACKAGES}" == "1" ]]; then
   bash scripts/setup_system_packages.sh
 fi
 
 available_groups=()
-for group in gpio dialout audio video render plugdev; do
+for group in gpio dialout audio video render input plugdev; do
   getent group "${group}" >/dev/null 2>&1 && available_groups+=("${group}")
 done
 if (( ${#available_groups[@]} > 0 )); then

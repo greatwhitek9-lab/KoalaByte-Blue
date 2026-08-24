@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the Raspberry Pi OS Lite runtime dependency contract."""
+"""Validate the Raspberry Pi runtime and optional HDMI dependency contract."""
 
 from __future__ import annotations
 
@@ -43,6 +43,8 @@ PROJECT_MODULES = (
     "koalablue.menu_theme",
     "koalablue.menu_action_runner",
     "koalablue.menu_display_sync",
+    "koalablue.hdmi_display_state",
+    "koalablue.hdmi_display",
     "koalablue.dualeye_tts",
     "koalablue.killerkoala_hybrid_companion",
     "koalablue.killerkoala_face_bridge",
@@ -59,6 +61,8 @@ CURRENT_RUNTIME_FILES = (
     "install.sh",
     "one-shot-install.sh",
     "scripts/run_headless_menu.py",
+    "scripts/run_hdmi_display.py",
+    "scripts/set_hdmi_display_mode.py",
     "scripts/run_ble_node_manager.py",
     "scripts/run_esp32_dualeye_voice_bridge.py",
     "scripts/setup_pi_hardware_stage.sh",
@@ -84,10 +88,14 @@ CURRENT_RUNTIME_FILES = (
     "scripts/check_one_shot_controls.py",
     "scripts/check_menu_actions.py",
     "scripts/check_menu_display_sync.py",
+    "scripts/check_hdmi_display.py",
     "scripts/check_killerkoala_face_mouth_sync.py",
     "training/killerkoala_lora/Modelfile.killerkoala-tinyllama",
     "systemd/koalabyte-menu.service",
+    "systemd/koalabyte-hdmi.service",
     "systemd/koalabyte-doctor.service",
+    "desktop/koalabyte-hdmi-toggle.desktop",
+    "docs/HDMI_DISPLAY.md",
     "udev/99-koalabyte-blue.rules",
 )
 
@@ -212,7 +220,7 @@ def import_available(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Check current KoalaByte Pi OS Lite runtime dependencies"
+        description="Check current KoalaByte Pi runtime and optional HDMI dependencies"
     )
     parser.add_argument(
         "--strict-system",
@@ -315,7 +323,8 @@ def main() -> int:
             if not failures
             else "FULL_RUNTIME_DEPENDENCIES_INCOMPLETE"
         ),
-        "runtime_mode": "headless_pi_os_lite",
+        "runtime_mode": "headless_pi_os_lite_with_optional_hdmi",
+        "hdmi_display": "read_only_auto_detect_with_koalabyte_pi_os_switch",
         "canonical_installer": "one-shot-install.sh",
         "firmware_flashing": False,
         "can_required": required_can,
