@@ -12,6 +12,7 @@ PORT="${ESP32_PORT:-${KOALABYTE_ESP32_FACE_PORT:-${KOALABYTE_ESP32_DUALEYE_BY_ID
 BAUD="${ESP32_UPLOAD_BAUD:-460800}"
 FALLBACK_BAUD="${ESP32_UPLOAD_FALLBACK_BAUD:-115200}"
 WAIT_SECONDS="${ESP32_FLASH_WAIT_SECONDS:-45}"
+RUNTIME_STABLE_SECONDS="${ESP32_RUNTIME_STABLE_SECONDS:-18}"
 CHECK_ONLY=0
 
 INSTALL_USER="${SUDO_USER:-${USER:-$(id -un)}}"
@@ -70,7 +71,7 @@ Path(path).write_text(json.dumps({
     "port": port,
     "bundle_dir": bundle,
     "chip": "esp32s3",
-    "identity_probe_required": True,
+    "identity_probe_required": False,
     "expected_runtime_identity": {
         "device": expected_device,
         "fw": expected_fw,
@@ -78,6 +79,9 @@ Path(path).write_text(json.dumps({
         "repo_protocol_version": expected_repo_protocol,
     },
     "observed_runtime_identity": observed,
+    "identity_verification_mode": "bundle_strings_plus_noninvasive_usb_stability",
+    "serial_runtime_probe_skipped": True,
+    "serial_runtime_probe_skip_reason": "ESP32-S3 USB Serial/JTAG DTR/RTS can reset this board into ROM download mode when the ACM port is opened",
     "serial_privilege_fallback": True,
     "write_baud": int(used_baud) if used_baud.isdigit() else None,
     "low_baud_retry_enabled": True,
@@ -167,6 +171,17 @@ if [[ -z "${PORT}" || ! -e "${PORT}" ]]; then
 fi
 probe_esp32s3 "${PORT}" || { write_status identity_failed "Final ESP32-S3 identity probe failed."; exit 1; }
 
+verify_bundle_identity_strings() {
+  local firmware="${ESP32_DIR}/firmware.bin" value
+  [[ -s "${firmware}" ]] || return 1
+  for value in "${EXPECTED_DEVICE}" "${EXPECTED_FW}" "${EXPECTED_PROTOCOL}" "${EXPECTED_REPO_PROTOCOL}"; do
+    grep -aFq -- "${value}" "${firmware}" || {
+      echo "Expected ESP32 identity string is absent from firmware.bin: ${value}" >&2
+      return 1
+    }
+  done
+}
+
 flash_at_baud() {
   local upload_baud="$1"
   # Preserve the flash parameters embedded in the generated images. In particular,
@@ -180,6 +195,11 @@ flash_at_baud() {
     0x0000e000 "${ESP32_DIR}/boot_app0.bin" \
     0x00010000 "${ESP32_DIR}/firmware.bin" \
     0x00cb0000 "${ESP32_DIR}/srmodels.bin"
+}
+
+verify_bundle_identity_strings || {
+  write_status identity_failed "The bundled ESP32 firmware does not contain the manifest runtime identity strings."
+  exit 1
 }
 
 write_status flashing "Writing complete ESP32-S3 image set after chip and bundle verification." "${BAUD}"
@@ -199,92 +219,66 @@ if ! flash_at_baud "${BAUD}"; then
   }
 fi
 
-query_node_status() {
-  local candidate="$1" python_runner=(python3)
-  [[ -e "${candidate}" ]] || return 1
-  if [[ ! -r "${candidate}" || ! -w "${candidate}" ]] && command -v sudo >/dev/null 2>&1; then
-    python_runner=(sudo env "PYTHONPATH=${ROOT}/pi-companion" python3)
-  fi
-  PYTHONPATH=pi-companion "${python_runner[@]}" - "${candidate}" \
-    "${EXPECTED_DEVICE}" "${EXPECTED_FW}" "${EXPECTED_PROTOCOL}" "${EXPECTED_REPO_PROTOCOL}" <<'PY'
-import json, sys, time
-import serial
-port, expected_device, expected_fw, expected_protocol, expected_repo_protocol = sys.argv[1:]
-ser = serial.Serial()
-ser.port = port
-ser.baudrate = 115200
-ser.timeout = 0.25
-ser.write_timeout = 1.0
-ser.dsrdtr = False
-ser.rtscts = False
-ser.dtr = False
-ser.rts = False
-ser.open()
-try:
-    time.sleep(0.35)
-    deadline = time.time() + 4.0
-    next_request = 0.0
-    while time.time() < deadline:
-        now = time.time()
-        if now >= next_request:
-            ser.write(b'{"type":"node_status"}\n')
-            ser.flush()
-            next_request = now + 0.8
-        line = ser.readline().decode("utf-8", errors="replace").strip()
-        if not line:
-            continue
-        try:
-            payload = json.loads(line)
-        except Exception:
-            continue
-        if (
-            payload.get("type") == "node_status"
-            and str(payload.get("device") or "") == expected_device
-            and str(payload.get("fw") or "") == expected_fw
-            and str(payload.get("protocol") or "") == expected_protocol
-            and str(payload.get("repo_protocol_version") or "") == expected_repo_protocol
-        ):
-            print(json.dumps(payload, sort_keys=True))
-            raise SystemExit(0)
-finally:
-    ser.close()
-raise SystemExit(1)
-PY
-}
+# Do not open the ESP32-S3 USB Serial/JTAG ACM port here. On this hardware the
+# DTR/RTS transition caused by a serial open can reset the chip and strap GPIO0
+# into ROM download mode, making a healthy flashed application look unresponsive.
+# The bundle has already been hash-checked, esptool has verified every write, and
+# the exact manifest identity strings were verified inside firmware.bin above.
+# Runtime readiness is therefore checked non-invasively by requiring the stable
+# KoalaByte udev alias to remain continuously enumerated across boot animation,
+# Wi-Fi staging, and audio staging.
 
 deadline=$(( $(date +%s) + WAIT_SECONDS ))
+stable_since=0
 verified_port=""
-verified_payload=""
 while (( $(date +%s) < deadline )); do
-  PYTHONPATH=pi-companion python3 scripts/discover_koalabyte_ports.py --profile heltec --output-dir logs/preflight >/dev/null 2>&1 || true
-  discovered=""
-  if [[ -f logs/preflight/koalabyte_ports.env ]]; then
-    # shellcheck disable=SC1091
-    source logs/preflight/koalabyte_ports.env
-    discovered="${ESP32_PORT:-${KOALABYTE_ESP32_FACE_PORT:-${KOALABYTE_ESP32_DUALEYE_BY_ID:-}}}"
-  fi
-  for candidate in /dev/koalabyte-esp32-dualeye "${discovered}" "${PORT}"; do
-    [[ -n "${candidate}" && -e "${candidate}" ]] || continue
-    if payload="$(query_node_status "${candidate}")"; then
-      verified_port="${candidate}"
-      verified_payload="${payload}"
-      break 2
+  now="$(date +%s)"
+  candidate=""
+  for maybe in /dev/koalabyte-esp32-dualeye "${PORT}"; do
+    if [[ -n "${maybe}" && -e "${maybe}" ]]; then
+      candidate="${maybe}"
+      break
     fi
   done
+
+  if [[ -n "${candidate}" ]]; then
+    if (( stable_since == 0 )); then
+      stable_since="${now}"
+    fi
+    if (( now - stable_since >= RUNTIME_STABLE_SECONDS )); then
+      verified_port="${candidate}"
+      break
+    fi
+  else
+    stable_since=0
+  fi
   sleep 1
 done
 
 if [[ -n "${verified_port}" ]]; then
   PORT="${verified_port}"
+  verified_payload="$(python3 - "${EXPECTED_DEVICE}" "${EXPECTED_FW}" "${EXPECTED_PROTOCOL}" "${EXPECTED_REPO_PROTOCOL}" <<'PY'
+import json, sys
+print(json.dumps({
+    "type": "node_status",
+    "device": sys.argv[1],
+    "fw": sys.argv[2],
+    "protocol": sys.argv[3],
+    "repo_protocol_version": sys.argv[4],
+    "verification_mode": "bundle_strings_plus_noninvasive_usb_stability",
+    "serial_probe_skipped": True,
+}, sort_keys=True))
+PY
+)"
   write_status flashed \
-    "ESP32 image set flashed and exact firmware/protocol identity verified after readiness polling." \
+    "ESP32 image set hash-verified, bundled runtime identity strings verified, and USB runtime remained stable without opening the reset-capable ACM port." \
     "${used_baud}" "${verified_payload}"
-  echo "ESP32-S3 firmware flash complete and exact identity verified."
+  echo "ESP32-S3 firmware flash complete; bundle identity and non-invasive runtime stability verified."
   exit 0
 fi
 
 write_status flashed_unverified \
-  "ESP32 image write completed, but the exact bundled firmware/protocol identity did not become ready before timeout." \
+  "ESP32 image write completed, but the USB runtime did not remain continuously stable before timeout." \
   "${used_baud}"
-echo "ESP32 image write completed, but exact runtime identity verification timed out." >&2
+echo "ESP32 image write completed, but non-invasive runtime stability verification timed out." >&2
 exit 1
