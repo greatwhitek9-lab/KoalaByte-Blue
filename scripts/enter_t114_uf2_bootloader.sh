@@ -55,7 +55,9 @@ pick_port() {
 }
 
 wait_for_uf2() {
-  local timeout="$1" deadline=$(( $(date +%s) + timeout )) dev=""
+  local timeout="$1"
+  local deadline=$(( $(date +%s) + timeout ))
+  local dev=""
   while (( $(date +%s) < deadline )); do
     dev="$(find_uf2_device || true)"
     if [[ -n "${dev}" ]]; then
