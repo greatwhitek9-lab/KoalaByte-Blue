@@ -32,6 +32,8 @@ KoalaByte Blue ESP32/PlatformIO setup helper
 The isolated environment pins PlatformIO Core 6.1.19 and edge-tts 7.2.8.
 Python 3.13+ also receives audioop-lts because the embedded William response
 builder still uses the standard audioop import removed from Python 3.13.
+The venv also carries rich-click and intelhex so PlatformIO's bundled esptool.py
+runs with the same interpreter during chip probes and flashing.
 Pip, PlatformIO, and voice generation use persistent SD-card temporary storage.
 William clips are cached by their exact synthesis parameters, and missing clips
 retry transient network failures without rebuilding completed clips.
@@ -170,6 +172,8 @@ install_python_tools() {
   pip_install_retry --upgrade \
     "platformio==${PLATFORMIO_VERSION}" \
     "edge-tts==${EDGE_TTS_VERSION}" \
+    "rich-click" \
+    "intelhex" \
     "audioop-lts==${AUDIOOP_LTS_VERSION}; python_version>='3.13'"
   install_edge_tts_retry_wrapper
   run_as_install_user mkdir -p "${ESP32_USER_BIN}"
@@ -220,6 +224,12 @@ if [[ -x "${ESP32_TOOLS_VENV}/bin/python" ]] && \
   echo "audioop compatibility: ready"
 else
   echo "audioop compatibility: MISSING" >&2; missing=1
+fi
+if [[ -x "${ESP32_TOOLS_VENV}/bin/python" ]] && \
+   "${ESP32_TOOLS_VENV}/bin/python" -c 'import rich_click, intelhex, serial' >/dev/null 2>&1; then
+  echo "esptool Python dependencies: ready"
+else
+  echo "esptool Python dependencies: MISSING" >&2; missing=1
 fi
 if ensure_ffmpeg; then echo "ffmpeg: $(command -v ffmpeg)"
 else echo "ffmpeg: MISSING" >&2; missing=1
