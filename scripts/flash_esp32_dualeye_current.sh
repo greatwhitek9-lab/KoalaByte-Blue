@@ -21,6 +21,7 @@ if command -v getent >/dev/null 2>&1; then
   [[ -n "${resolved_home}" ]] && INSTALL_HOME="${resolved_home}"
 fi
 PLATFORMIO_CORE_DIR="${PLATFORMIO_CORE_DIR:-${INSTALL_HOME}/.platformio}"
+ESP32_TOOLS_VENV="${ESP32_TOOLS_VENV:-${INSTALL_HOME}/.venvs/platformio}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -81,13 +82,14 @@ Path(path).write_text(json.dumps({
     "write_baud": int(used_baud) if used_baud.isdigit() else None,
     "low_baud_retry_enabled": True,
     "runtime_readiness_polled": True,
+    "image_header_policy": "keep_bundle_headers",
     "updated_at": time.time(),
 }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 PY
 }
 
-PLATFORMIO_CORE_DIR="${PLATFORMIO_CORE_DIR}" STRICT_ESP32_TOOLS=1 \
-  bash scripts/setup_esp32_tools.sh
+PLATFORMIO_CORE_DIR="${PLATFORMIO_CORE_DIR}" ESP32_TOOLS_VENV="${ESP32_TOOLS_VENV}" \
+  STRICT_ESP32_TOOLS=1 bash scripts/setup_esp32_tools.sh
 esptool="$(find "${PLATFORMIO_CORE_DIR}/packages/tool-esptoolpy" -maxdepth 4 -type f \
   \( -name 'esptool.py' -o -name 'esptool' \) -print -quit 2>/dev/null || true)"
 [[ -n "${esptool}" ]] || esptool="$(command -v esptool.py || command -v esptool || true)"
@@ -95,7 +97,16 @@ esptool="$(find "${PLATFORMIO_CORE_DIR}/packages/tool-esptoolpy" -maxdepth 4 -ty
   write_status missing_esptool "An executable esptool file was not found."
   exit 1
 }
-if [[ "${esptool}" == *.py ]]; then runner=(python3 "${esptool}"); else runner=("${esptool}"); fi
+if [[ "${esptool}" == *.py ]]; then
+  ESPTOOL_PYTHON="${ESP32_TOOLS_VENV}/bin/python"
+  [[ -x "${ESPTOOL_PYTHON}" ]] || {
+    write_status missing_esptool_python "KoalaByte ESP32 tools venv Python was not found."
+    exit 1
+  }
+  runner=("${ESPTOOL_PYTHON}" "${esptool}")
+else
+  runner=("${esptool}")
+fi
 
 run_esptool_for_port() {
   local candidate="$1"; shift
@@ -158,9 +169,12 @@ probe_esp32s3 "${PORT}" || { write_status identity_failed "Final ESP32-S3 identi
 
 flash_at_baud() {
   local upload_baud="$1"
+  # Preserve the flash parameters embedded in the generated images. In particular,
+  # the ESP32-S3 ROM must load this bundle's second-stage bootloader using its DIO
+  # header. Forcing QIO here rewrites that header and causes an ets_loader.c boot loop.
   run_esptool_for_port "${PORT}" --chip esp32s3 --port "${PORT}" --baud "${upload_baud}" \
     --before default_reset --after hard_reset write_flash -z \
-    --flash_mode qio --flash_freq 80m --flash_size 16MB \
+    --flash_mode keep --flash_freq keep --flash_size keep \
     0x00000000 "${ESP32_DIR}/bootloader.bin" \
     0x00008000 "${ESP32_DIR}/partitions.bin" \
     0x0000e000 "${ESP32_DIR}/boot_app0.bin" \
