@@ -14,6 +14,7 @@ if command -v getent >/dev/null 2>&1; then
   [[ -n "${resolved_home}" ]] && INSTALL_HOME="${resolved_home}"
 fi
 PLATFORMIO_CORE_DIR="${PLATFORMIO_CORE_DIR:-${INSTALL_HOME}/.platformio}"
+ESP32_TOOLS_VENV="${ESP32_TOOLS_VENV:-${INSTALL_HOME}/.venvs/platformio}"
 
 mkdir -p "${ROOT}/logs/preflight"
 
@@ -35,8 +36,8 @@ Path(path).write_text(json.dumps({
 PY
 }
 
-PLATFORMIO_CORE_DIR="${PLATFORMIO_CORE_DIR}" STRICT_ESP32_TOOLS=1 \
-  bash scripts/setup_esp32_tools.sh
+PLATFORMIO_CORE_DIR="${PLATFORMIO_CORE_DIR}" ESP32_TOOLS_VENV="${ESP32_TOOLS_VENV}" \
+  STRICT_ESP32_TOOLS=1 bash scripts/setup_esp32_tools.sh
 esptool="$(find "${PLATFORMIO_CORE_DIR}/packages/tool-esptoolpy" -maxdepth 4 -type f \
   \( -name 'esptool.py' -o -name 'esptool' \) -print -quit 2>/dev/null || true)"
 [[ -n "${esptool}" ]] || esptool="$(command -v esptool.py || command -v esptool || true)"
@@ -44,7 +45,16 @@ esptool="$(find "${PLATFORMIO_CORE_DIR}/packages/tool-esptoolpy" -maxdepth 4 -ty
   write_status missing_esptool "An executable esptool file was not found."
   exit 1
 }
-if [[ "${esptool}" == *.py ]]; then runner=(python3 "${esptool}"); else runner=("${esptool}"); fi
+if [[ "${esptool}" == *.py ]]; then
+  ESPTOOL_PYTHON="${ESP32_TOOLS_VENV}/bin/python"
+  [[ -x "${ESPTOOL_PYTHON}" ]] || {
+    write_status missing_esptool_python "KoalaByte ESP32 tools venv Python was not found."
+    exit 1
+  }
+  runner=("${ESPTOOL_PYTHON}" "${esptool}")
+else
+  runner=("${esptool}")
+fi
 
 run_esptool_for_port() {
   local candidate="$1"; shift
