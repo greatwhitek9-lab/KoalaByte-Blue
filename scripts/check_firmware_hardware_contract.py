@@ -119,18 +119,31 @@ def main() -> int:
         "firmware/esp32-dualeye/src/integrated_main_clean_voice.cpp",
         ('#include "integrated_main.cpp"',),
     )
+    esp32_flasher = "scripts/flash_esp32_dualeye_current.sh"
     require_lines(
-        "scripts/flash_esp32_dualeye_current.sh",
+        esp32_flasher,
         (
             'python3 scripts/check_firmware_bundle.py --bundle "${BUNDLE_DIR}" --require esp32',
             'EXPECTED_DEVICE="${expected_identity[0]}"',
             'EXPECTED_FW="${expected_identity[1]}"',
             'EXPECTED_PROTOCOL="${expected_identity[2]}"',
             'EXPECTED_REPO_PROTOCOL="${expected_identity[3]}"',
-            'str(payload.get("fw") or "") == expected_fw',
-            'str(payload.get("protocol") or "") == expected_protocol',
-            'str(payload.get("repo_protocol_version") or "") == expected_repo_protocol',
+            'RUNTIME_STABLE_SECONDS="${ESP32_RUNTIME_STABLE_SECONDS:-18}"',
+            'verify_bundle_identity_strings() {',
+            'for value in "${EXPECTED_DEVICE}" "${EXPECTED_FW}" "${EXPECTED_PROTOCOL}" "${EXPECTED_REPO_PROTOCOL}"; do',
+            'grep -aFq -- "${value}" "${firmware}"',
+            '--flash_mode keep --flash_freq keep --flash_size keep',
+            '"identity_verification_mode": "bundle_strings_plus_noninvasive_usb_stability"',
+            '"serial_runtime_probe_skipped": True',
             '0x00cb0000 "${ESP32_DIR}/srmodels.bin"',
+        ),
+    )
+    forbid_lines(
+        esp32_flasher,
+        (
+            'ser.open()',
+            'ser.write(b\'{"type":"node_status"}\\n\')',
+            '--flash_mode qio --flash_freq 80m --flash_size 16MB',
         ),
     )
 
@@ -205,6 +218,8 @@ def main() -> int:
         "esp32_pin_map_locked": True,
         "esp32_audio_map_locked": True,
         "esp32_partition_bounds_locked": True,
+        "esp32_flash_header_policy": "keep_bundle_headers",
+        "esp32_runtime_verification": "bundle_strings_plus_noninvasive_usb_stability",
         "t114_target": "heltec_t114_v2/nrf52840/uf2",
         "t114_application_offset": "0x26000",
         "t114_family": "0x239a0071",
