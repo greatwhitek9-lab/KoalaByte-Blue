@@ -57,10 +57,11 @@ Options:
   --keep-build-tools             Retain NCS, Zephyr SDK, west, and PlatformIO after success
 
 Resume behavior:
-  Source validation always runs against the current checkout. Completed expensive
-  stages are skipped only when the deployment profile matches the checkpoint.
-  A first --resume after upgrading from an older installer conservatively adopts
-  only strong success artifacts for firmware, TinyLlama, and Mopidy.
+  Source validation and runtime service activation always rerun against the
+  current checkout/runtime. Completed expensive stages are skipped only when the
+  deployment profile matches the checkpoint. A first --resume after upgrading
+  from an older installer conservatively adopts only strong success artifacts
+  for firmware, TinyLlama, and Mopidy.
 
 Run as the normal SSH/login user, not with `sudo bash`; privileged stages request
 sudo internally. The transaction verifies stable services, exclusive serial
@@ -216,7 +217,8 @@ run_step() {
   echo
   echo "== ${name} =="
 
-  if [[ "${CHECK_ONLY}" != "1" && "${RESUME}" == "1" && "${stage_id}" != "source_validation" ]]; then
+  if [[ "${CHECK_ONLY}" != "1" && "${RESUME}" == "1" && \
+        "${stage_id}" != "source_validation" && "${stage_id}" != "service_activation" ]]; then
     if python3 "${CHECKPOINT_HELPER}" is-complete --path "${CHECKPOINT_PATH}" --stage "${stage_id}"; then
       echo "RESUME: ${name} already completed; skipping."
       write_status ok "${name}" "resume checkpoint already completed this stage"
