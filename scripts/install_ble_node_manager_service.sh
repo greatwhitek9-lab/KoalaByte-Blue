@@ -12,16 +12,24 @@ SERVICE_USER="${KOALABYTE_SERVICE_USER:-${SUDO_USER:-${USER:-pi}}}"
 SERVICE_GROUP="${KOALABYTE_SERVICE_GROUP:-}"
 SERIAL_BUS_DIR="${KOALABYTE_SERIAL_BUS_DIR:-${ROOT}/logs/runtime/serial_bus}"
 
-if [[ -e /dev/koalabyte-heltec ]]; then
+is_serial_device() {
+  [[ -n "${1:-}" && -c "${1}" ]]
+}
+
+if is_serial_device /dev/koalabyte-heltec; then
   DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec"
-elif [[ -e /dev/koalabyte-heltec-t114 ]]; then
+elif is_serial_device /dev/koalabyte-heltec-t114; then
   DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec-t114"
-elif [[ -e /dev/koalabyte-nrf52840 ]]; then
+elif is_serial_device /dev/koalabyte-nrf52840; then
   DEFAULT_PRIMARY_PORT="/dev/koalabyte-nrf52840"
 else
   DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec"
 fi
 PRIMARY_PORT="${KOALABYTE_PRIMARY_BLE_PORT:-${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-${KOALABYTE_NRF_BLE_PORT:-${NRF_BLE_PORT:-${DEFAULT_PRIMARY_PORT}}}}}}"
+if ! is_serial_device "${PRIMARY_PORT}" && is_serial_device "${DEFAULT_PRIMARY_PORT}"; then
+  echo "Ignoring invalid configured Heltec serial path during service install: ${PRIMARY_PORT}" >&2
+  PRIMARY_PORT="${DEFAULT_PRIMARY_PORT}"
+fi
 ESP="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-/dev/koalabyte-esp32-dualeye}}"
 PI_BLUEZ="${KOALABYTE_PI_BLUEZ_NODE:-1}"
 
