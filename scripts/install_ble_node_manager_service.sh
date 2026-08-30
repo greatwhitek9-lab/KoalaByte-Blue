@@ -69,7 +69,6 @@ else
 fi
 
 mkdir -p "${ROOT}/logs/ble_nodes" "${ROOT}/logs/preflight" "${SERIAL_BUS_DIR}"
-chmod +x "${ROOT}/scripts/run_ble_node_manager_service.sh"
 PYTHONPATH="${ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}" python3 \
   "${ROOT}/scripts/discover_koalabyte_ports.py" --profile heltec \
   --output-dir "${ROOT}/logs/preflight" || true
