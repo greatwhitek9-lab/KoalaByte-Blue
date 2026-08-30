@@ -31,13 +31,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "${INSTALL_UDEV_RULES}" in
-  0|false|False|no|NO|skip|SKIP) echo "Skipping udev rule install by request."; exit 0 ;;
+  0|false|False|no|NO|skip|SKIP) echo "Skipping KoalaByte udev rules by request."; exit 0 ;;
   auto|AUTO|1|true|True|yes|YES) ;;
-  *) echo "Unknown INSTALL_UDEV_RULES value: ${INSTALL_UDEV_RULES}" >&2; exit 2 ;;
+  *) echo "Unknown INSTALL_UDEV_RULES=${INSTALL_UDEV_RULES}" >&2; exit 2 ;;
 esac
 
 SOURCE_RULES="${ROOT}/udev/99-koalabyte-blue.rules"
-[[ -f "${SOURCE_RULES}" ]] || { echo "Missing source rules: ${SOURCE_RULES}" >&2; exit 1; }
+[[ -f "${SOURCE_RULES}" ]] || { echo "Missing ${SOURCE_RULES}" >&2; exit 1; }
 
 for marker in \
   'ATTRS{idVendor}=="2fe3"' \
@@ -46,31 +46,49 @@ for marker in \
   'ATTRS{idProduct}=="1001"' \
   'koalabyte-heltec-t114' \
   'koalabyte-esp32-dualeye'; do
-  grep -Fq "${marker}" "${SOURCE_RULES}" || { echo "Source udev rules missing marker: ${marker}" >&2; exit 1; }
+  grep -Fq "${marker}" "${SOURCE_RULES}" || { echo "Missing udev rule marker: ${marker}" >&2; exit 1; }
 done
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
-  echo "KoalaByte udev installer check-only passed."
+  bash -n "$0"
+  echo "KoalaByte udev rules source contract passed."
   exit 0
 fi
 
-if ! command -v udevadm >/dev/null 2>&1; then
-  echo "udevadm not found; cannot install stable device rules on this OS." >&2
-  [[ "${STRICT_UDEV_RULES}" == "1" ]] && exit 1
-  exit 0
+if [[ "${EUID}" -eq 0 ]]; then sudo_cmd=()
+elif command -v sudo >/dev/null 2>&1; then sudo_cmd=(sudo)
+else echo "sudo or root is required to install udev rules." >&2; exit 1
 fi
 
-if [[ "${EUID}" -eq 0 ]]; then
-  sudo_cmd=()
-elif command -v sudo >/dev/null 2>&1; then
-  sudo_cmd=(sudo)
-else
-  echo "Root or sudo is required to install udev rules." >&2
-  [[ "${STRICT_UDEV_RULES}" == "1" ]] && exit 1
-  exit 0
-fi
+command -v udevadm >/dev/null 2>&1 || {
+  echo "udevadm is required to install KoalaByte stable device aliases." >&2
+  exit 1
+}
 
 "${sudo_cmd[@]}" install -m 0644 "${SOURCE_RULES}" "${RULES_PATH}"
+
+reserved_aliases=(
+  /dev/koalabyte-heltec
+  /dev/koalabyte-heltec-t114
+  /dev/koalabyte-esp32-dualeye
+  /dev/koalabyte-esp32-eyes
+  /dev/koalabyte-nrf52840
+  /dev/koalabyte-nrf-ble
+)
+for alias in "${reserved_aliases[@]}"; do
+  if [[ -L "${alias}" ]]; then
+    target="$(readlink -f "${alias}" 2>/dev/null || true)"
+    if [[ -n "${target}" && -c "${target}" ]]; then
+      continue
+    fi
+    echo "Removing stale KoalaByte device symlink: ${alias}" >&2
+    "${sudo_cmd[@]}" rm -f -- "${alias}"
+  elif [[ -e "${alias}" && ! -c "${alias}" ]]; then
+    echo "Removing invalid regular KoalaByte device alias: ${alias}" >&2
+    "${sudo_cmd[@]}" rm -f -- "${alias}"
+  fi
+done
+
 "${sudo_cmd[@]}" udevadm control --reload-rules
 "${sudo_cmd[@]}" udevadm trigger || true
 "${sudo_cmd[@]}" udevadm settle || true
