@@ -14,16 +14,29 @@ if [[ -f "${ENV_FILE}" ]]; then
   source "${ENV_FILE}"
 fi
 
-if [[ -e /dev/koalabyte-heltec ]]; then
+is_serial_device() {
+  [[ -n "${1:-}" && -c "${1}" ]]
+}
+
+if is_serial_device /dev/koalabyte-heltec; then
   DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec"
-elif [[ -e /dev/koalabyte-heltec-t114 ]]; then
+elif is_serial_device /dev/koalabyte-heltec-t114; then
   DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec-t114"
 else
   # Never guess ttyACM0/ttyUSB0: either may be the ESP32 serial owner.
   DEFAULT_PRIMARY_PORT=""
 fi
 
-PRIMARY_PORT="${KOALABYTE_PRIMARY_BLE_PORT:-${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-${KOALABYTE_NRF_BLE_PORT:-${NRF_BLE_PORT:-${DEFAULT_PRIMARY_PORT}}}}}}"
+CONFIGURED_PRIMARY_PORT="${KOALABYTE_PRIMARY_BLE_PORT:-${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-${KOALABYTE_NRF_BLE_PORT:-${NRF_BLE_PORT:-}}}}}"
+if is_serial_device "${CONFIGURED_PRIMARY_PORT}"; then
+  PRIMARY_PORT="${CONFIGURED_PRIMARY_PORT}"
+else
+  if [[ -n "${CONFIGURED_PRIMARY_PORT}" ]]; then
+    echo "Ignoring invalid Heltec serial path from runtime environment: ${CONFIGURED_PRIMARY_PORT}" >&2
+  fi
+  PRIMARY_PORT="${DEFAULT_PRIMARY_PORT}"
+fi
+
 ESP="${KOALABYTE_ESP32_FACE_PORT:-${ESP32_PORT:-}}"
 mkdir -p "${ROOT}/logs/ble_nodes"
 
