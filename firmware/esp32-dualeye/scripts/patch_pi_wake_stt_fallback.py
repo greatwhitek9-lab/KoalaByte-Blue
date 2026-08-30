@@ -14,11 +14,50 @@ def apply_fallback(source: Path) -> None:
   static bool announced = false;
   static uint8_t activeChannel = 0;
   static uint32_t lastMicLevelStatusAt = 0;
+  static uint32_t lastCaptureProbeAt = 0;
 
-  if (!dualEyeMicrophoneReady() || dualEyeAudioBusy()) return;
+  if (!dualEyeMicrophoneReady()) return;
+
+  const uint32_t now = millis();
+  const bool audioBusy = dualEyeAudioBusy();
+  if (audioBusy) {
+    if (now - lastCaptureProbeAt >= 2000UL) {
+      lastCaptureProbeAt = now;
+      StaticJsonDocument<512> doc;
+      doc["type"] = "mic_capture_probe";
+      doc["device"] = "esp32-s3-dualeye";
+      doc["fw"] = KOALABLUE_FW_VERSION;
+      doc["status"] = "audio_busy";
+      doc["mic_ready"] = true;
+      doc["speaker_ready"] = dualEyeSpeakerReady();
+      doc["audio_busy"] = true;
+      doc["read_bytes"] = 0;
+      doc["audio_status"] = dualEyeAudioStatus();
+      doc["free_heap"] = ESP.getFreeHeap();
+      sendPayload(doc);
+    }
+    return;
+  }
 
   const size_t count = dualEyeAudioRead(stereoMic, sizeof(stereoMic));
-  if (count < 4) return;
+  if (count < 4) {
+    if (now - lastCaptureProbeAt >= 2000UL) {
+      lastCaptureProbeAt = now;
+      StaticJsonDocument<512> doc;
+      doc["type"] = "mic_capture_probe";
+      doc["device"] = "esp32-s3-dualeye";
+      doc["fw"] = KOALABLUE_FW_VERSION;
+      doc["status"] = "i2s_read_short";
+      doc["mic_ready"] = true;
+      doc["speaker_ready"] = dualEyeSpeakerReady();
+      doc["audio_busy"] = false;
+      doc["read_bytes"] = count;
+      doc["audio_status"] = dualEyeAudioStatus();
+      doc["free_heap"] = ESP.getFreeHeap();
+      sendPayload(doc);
+    }
+    return;
+  }
 
   const int16_t *stereo = reinterpret_cast<const int16_t *>(stereoMic);
   const size_t frames = min(count / 4, sizeof(monoMic) / 2);
@@ -62,6 +101,7 @@ def apply_fallback(source: Path) -> None:
     doc["active_mic_channel"] = activeChannel;
     doc["left_rms"] = leftRms;
     doc["right_rms"] = rightRms;
+    doc["read_bytes"] = count;
     doc["free_heap"] = ESP.getFreeHeap();
     sendPayload(doc);
   }
@@ -75,17 +115,19 @@ def apply_fallback(source: Path) -> None:
     koalaLegacyBeginUtterance(rms);
   }
   if (!utteranceActive) {
-    const uint32_t now = millis();
     if (now - lastMicLevelStatusAt >= MIC_STATUS_INTERVAL_MS) {
       lastMicLevelStatusAt = now;
       StaticJsonDocument<512> doc;
       doc["type"] = "mic_level_status";
       doc["device"] = "esp32-s3-dualeye";
+      doc["fw"] = KOALABLUE_FW_VERSION;
       doc["active_mic_channel"] = activeChannel;
       doc["left_rms"] = leftRms;
       doc["right_rms"] = rightRms;
       doc["trigger_rms"] = rms;
       doc["threshold"] = MIC_WAKE_RMS_THRESHOLD;
+      doc["read_bytes"] = count;
+      doc["audio_busy"] = false;
       sendPayload(doc);
     }
     return;
@@ -139,6 +181,10 @@ def apply_fallback(source: Path) -> None:
         'doc["status"] = "pi_wake_stt_fallback_ready";',
         'doc["pi_wake_stt_fallback"] = true;',
         'doc["adaptive_stereo"] = true;',
+        'doc["type"] = "mic_capture_probe";',
+        'doc["status"] = "audio_busy";',
+        'doc["status"] = "i2s_read_short";',
+        'doc["read_bytes"] = count;',
         "rightRms > leftRms ? 1 : 0",
         "koalaLegacyBeginUtterance(rms);",
         "koalaLegacyEndUtterance(\"silence\");",
@@ -151,8 +197,8 @@ def apply_fallback(source: Path) -> None:
 
     source.write_text(text, encoding="utf-8")
     print(
-        "Patched DualEye voice runtime to adaptive-stereo Pi wake/STT fallback; "
-        "ESP-SR initialization quarantined"
+        "Patched DualEye voice runtime with adaptive-stereo Pi wake/STT "
+        "and I2S capture diagnostics; ESP-SR initialization quarantined"
     )
 
 
