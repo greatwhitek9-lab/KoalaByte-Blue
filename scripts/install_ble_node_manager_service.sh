@@ -106,7 +106,7 @@ Environment=PYTHONPATH=${ROOT}/pi-companion
 Environment=PATH=${ROOT}/pi-companion/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=KOALABYTE_SERIAL_BUS_DIR=${SERIAL_BUS_DIR}
 EnvironmentFile=-${ENV_PATH}
-ExecStart=${ROOT}/scripts/run_ble_node_manager_service.sh
+ExecStart=/usr/bin/bash ${ROOT}/scripts/run_ble_node_manager_service.sh
 Restart=always
 RestartSec=5
 TimeoutStopSec=15
