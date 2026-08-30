@@ -215,17 +215,26 @@ def _config_path() -> Path:
     if override:
         return Path(override)
     for path in DEFAULT_CONFIG_PATHS:
-        if path.exists():
-            return path
+        try:
+            if path.exists():
+                return path
+        except OSError:
+            # A system config may exist but be unreadable to an incomplete or
+            # upgraded install. Menu enumeration must remain available so the
+            # one-shot can repair permissions instead of crashing at import time.
+            continue
     return DEFAULT_CONFIG_PATHS[0]
 
 
 def load_music_config() -> dict[str, Any]:
-    path = _config_path()
     try:
+        path = _config_path()
         payload = json.loads(path.read_text(encoding="utf-8"))
         return payload if isinstance(payload, dict) else {}
-    except Exception:
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        # Radio presets are optional. Treat a missing, unreadable, or malformed
+        # config as an empty preset list; setup_mopidy_player.sh repairs the
+        # system file ownership/mode for the normal KoalaByte service user.
         return {}
 
 
