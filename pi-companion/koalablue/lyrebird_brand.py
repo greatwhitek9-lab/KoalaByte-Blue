@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 PLAYER_NAME = "Lyrebird"
+LEGACY_PLAYER_NAME = "Music Player"
 SUBMENU_NAME = "music_player"
 SUBMENU_COMMAND = f"submenu:{SUBMENU_NAME}"
 
@@ -57,6 +58,11 @@ def _brand_row(row: dict[str, Any]) -> None:
 
 def _ensure_catalog_structure(menu_catalog: Any, mopidy_player: Any) -> None:
     """Repair a partial Mopidy menu injection before the one-shot audits it."""
+    # Remove the old generic group name so only the KoalaByte product name is
+    # visible in grouped jungle menus after an upgrade from an older checkout.
+    menu_catalog.MENU_GROUPS[:] = [
+        name for name in menu_catalog.MENU_GROUPS if name != LEGACY_PLAYER_NAME
+    ]
     if PLAYER_NAME not in menu_catalog.MENU_GROUPS:
         insert_at = (
             menu_catalog.MENU_GROUPS.index("System / Companion")
@@ -158,6 +164,8 @@ def install_lyrebird_brand() -> None:
         raise RuntimeError(f"Lyrebird requires exactly one main-menu link, found {len(main_links)}")
     if str(main_links[0].get("label", "")) != PLAYER_NAME:
         raise RuntimeError("Lyrebird main-menu label drifted from the product name")
+    if str(menu_catalog.submenu_title(SUBMENU_NAME)) != PLAYER_NAME:
+        raise RuntimeError("Lyrebird submenu title drifted from the product name")
 
     commands = {
         str(row.get("command", ""))
