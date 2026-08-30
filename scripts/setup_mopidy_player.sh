@@ -84,9 +84,10 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
   grep -q 'mopidy-archive-keyring.gpg' "$0"
   grep -q 'systemctl reset-failed mopidy.service' "$0"
   grep -q 'KOALABYTE_SERVICE_USER' "$0"
+  grep -q 'chmod 0750 "${CONFIG_DIR}"' "$0"
   grep -q 'chmod 0640 "${PLAYER_CONFIG}"' "$0"
   write_status MOPIDY_PLAYER_CONTRACT_READY \
-    "official APT source, noninteractive install, localhost API, service reset, runtime-readable config, and RPC health contract validated" \
+    "official APT source, noninteractive install, localhost API, service reset, runtime-traversable protected config directory, runtime-readable config, and RPC health contract validated" \
     not_started
   exit 0
 fi
@@ -192,7 +193,19 @@ if apt-cache show mopidy-local >/dev/null 2>&1; then
     echo "warning: optional mopidy-local package installation failed" >&2
 fi
 
-"${sudo_cmd[@]}" install -d -m 0755 "${MUSIC_DIR}" "${CONFIG_DIR}" /etc/mopidy
+"${sudo_cmd[@]}" install -d -m 0755 "${MUSIC_DIR}" /etc/mopidy
+"${sudo_cmd[@]}" install -d -m 0750 -o root -g "${SERVICE_GROUP}" "${CONFIG_DIR}"
+# GNU install -d can encounter an already-existing directory from an older
+# one-shot. Reassert owner/mode explicitly so upgrades repair restrictive legacy
+# directory permissions as well as newly created directories.
+"${sudo_cmd[@]}" chown "root:${SERVICE_GROUP}" "${CONFIG_DIR}" || {
+  fail_setup "failed to grant ${SERVICE_USER} group traversal of ${CONFIG_DIR}" unavailable
+  exit 1
+}
+"${sudo_cmd[@]}" chmod 0750 "${CONFIG_DIR}" || {
+  fail_setup "failed to set protected traversable mode on ${CONFIG_DIR}" unavailable
+  exit 1
+}
 if id mopidy >/dev/null 2>&1; then
   "${sudo_cmd[@]}" usermod -a -G audio mopidy || true
   "${sudo_cmd[@]}" chown -R mopidy:audio "${MUSIC_DIR}" || true
