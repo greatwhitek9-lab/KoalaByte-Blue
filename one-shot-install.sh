@@ -5,6 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${ROOT}"
 
 CHECK_ONLY=0
+RESUME=0
+RESET_PROGRESS=0
 SKIP_PACKAGES=0
 SKIP_AUDIO=0
 SKIP_CAN=0
@@ -16,10 +18,14 @@ USE_EXISTING_FIRMWARE_BUNDLE=0
 CLEANUP_FIRMWARE_BUILD_TOOLS="${CLEANUP_FIRMWARE_BUILD_TOOLS:-1}"
 SERVICE_USER="${KOALABYTE_SERVICE_USER:-${SUDO_USER:-${USER:-pi}}}"
 STATUS_PATH="${KOALABYTE_ONE_SHOT_STATUS_PATH:-logs/one_shot/final_install_status.json}"
+CHECKPOINT_PATH="${KOALABYTE_ONE_SHOT_CHECKPOINT_PATH:-logs/one_shot/install_checkpoint.json}"
+CHECKPOINT_HELPER="${ROOT}/scripts/one_shot_checkpoint.py"
 PYTHON_BIN="${ROOT}/pi-companion/.venv/bin/python"
 INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN:-auto}"
 KOALABYTE_TMPDIR="${KOALABYTE_TMPDIR:-${HOME}/.cache/koalabyte/tmp}"
 RUNTIME_HEALTH_TIMEOUT="${KOALABYTE_RUNTIME_HEALTH_TIMEOUT:-45}"
+CURRENT_STAGE_ID=""
+CURRENT_STAGE_LABEL=""
 
 mkdir -p "${KOALABYTE_TMPDIR}"
 export TMPDIR="${KOALABYTE_TMPDIR}"
@@ -32,9 +38,13 @@ KoalaByte Blue complete whole-system one-shot deployment
 
 Usage:
   bash one-shot-install.sh
+  bash one-shot-install.sh --resume
+  bash one-shot-install.sh --reset-progress
   bash one-shot-install.sh --check-only
 
 Options:
+  --resume                       Resume from durable completed-stage checkpoints
+  --reset-progress               Discard the saved checkpoint and start a fresh deployment
   --check-only                   Validate the complete source/deployment contract
   --skip-packages                Reuse existing Pi packages and Python environment
   --skip-audio                   Do not select an external Pi audio sink
@@ -46,6 +56,12 @@ Options:
   --use-existing-firmware-bundle Flash releases/koalabyte-blue-current without rebuilding
   --keep-build-tools             Retain NCS, Zephyr SDK, west, and PlatformIO after success
 
+Resume behavior:
+  Source validation always runs against the current checkout. Completed expensive
+  stages are skipped only when the deployment profile matches the checkpoint.
+  A first --resume after upgrading from an older installer conservatively adopts
+  only strong success artifacts for firmware, TinyLlama, and Mopidy.
+
 Run as the normal SSH/login user, not with `sudo bash`; privileged stages request
 sudo internally. The transaction verifies stable services, exclusive serial
 owners, the required Ollama model, and Mopidy JSON-RPC before reporting success.
@@ -54,6 +70,8 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --resume) RESUME=1 ;;
+    --reset-progress) RESET_PROGRESS=1 ;;
     --check-only|--dry-run) CHECK_ONLY=1 ;;
     --skip-packages) SKIP_PACKAGES=1 ;;
     --skip-audio) SKIP_AUDIO=1 ;;
@@ -70,6 +88,15 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+[[ "${RESUME}" == "1" && "${RESET_PROGRESS}" == "1" ]] && {
+  echo "--resume and --reset-progress cannot be used together." >&2
+  exit 2
+}
+[[ "${CHECK_ONLY}" == "1" && ( "${RESUME}" == "1" || "${RESET_PROGRESS}" == "1" ) ]] && {
+  echo "Checkpoint options are not used with --check-only." >&2
+  exit 2
+}
+
 mkdir -p logs/one_shot logs/deployment logs/preflight logs/pi_hardware \
   logs/gpio_buttons logs/runtime logs/killerkoala logs/ble_nodes logs/music_player \
   logs/hdmi logs/hdmi/state logs/hdmi/commands
@@ -83,17 +110,19 @@ write_status() {
   python3 - "${STATUS_PATH}" "${status}" "${step}" "${reason}" \
     "${CHECK_ONLY}" "${SERVICE_USER}" "${SKIP_AI}" "${SKIP_MUSIC}" \
     "${SKIP_FIRMWARE}" "${FIRMWARE_BUILD_ONLY}" "${CLEANUP_FIRMWARE_BUILD_TOOLS}" \
-    "${KOALABYTE_TMPDIR}" <<'PY'
+    "${KOALABYTE_TMPDIR}" "${RESUME}" "${CHECKPOINT_PATH}" <<'PY'
 import json, sys, time
 from pathlib import Path
 (path, status, step, reason, check_only, service_user, skip_ai, skip_music,
- skip_firmware, build_only, cleanup_tools, temp_dir) = sys.argv[1:]
+ skip_firmware, build_only, cleanup_tools, temp_dir, resume, checkpoint_path) = sys.argv[1:]
 firmware_enabled = skip_firmware != "1"
 Path(path).write_text(json.dumps({
     "status": status,
     "step": step,
     "reason": reason,
     "check_only": check_only == "1",
+    "resume_mode": resume == "1",
+    "checkpoint_path": checkpoint_path,
     "service_user": service_user,
     "runtime_mode": "headless_pi_os_lite_with_optional_hdmi",
     "hdmi_display": "read_only_auto_detect_with_koalabyte_pi_os_switch",
@@ -120,13 +149,95 @@ Path(path).write_text(json.dumps({
 PY
 }
 
+checkpoint_profile_json() {
+  python3 - \
+    "${SERVICE_USER}" "${SKIP_PACKAGES}" "${SKIP_AUDIO}" "${SKIP_CAN}" \
+    "${SKIP_AI}" "${SKIP_MUSIC}" "${SKIP_FIRMWARE}" "${FIRMWARE_BUILD_ONLY}" \
+    "${USE_EXISTING_FIRMWARE_BUNDLE}" "${CLEANUP_FIRMWARE_BUILD_TOOLS}" \
+    "${INSTALL_INNOMAKER_CAN}" "${CAN_INTERFACE:-can0}" "${CAN_BITRATE:-500000}" <<'PY'
+import json, sys
+(service_user, skip_packages, skip_audio, skip_can, skip_ai, skip_music,
+ skip_firmware, build_only, existing_bundle, cleanup, innomaker, can_iface,
+ can_bitrate) = sys.argv[1:]
+print(json.dumps({
+    "service_user": service_user,
+    "skip_packages": skip_packages == "1",
+    "skip_audio": skip_audio == "1",
+    "skip_can": skip_can == "1",
+    "skip_ai": skip_ai == "1",
+    "skip_music": skip_music == "1",
+    "skip_firmware": skip_firmware == "1",
+    "firmware_build_only": build_only == "1",
+    "use_existing_firmware_bundle": existing_bundle == "1",
+    "cleanup_firmware_build_tools": cleanup.lower() in {"1", "true", "yes", "on", "auto"},
+    "install_innomaker_can": innomaker,
+    "can_interface": can_iface,
+    "can_bitrate": can_bitrate,
+}, sort_keys=True))
+PY
+}
+
+source_revision() {
+  git rev-parse HEAD 2>/dev/null || printf '%s\n' unknown
+}
+
+initialize_checkpoint() {
+  [[ "${CHECK_ONLY}" == "1" ]] && return 0
+  [[ -f "${CHECKPOINT_HELPER}" ]] || {
+    echo "Missing checkpoint helper: ${CHECKPOINT_HELPER}" >&2
+    return 1
+  }
+  local profile revision
+  profile="$(checkpoint_profile_json)"
+  revision="$(source_revision)"
+
+  if [[ "${RESET_PROGRESS}" == "1" || "${RESUME}" != "1" ]]; then
+    python3 "${CHECKPOINT_HELPER}" reset --path "${CHECKPOINT_PATH}"
+  fi
+
+  if [[ "${RESUME}" == "1" ]]; then
+    python3 "${CHECKPOINT_HELPER}" migrate-legacy \
+      --path "${CHECKPOINT_PATH}" --profile-json "${profile}" \
+      --source-revision "${revision}" --root "${ROOT}"
+  fi
+
+  python3 "${CHECKPOINT_HELPER}" init \
+    --path "${CHECKPOINT_PATH}" --profile-json "${profile}" \
+    --source-revision "${revision}"
+
+  if [[ "${RESUME}" == "1" ]]; then
+    echo "Resume checkpoint: ${CHECKPOINT_PATH}"
+    python3 "${CHECKPOINT_HELPER}" show --path "${CHECKPOINT_PATH}"
+  fi
+}
+
 run_step() {
-  local name="$1"; shift
+  local stage_id="$1" name="$2"; shift 2
   echo
   echo "== ${name} =="
+
+  if [[ "${CHECK_ONLY}" != "1" && "${RESUME}" == "1" && "${stage_id}" != "source_validation" ]]; then
+    if python3 "${CHECKPOINT_HELPER}" is-complete --path "${CHECKPOINT_PATH}" --stage "${stage_id}"; then
+      echo "RESUME: ${name} already completed; skipping."
+      write_status ok "${name}" "resume checkpoint already completed this stage"
+      return 0
+    fi
+  fi
+
+  CURRENT_STAGE_ID="${stage_id}"
+  CURRENT_STAGE_LABEL="${name}"
+  if [[ "${CHECK_ONLY}" != "1" ]]; then
+    python3 "${CHECKPOINT_HELPER}" started \
+      --path "${CHECKPOINT_PATH}" --stage "${stage_id}" --label "${name}"
+  fi
   write_status running "${name}" "step started"
   "$@"
   write_status ok "${name}" "step completed"
+  if [[ "${CHECK_ONLY}" != "1" ]]; then
+    python3 "${CHECKPOINT_HELPER}" complete --path "${CHECKPOINT_PATH}" --stage "${stage_id}"
+  fi
+  CURRENT_STAGE_ID=""
+  CURRENT_STAGE_LABEL=""
 }
 
 python_for_runtime() {
@@ -164,6 +275,7 @@ validate_sources() {
     bash -n "${script}"
   done
   python3 -m py_compile \
+    scripts/one_shot_checkpoint.py \
     scripts/run_headless_menu.py scripts/run_hdmi_display.py \
     scripts/set_hdmi_display_mode.py scripts/run_esp32_dualeye_voice_bridge.py \
     scripts/run_ble_node_manager.py scripts/setup_gpio_buttons.py scripts/test_gpio_buttons.py \
@@ -230,7 +342,7 @@ restart_services() {
     fi
   done
   if can_enabled && "${sudo_cmd[@]}" systemctl list-unit-files koalabyte-can0.service >/dev/null 2>&1; then
-    "${sudo_cmd[@]}" systemctl enable koalabyte-can0.service >/dev/null 2>&1 || true
+    "${sudo_cmd[@]}" systemctl enable "${service}" >/dev/null 2>&1 || true
     "${sudo_cmd[@]}" systemctl restart koalabyte-can0.service || true
   fi
 }
@@ -318,17 +430,33 @@ run_cleanup() {
   fi
 }
 
-trap 'write_status failed final_one_shot "deployment stopped before completion"' ERR
-run_step "Source and deployment validation" validate_sources
+on_error() {
+  local rc=$?
+  trap - ERR
+  if [[ "${CHECK_ONLY}" != "1" && -n "${CURRENT_STAGE_ID}" && -f "${CHECKPOINT_PATH}" ]]; then
+    python3 "${CHECKPOINT_HELPER}" failed \
+      --path "${CHECKPOINT_PATH}" --stage "${CURRENT_STAGE_ID}" \
+      --label "${CURRENT_STAGE_LABEL:-${CURRENT_STAGE_ID}}" \
+      --reason "deployment stopped with exit ${rc}" || true
+  fi
+  write_status failed "${CURRENT_STAGE_LABEL:-final_one_shot}" "deployment stopped before completion; rerun with --resume after correcting the reported condition"
+  exit "${rc}"
+}
+trap on_error ERR
+
+if [[ "${CHECK_ONLY}" != "1" ]]; then
+  initialize_checkpoint
+fi
+run_step source_validation "Source and deployment validation" validate_sources
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
-  run_step "Whole-system firmware deployment contract" bash scripts/deploy_whole_system_firmware.sh --check-only
-  run_step "Restricted K7/K8 power permissions" env KOALABYTE_SERVICE_USER="${SERVICE_USER}" bash scripts/install_power_controls.sh --check-only
-  run_step "Pi hardware inventory" env INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN}" bash scripts/setup_pi_hardware_stage.sh --check-only
-  [[ "${SKIP_AI}" == "1" ]] || run_step "TinyLlama installer contract" bash scripts/setup_killerkoala_ollama.sh --check-only
-  [[ "${SKIP_MUSIC}" == "1" ]] || run_step "Mopidy installer contract" bash scripts/setup_mopidy_player.sh --check-only
-  run_step "Control, AI, music, BLE, alarm, display, and serial ownership contracts" run_runtime_checks
-  run_step "Audio readiness" bash scripts/configure_pi_audio_output.sh --check-only
+  run_step firmware_deployment "Whole-system firmware deployment contract" bash scripts/deploy_whole_system_firmware.sh --check-only
+  run_step power_permissions "Restricted K7/K8 power permissions" env KOALABYTE_SERVICE_USER="${SERVICE_USER}" bash scripts/install_power_controls.sh --check-only
+  run_step pi_prerequisites "Pi hardware inventory" env INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN}" bash scripts/setup_pi_hardware_stage.sh --check-only
+  [[ "${SKIP_AI}" == "1" ]] || run_step tinyllama "TinyLlama installer contract" bash scripts/setup_killerkoala_ollama.sh --check-only
+  [[ "${SKIP_MUSIC}" == "1" ]] || run_step mopidy "Mopidy installer contract" bash scripts/setup_mopidy_player.sh --check-only
+  run_step runtime_verification "Control, AI, music, BLE, alarm, display, and serial ownership contracts" run_runtime_checks
+  run_step audio_selection "Audio readiness" bash scripts/configure_pi_audio_output.sh --check-only
   write_status complete whole_system_check "Complete source and runtime contracts validated."
   trap - ERR
   echo "KoalaByte whole-system one-shot check passed."
@@ -343,7 +471,7 @@ prereq_args=()
 [[ "${SKIP_PACKAGES}" == "1" ]] && prereq_args+=(--skip-packages)
 [[ "${SKIP_AUDIO}" == "1" ]] && prereq_args+=(--skip-audio)
 can_enabled || prereq_args+=(--skip-can-service)
-run_step "Raspberry Pi prerequisites and stable device rules" \
+run_step pi_prerequisites "Raspberry Pi prerequisites and stable device rules" \
   env KOALABYTE_SERVICE_USER="${SERVICE_USER}" \
       CAN_INTERFACE="${CAN_INTERFACE:-can0}" CAN_BITRATE="${CAN_BITRATE:-500000}" \
       bash scripts/setup_pi_hardware_stage.sh "${prereq_args[@]}"
@@ -352,41 +480,42 @@ if [[ "${SKIP_FIRMWARE}" != "1" ]]; then
   firmware_args=(--keep-build-tools)
   [[ "${FIRMWARE_BUILD_ONLY}" == "1" ]] && firmware_args+=(--build-only)
   [[ "${USE_EXISTING_FIRMWARE_BUNDLE}" == "1" ]] && firmware_args+=(--use-existing-bundle)
-  run_step "Build and flash current T114 and ESP32 firmware" \
+  run_step firmware_deployment "Build and flash current T114 and ESP32 firmware" \
     env KOALABYTE_REQUIRE_ALL_PERIPHERALS="${KOALABYTE_REQUIRE_ALL_PERIPHERALS:-1}" \
         KOALABYTE_DEFER_SERVICE_RESTART=1 CLEANUP_FIRMWARE_BUILD_TOOLS=0 \
         bash scripts/deploy_whole_system_firmware.sh "${firmware_args[@]}"
 fi
 
-[[ "${SKIP_AI}" == "1" ]] || run_step "Local KillerKoala TinyLlama model" \
+[[ "${SKIP_AI}" == "1" ]] || run_step tinyllama "Local KillerKoala TinyLlama model" \
   env INSTALL_KILLERKOALA_OLLAMA="${INSTALL_KILLERKOALA_OLLAMA:-auto}" \
       STRICT_KILLERKOALA_OLLAMA="${STRICT_KILLERKOALA_OLLAMA:-0}" \
       KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-tinyllama:latest}" \
       bash scripts/setup_killerkoala_ollama.sh
 
-[[ "${SKIP_MUSIC}" == "1" ]] || run_step "Pi-owned Mopidy music player" \
-  env INSTALL_MOPIDY_PLAYER="${INSTALL_MOPIDY_PLAYER:-auto}" \
+[[ "${SKIP_MUSIC}" == "1" ]] || run_step mopidy "Pi-owned Mopidy music player" \
+  env KOALABYTE_SERVICE_USER="${SERVICE_USER}" \
+      INSTALL_MOPIDY_PLAYER="${INSTALL_MOPIDY_PLAYER:-auto}" \
       STRICT_MOPIDY_PLAYER="${STRICT_MOPIDY_PLAYER:-0}" \
       bash scripts/setup_mopidy_player.sh
 
-run_step "Restricted K7/K8 power permissions" \
+run_step power_permissions "Restricted K7/K8 power permissions" \
   env KOALABYTE_SERVICE_USER="${SERVICE_USER}" bash scripts/install_power_controls.sh
 
 service_args=(--skip-packages --skip-venv --skip-audio --install-runtime-services)
 can_enabled || service_args+=(--skip-can-service)
-run_step "Install final runtime services" \
+run_step runtime_services "Install final runtime services" \
   env KOALABYTE_SERVICE_USER="${SERVICE_USER}" \
       CAN_INTERFACE="${CAN_INTERFACE:-can0}" CAN_BITRATE="${CAN_BITRATE:-500000}" \
       bash scripts/setup_pi_hardware_stage.sh "${service_args[@]}"
 
-run_step "Post-deployment device discovery" run_discovery
-run_step "K1-K8 GPIO initialization" run_button_probe
-run_step "Control, AI, music, BLE, alarm, and display verification" run_runtime_checks
-run_step "Runtime service activation" restart_services
-run_step "Runtime service, serial-owner, and local API health" verify_runtime_services
-[[ "${SKIP_AUDIO}" == "1" ]] || run_step "External audio selection" bash scripts/configure_pi_audio_output.sh
-run_step "Final Pi hardware doctor" run_final_doctor
-run_step "Remove firmware-only build toolchains" run_cleanup
+run_step device_discovery "Post-deployment device discovery" run_discovery
+run_step gpio_initialization "K1-K8 GPIO initialization" run_button_probe
+run_step runtime_verification "Control, AI, music, BLE, alarm, and display verification" run_runtime_checks
+run_step service_activation "Runtime service activation" restart_services
+run_step runtime_health "Runtime service, serial-owner, and local API health" verify_runtime_services
+[[ "${SKIP_AUDIO}" == "1" ]] || run_step audio_selection "External audio selection" bash scripts/configure_pi_audio_output.sh
+run_step final_doctor "Final Pi hardware doctor" run_final_doctor
+run_step cleanup "Remove firmware-only build toolchains" run_cleanup
 
 write_status complete whole_system_deployment "Firmware and Pi runtime deployed; HDMI mode switching, services, serial ownership, Ollama model, and Mopidy API verified; build tools cleaned according to policy."
 trap - ERR
@@ -395,6 +524,7 @@ cat <<EOF
 
 KoalaByte Blue whole-system one-shot deployment complete.
 Status: ${STATUS_PATH}
+Resume checkpoint: ${CHECKPOINT_PATH}
 Firmware bundle: releases/koalabyte-blue-current/manifest.json
 Firmware deployment: logs/deployment/whole_system_deployment_status.json
 Build cleanup: logs/deployment/build_tool_cleanup_status.json
@@ -407,6 +537,10 @@ BLE roles: logs/ble_nodes/ble_role_election.json
 Device map: logs/preflight/koalabyte_ports.json
 Serial owners: logs/runtime/serial_bus/esp32.sock and heltec.sock
 HDMI: logs/hdmi/hdmi_display_status.json (switch with scripts/set_hdmi_display_mode.py)
+
+If a later run stops after a successful stage, correct the reported problem and run:
+  bash one-shot-install.sh --resume
+Use --reset-progress only when you intentionally want a fresh full deployment.
 
 Reboot once after the first installation so ${SERVICE_USER} receives all hardware group memberships.
 EOF
