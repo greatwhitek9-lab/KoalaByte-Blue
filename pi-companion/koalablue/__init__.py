@@ -76,29 +76,44 @@ except Exception:
     # Optional OBD-II/read-only menu support must not block core package imports.
     pass
 
+# Lyrebird is a required menu surface in the completed one-shot, while the Mopidy
+# service itself can still be unavailable during an early/partial package import.
+# Keep core menu composition separate from optional browser and voice extensions
+# so one failing extension cannot leave a dangling submenu:music_player link.
 try:
     from . import mopidy_player as _mopidy_player
     from .mopidy_player import install_menu_catalog as install_music_player_menu
 
-    # Lyrebird is the KoalaByte product name. Mopidy remains the stable internal
-    # engine, service, RPC API, configuration format, and command namespace.
     _mopidy_player.GROUP_NAME = "Lyrebird"
-    install_music_player_menu()
+    try:
+        install_music_player_menu()
+    except Exception:
+        # The Lyrebird brand installer below repairs a partial main-menu injection
+        # from the stable Mopidy command catalog before one-shot validation runs.
+        pass
 
     from .lyrebird_brand import install_lyrebird_brand
 
     install_lyrebird_brand()
+except Exception:
+    # Core package imports remain fail-soft. The one-shot control/music checks
+    # surface an incomplete Lyrebird catalog as a deployment failure.
+    pass
 
+try:
     from .lyrebird_browser import install_lyrebird_browser
 
     install_lyrebird_browser()
+except Exception:
+    # Browser/search additions are optional and must not damage core playback UI.
+    pass
 
+try:
     from .lyrebird_voice_alias import install_lyrebird_voice_alias
 
     install_lyrebird_voice_alias()
 except Exception:
-    # Music support is optional at import time; a missing service or user config
-    # must never prevent the menu, voice bridge, or diagnostics from starting.
+    # Voice aliases are optional and must not damage the core Lyrebird menu.
     pass
 
 try:
