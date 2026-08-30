@@ -45,8 +45,10 @@ def main() -> int:
             "install_checkpoint.json",
             "migrate-legacy",
             'stage_id}" != "source_validation"',
+            'stage_id}" != "service_activation"',
             "run_step firmware_deployment",
             "run_step runtime_verification",
+            "run_step service_activation",
             "run_step runtime_health",
             "rerun with --resume",
         ]
@@ -180,6 +182,7 @@ def main() -> int:
         "reset_command": "bash one-shot-install.sh --reset-progress",
         "legacy_adoption": ["firmware_deployment", "tinyllama", "mopidy"],
         "source_validation_always_reruns": True,
+        "service_activation_always_reruns": True,
         "profile_mismatch_fails_closed": True,
         "failures": failures,
     }
