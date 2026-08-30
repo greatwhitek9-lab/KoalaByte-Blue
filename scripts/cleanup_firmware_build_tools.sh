@@ -82,7 +82,8 @@ runtime_python="${ROOT}/pi-companion/.venv/bin/python"
   write_status refused "Refusing cleanup because Pi runtime virtual environment is unavailable."
   exit 1
 }
-"${runtime_python}" -c 'import httpx, serial; import koalablue.killerkoala_hybrid_companion' || {
+PYTHONPATH="${ROOT}/pi-companion${PYTHONPATH:+:${PYTHONPATH}}" \
+  "${runtime_python}" -c 'import httpx, serial; import koalablue.killerkoala_hybrid_companion' || {
   write_status refused "Refusing cleanup because Pi runtime imports failed."
   exit 1
 }
