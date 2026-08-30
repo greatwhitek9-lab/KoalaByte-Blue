@@ -5,6 +5,7 @@ import argparse
 import glob
 import json
 import os
+import stat
 import subprocess
 import time
 from pathlib import Path
@@ -100,6 +101,16 @@ def has_any(label: str, hints: tuple[str, ...]) -> bool:
     return any(hint in label for hint in hints)
 
 
+def is_serial_device(path: str) -> bool:
+    """Accept stable aliases only when they resolve to a character device."""
+    if not path:
+        return False
+    try:
+        return stat.S_ISCHR(Path(path).stat().st_mode)
+    except OSError:
+        return False
+
+
 def choose_role(
     entries: list[dict[str, str]],
     hints: tuple[str, ...],
@@ -107,7 +118,7 @@ def choose_role(
     stable_paths: tuple[str, ...] = (),
 ) -> str:
     for stable in stable_paths:
-        if stable and Path(stable).exists() and stable not in avoid:
+        if stable and is_serial_device(stable) and stable not in avoid:
             return stable
 
     scored: list[tuple[int, str]] = []
