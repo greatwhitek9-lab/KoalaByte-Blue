@@ -4,16 +4,7 @@
 /artifacts/
 
 # Runtime logs and generated status reports
-/logs/**/*.json
-/logs/**/*.jsonl
-/logs/**/*.log
-/logs/**/*.txt
-/logs/**/*.lock
-/logs/**/*.env
-/logs/**/*.sock
-/logs/**/*.pid
-/logs/nrf_connect_sdk_env.sh
-/logs/nrf_connect_sdk_status.json
+/logs/
 
 # Locally generated release bundles
 /releases/koalabyte-blue-current/
@@ -54,11 +45,7 @@ pi-companion/.venv/
 # removed by scripts/cleanup_firmware_build_tools.sh after deployment.
 /firmware/esp32-dualeye/include/generated_voice_menu_catalog.h
 /firmware/esp32-dualeye/src/local_voice_responses_generated.cpp
-/firmware/esp32-dualeye/lib/es8311/
-/firmware/esp32-dualeye/lib/es7210/
-/firmware/esp32-dualeye/lib/arduino_network_runtime/
-/firmware/esp32-dualeye/lib/.arduino_network_runtime.staging/
-/firmware/esp32-dualeye/lib/.waveshare-audio-f16371c/
+/firmware/esp32-dualeye/lib/
 
 # Local vendored Nordic/nRF Connect SDK and Zephyr SDK worktrees.
 # These are intentionally populated on the Pi by scripts/vendor_nrf_connect_sdk.sh
