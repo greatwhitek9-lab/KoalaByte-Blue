@@ -342,7 +342,7 @@ restart_services() {
     fi
   done
   if can_enabled && "${sudo_cmd[@]}" systemctl list-unit-files koalabyte-can0.service >/dev/null 2>&1; then
-    "${sudo_cmd[@]}" systemctl enable "${service}" >/dev/null 2>&1 || true
+    "${sudo_cmd[@]}" systemctl enable koalabyte-can0.service >/dev/null 2>&1 || true
     "${sudo_cmd[@]}" systemctl restart koalabyte-can0.service || true
   fi
 }
