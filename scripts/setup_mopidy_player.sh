@@ -13,6 +13,7 @@ MOPIDY_CONFIG="${KOALABYTE_MOPIDY_CONFIG:-/etc/mopidy/mopidy.conf}"
 RPC_URL="${KOALABYTE_MOPIDY_RPC_URL:-http://127.0.0.1:6680/mopidy/rpc}"
 MOPIDY_READY_TIMEOUT="${KOALABYTE_MOPIDY_READY_TIMEOUT:-60}"
 TMP_ROOT="${TMPDIR:-${HOME}/.cache/koalabyte/tmp}"
+SERVICE_USER="${KOALABYTE_SERVICE_USER:-${SUDO_USER:-$(id -un)}}"
 
 usage() {
   cat <<'EOF'
@@ -37,11 +38,11 @@ write_status() {
   local status="$1" reason="$2" service_state="${3:-unknown}"
   python3 - "${STATUS_PATH}" "${status}" "${reason}" "${service_state}" \
     "${CHECK_ONLY}" "${MUSIC_DIR}" "${PLAYER_CONFIG}" "${MOPIDY_CONFIG}" \
-    "${RPC_URL}" <<'PY'
+    "${RPC_URL}" "${SERVICE_USER}" <<'PY'
 import json, sys, time
 from pathlib import Path
 (path, status, reason, service_state, check_only, music_dir, player_config,
- mopidy_config, rpc_url) = sys.argv[1:]
+ mopidy_config, rpc_url, service_user) = sys.argv[1:]
 payload = {
     "status": status,
     "reason": reason,
@@ -49,6 +50,7 @@ payload = {
     "service_state": service_state,
     "check_only": check_only == "1",
     "execution_owner": "raspberry-pi",
+    "service_user": service_user,
     "engine": "mopidy",
     "rpc_url": rpc_url,
     "http_bind": "127.0.0.1:6680",
@@ -81,8 +83,10 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
   grep -q 'hostname = 127.0.0.1' "$0"
   grep -q 'mopidy-archive-keyring.gpg' "$0"
   grep -q 'systemctl reset-failed mopidy.service' "$0"
+  grep -q 'KOALABYTE_SERVICE_USER' "$0"
+  grep -q 'chmod 0640 "${PLAYER_CONFIG}"' "$0"
   write_status MOPIDY_PLAYER_CONTRACT_READY \
-    "official APT source, noninteractive install, localhost API, service reset, and RPC health contract validated" \
+    "official APT source, noninteractive install, localhost API, service reset, runtime-readable config, and RPC health contract validated" \
     not_started
   exit 0
 fi
@@ -111,6 +115,12 @@ fail_setup() {
   # here rather than allowing a less useful later health-gate error.
   return 1
 }
+
+if ! id "${SERVICE_USER}" >/dev/null 2>&1; then
+  fail_setup "KoalaByte service user does not exist: ${SERVICE_USER}" unavailable
+  exit 1
+fi
+SERVICE_GROUP="$(id -gn "${SERVICE_USER}")"
 
 apt_noninteractive() {
   if [[ "${EUID}" -eq 0 ]]; then
@@ -228,6 +238,18 @@ if [[ ! -f "${PLAYER_CONFIG}" ]]; then
 JSONEOF
   "${sudo_cmd[@]}" install -m 0640 "${player_tmp}" "${PLAYER_CONFIG}"
 fi
+
+# Keep potentially credential-bearing radio URLs private while guaranteeing the
+# normal KoalaByte runtime/check user can enumerate Lyrebird menus. This also
+# repairs root:root 0640 files created by older one-shot versions.
+"${sudo_cmd[@]}" chown "root:${SERVICE_GROUP}" "${PLAYER_CONFIG}" || {
+  fail_setup "failed to grant ${SERVICE_USER} group ownership of ${PLAYER_CONFIG}" unavailable
+  exit 1
+}
+"${sudo_cmd[@]}" chmod 0640 "${PLAYER_CONFIG}" || {
+  fail_setup "failed to set protected readable mode on ${PLAYER_CONFIG}" unavailable
+  exit 1
+}
 
 command -v systemctl >/dev/null 2>&1 || {
   fail_setup "systemd is required for Mopidy runtime"
