@@ -296,11 +296,33 @@ def service_inventory(include_can: bool) -> dict[str, Any]:
 
 def power_control_inventory() -> dict[str, Any]:
     path = Path("/etc/sudoers.d/90-koalabyte-power-controls")
-    result = {"path": str(path), "exists": path.exists(), "valid": None}
-    if path.exists() and shutil.which("visudo"):
-        check = run(["sudo", "-n", "visudo", "-cf", str(path)]) if os.geteuid() != 0 else run(["visudo", "-cf", str(path)])
-        result["valid"] = check.get("returncode") == 0
-        result["validation"] = check
+    result: dict[str, Any] = {
+        "path": str(path),
+        "exists": None,
+        "accessible": True,
+        "valid": None,
+    }
+    try:
+        result["exists"] = path.exists()
+    except PermissionError as exc:
+        result["accessible"] = False
+        result["error"] = str(exc)
+        return result
+    except OSError as exc:
+        result["accessible"] = False
+        result["error"] = str(exc)
+        return result
+
+    if result["exists"] and shutil.which("visudo"):
+        if os.geteuid() == 0:
+            check = run(["visudo", "-cf", str(path)])
+            result["valid"] = check.get("returncode") == 0
+            result["validation"] = check
+        else:
+            # The service account intentionally cannot read /etc/sudoers.d on a
+            # hardened install. Do not request extra privilege from a read-only
+            # doctor; the installer validates this rule when it is installed.
+            result["validation_skipped"] = "unprivileged doctor; installer owns sudoers validation"
     return result
 
 
@@ -349,9 +371,12 @@ def derive_findings(payload: dict[str, Any]) -> tuple[str, list[str], list[str]]
     if not any(item["exists"] for item in payload["serial"]["aliases"].values()):
         findings.append("KoalaByte stable serial aliases are not present.")
 
-    if not payload["power_controls"]["exists"]:
+    power_controls = payload["power_controls"]
+    if power_controls.get("accessible") is False:
+        notes.append("Restricted K7/K8 sudoers rule is protected from the unprivileged doctor; installer validation remains authoritative.")
+    elif power_controls.get("exists") is False:
         findings.append("Restricted K7/K8 power-control sudoers rule is not installed.")
-    elif payload["power_controls"].get("valid") is False:
+    elif power_controls.get("valid") is False:
         findings.append("Restricted K7/K8 power-control sudoers rule is invalid.")
 
     status = "PI_HARDWARE_READY" if not findings else "PI_HARDWARE_NEEDS_ATTENTION"
