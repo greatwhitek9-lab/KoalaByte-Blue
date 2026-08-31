@@ -19,6 +19,7 @@ DEFAULT_STT_DIAGNOSTICS_PATH = Path(
         "logs/killerkoala/esp32_dualeye_stt_diagnostics.jsonl",
     )
 )
+STT_STALE_SESSION_SECONDS = 10.0
 
 
 class ESP32DualEyeVoiceBridge(_SphinxBridge):
@@ -44,27 +45,47 @@ class ESP32DualEyeVoiceBridge(_SphinxBridge):
             backups=2,
         )
 
+    def _expire_stale_stt_sessions(self) -> None:
+        now = time.monotonic()
+        for request_id, state in list(self._stt_sessions.items()):
+            started = float(state.get("started", now))
+            if now - started <= STT_STALE_SESSION_SECONDS:
+                continue
+            self._diag(
+                "utterance_stale",
+                request_id=request_id,
+                packets=int(state.get("packets", 0)),
+                pcm_bytes=int(state.get("pcm_bytes", 0)),
+                sequence_gaps=state.get("sequence_gaps", []),
+                age_seconds=round(now - started, 3),
+                reason="audio_utterance_end_not_received",
+            )
+            self._stt_sessions.pop(request_id, None)
+
     def handle_payload(
         self, payload: Dict[str, Any]
     ) -> Optional[ESP32DualEyeVoiceEvent]:
+        self._expire_stale_stt_sessions()
+
         payload_type = str(payload.get("type") or "")
         request_id = str(payload.get("request_id") or "")
 
         if payload_type == "audio_utterance_start":
-            self._stt_sessions[request_id] = {
-                "packets": 0,
-                "pcm_bytes": 0,
-                "last_sequence": None,
-                "sequence_gaps": [],
-                "started": time.monotonic(),
-            }
-            self._diag(
-                "utterance_start",
-                request_id=request_id,
-                rms=payload.get("rms"),
-                sample_rate=payload.get("sample_rate", 16000),
-                sample_width=payload.get("sample_width", 2),
-            )
+            if request_id not in self._stt_sessions:
+                self._stt_sessions[request_id] = {
+                    "packets": 0,
+                    "pcm_bytes": 0,
+                    "last_sequence": None,
+                    "sequence_gaps": [],
+                    "started": time.monotonic(),
+                }
+                self._diag(
+                    "utterance_start",
+                    request_id=request_id,
+                    rms=payload.get("rms"),
+                    sample_rate=payload.get("sample_rate", 16000),
+                    sample_width=payload.get("sample_width", 2),
+                )
 
         elif (
             payload_type == "audio_pcm_chunk"
@@ -218,5 +239,6 @@ __all__ = [
     "ESP32DualEyeVoiceBridge",
     "ESP32DualEyeVoiceEvent",
     "DEFAULT_STT_DIAGNOSTICS_PATH",
+    "STT_STALE_SESSION_SECONDS",
     "default_esp32_port",
 ]
