@@ -7,7 +7,7 @@ def quarantine_legacy_transport(source: Path) -> None:
     text = source.read_text(encoding="utf-8")
 
     old = """  ESP_SR.onEvent(onSrEvent);\n  srReady = ESP_SR.begin(dualEyeAudioBus(), kAllSpeechCommands,\n                         kAllSpeechCommandCount, SR_CHANNELS_STEREO,\n                         SR_MODE_COMMAND, srInputFormat);\n"""
-    new = """  // ESP-SR is quarantined for this hardware path. The active microphone\n  // transport uses vendor-compatible ES7210 TDM RX and Pi-side wake/STT, so the\n  // obsolete Arduino I2SClass ESP_SR.begin() dependency must not compile in.\n  srReady = false;\n"""
+    new = """  // ESP-SR is quarantined for this hardware path. The active microphone\n  // transport uses vendor-compatible ES7210 TDM RX and Pi-side wake/STT, so the\n  // obsolete Arduino I2SClass recognizer transport must not compile in.\n  srReady = false;\n"""
 
     count = text.count(old)
     if count != 1:
