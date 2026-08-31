@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,10 @@ from .killerkoala_voice_control import (
 from .menu_voice_launcher import build_menu_voice_manifest, route_menu_voice_launch
 
 
+_SPACED_WAKE_RE = re.compile(r"\b(?:hey\s+)?killer\s+koala\b", re.IGNORECASE)
+_FUSED_WAKE_RE = re.compile(r"\b(?:hey\s+)?killerkoala\b", re.IGNORECASE)
+
+
 def _jsonable(value: Any) -> Any:
     if is_dataclass(value):
         return asdict(value)
@@ -26,6 +31,25 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, dict):
         return {str(key): _jsonable(item) for key, item in value.items()}
     return value
+
+
+def canonicalize_killerkoala_wake(phrase: str) -> str:
+    """Normalize spoken/fused wake forms to the parser's canonical token."""
+
+    text = " ".join(str(phrase or "").split())
+    text = _SPACED_WAKE_RE.sub(
+        lambda match: "hey killerkoala"
+        if match.group(0).lower().lstrip().startswith("hey")
+        else "killerkoala",
+        text,
+    )
+    text = _FUSED_WAKE_RE.sub(
+        lambda match: "hey killerkoala"
+        if match.group(0).lower().lstrip().startswith("hey")
+        else "killerkoala",
+        text,
+    )
+    return " ".join(text.split())
 
 
 def speak(text: str) -> bool:
@@ -81,8 +105,10 @@ def route_voice_phrase(
     to the local TinyLlama companion, with web evidence added when available.
     """
 
+    canonical_phrase = canonicalize_killerkoala_wake(phrase)
+
     menu_result = route_menu_voice_launch(
-        phrase,
+        canonical_phrase,
         output_dir=output_dir / "menu_voice",
         xp_path=xp_path,
         require_wake_word=require_wake_word,
@@ -90,7 +116,10 @@ def route_voice_phrase(
     if menu_result is not None:
         return menu_result
 
-    parsed = parse_voice_command(phrase, require_wake_word=require_wake_word)
+    parsed = parse_voice_command(
+        canonical_phrase,
+        require_wake_word=require_wake_word,
+    )
     return execute_module(
         parsed,
         output_dir=output_dir,
@@ -201,3 +230,7 @@ def run_cli() -> int:
 
     parser.error("provide --phrase, --listen, --loop, or --manifest")
     return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(run_cli())
