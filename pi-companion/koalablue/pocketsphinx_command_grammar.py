@@ -82,6 +82,7 @@ class CommandGrammar:
     phrases: tuple[str, ...]
     menu_phrases: tuple[str, ...]
     rejected_phrases: tuple[str, ...]
+    capacity_skipped_phrases: tuple[str, ...]
     missing_dictionary_words: tuple[str, ...]
     dictionary_words: int
     custom_dictionary_words: tuple[str, ...]
@@ -181,6 +182,7 @@ def build_command_grammar(
     direct: list[str] = []
     menu: list[str] = []
     rejected: list[str] = []
+    capacity_skipped: list[str] = []
     missing_words: set[str] = set()
     seen: set[str] = set()
 
@@ -195,13 +197,14 @@ def build_command_grammar(
             rejected.append(phrase)
             missing_words.update(missing)
             continue
+        if len(accepted) >= limit:
+            capacity_skipped.append(phrase)
+            continue
         accepted.append(phrase)
         if is_menu:
             menu.append(phrase)
         else:
             direct.append(phrase)
-        if len(accepted) >= limit:
-            break
 
     for required in ("killer", "koala"):
         if required not in dictionary:
@@ -254,6 +257,7 @@ def build_command_grammar(
         phrases=tuple(accepted),
         menu_phrases=tuple(menu),
         rejected_phrases=tuple(rejected),
+        capacity_skipped_phrases=tuple(capacity_skipped),
         missing_dictionary_words=tuple(sorted(missing_words)),
         dictionary_words=len(dictionary),
         custom_dictionary_words=custom_words,
