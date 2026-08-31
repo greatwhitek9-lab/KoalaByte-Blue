@@ -15,10 +15,25 @@ def apply_fallback(source: Path) -> None:
   static uint8_t activeChannel = 0;
   static uint32_t lastMicLevelStatusAt = 0;
   static uint32_t lastCaptureProbeAt = 0;
+  static uint32_t lastEntryProbeAt = 0;
+
+  const uint32_t now = millis();
+  if (now - lastEntryProbeAt >= 2000UL) {
+    lastEntryProbeAt = now;
+    StaticJsonDocument<512> doc;
+    doc["type"] = "fallback_entry_probe";
+    doc["device"] = "esp32-s3-dualeye";
+    doc["fw"] = KOALABLUE_FW_VERSION;
+    doc["mic_ready"] = dualEyeMicrophoneReady();
+    doc["speaker_ready"] = dualEyeSpeakerReady();
+    doc["audio_busy"] = dualEyeAudioBusy();
+    doc["audio_status"] = dualEyeAudioStatus();
+    doc["free_heap"] = ESP.getFreeHeap();
+    sendPayload(doc);
+  }
 
   if (!dualEyeMicrophoneReady()) return;
 
-  const uint32_t now = millis();
   const bool audioBusy = dualEyeAudioBusy();
   if (audioBusy) {
     if (now - lastCaptureProbeAt >= 2000UL) {
@@ -74,9 +89,6 @@ def apply_fallback(source: Path) -> None:
   const float leftRms = sqrt(leftSquareSum / frames);
   const float rightRms = sqrt(rightSquareSum / frames);
 
-  // The ES7210/TDM wiring can present the active onboard microphone on either
-  // stereo slot. Select the stronger channel continuously instead of assuming
-  // the left slot, which made the Pi fallback appear deaf on right-slot boards.
   activeChannel = rightRms > leftRms ? 1 : 0;
   const float rms = activeChannel ? rightRms : leftRms;
 
@@ -178,6 +190,7 @@ def apply_fallback(source: Path) -> None:
 
     required = (
         "void servicePiWakeSttFallback()",
+        'doc["type"] = "fallback_entry_probe";',
         'doc["status"] = "pi_wake_stt_fallback_ready";',
         'doc["pi_wake_stt_fallback"] = true;',
         'doc["adaptive_stereo"] = true;',
@@ -197,7 +210,7 @@ def apply_fallback(source: Path) -> None:
 
     source.write_text(text, encoding="utf-8")
     print(
-        "Patched DualEye voice runtime with adaptive-stereo Pi wake/STT "
+        "Patched DualEye voice runtime with fallback entry, adaptive-stereo Pi wake/STT "
         "and I2S capture diagnostics; ESP-SR initialization quarantined"
     )
 
