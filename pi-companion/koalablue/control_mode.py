@@ -107,11 +107,28 @@ def load_control_mode() -> dict[str, Any]:
     return payload
 
 
+def _automatic_gpio_fallback(payload: dict[str, Any]) -> bool:
+    """Return True only for a fallback produced by failed GPIO auto-detection."""
+    return (
+        _normalize_mode(str(payload.get("mode", AUTO))) == TOUCH_SPEECH_ONLY
+        and str(payload.get("source", "")) == "gpio_button_manager"
+        and payload.get("buttons_available") is False
+    )
+
+
 def effective_control_mode() -> str:
     override = os.getenv("KOALABYTE_CONTROL_MODE", "").strip()
     if override:
         return _normalize_mode(override)
-    return _normalize_mode(str(load_control_mode().get("mode", AUTO)))
+
+    payload = load_control_mode()
+    # A gpio_button_manager fallback is diagnostic state, not a permanent user
+    # preference. Retry GPIO initialization on the next service start so a
+    # transient boot/resource failure cannot disable K1-K8 forever. Explicit
+    # touch_speech_only choices from users/installers remain persistent.
+    if _automatic_gpio_fallback(payload):
+        return AUTO
+    return _normalize_mode(str(payload.get("mode", AUTO)))
 
 
 def gpio_buttons_enabled() -> bool:
