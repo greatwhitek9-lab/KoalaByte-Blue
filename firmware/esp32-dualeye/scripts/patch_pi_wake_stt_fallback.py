@@ -31,6 +31,8 @@ def apply_fallback(source: Path) -> None:
     doc["audio_read_attempts"] = dualEyeAudioReadAttempts();
     doc["audio_last_read_state"] = dualEyeAudioLastReadState();
     doc["audio_last_read_bytes"] = dualEyeAudioLastReadBytes();
+    doc["audio_last_raw_read_bytes"] = dualEyeAudioLastRawReadBytes();
+    doc["audio_input_slots"] = dualEyeAudioInputSlots();
     doc["audio_last_read_duration_ms"] = dualEyeAudioLastReadDurationMs();
     doc["free_heap"] = ESP.getFreeHeap();
     sendPayload(doc);
@@ -198,6 +200,8 @@ def apply_fallback(source: Path) -> None:
         'doc["audio_read_attempts"] = dualEyeAudioReadAttempts();',
         'doc["audio_last_read_state"] = dualEyeAudioLastReadState();',
         'doc["audio_last_read_bytes"] = dualEyeAudioLastReadBytes();',
+        'doc["audio_last_raw_read_bytes"] = dualEyeAudioLastRawReadBytes();',
+        'doc["audio_input_slots"] = dualEyeAudioInputSlots();',
         'doc["status"] = "pi_wake_stt_fallback_ready";',
         'doc["pi_wake_stt_fallback"] = true;',
         'doc["adaptive_stereo"] = true;',
@@ -217,7 +221,7 @@ def apply_fallback(source: Path) -> None:
 
     source.write_text(text, encoding="utf-8")
     print(
-        "Patched DualEye voice runtime with audio-driver read telemetry, fallback entry, "
+        "Patched DualEye voice runtime with raw TDM/read telemetry, fallback entry, "
         "adaptive-stereo Pi wake/STT and I2S capture diagnostics; ESP-SR initialization quarantined"
     )
 
