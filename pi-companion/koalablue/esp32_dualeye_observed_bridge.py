@@ -101,6 +101,13 @@ class ESP32DualEyeVoiceBridge(_SphinxBridge):
                 state["packets"] += 1
                 state["pcm_bytes"] += len(payload.get("_pcm_s16le_mono") or b"")
 
+        # Start/end control packets can arrive once on UDP and once on serial.
+        # Once the observed session has already been consumed, leave the duplicate
+        # end to the base bridge's normal dedupe path without emitting a second,
+        # misleading zero-byte utterance_end diagnostic.
+        if payload_type == "audio_utterance_end" and request_id not in self._stt_sessions:
+            return super().handle_payload(payload)
+
         if payload_type == "audio_utterance_end":
             self._active_stt_request_id = request_id
             self._last_stt_transcript = ""
