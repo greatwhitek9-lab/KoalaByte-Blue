@@ -59,6 +59,7 @@ set_source_files_properties(${KOALABYTE_FINAL_MAIN_SOURCE} PROPERTIES GENERATED 
 target_sources(app PRIVATE
   src/display_power_init.c
   src/koalagotchi_lifecycle_wrapper.c
+  src/centered_koalagotchi_renderer.c
   ${KOALABYTE_FINAL_MAIN_SOURCE}
   src/loading_display.c
   src/original_texture_warp_renderer.c
@@ -69,13 +70,15 @@ target_include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 # loading_display.c still owns boot/menu/action drawing. The normal mouth path is
 # provided by original_texture_warp_renderer.c, which continuously deforms one
 # approved original texture and never compiles the procedural replacement mouth.
+# Action-mode Koalagotchi rendering is routed to the centered renderer so the
+# character remains anchored on-screen instead of traversing left/right.
 set_source_files_properties(src/loading_display.c PROPERTIES
   COMPILE_DEFINITIONS
     "render_killerkoala_mouth=koala_base_render_killerkoala_mouth;render_menu_status=koala_base_render_menu_status;render_koalagotchi_action=koala_base_render_koalagotchi_action"
 )
 set_source_files_properties(src/koalagotchi_lifecycle_wrapper.c PROPERTIES
   COMPILE_DEFINITIONS
-    "__wrap_render_killerkoala_mouth=render_killerkoala_mouth;__wrap_render_menu_status=render_menu_status;__wrap_render_koalagotchi_action=render_koalagotchi_action;__real_render_killerkoala_mouth=koala_original_render_killerkoala_mouth;__real_render_menu_status=koala_original_render_menu_status;__real_render_koalagotchi_action=koala_original_render_koalagotchi_action;koala_inner_render_killerkoala_mouth=koala_original_render_killerkoala_mouth;koala_inner_render_menu_status=koala_original_render_menu_status;koala_inner_render_koalagotchi_action=koala_original_render_koalagotchi_action"
+    "__wrap_render_killerkoala_mouth=render_killerkoala_mouth;__wrap_render_menu_status=render_menu_status;__wrap_render_koalagotchi_action=render_koalagotchi_action;__real_render_killerkoala_mouth=koala_original_render_killerkoala_mouth;__real_render_menu_status=koala_original_render_menu_status;__real_render_koalagotchi_action=koala_centered_render_koalagotchi_action;koala_inner_render_killerkoala_mouth=koala_original_render_killerkoala_mouth;koala_inner_render_menu_status=koala_original_render_menu_status;koala_inner_render_koalagotchi_action=koala_centered_render_koalagotchi_action"
 )
 
 set(KOALABYTE_BOOT_SPLASH_ASSET
