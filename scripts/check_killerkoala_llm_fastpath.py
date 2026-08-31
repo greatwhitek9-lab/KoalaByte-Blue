@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import json
 
-from koalablue.killerkoala_hybrid_companion import KillerKoalaLLMConfig, should_try_llm
+from koalablue import killerkoala_hybrid_companion as companion
+from koalablue.killerkoala_llm_policy import install_killerkoala_llm_fastpath
 
 
-def _config(mode: str = "tinyllama") -> KillerKoalaLLMConfig:
-    return KillerKoalaLLMConfig(
+def _config(mode: str = "tinyllama") -> companion.KillerKoalaLLMConfig:
+    return companion.KillerKoalaLLMConfig(
         mode=mode,
         model="killerkoala-tinyllama:latest",
         host="http://127.0.0.1:11434",
@@ -22,14 +23,15 @@ def _config(mode: str = "tinyllama") -> KillerKoalaLLMConfig:
 
 
 def main() -> int:
+    install_killerkoala_llm_fastpath()
     cfg = _config()
     cases = {
-        "ordinary_help": should_try_llm("inquiry_help", False, cfg),
-        "ordinary_status": should_try_llm("bluez_status", False, cfg),
-        "ordinary_action": should_try_llm("scan_complete", False, cfg),
-        "question": should_try_llm("inquiry_question", False, cfg),
-        "explicit_banter": should_try_llm("status", True, cfg),
-        "disabled_question": should_try_llm("inquiry_question", False, _config("off")),
+        "ordinary_help": companion.should_try_llm("inquiry_help", False, cfg),
+        "ordinary_status": companion.should_try_llm("bluez_status", False, cfg),
+        "ordinary_action": companion.should_try_llm("scan_complete", False, cfg),
+        "question": companion.should_try_llm("inquiry_question", False, cfg),
+        "explicit_banter": companion.should_try_llm("status", True, cfg),
+        "disabled_question": companion.should_try_llm("inquiry_question", False, _config("off")),
     }
     expected = {
         "ordinary_help": False,
