@@ -23,7 +23,7 @@ def main() -> int:
         Decoder(
             hmm=str(root / "en-us"),
             jsgf=str(grammar.path),
-            dict=str(root / "cmudict-en-us.dict"),
+            dict=str(grammar.dictionary_path),
             samprate=16000,
             loglevel="ERROR",
         )
@@ -34,6 +34,7 @@ def main() -> int:
                     "ready": False,
                     "reason": f"jsgf_compile_failed:{type(exc).__name__}:{exc}",
                     "grammar_path": str(grammar.path),
+                    "dictionary_path": str(grammar.dictionary_path),
                 },
                 indent=2,
                 sort_keys=True,
@@ -41,19 +42,29 @@ def main() -> int:
         )
         return 3
 
-    required = {"help", "voice commands", "status"}
+    required = {
+        "help",
+        "voice commands",
+        "status",
+        "bluez status",
+        "gatt readiness",
+        "koala kapture",
+    }
     missing = sorted(required.difference(grammar.phrases))
     payload = {
         "ready": not missing,
         "status": "POCKETSPHINX_COMMAND_GRAMMAR_READY" if not missing else "POCKETSPHINX_COMMAND_GRAMMAR_INCOMPLETE",
         "model_root": str(root),
         "grammar_path": str(grammar.path),
+        "dictionary_path": str(grammar.dictionary_path),
         "dictionary_words": grammar.dictionary_words,
+        "custom_dictionary_words": list(grammar.custom_dictionary_words),
+        "custom_dictionary_word_count": len(grammar.custom_dictionary_words),
         "accepted_phrases": len(grammar.phrases),
         "rejected_oov_phrases": len(grammar.rejected_phrases),
         "required_missing": missing,
-        "first_commands": list(grammar.phrases[:20]),
-        "first_rejected": list(grammar.rejected_phrases[:20]),
+        "first_commands": list(grammar.phrases[:30]),
+        "first_rejected": list(grammar.rejected_phrases[:30]),
         "wake_forms": ["killer koala", "hey killer koala"],
         "search_order": ["jsgf_commands", "whisper_if_available", "general_lm", "online_if_enabled"],
     }
