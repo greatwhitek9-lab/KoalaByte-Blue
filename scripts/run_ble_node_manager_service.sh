@@ -18,6 +18,19 @@ is_serial_device() {
   [[ -n "${1:-}" && -c "${1}" ]]
 }
 
+wait_for_serial_device() {
+  local path="$1"
+  local timeout="${2:-15}"
+  local deadline=$(( $(date +%s) + timeout ))
+  while (( $(date +%s) < deadline )); do
+    if is_serial_device "${path}"; then
+      return 0
+    fi
+    sleep 0.25
+  done
+  is_serial_device "${path}"
+}
+
 if is_serial_device /dev/koalabyte-heltec; then
   DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec"
 elif is_serial_device /dev/koalabyte-heltec-t114; then
@@ -28,11 +41,32 @@ else
 fi
 
 CONFIGURED_PRIMARY_PORT="${KOALABYTE_PRIMARY_BLE_PORT:-${KOALABYTE_HELTEC_USB_PORT:-${HELTEC_PORT:-${KOALABYTE_NRF_BLE_PORT:-${NRF_BLE_PORT:-}}}}}"
+REENUMERATE_WAIT_SECONDS="${KOALABYTE_T114_REENUMERATE_WAIT_SECONDS:-15}"
+
+# A UF2 handoff or normal T114 reset temporarily removes the USB CDC node.
+# Keep trusting only the configured stable KoalaByte alias, but give udev time
+# to recreate it before falling back or asking systemd to retry.
+if [[ -n "${CONFIGURED_PRIMARY_PORT}" ]] && ! is_serial_device "${CONFIGURED_PRIMARY_PORT}"; then
+  case "${CONFIGURED_PRIMARY_PORT}" in
+    /dev/koalabyte-heltec|/dev/koalabyte-heltec-t114|/dev/koalabyte-nrf52840)
+      echo "Waiting up to ${REENUMERATE_WAIT_SECONDS}s for T114 serial re-enumeration: ${CONFIGURED_PRIMARY_PORT}" >&2
+      wait_for_serial_device "${CONFIGURED_PRIMARY_PORT}" "${REENUMERATE_WAIT_SECONDS}" || true
+      ;;
+  esac
+fi
+
 if is_serial_device "${CONFIGURED_PRIMARY_PORT}"; then
   PRIMARY_PORT="${CONFIGURED_PRIMARY_PORT}"
 else
   if [[ -n "${CONFIGURED_PRIMARY_PORT}" ]]; then
     echo "Ignoring invalid Heltec serial path from runtime environment: ${CONFIGURED_PRIMARY_PORT}" >&2
+  fi
+  if is_serial_device /dev/koalabyte-heltec; then
+    DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec"
+  elif is_serial_device /dev/koalabyte-heltec-t114; then
+    DEFAULT_PRIMARY_PORT="/dev/koalabyte-heltec-t114"
+  else
+    DEFAULT_PRIMARY_PORT=""
   fi
   PRIMARY_PORT="${DEFAULT_PRIMARY_PORT}"
 fi
