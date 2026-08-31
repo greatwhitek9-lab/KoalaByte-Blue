@@ -52,11 +52,27 @@ def main() -> int:
         "capture metadata",
         "ear tag tx lab",
         "kruisin prompt status",
+        "meshtastic status",
+        "hdmi display status",
+        "tigershark interfaces",
+        "greatwhite reef report",
+        "twocan vehicle diagnostics",
+        "rf ble mode listen only",
     }
     missing = sorted(required.difference(grammar.phrases))
+    full_coverage = not (
+        missing
+        or grammar.rejected_phrases
+        or grammar.capacity_skipped_phrases
+        or grammar.missing_dictionary_words
+    )
     payload = {
-        "ready": not missing,
-        "status": "POCKETSPHINX_COMMAND_GRAMMAR_READY" if not missing else "POCKETSPHINX_COMMAND_GRAMMAR_INCOMPLETE",
+        "ready": full_coverage,
+        "status": (
+            "POCKETSPHINX_COMMAND_GRAMMAR_FULL_COVERAGE"
+            if full_coverage
+            else "POCKETSPHINX_COMMAND_GRAMMAR_INCOMPLETE"
+        ),
         "model_root": str(root),
         "grammar_path": str(grammar.path),
         "dictionary_path": str(grammar.dictionary_path),
