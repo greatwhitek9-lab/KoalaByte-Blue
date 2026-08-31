@@ -12,12 +12,14 @@ from .esp32_dualeye_error_dig_bridge import (
     ESP32DualEyeVoiceEvent,
     default_esp32_port,
 )
+from .pocketsphinx_command_grammar import CommandGrammar, build_command_grammar
 
 
 DEFAULT_DISTRO_SPHINX_ROOT = Path("/usr/share/pocketsphinx/model/en-us")
 PCM_BINARY_MAGIC = b"KPCM"
 PCM_BINARY_VERSION = 1
 PCM_BINARY_HEADER = struct.Struct("<4sBBBBIIHH")
+_COMMAND_GRAMMAR_CACHE: dict[str, CommandGrammar] = {}
 
 
 def _decode_binary_pcm_packet(data: bytes) -> Optional[Dict[str, Any]]:
@@ -98,6 +100,24 @@ def resolve_pocketsphinx_model() -> Path | None:
     return None
 
 
+def _command_grammar_enabled() -> bool:
+    return os.getenv("KOALABYTE_POCKETSPHINX_COMMAND_GRAMMAR", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+
+
+def _command_grammar_for_root(root: Path) -> CommandGrammar:
+    key = str(root.resolve())
+    grammar = _COMMAND_GRAMMAR_CACHE.get(key)
+    if grammar is None or not grammar.path.exists():
+        grammar = build_command_grammar(root)
+        _COMMAND_GRAMMAR_CACHE[key] = grammar
+    return grammar
+
+
 def validate_pocketsphinx_decoder() -> dict[str, Any]:
     root = resolve_pocketsphinx_model()
     if root is None:
@@ -115,6 +135,14 @@ def validate_pocketsphinx_decoder() -> dict[str, Any]:
             dict=str(root / "cmudict-en-us.dict"),
             loglevel="ERROR",
         )
+        grammar = _command_grammar_for_root(root)
+        Decoder(
+            hmm=str(root / "en-us"),
+            jsgf=str(grammar.path),
+            dict=str(root / "cmudict-en-us.dict"),
+            samprate=16000,
+            loglevel="ERROR",
+        )
     except Exception as exc:
         return {
             "ready": False,
@@ -125,11 +153,15 @@ def validate_pocketsphinx_decoder() -> dict[str, Any]:
         "ready": True,
         "reason": "",
         "model_root": str(root),
+        "command_grammar_enabled": _command_grammar_enabled(),
+        "command_grammar_path": str(grammar.path),
+        "command_grammar_phrases": len(grammar.phrases),
+        "command_grammar_rejected_phrases": len(grammar.rejected_phrases),
     }
 
 
 class ESP32DualEyeVoiceBridge(_ErrorDigBridge):
-    """DualEye bridge with validated PocketSphinx and MTU-safe binary PCM UDP."""
+    """DualEye bridge with JSGF commands, PocketSphinx fallback, and binary PCM UDP."""
 
     def _read_udp(self) -> Optional[Dict[str, Any]]:
         if self._udp is None:
@@ -173,6 +205,46 @@ class ESP32DualEyeVoiceBridge(_ErrorDigBridge):
             return None
         return super().handle_payload(payload)
 
+    def _transcribe_with_command_grammar(
+        self, pcm: bytes, sample_rate: int, sample_width: int
+    ) -> str:
+        if (
+            not pcm
+            or sample_rate != 16000
+            or sample_width != 2
+            or not _command_grammar_enabled()
+        ):
+            return ""
+        root = resolve_pocketsphinx_model()
+        if root is None:
+            return ""
+        try:
+            from pocketsphinx import Decoder  # type: ignore
+
+            grammar = _command_grammar_for_root(root)
+            decoder = Decoder(
+                hmm=str(root / "en-us"),
+                jsgf=str(grammar.path),
+                dict=str(root / "cmudict-en-us.dict"),
+                samprate=sample_rate,
+                loglevel="ERROR",
+            )
+            decoder.start_utt()
+            decoder.process_raw(pcm, False, True)
+            decoder.end_utt()
+            hypothesis = decoder.hyp()
+            if hypothesis is None:
+                return ""
+            phrase = " ".join(str(hypothesis.hypstr or "").lower().split())
+            if not (
+                phrase.startswith("killer koala ")
+                or phrase.startswith("hey killer koala ")
+            ):
+                return ""
+            return phrase
+        except Exception:
+            return ""
+
     def _transcribe_with_pocketsphinx(
         self, pcm: bytes, sample_rate: int, sample_width: int
     ) -> str:
@@ -188,6 +260,7 @@ class ESP32DualEyeVoiceBridge(_ErrorDigBridge):
                 hmm=str(root / "en-us"),
                 lm=str(root / "en-us.lm.bin"),
                 dict=str(root / "cmudict-en-us.dict"),
+                samprate=sample_rate,
                 loglevel="ERROR",
             )
             decoder.start_utt()
@@ -201,6 +274,18 @@ class ESP32DualEyeVoiceBridge(_ErrorDigBridge):
     def _transcribe_pcm(self, pcm: bytes, sample_rate: int, sample_width: int) -> str:
         if not pcm:
             return ""
+
+        # Known KoalaByte commands are deliberately recognized with a constrained
+        # JSGF search first. This avoids forcing short command phrases through the
+        # unrestricted English language model, which calibrated poorly on-device.
+        transcript = self._transcribe_with_command_grammar(
+            pcm, sample_rate, sample_width
+        )
+        if transcript:
+            return transcript
+
+        # Free-form questions and conversational requests still retain the richer
+        # local recognizer path, followed by the unrestricted PocketSphinx LM.
         transcript = self._transcribe_with_whisper(pcm, sample_rate, sample_width)
         if transcript:
             return transcript
@@ -231,6 +316,7 @@ __all__ = [
     "PCM_BINARY_HEADER",
     "PCM_BINARY_MAGIC",
     "PCM_BINARY_VERSION",
+    "_command_grammar_for_root",
     "_decode_binary_pcm_packet",
     "default_esp32_port",
     "resolve_pocketsphinx_model",
