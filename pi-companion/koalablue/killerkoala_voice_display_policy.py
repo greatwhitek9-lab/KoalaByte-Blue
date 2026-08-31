@@ -7,19 +7,25 @@ from .killerkoala_voice_control import (
     VOICE_MODULES,
     parse_voice_command,
 )
+from .killerkoala_voice_router import canonicalize_killerkoala_wake
 
 
 def voice_menu_preview(self: Any, phrase: str) -> Optional[dict[str, Any]]:
     """Show a menu-style preview for routed voice commands without hiding it.
 
     The whole-system face lifecycle introduced an immediate action-face fanout
-    after menu_sync, which replaced the menu before it was visibly useful.  A
+    after menu_sync, which replaced the menu before it was visibly useful. A
     highlight event keeps the existing ESP32 menu renderer active while the Pi
     executes the command; the normal execution result then transitions to the
     success/error/speaking face lifecycle.
+
+    Production JSGF transcripts use the spoken form ``killer koala`` while the
+    historical voice parser uses ``killerkoala``. Normalize that boundary here
+    exactly as the routing layer does so display preview and execution agree.
     """
 
-    parsed = parse_voice_command(phrase, require_wake_word=True)
+    canonical_phrase = canonicalize_killerkoala_wake(phrase)
+    parsed = parse_voice_command(canonical_phrase, require_wake_word=True)
 
     if parsed.menu_action is not None:
         command = parsed.menu_action.command
