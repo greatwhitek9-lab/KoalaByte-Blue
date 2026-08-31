@@ -117,8 +117,8 @@ command -v strings >/dev/null 2>&1 || {
 LINKED_STRINGS="${BUILD_DIR}/zephyr/koalabyte-linked-strings.txt"
 strings "${ELF_PATH}" > "${LINKED_STRINGS}"
 
-# Prove runtime identity, lifecycle, and software-UF2 behavior survived archive
-# linking and section garbage collection.
+# Prove runtime identity, lifecycle, canonical Koalagotchi HUD, and software-UF2
+# behavior survived archive linking and section garbage collection.
 for marker in \
     "${EXPECTED_FW}" \
     "${EXPECTED_PROTOCOL}" \
@@ -128,6 +128,7 @@ for marker in \
     action_complete \
     koalagotchi_mode \
     koalagotchi_exit \
+    KILLERKOALA//KOALAGOTCHI \
     disappointed \
     angry \
     error_clear \
@@ -157,12 +158,13 @@ for marker in \
     fi
 done
 
-write_status "built" "T114 firmware built with exact linked identity, Koalagotchi lifecycle, software UF2 entry, and articulated original-texture mouth renderer."
+write_status "built" "T114 firmware built with exact linked identity, canonical Koalagotchi HUD, lifecycle, software UF2 entry, and articulated original-texture mouth renderer."
 
 echo ""
 echo "======================================"
 echo "Build completed successfully."
 echo "Runtime identity: ${EXPECTED_FW} / ${EXPECTED_PROTOCOL}"
+echo "Koalagotchi HUD: canonical renderer linked and verified"
 echo "Koalagotchi lifecycle: linked and verified"
 echo "Software UF2 entry: linked and verified"
 echo "Mouth renderer: original texture articulated jaw v2"
