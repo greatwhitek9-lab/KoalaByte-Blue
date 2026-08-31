@@ -365,7 +365,22 @@ class BleNodeManager:
                     except queue.Empty:
                         break
                 for node, ser in handles:
-                    raw = ser.readline()
+                    try:
+                        raw = ser.readline()
+                    except Exception as exc:
+                        # A T114 reset/UF2 handoff temporarily removes the USB CDC
+                        # device. Convert that hot-unplug into the same node_error
+                        # contract used for open failures so the service runner can
+                        # exit cleanly and let systemd retry after udev re-enumerates.
+                        yield {
+                            "type": "node_error",
+                            "source": node.name,
+                            "role": node.role,
+                            "message": str(exc),
+                            "phase": "serial_read",
+                            "reconnect_requested": True,
+                        }
+                        return
                     if not raw:
                         continue
                     made_progress = True
