@@ -180,7 +180,7 @@ bool sendVoicePcmBatch() {
   size_t encodedLength = 0;
   const int encoded = mbedtls_base64_encode(
       reinterpret_cast<unsigned char *>(voiceBatchBase64),
-      sizeof(voiceBatchBase64) - 1, &encodedLength, voiceBatchPcm,
+      sizeof(voiceBatchBase64), &encodedLength, voiceBatchPcm,
       voiceBatchBytes);
   if (encoded != 0) {
     ++voiceEncodeFailures;
@@ -264,12 +264,10 @@ void servicePiWakeSttFallback() {
 
   if (!announced) {
     announced = true;
-    StaticJsonDocument<1024> doc;
+    StaticJsonDocument<896> doc;
     doc["type"] = "local_voice_status";
     doc["device"] = "esp32-s3-dualeye";
     doc["status"] = "pi_wake_stt_fallback_ready";
-    doc["detail"] =
-        "ESP-SR quarantined; continuous ES7210 capture queued independently from batched UDP STT transport";
     doc["recognizer"] = "raspberry-pi-stt";
     doc["wake_phrase"] = "killer koala";
     doc["alternate_wake_phrase"] = "hey killer koala";
@@ -277,7 +275,6 @@ void servicePiWakeSttFallback() {
     doc["mic_ready"] = true;
     doc["speaker_ready"] = dualEyeSpeakerReady();
     doc["audio_status"] = dualEyeAudioStatus();
-    doc["pi_wake_stt_fallback"] = true;
     doc["pcm_pipeline"] = "freertos_capture_queue_batch6_udp";
     doc["pcm_batch_frames"] = kVoiceBatchFrames;
     doc["pcm_queue_frames"] = kVoiceQueueFrames;
@@ -285,37 +282,23 @@ void servicePiWakeSttFallback() {
     sendPayload(doc);
   }
 
-  if (dualEyeAudioBusy()) {
-    resetVoicePcmBatch();
-    if (voicePcmQueue) xQueueReset(voicePcmQueue);
-    return;
-  }
-
   VoicePcmFrame frame = {};
-  uint8_t processed = 0;
-  while (processed < 24 && xQueueReceive(voicePcmQueue, &frame, 0) == pdTRUE) {
-    ++processed;
+  bool consumed = false;
+  while (voicePcmQueue && xQueueReceive(voicePcmQueue, &frame, 0) == pdTRUE) {
+    consumed = true;
     latestRms = frame.rms;
     latestChannel = frame.sourceChannel;
 
     if (!utteranceActive && frame.rms >= MIC_WAKE_RMS_THRESHOLD) {
-      resetVoicePcmBatch();
       koalaLegacyBeginUtterance(frame.rms);
+      resetVoicePcmBatch();
     }
 
-    if (!utteranceActive) continue;
-
-    if (frame.rms >= MIC_WAKE_RMS_THRESHOLD * 0.55f) {
-      lastSpeechMs = millis();
-    }
-    appendVoicePcmFrame(frame);
-
-    if (millis() - utteranceStartMs >= MIC_UTTERANCE_MAX_MS) {
-      flushVoicePcmBatch();
-      koalaLegacyEndUtterance("max_duration");
-    } else if (millis() - lastSpeechMs >= MIC_UTTERANCE_SILENCE_MS) {
-      flushVoicePcmBatch();
-      koalaLegacyEndUtterance("silence");
+    if (utteranceActive) {
+      appendVoicePcmFrame(frame);
+      if (frame.rms >= MIC_WAKE_RMS_THRESHOLD * 0.55f) {
+        lastSpeechMs = frame.capturedAtMs;
+      }
     }
   }
 
@@ -340,63 +323,59 @@ void servicePiWakeSttFallback() {
     doc["threshold"] = MIC_WAKE_RMS_THRESHOLD;
     doc["audio_busy"] = false;
     doc["pcm_pipeline"] = "freertos_capture_queue_batch6_udp";
+    doc["pcm_capture_frames"] = voiceCaptureFrames;
     doc["pcm_queue_depth"] =
         voicePcmQueue ? static_cast<uint32_t>(uxQueueMessagesWaiting(voicePcmQueue)) : 0;
-    doc["pcm_queue_drops"] = static_cast<uint32_t>(voiceQueueDrops);
+    doc["pcm_queue_drops"] = voiceQueueDrops;
     sendPayload(doc);
   }
 
   if (now - lastVoicePipelineStatusAt >= kVoicePipelineStatusMs) {
     lastVoicePipelineStatusAt = now;
     StaticJsonDocument<768> doc;
-    doc["type"] = "fallback_entry_probe";
+    doc["type"] = "mic_pipeline_status";
     doc["device"] = "esp32-s3-dualeye";
     doc["fw"] = KOALABLUE_FW_VERSION;
-    doc["mic_ready"] = dualEyeMicrophoneReady();
-    doc["speaker_ready"] = dualEyeSpeakerReady();
-    doc["audio_busy"] = dualEyeAudioBusy();
-    doc["audio_status"] = dualEyeAudioStatus();
-    doc["audio_read_attempts"] = dualEyeAudioReadAttempts();
-    doc["audio_last_read_state"] = dualEyeAudioLastReadState();
-    doc["audio_last_read_bytes"] = dualEyeAudioLastReadBytes();
-    doc["audio_last_raw_read_bytes"] = dualEyeAudioLastRawReadBytes();
-    doc["audio_input_slots"] = dualEyeAudioInputSlots();
-    doc["audio_last_read_duration_ms"] = dualEyeAudioLastReadDurationMs();
     doc["pcm_pipeline"] = "freertos_capture_queue_batch6_udp";
     doc["pcm_batch_frames"] = kVoiceBatchFrames;
+    doc["pcm_queue_frames"] = kVoiceQueueFrames;
+    doc["pcm_capture_frames"] = voiceCaptureFrames;
     doc["pcm_queue_depth"] =
         voicePcmQueue ? static_cast<uint32_t>(uxQueueMessagesWaiting(voicePcmQueue)) : 0;
-    doc["pcm_queue_drops"] = static_cast<uint32_t>(voiceQueueDrops);
-    doc["pcm_capture_frames"] = static_cast<uint32_t>(voiceCaptureFrames);
+    doc["pcm_queue_drops"] = voiceQueueDrops;
     doc["pcm_encode_failures"] = voiceEncodeFailures;
     doc["pcm_udp_failures"] = voiceUdpFailures;
     doc["free_heap"] = ESP.getFreeHeap();
     sendPayload(doc);
   }
 }
+
 '''
 
     text = text[:send_start] + replacement + text[service_end:]
 
     required = (
         ASYNC_MARKER,
-        "xTaskCreatePinnedToCore(",
         "xQueueCreate(kVoiceQueueFrames",
+        "xTaskCreatePinnedToCore(",
+        "voiceCaptureTask",
+        "voiceQueueDrops",
+        "voiceCaptureFrames",
         "kVoiceBatchFrames = 6",
-        "appendVoicePcmFrame(frame);",
-        'doc["pcm_queue_drops"]',
-        "servicePiWakeSttFallback()",
+        "sizeof(voiceBatchBase64), &encodedLength",
+        "void servicePiWakeSttFallback()",
     )
     missing = [marker for marker in required if marker not in text]
     if missing:
         raise RuntimeError(f"async PCM pipeline output missing markers: {missing}")
+
     if "void sendPcmPayload(JsonDocument &doc)" in text:
-        raise RuntimeError("legacy synchronous PCM helper remains after async patch")
+        raise RuntimeError("legacy synchronous PCM helper survived async pipeline patch")
 
     source.write_text(text, encoding="utf-8")
     print(
-        "Patched DualEye voice PCM with continuous FreeRTOS capture queue and "
-        "six-frame batched UDP transport"
+        "Patched DualEye voice PCM to continuous FreeRTOS capture queue with "
+        "six-frame UDP batching and full-capacity Base64 encoding"
     )
 
 
