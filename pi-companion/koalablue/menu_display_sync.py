@@ -50,15 +50,30 @@ def _display_item_payload(index: int, item: Any, selected_index: int) -> dict[st
     }
 
 
+def _visible_item_payloads(menu: Any) -> list[dict[str, object]]:
+    """Normalize visible menu rows from either MenuItem or (index, MenuItem)."""
+    scroll_offset = int(getattr(menu, "scroll_offset", 0))
+    selected_index = int(getattr(menu, "selected_index", 0))
+    rows: list[dict[str, object]] = []
+    for ordinal, entry in enumerate(menu.visible_items()):
+        index = scroll_offset + ordinal
+        item = entry
+        if isinstance(entry, tuple) and len(entry) == 2:
+            raw_index, item = entry
+            try:
+                index = int(raw_index)
+            except (TypeError, ValueError):
+                index = scroll_offset + ordinal
+        rows.append(_display_item_payload(index, item, selected_index))
+    return rows
+
+
 def build_menu_sync_payload(menu: Any, event: Any | None = None) -> dict[str, object]:
     selected = menu.selected_item
     displayed = menu._display_item(selected) if hasattr(menu, "_display_item") else selected
     scroll_offset = int(getattr(menu, "scroll_offset", 0))
     try:
-        visible_items = [
-            _display_item_payload(scroll_offset + index, item, menu.selected_index)
-            for index, item in enumerate(menu.visible_items())
-        ]
+        visible_items = _visible_item_payloads(menu)
     except Exception:
         visible_items = []
     payload: dict[str, object] = {
@@ -191,19 +206,23 @@ def _heltec_face_payload(payload: dict[str, object]) -> dict[str, object]:
             "duration_ms": 60000,
             "enabled": True,
         }
-    position = int(payload.get("selected_position", 1))
-    total = max(int(payload.get("total_items", 1)), 1)
+
+    # The T114 is the mouth/Koalagotchi surface, never a duplicate text menu.
+    # While the Pi menu is active, show Koalagotchi and use the selected label
+    # only as the action caption. Idle ai_face_sync restores the animated mouth.
+    selected_index = max(0, int(payload.get("selected_index", 0)))
     label = str(payload.get("selected_label", "Menu"))
-    event_type = str(payload.get("event_type", "highlight"))
     return {
         "type": "killerkoala_face",
-        "state": "menu_select" if event_type in {"select", "touch_long_press_select"} else "menu_highlight",
-        "message": f"{position:02d}/{total:02d} {label}"[:92],
+        "state": "action",
+        "message": label[:92],
+        "display_mode": "koalagotchi_action",
+        "frame_index": selected_index % 4,
         "menu_sync": True,
         "selected_label": label[:48],
         "selected_command": str(payload.get("selected_command", ""))[:48],
-        "event_type": event_type,
-        "duration_ms": 60000,
+        "event_type": str(payload.get("event_type", "highlight"))[:31],
+        "duration_ms": 30000,
         "enabled": True,
     }
 
