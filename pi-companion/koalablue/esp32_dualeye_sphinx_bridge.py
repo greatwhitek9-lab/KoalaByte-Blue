@@ -112,7 +112,11 @@ def _command_grammar_enabled() -> bool:
 def _command_grammar_for_root(root: Path) -> CommandGrammar:
     key = str(root.resolve())
     grammar = _COMMAND_GRAMMAR_CACHE.get(key)
-    if grammar is None or not grammar.path.exists():
+    if (
+        grammar is None
+        or not grammar.path.exists()
+        or not grammar.dictionary_path.exists()
+    ):
         grammar = build_command_grammar(root)
         _COMMAND_GRAMMAR_CACHE[key] = grammar
     return grammar
@@ -139,7 +143,7 @@ def validate_pocketsphinx_decoder() -> dict[str, Any]:
         Decoder(
             hmm=str(root / "en-us"),
             jsgf=str(grammar.path),
-            dict=str(root / "cmudict-en-us.dict"),
+            dict=str(grammar.dictionary_path),
             samprate=16000,
             loglevel="ERROR",
         )
@@ -155,6 +159,8 @@ def validate_pocketsphinx_decoder() -> dict[str, Any]:
         "model_root": str(root),
         "command_grammar_enabled": _command_grammar_enabled(),
         "command_grammar_path": str(grammar.path),
+        "command_dictionary_path": str(grammar.dictionary_path),
+        "command_dictionary_custom_words": len(grammar.custom_dictionary_words),
         "command_grammar_phrases": len(grammar.phrases),
         "command_grammar_rejected_phrases": len(grammar.rejected_phrases),
     }
@@ -225,7 +231,7 @@ class ESP32DualEyeVoiceBridge(_ErrorDigBridge):
             decoder = Decoder(
                 hmm=str(root / "en-us"),
                 jsgf=str(grammar.path),
-                dict=str(root / "cmudict-en-us.dict"),
+                dict=str(grammar.dictionary_path),
                 samprate=sample_rate,
                 loglevel="ERROR",
             )
@@ -275,17 +281,12 @@ class ESP32DualEyeVoiceBridge(_ErrorDigBridge):
         if not pcm:
             return ""
 
-        # Known KoalaByte commands are deliberately recognized with a constrained
-        # JSGF search first. This avoids forcing short command phrases through the
-        # unrestricted English language model, which calibrated poorly on-device.
         transcript = self._transcribe_with_command_grammar(
             pcm, sample_rate, sample_width
         )
         if transcript:
             return transcript
 
-        # Free-form questions and conversational requests still retain the richer
-        # local recognizer path, followed by the unrestricted PocketSphinx LM.
         transcript = self._transcribe_with_whisper(pcm, sample_rate, sample_width)
         if transcript:
             return transcript
