@@ -154,7 +154,7 @@ def validate_release_stamp() -> dict[str, str]:
             f"release version contract invalid: old_matches={len(matches)} new_present={bool(new)}"
         )
     stamped = text.replace(matches[0], new, 1)
-    if "0.9.8-dualeye-static-grammar-40-response-bank" not in stamped:
+    if "0.9.23-dualeye-menu-restore-v1" not in stamped:
         raise PatchContractError("release version output marker is missing")
     return {"source": matches[0], "target": new}
 
@@ -230,6 +230,10 @@ def main() -> int:
     generated_markers = (
         "wakeSessionActive",
         "serviceWakeSessionTimeout();",
+        "trustedPiMenuActivity",
+        '"koalabyte-blue-pi"',
+        '"local_menu_test"',
+        "openGeneratedMenu",
         "complexPreRoll[MIC_PRE_ROLL_BLOCKS][MIC_PCM_CHUNK_BYTES]",
         "waveshare_vocabulary_miss_to_tinyllama",
         "showWakeSessionEyes",
