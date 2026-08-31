@@ -153,13 +153,18 @@ class ESP32DualEyeVoiceBridge(_SphinxBridge):
         if not pcm:
             self._last_stt_search = "none"
             self._last_stt_transcript = ""
-            self._diag(
-                "recognizer_decision",
-                request_id=request_id,
-                pcm_bytes=0,
-                search="none",
-                transcript="",
-            )
+            # A no-request empty decode can occur when a duplicate control packet
+            # reaches the base bridge after its observed session was already
+            # consumed. It is not a recognizer decision and should not pollute the
+            # bounded diagnostics stream.
+            if request_id:
+                self._diag(
+                    "recognizer_decision",
+                    request_id=request_id,
+                    pcm_bytes=0,
+                    search="none",
+                    transcript="",
+                )
             return ""
 
         grammar = self._transcribe_with_command_grammar(pcm, sample_rate, sample_width)
