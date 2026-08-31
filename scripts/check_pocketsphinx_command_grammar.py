@@ -49,6 +49,9 @@ def main() -> int:
         "bluez status",
         "gatt readiness",
         "koala kapture",
+        "capture metadata",
+        "ear tag tx lab",
+        "kruisin prompt status",
     }
     missing = sorted(required.difference(grammar.phrases))
     payload = {
@@ -61,11 +64,17 @@ def main() -> int:
         "custom_dictionary_words": list(grammar.custom_dictionary_words),
         "custom_dictionary_word_count": len(grammar.custom_dictionary_words),
         "accepted_phrases": len(grammar.phrases),
+        "menu_phrases": len(grammar.menu_phrases),
         "rejected_oov_phrases": len(grammar.rejected_phrases),
+        "missing_dictionary_words": list(grammar.missing_dictionary_words),
+        "missing_dictionary_word_count": len(grammar.missing_dictionary_words),
         "required_missing": missing,
-        "first_commands": list(grammar.phrases[:30]),
-        "first_rejected": list(grammar.rejected_phrases[:30]),
+        "first_commands": list(grammar.phrases[:40]),
+        "first_menu_commands": list(grammar.menu_phrases[:30]),
+        "first_rejected": list(grammar.rejected_phrases[:40]),
         "wake_forms": ["killer koala", "hey killer koala"],
+        "menu_verbs": ["run", "start", "launch", "open", "select"],
+        "grammar_shape": "direct commands plus shared optional menu verb rule",
         "search_order": ["jsgf_commands", "whisper_if_available", "general_lm", "online_if_enabled"],
     }
     print(json.dumps(payload, indent=2, sort_keys=True))
