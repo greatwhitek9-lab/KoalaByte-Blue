@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 import os
+import socket
+import struct
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, Optional
 
 from .esp32_dualeye_error_dig_bridge import (
     ESP32DualEyeVoiceBridge as _ErrorDigBridge,
@@ -12,6 +15,50 @@ from .esp32_dualeye_error_dig_bridge import (
 
 
 DEFAULT_DISTRO_SPHINX_ROOT = Path("/usr/share/pocketsphinx/model/en-us")
+PCM_BINARY_MAGIC = b"KPCM"
+PCM_BINARY_VERSION = 1
+PCM_BINARY_HEADER = struct.Struct("<4sBBBBIIHH")
+
+
+def _decode_binary_pcm_packet(data: bytes) -> Optional[Dict[str, Any]]:
+    if len(data) < PCM_BINARY_HEADER.size or not data.startswith(PCM_BINARY_MAGIC):
+        return None
+    try:
+        (
+            magic,
+            version,
+            batch_frames,
+            source_channel,
+            _reserved,
+            request_id,
+            sequence,
+            pcm_bytes,
+            rms_q15,
+        ) = PCM_BINARY_HEADER.unpack_from(data)
+    except struct.error:
+        return None
+    if magic != PCM_BINARY_MAGIC or version != PCM_BINARY_VERSION:
+        return None
+    if batch_frames < 1 or batch_frames > 2:
+        return None
+    if source_channel not in (0, 1):
+        return None
+    if pcm_bytes <= 0 or pcm_bytes > 1280:
+        return None
+    end = PCM_BINARY_HEADER.size + pcm_bytes
+    if len(data) != end:
+        return None
+    return {
+        "type": "audio_pcm_chunk",
+        "request_id": str(request_id),
+        "sequence": int(sequence),
+        "batch_frames": int(batch_frames),
+        "source_channel": int(source_channel),
+        "rms": float(rms_q15) / 32768.0,
+        "pcm_bytes": int(pcm_bytes),
+        "pcm_transport": "binary_udp_v1",
+        "_pcm_s16le_mono": data[PCM_BINARY_HEADER.size:end],
+    }
 
 
 def _valid_model_root(root: Path) -> bool:
@@ -82,7 +129,49 @@ def validate_pocketsphinx_decoder() -> dict[str, Any]:
 
 
 class ESP32DualEyeVoiceBridge(_ErrorDigBridge):
-    """DualEye bridge with a validated offline PocketSphinx model fallback."""
+    """DualEye bridge with validated PocketSphinx and MTU-safe binary PCM UDP."""
+
+    def _read_udp(self) -> Optional[Dict[str, Any]]:
+        if self._udp is None:
+            return None
+        try:
+            data, peer = self._udp.recvfrom(12288)
+        except BlockingIOError:
+            return None
+        self._udp_peer = peer
+        self._last_transport = "udp"
+
+        binary_pcm = _decode_binary_pcm_packet(data)
+        if binary_pcm is not None:
+            return binary_pcm
+
+        try:
+            payload = json.loads(data.decode("utf-8", errors="ignore"))
+            return payload if isinstance(payload, dict) else None
+        except json.JSONDecodeError:
+            return None
+
+    def handle_payload(
+        self, payload: Dict[str, Any]
+    ) -> Optional[ESP32DualEyeVoiceEvent]:
+        if (
+            str(payload.get("type") or "") == "audio_pcm_chunk"
+            and isinstance(payload.get("_pcm_s16le_mono"), (bytes, bytearray))
+        ):
+            if self._is_duplicate(payload):
+                return None
+            self._prune_audio_sessions()
+            request_id = str(payload.get("request_id") or "")
+            raw_pcm = bytes(payload.get("_pcm_s16le_mono") or b"")
+            if (
+                request_id in self._audio
+                and raw_pcm
+                and len(self._audio[request_id]) < 512000
+            ):
+                remaining = max(0, 512000 - len(self._audio[request_id]))
+                self._audio[request_id].extend(raw_pcm[:remaining])
+            return None
+        return super().handle_payload(payload)
 
     def _transcribe_with_pocketsphinx(
         self, pcm: bytes, sample_rate: int, sample_width: int
@@ -139,6 +228,10 @@ class ESP32DualEyeVoiceBridge(_ErrorDigBridge):
 __all__ = [
     "ESP32DualEyeVoiceBridge",
     "ESP32DualEyeVoiceEvent",
+    "PCM_BINARY_HEADER",
+    "PCM_BINARY_MAGIC",
+    "PCM_BINARY_VERSION",
+    "_decode_binary_pcm_packet",
     "default_esp32_port",
     "resolve_pocketsphinx_model",
     "validate_pocketsphinx_decoder",
