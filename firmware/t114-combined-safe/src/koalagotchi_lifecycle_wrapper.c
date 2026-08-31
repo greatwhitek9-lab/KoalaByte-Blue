@@ -61,6 +61,10 @@ void koala_inner_render_menu_status(const char *message);
 void koala_inner_render_koalagotchi_action(const char *action_title,
                                            uint8_t frame_index);
 
+/* Mouth renderer action entry stops its dedicated 42 ms animation thread. */
+void koala_original_render_koalagotchi_action(const char *action_title,
+                                               uint8_t frame_index);
+
 /* Linker --wrap real targets from loading_display.c. */
 void __real_render_killerkoala_mouth(const char *state, const char *message,
                                      uint8_t from_frame_index,
@@ -257,7 +261,14 @@ static void lifecycle_work_handler(struct k_work *work)
 
 static void stop_inner_animation(void)
 {
-    koala_inner_render_killerkoala_mouth("idle", "KILLERKOALA", 0, 0, 0);
+    /*
+     * Do not send an idle mouth frame here. The mouth renderer owns a dedicated
+     * 42 ms thread; sending "idle" keeps that thread active and causes it to
+     * overwrite the 95 ms Koalagotchi lifecycle frames. Route through the
+     * mouth renderer's action entry instead: it stops motion first, and CMake
+     * routes its action draw to the same canonical centered Koalagotchi HUD.
+     */
+    koala_original_render_koalagotchi_action("KOALAGOTCHI", 0);
 }
 
 static void activate_latch(enum koalagotchi_latch_mode mode,
