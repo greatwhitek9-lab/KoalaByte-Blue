@@ -11,6 +11,7 @@ from koalablue.esp32_dualeye_observed_bridge import (
 )
 from koalablue.killerkoala_llm_policy import install_killerkoala_llm_fastpath
 from koalablue.killerkoala_runtime_limits import install_killerkoala_runtime_limits
+from koalablue.killerkoala_voice_display_policy import install_voice_menu_display_restore
 from koalablue.music_speech_duck import install_music_speech_ducking
 from koalablue.runtime_serial_ownership import (
     install_display_command_clients,
@@ -19,6 +20,7 @@ from koalablue.runtime_serial_ownership import (
 
 install_killerkoala_runtime_limits()
 install_killerkoala_llm_fastpath()
+install_voice_menu_display_restore(ESP32DualEyeVoiceBridge)
 install_music_speech_ducking(ESP32DualEyeVoiceBridge)
 install_display_command_clients()
 install_esp32_serial_owner(ESP32DualEyeVoiceBridge)
