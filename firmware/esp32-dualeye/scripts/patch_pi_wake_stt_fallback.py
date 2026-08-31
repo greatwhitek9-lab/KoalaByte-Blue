@@ -20,7 +20,7 @@ def apply_fallback(source: Path) -> None:
   const uint32_t now = millis();
   if (now - lastEntryProbeAt >= 2000UL) {
     lastEntryProbeAt = now;
-    StaticJsonDocument<512> doc;
+    StaticJsonDocument<768> doc;
     doc["type"] = "fallback_entry_probe";
     doc["device"] = "esp32-s3-dualeye";
     doc["fw"] = KOALABLUE_FW_VERSION;
@@ -28,6 +28,10 @@ def apply_fallback(source: Path) -> None:
     doc["speaker_ready"] = dualEyeSpeakerReady();
     doc["audio_busy"] = dualEyeAudioBusy();
     doc["audio_status"] = dualEyeAudioStatus();
+    doc["audio_read_attempts"] = dualEyeAudioReadAttempts();
+    doc["audio_last_read_state"] = dualEyeAudioLastReadState();
+    doc["audio_last_read_bytes"] = dualEyeAudioLastReadBytes();
+    doc["audio_last_read_duration_ms"] = dualEyeAudioLastReadDurationMs();
     doc["free_heap"] = ESP.getFreeHeap();
     sendPayload(doc);
   }
@@ -191,6 +195,9 @@ def apply_fallback(source: Path) -> None:
     required = (
         "void servicePiWakeSttFallback()",
         'doc["type"] = "fallback_entry_probe";',
+        'doc["audio_read_attempts"] = dualEyeAudioReadAttempts();',
+        'doc["audio_last_read_state"] = dualEyeAudioLastReadState();',
+        'doc["audio_last_read_bytes"] = dualEyeAudioLastReadBytes();',
         'doc["status"] = "pi_wake_stt_fallback_ready";',
         'doc["pi_wake_stt_fallback"] = true;',
         'doc["adaptive_stereo"] = true;',
@@ -210,8 +217,8 @@ def apply_fallback(source: Path) -> None:
 
     source.write_text(text, encoding="utf-8")
     print(
-        "Patched DualEye voice runtime with fallback entry, adaptive-stereo Pi wake/STT "
-        "and I2S capture diagnostics; ESP-SR initialization quarantined"
+        "Patched DualEye voice runtime with audio-driver read telemetry, fallback entry, "
+        "adaptive-stereo Pi wake/STT and I2S capture diagnostics; ESP-SR initialization quarantined"
     )
 
 
