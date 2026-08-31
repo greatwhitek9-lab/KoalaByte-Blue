@@ -20,6 +20,10 @@ bool amplifierStateKnown = false;
 bool amplifierEnabled = false;
 const char *statusText = "not_initialized";
 SemaphoreHandle_t audioMutex = nullptr;
+uint32_t audioReadAttempts = 0;
+size_t audioLastReadBytes = 0;
+uint32_t audioLastReadDurationMs = 0;
+const char *audioLastReadState = "not_attempted";
 
 void setAmplifier(bool enabled) {
   pinMode(AUDIO_CODEC_PA_PIN, OUTPUT);
@@ -119,14 +123,45 @@ const char *dualEyeAudioStatus() { return statusText; }
 I2SClass &dualEyeAudioBus() { return audioBus; }
 
 size_t dualEyeAudioRead(uint8_t *buffer, size_t length) {
-  if (!micReady || !buffer || !length || playbackActive ||
-      !lockAudio(pdMS_TO_TICKS(30))) {
+  ++audioReadAttempts;
+  const uint32_t startedAt = millis();
+  audioLastReadBytes = 0;
+
+  if (!micReady) {
+    audioLastReadState = "mic_not_ready";
+    audioLastReadDurationMs = millis() - startedAt;
     return 0;
   }
-  size_t count = audioBus.readBytes(reinterpret_cast<char *>(buffer), length);
+  if (!buffer || !length) {
+    audioLastReadState = "invalid_buffer";
+    audioLastReadDurationMs = millis() - startedAt;
+    return 0;
+  }
+  if (playbackActive) {
+    audioLastReadState = "playback_active";
+    audioLastReadDurationMs = millis() - startedAt;
+    return 0;
+  }
+  if (!lockAudio(pdMS_TO_TICKS(30))) {
+    audioLastReadState = "mutex_timeout";
+    audioLastReadDurationMs = millis() - startedAt;
+    return 0;
+  }
+
+  const size_t count =
+      audioBus.readBytes(reinterpret_cast<char *>(buffer), length);
   unlockAudio();
+
+  audioLastReadBytes = count;
+  audioLastReadDurationMs = millis() - startedAt;
+  audioLastReadState = count ? "read_ok" : "read_zero";
   return count;
 }
+
+uint32_t dualEyeAudioReadAttempts() { return audioReadAttempts; }
+size_t dualEyeAudioLastReadBytes() { return audioLastReadBytes; }
+uint32_t dualEyeAudioLastReadDurationMs() { return audioLastReadDurationMs; }
+const char *dualEyeAudioLastReadState() { return audioLastReadState; }
 
 float dualEyeAudioRms16Stereo(const uint8_t *buffer, size_t length) {
   if (!buffer || length < 4) return 0.0f;
