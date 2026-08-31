@@ -22,6 +22,12 @@ def apply(project: Path) -> None:
         "vendor microphone digital-gain patch",
     )
     patch_once(
+        config,
+        "#define MIC_WAKE_RMS_THRESHOLD 0.010f",
+        "#define MIC_WAKE_RMS_THRESHOLD 0.030f",
+        "calibrated microphone energy-gate patch",
+    )
+    patch_once(
         audio,
         "inputConfig.mic_gain = ES7210_MIC_GAIN_37_5DB;",
         "inputConfig.mic_gain = ES7210_MIC_GAIN_30DB;",
@@ -29,7 +35,7 @@ def apply(project: Path) -> None:
     )
 
     print(
-        "Applied Waveshare-aligned ES7210 gain profile: 30 dB analog, 0 dB digital"
+        "Applied calibrated ES7210 profile: 30 dB analog, 0 dB digital, 0.030 RMS wake gate"
     )
 
 
