@@ -67,6 +67,11 @@ CUSTOM_PRONUNCIATIONS: dict[str, str] = {
     "sdr": "EH S D IY AA R",
     "uart": "Y UW AA R T",
     "esp": "IY EH S P IY",
+    "kruisin": "K R UW Z IH N",
+    "metadata": "M EH T AH D EY T AH",
+    "treehouse": "T R IY HH AW S",
+    "tx": "T IY EH K S",
+    "rx": "AA R EH K S",
 }
 
 
@@ -75,7 +80,9 @@ class CommandGrammar:
     path: Path
     dictionary_path: Path
     phrases: tuple[str, ...]
+    menu_phrases: tuple[str, ...]
     rejected_phrases: tuple[str, ...]
+    missing_dictionary_words: tuple[str, ...]
     dictionary_words: int
     custom_dictionary_words: tuple[str, ...]
 
@@ -132,20 +139,20 @@ def _write_augmented_dictionary(
     return words, tuple(added)
 
 
-def _candidate_phrases() -> Iterable[str]:
-    yield from CORE_COMMANDS
+def _candidate_phrases() -> Iterable[tuple[str, bool]]:
+    for phrase in CORE_COMMANDS:
+        yield phrase, False
 
     for spec in VOICE_MODULES.values():
         for phrase in spec.phrases:
-            yield phrase
+            yield phrase, False
 
+    # Menu labels are added once. The JSGF grammar supplies one shared optional
+    # verb rule instead of duplicating each label for run/start/launch/open/select.
     for action in voice_menu_actions():
         label = normalize_spoken_phrase(action.label)
-        if not label:
-            continue
-        yield label
-        for verb in MENU_VERBS:
-            yield f"{verb} {label}"
+        if label:
+            yield label, True
 
 
 def build_command_grammar(
@@ -171,19 +178,28 @@ def build_command_grammar(
     limit = max(16, min(limit, 1024))
 
     accepted: list[str] = []
+    direct: list[str] = []
+    menu: list[str] = []
     rejected: list[str] = []
+    missing_words: set[str] = set()
     seen: set[str] = set()
 
-    for candidate in _candidate_phrases():
+    for candidate, is_menu in _candidate_phrases():
         phrase = normalize_spoken_phrase(candidate)
         if not phrase or phrase in seen:
             continue
         seen.add(phrase)
         tokens = phrase.split()
-        if not tokens or any(token not in dictionary for token in tokens):
+        missing = [token for token in tokens if token not in dictionary]
+        if not tokens or missing:
             rejected.append(phrase)
+            missing_words.update(missing)
             continue
         accepted.append(phrase)
+        if is_menu:
+            menu.append(phrase)
+        else:
+            direct.append(phrase)
         if len(accepted) >= limit:
             break
 
@@ -194,14 +210,34 @@ def build_command_grammar(
     if not accepted:
         raise RuntimeError("PocketSphinx command grammar has no dictionary-compatible commands")
 
-    body = " |\n    ".join(accepted)
-    grammar = (
-        "#JSGF V1.0;\n"
-        "grammar killerkoala_commands;\n"
-        "public <command> = (killer koala | hey killer koala) (\n"
-        f"    {body}\n"
-        ");\n"
+    rules: list[str] = [
+        "#JSGF V1.0;",
+        "grammar killerkoala_commands;",
+    ]
+
+    alternatives: list[str] = []
+    if direct:
+        direct_body = " |\n    ".join(direct)
+        rules.append(f"<direct_command> = (\n    {direct_body}\n);")
+        alternatives.append("<direct_command>")
+
+    if menu:
+        verb_body = " | ".join(MENU_VERBS)
+        menu_body = " |\n    ".join(menu)
+        rules.append(f"<menu_verb> = ({verb_body});")
+        rules.append(f"<menu_label> = (\n    {menu_body}\n);")
+        rules.append("<menu_command> = [<menu_verb>] <menu_label>;")
+        alternatives.append("<menu_command>")
+
+    if not alternatives:
+        raise RuntimeError("PocketSphinx command grammar has no usable command rules")
+
+    rules.append(
+        "public <command> = (killer koala | hey killer koala) ("
+        + " | ".join(alternatives)
+        + ");"
     )
+    grammar = "\n".join(rules) + "\n"
 
     destination = grammar_path or Path(
         os.getenv(
@@ -216,7 +252,9 @@ def build_command_grammar(
         path=destination,
         dictionary_path=destination_dictionary,
         phrases=tuple(accepted),
+        menu_phrases=tuple(menu),
         rejected_phrases=tuple(rejected),
+        missing_dictionary_words=tuple(sorted(missing_words)),
         dictionary_words=len(dictionary),
         custom_dictionary_words=custom_words,
     )
@@ -229,6 +267,7 @@ __all__ = [
     "DEFAULT_DICTIONARY_PATH",
     "DEFAULT_GRAMMAR_PATH",
     "DEFAULT_MAX_PHRASES",
+    "MENU_VERBS",
     "build_command_grammar",
     "normalize_spoken_phrase",
 ]
