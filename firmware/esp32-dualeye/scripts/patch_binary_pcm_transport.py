@@ -33,7 +33,7 @@ def apply_binary_pcm_transport(source: Path) -> None:
         required = (
             "kVoiceBatchFrames = 2",
             "kVoiceBinaryHeaderBytes = 20",
-            "KPCM",
+            "'K', 'P', 'C', 'M'",
             "binary_udp_v1",
         )
         missing = [marker for marker in required if marker not in text]
