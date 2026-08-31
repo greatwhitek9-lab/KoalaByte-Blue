@@ -10,6 +10,9 @@ from .killerkoala_voice_control import (
 from .killerkoala_voice_router import canonicalize_killerkoala_wake
 
 
+TRUSTED_PI_MENU_SOURCE = "koalabyte-blue-pi"
+
+
 def voice_menu_preview(self: Any, phrase: str) -> Optional[dict[str, Any]]:
     """Show a menu-style preview for routed voice commands without hiding it.
 
@@ -22,6 +25,11 @@ def voice_menu_preview(self: Any, phrase: str) -> Optional[dict[str, Any]]:
     Production JSGF transcripts use the spoken form ``killer koala`` while the
     historical voice parser uses ``killerkoala``. Normalize that boundary here
     exactly as the routing layer does so display preview and execution agree.
+
+    The generated ESP32 wake-session wrapper only treats menu traffic from
+    ``koalabyte-blue-pi`` as trusted Pi activity. Use that canonical source so a
+    routed voice command can expose the menu even when the local wake session is
+    otherwise sleeping.
     """
 
     canonical_phrase = canonicalize_killerkoala_wake(phrase)
@@ -61,7 +69,7 @@ def voice_menu_preview(self: Any, phrase: str) -> Optional[dict[str, Any]]:
                 "enabled": True,
             }
         ],
-        "source": "pi-companion",
+        "source": TRUSTED_PI_MENU_SOURCE,
         "voice_request": True,
         "execution_owner": "raspberry-pi",
         "display_intent": "voice_menu_preview",
@@ -77,4 +85,8 @@ def install_voice_menu_display_restore(bridge_cls: type) -> type:
     return bridge_cls
 
 
-__all__ = ["install_voice_menu_display_restore", "voice_menu_preview"]
+__all__ = [
+    "TRUSTED_PI_MENU_SOURCE",
+    "install_voice_menu_display_restore",
+    "voice_menu_preview",
+]
