@@ -72,6 +72,23 @@ CUSTOM_PRONUNCIATIONS: dict[str, str] = {
     "treehouse": "T R IY HH AW S",
     "tx": "T IY EH K S",
     "rx": "AA R EH K S",
+    "dtc": "D IY T IY S IY",
+    "gatecheck": "G EY T CH EH K",
+    "ghostmap": "G OW S T M AE P",
+    "greatwhite": "G R EY T W AY T",
+    "hdmi": "EY CH D IY EH M AY",
+    "lyrebird": "L AY R B ER D",
+    "meshtastic": "M EH SH T AE S T IH K",
+    "pcap": "P IY K AE P",
+    "pid": "P IY AY D IY",
+    "rf": "AA R EH F",
+    "rfcomm": "AA R EH F K AA M",
+    "sextant": "S EH K S T AH N T",
+    "tcp": "T IY S IY P IY",
+    "tigershark": "T AY G ER SH AA R K",
+    "twocan": "T UW K AE N",
+    "wiremap": "W AY ER M AE P",
+    "xp": "EH K S P IY",
 }
 
 
