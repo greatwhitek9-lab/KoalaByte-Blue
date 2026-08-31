@@ -73,17 +73,20 @@ bool beginVendorDuplexI2s() {
     return false;
   }
 
-  // Waveshare's DualEye reference uses standard I2S for ES8311 TX.
+  // Waveshare's DualEye reference uses standard I2S for ES8311 TX. In the
+  // vendor esp_codec_dev path, opening the four-channel ES7210 input expands
+  // the shared TX clock-master frame to 64 bits. Keep 16 valid speaker bits in
+  // two 32-bit slots so BCLK/WS matches the four 16-bit TDM RX slots.
   i2s_std_config_t txConfig = {};
   txConfig.clk_cfg.sample_rate_hz = AUDIO_OUTPUT_SAMPLE_RATE;
   txConfig.clk_cfg.clk_src = I2S_CLK_SRC_DEFAULT;
   txConfig.clk_cfg.ext_clk_freq_hz = 0;
   txConfig.clk_cfg.mclk_multiple = I2S_MCLK_MULTIPLE_256;
   txConfig.slot_cfg.data_bit_width = I2S_DATA_BIT_WIDTH_16BIT;
-  txConfig.slot_cfg.slot_bit_width = I2S_SLOT_BIT_WIDTH_AUTO;
+  txConfig.slot_cfg.slot_bit_width = I2S_SLOT_BIT_WIDTH_32BIT;
   txConfig.slot_cfg.slot_mode = I2S_SLOT_MODE_STEREO;
   txConfig.slot_cfg.slot_mask = I2S_STD_SLOT_BOTH;
-  txConfig.slot_cfg.ws_width = I2S_DATA_BIT_WIDTH_16BIT;
+  txConfig.slot_cfg.ws_width = 32;
   txConfig.slot_cfg.ws_pol = false;
   txConfig.slot_cfg.bit_shift = true;
   txConfig.slot_cfg.left_align = true;
@@ -206,11 +209,11 @@ bool dualEyeAudioBegin() {
 #endif
 
   if (micReady && speakerReady)
-    statusText = "es7210_tdm4_es8311_std_ready";
+    statusText = "es7210_tdm4_es8311_std64_ready";
   else if (micReady)
     statusText = "es7210_tdm4_ready_speaker_failed";
   else if (speakerReady)
-    statusText = "es8311_std_ready_mic_failed";
+    statusText = "es8311_std64_ready_mic_failed";
   else
     statusText = "codec_init_failed";
   return micReady || speakerReady;
@@ -264,6 +267,11 @@ size_t dualEyeAudioRead(uint8_t *buffer, size_t length) {
   unlockAudio();
 
   audioLastRawReadBytes = rawCount;
+  if (readResult == ESP_ERR_TIMEOUT && rawCount == 0) {
+    audioLastReadState = "read_timeout";
+    audioLastReadDurationMs = millis() - startedAt;
+    return 0;
+  }
   if (readResult != ESP_OK && readResult != ESP_ERR_TIMEOUT) {
     audioLastReadState = "read_error";
     audioLastReadDurationMs = millis() - startedAt;
