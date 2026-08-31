@@ -5,6 +5,7 @@ import json
 
 from koalablue.esp32_dualeye_voice_bridge import ESP32DualEyeVoiceBridge
 from koalablue.killerkoala_voice_display_policy import (
+    TRUSTED_PI_MENU_SOURCE,
     install_voice_menu_display_restore,
 )
 
@@ -35,11 +36,15 @@ def main() -> int:
         "menu_preview_uses_highlight": menu_payload["event_type"] == "highlight",
         "menu_preview_visible_intent": menu_payload["display_intent"]
         == "voice_menu_preview",
+        "menu_preview_uses_trusted_pi_source": menu_payload["source"]
+        == TRUSTED_PI_MENU_SOURCE == "koalabyte-blue-pi",
         "menu_preview_written_once": len(menu_writes) == 1,
         "menu_preview_does_not_force_action_face": not menu_faces,
         "direct_module_preview": direct_payload["selected_command"]
         == "koala_bluez_status",
         "direct_preview_uses_highlight": direct_payload["event_type"] == "highlight",
+        "direct_preview_uses_trusted_pi_source": direct_payload["source"]
+        == TRUSTED_PI_MENU_SOURCE,
         "direct_preview_written_once": len(direct_writes) == 1,
         "direct_preview_does_not_force_action_face": not direct_faces,
     }
