@@ -60,6 +60,7 @@ target_sources(app PRIVATE
   src/display_power_init.c
   src/koalagotchi_lifecycle_wrapper.c
   src/centered_koalagotchi_renderer.c
+  src/koala_abs_compat.c
   ${KOALABYTE_FINAL_MAIN_SOURCE}
   src/loading_display.c
   src/original_texture_warp_renderer.c
