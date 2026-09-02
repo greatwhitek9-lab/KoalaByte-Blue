@@ -116,7 +116,7 @@ static void overlay_alarm_background(bool green_phase)
     uint16_t opposite = green_phase ? purple : green;
 
     /*
-     * Flash the background around, rather than over, the moving Koalagotchi.
+     * Flash the background around, rather than over, the centered Koalagotchi.
      * The protected center window keeps the character, eyes, and alert pose
      * visible while the large edge panels alternate purple and green.
      */
@@ -150,10 +150,10 @@ static void overlay_alarm_border(bool green_phase)
 
 static void koalagotchi_position(uint8_t frame, int *x, int *y)
 {
-    int phase = frame % 8U;
-    int travel = phase <= 4 ? phase : 8 - phase;
-    *x = 58 + (travel * 30);
-    *y = 65 + ((phase & 1) ? 2 : 0);
+    /* Match the canonical renderer: centered character with breathing bob only. */
+    static const int8_t bob[8] = {0, -1, -1, 0, 0, 1, 1, 0};
+    *x = 120;
+    *y = 66 + bob[frame & 7U];
 }
 
 static void overlay_disappointed(uint8_t frame)
@@ -206,7 +206,7 @@ static void overlay_alerted(uint8_t frame, bool green_phase)
     int y;
     koalagotchi_position(frame, &x, &y);
 
-    /* Alerted eyes and tense brows remain attached to the moving Koalagotchi. */
+    /* Alerted eyes and tense brows remain attached to the centered Koalagotchi. */
     overlay_angry(frame);
     overlay_rect(MAX(0, x - 14), MAX(0, y - 9), 10, 5, white);
     overlay_rect(MIN(DISPLAY_WIDTH - 10, x + 4), MAX(0, y - 9), 10, 5, white);
@@ -407,6 +407,7 @@ void __wrap_render_killerkoala_mouth(const char *state, const char *message,
         !strcmp(resolved, "mode_exit") ||
         !strcmp(resolved, "clear_mode")) {
         clear_latch();
+        koala_centered_set_action_progress(-1);
         koala_inner_render_killerkoala_mouth("idle", "KILLERKOALA", 0, 0, 0);
         return;
     }
@@ -422,6 +423,7 @@ void __wrap_render_killerkoala_mouth(const char *state, const char *message,
             return;
         }
         clear_latch();
+        koala_centered_set_action_progress(-1);
         koala_inner_render_killerkoala_mouth("success", message,
                                              from_frame_index,
                                              to_frame_index, blend_amount);
