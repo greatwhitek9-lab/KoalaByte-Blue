@@ -25,6 +25,12 @@ _CONVERSATIONAL_TRIGGERS = (
     "thank you",
     "how are you",
 )
+_SUPPORTED_RECOGNIZERS = {
+    "jsgf_commands",
+    "general_lm",
+    "whisper",
+    "online",
+}
 
 
 def _normalize_phrase(phrase: str) -> str:
@@ -43,24 +49,22 @@ def _working_phrase(phrase: str) -> str:
 
 
 def should_fast_clarify_misheard_phrase(phrase: str, recognizer_search: str) -> bool:
-    """Fail fast on unsupported JSGF output instead of invoking TinyLlama.
+    """Fail fast on unresolved physical STT instead of generating random banter.
 
-    A command-grammar transcript that includes the wake phrase but maps to no
-    supported module/menu action is most likely a recognition miss. Exact short
-    status, explicit questions and intentional conversation/banter are excluded
-    so their normal fast-status or semantic-generation paths remain available.
+    Any supported physical recognizer may mishear a command. If the normalized
+    wake phrase maps to a real module/menu action, a general question, or an
+    explicit conversational request, normal routing continues. Everything else
+    receives one deterministic clarification with no TinyLlama/web request.
     """
 
-    if str(recognizer_search or "").strip() != "jsgf_commands":
+    recognizer = str(recognizer_search or "").strip()
+    if recognizer not in _SUPPORTED_RECOGNIZERS:
         return False
 
     normalized = _normalize_phrase(phrase)
     if normalized in _FAST_STATUS_FORMS:
         return False
 
-    # The core parser recognizes the canonical fused wake token (killerkoala).
-    # Feed it the same normalized form used by this guard so a valid spaced-wake
-    # command such as "killer koala bluez status" is never misclassified.
     parsed = parse_voice_command(normalized, require_wake_word=True)
     if parsed.module_key is not None or parsed.menu_action is not None:
         return False
@@ -76,7 +80,7 @@ def should_fast_clarify_misheard_phrase(phrase: str, recognizer_search: str) -> 
 
 
 def install_esp32_misheard_voice_fastpath(bridge_class: type) -> Callable[..., Dict[str, Any]]:
-    """Install the production fast clarification path on the DualEye bridge."""
+    """Install deterministic clarification ahead of the legacy AI fallback."""
 
     original = bridge_class._route_phrase
     if getattr(original, "_koalabyte_misheard_fastpath", False):
