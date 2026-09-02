@@ -51,6 +51,7 @@ CUSTOM_PRONUNCIATIONS: dict[str, str] = {
     "koalabyte": "K OW AA L AH B AY T",
     "killerkoala": "K IH L ER K OW AA L AH",
     "koalagotchi": "K OW AA L AH G OW T CH IY",
+    "kommander": "K AH M AE N D ER",
     "kapture": "K AE P CH ER",
     "kry": "K R AY",
     "heltec": "HH EH L T EH K",
@@ -134,7 +135,7 @@ def _load_dictionary(root: Path) -> tuple[set[str], list[str]]:
             clean = line.rstrip("\n")
             lines.append(clean)
             stripped = clean.strip()
-            if not stripped or stripped.startswith(";;;"):
+            if not stripped or stripped.startswith(";;; "):
                 continue
             head = stripped.split(None, 1)[0].lower()
             words.add(_VARIANT_RE.sub("", head))
