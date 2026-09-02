@@ -104,6 +104,16 @@ def main() -> int:
     )
     require_marker(
         ROOT / "scripts/run_esp32_dualeye_voice_bridge.py",
+        "esp32_dualeye_observed_bridge",
+        failures,
+    )
+    require_marker(
+        ROOT / "pi-companion/koalablue/esp32_dualeye_observed_bridge.py",
+        "esp32_dualeye_sphinx_bridge",
+        failures,
+    )
+    require_marker(
+        ROOT / "pi-companion/koalablue/esp32_dualeye_sphinx_bridge.py",
         "esp32_dualeye_error_dig_bridge",
         failures,
     )

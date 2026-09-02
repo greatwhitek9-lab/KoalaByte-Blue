@@ -19,6 +19,7 @@ from .esp32_dualeye_latched_koalagotchi_bridge import (
 from .killerkoala_expression import (
     KillerKoalaExpression,
     classify_response_expression,
+    expression_for_face_state,
     expression_for_local_category,
 )
 from .killerkoala_face_bridge import _resolve_ports, _serial_write
@@ -225,10 +226,16 @@ class ESP32DualEyeVoiceBridge(_LatchedKoalagotchiBridge):
     ) -> KillerKoalaExpression:
         if self._active_expression is not None:
             return self._active_expression
-        return classify_response_expression(
+        if state == "speaking":
+            return classify_response_expression(
+                message,
+                status=state,
+                event=channel or state,
+                context={"display_state": state, "speech_channel": channel},
+            )
+        return expression_for_face_state(
+            state,
             message,
-            status=state,
-            event=channel or state,
             context={"display_state": state, "speech_channel": channel},
         )
 

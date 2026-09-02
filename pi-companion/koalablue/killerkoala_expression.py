@@ -23,10 +23,11 @@ class KillerKoalaExpression:
 _POSITIVE = (
     "happy", "great", "excellent", "perfect", "success", "complete", "done",
     "bonza", "beaut", "sweet", "good news", "working", "ready", "clean run",
+    "content", "eating", "feeding",
 )
 _ANGRY = (
     "angry", "furious", "hostile", "rage", "snarl", "mad", "bloody",
-    "unacceptable", "attack", "threat", "reckless",
+    "unacceptable", "attack", "threat", "reckless", "cranky",
 )
 _ERROR = (
     "error", "failed", "failure", "fault", "crash", "broken", "blocked",
@@ -51,6 +52,31 @@ _SAD = (
 _MISCHIEF = (
     "cheeky", "mischief", "funny", "joke", "boomerang", "sneaky", "grin",
 )
+
+_STATE_TONES = {
+    "idle": "neutral",
+    "hidden": "neutral",
+    "wake": "excited",
+    "listening": "curious",
+    "thinking": "curious",
+    "menu": "curious",
+    "menu_open": "curious",
+    "navigation": "curious",
+    "keyboard": "focused",
+    "action": "focused",
+    "action_running": "focused",
+    "loading": "focused",
+    "speaking": "neutral",
+    "success": "happy",
+    "action_complete": "happy",
+    "koalagotchi_mode": "mischievous",
+    "disappointed": "disappointed",
+    "angry": "angry",
+    "error": "error",
+    "alarmed": "error",
+    "fault": "error",
+    "exception": "error",
+}
 
 _SUBJECTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("bluetooth", ("bluetooth", "ble", "bluez", "gatt", "beacon")),
@@ -80,18 +106,28 @@ def classify_response_expression(
     status: str = "",
     event: str = "",
     context: Mapping[str, Any] | None = None,
+    preferred_tone: str = "",
 ) -> KillerKoalaExpression:
     combined = " ".join(
         (
             str(text or ""),
             str(status or ""),
             str(event or ""),
-            " ".join(f"{key} {value}" for key, value in (context or {}).items()),
+            # Context keys such as ``source`` are metadata, not dialogue. Only
+            # values participate in subject classification so a transport field
+            # cannot accidentally color every expression as a web/search mood.
+            " ".join(str(value) for value in (context or {}).values()),
         )
     ).lower()
     subject = _subject(combined)
 
-    if _contains_any(combined, _ANGRY):
+    forced = str(preferred_tone or "").strip().lower()
+    if forced in {
+        "angry", "error", "concerned", "disappointed", "excited", "happy",
+        "mischievous", "curious", "focused", "neutral",
+    }:
+        tone = forced
+    elif _contains_any(combined, _ANGRY):
         tone = "angry"
     elif _contains_any(combined, _ERROR):
         tone = "error"
@@ -126,16 +162,19 @@ def classify_response_expression(
     }
     intensity, look, animation, left, right, mouth, motion = palette[tone]
 
-    if subject == "bluetooth":
-        right = "#32FF71"
-    elif subject == "wifi":
-        left = "#4DD9FF"
-    elif subject == "web":
-        left, right = "#4DD9FF", "#FFD84A"
-    elif subject == "security" and tone not in {"angry", "error"}:
-        left, right = "#FFB000", "#32FF71"
-    elif subject == "location":
-        left, right = "#32FF71", "#4DD9FF"
+    # Error/angry purple-green is a system-wide alarm contract. Subject palettes
+    # may color normal conversation but must never obscure that warning state.
+    if tone not in {"angry", "error"}:
+        if subject == "bluetooth":
+            right = "#32FF71"
+        elif subject == "wifi":
+            left = "#4DD9FF"
+        elif subject == "web":
+            left, right = "#4DD9FF", "#FFD84A"
+        elif subject == "security":
+            left, right = "#FFB000", "#32FF71"
+        elif subject == "location":
+            left, right = "#32FF71", "#4DD9FF"
 
     return KillerKoalaExpression(
         tone=tone,
@@ -147,6 +186,32 @@ def classify_response_expression(
         right_eye=right,
         mouth_expression=mouth,
         speech_motion=motion,
+    )
+
+
+def expression_for_face_state(
+    state: str,
+    message: str = "",
+    *,
+    context: Mapping[str, Any] | None = None,
+) -> KillerKoalaExpression:
+    """Return the Pi-authoritative expression for a visible face lifecycle state.
+
+    Explicit lifecycle states win over incidental words in a status message. This
+    keeps a successful recovery happy even when its message mentions the error it
+    cleared, while speech can still derive a natural tone from the spoken text.
+    """
+
+    normalized = " ".join(str(state or "idle").lower().replace("-", "_").split())
+    tone = _STATE_TONES.get(normalized, "")
+    if normalized == "speaking":
+        tone = ""
+    return classify_response_expression(
+        message or normalized,
+        status=normalized,
+        event=normalized,
+        context=context,
+        preferred_tone=tone,
     )
 
 

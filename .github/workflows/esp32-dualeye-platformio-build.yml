@@ -10,6 +10,10 @@ on:
       - "scripts/build_whole_system_firmware.sh"
       - "scripts/flash_esp32_dualeye_current.sh"
       - "scripts/check_dualeye_wake_session.py"
+      - "scripts/check_esp32_expression_controls.py"
+      - "pi-companion/koalablue/killerkoala_expression.py"
+      - "pi-companion/koalablue/killerkoala_face_bridge.py"
+      - "pi-companion/koalablue/menu_display_sync.py"
   pull_request:
     branches: [Main, main]
     paths:
@@ -18,6 +22,10 @@ on:
       - "scripts/build_whole_system_firmware.sh"
       - "scripts/flash_esp32_dualeye_current.sh"
       - "scripts/check_dualeye_wake_session.py"
+      - "scripts/check_esp32_expression_controls.py"
+      - "pi-companion/koalablue/killerkoala_expression.py"
+      - "pi-companion/koalablue/killerkoala_face_bridge.py"
+      - "pi-companion/koalablue/menu_display_sync.py"
 
 permissions:
   contents: read
@@ -38,6 +46,9 @@ jobs:
 
       - name: Validate KillerKoala wake-session contract
         run: python scripts/check_dualeye_wake_session.py
+
+      - name: Validate button and voice expression controls
+        run: python scripts/check_esp32_expression_controls.py
 
       - name: Validate installer-owned ESP32 flash contract
         run: |

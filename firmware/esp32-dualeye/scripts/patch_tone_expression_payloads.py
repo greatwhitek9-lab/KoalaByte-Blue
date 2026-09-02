@@ -105,9 +105,10 @@ void applyToneFace(JsonDocument &doc, const char *state, const char *message) {
   setKoalagotchiEyeStyle(activeSpeechLook, activeSpeechLeftEye,
                          activeSpeechRightEye, activeSpeechAnimation,
                          activeSpeechIntensity);
-  drawKoalagotchiModeScreen("killerkoala",
-                            message && message[0] ? message : activeSpeechTone,
-                            85, 92);
+  // The Pi-selected tone is the authoritative facial pose. Human-readable
+  // messages stay in the action/status overlay and must not accidentally
+  // override the eyebrow/eyelid mood classifier.
+  drawKoalagotchiModeScreen("killerkoala", activeSpeechTone, 85, 92);
   drawStatusBars(true);
 }
 
@@ -116,9 +117,7 @@ void showStoredSpeechExpression(const char *message) {
   setKoalagotchiEyeStyle(activeSpeechLook, activeSpeechLeftEye,
                          activeSpeechRightEye, activeSpeechAnimation,
                          activeSpeechIntensity);
-  drawKoalagotchiModeScreen("killerkoala",
-                            message && message[0] ? message : activeSpeechTone,
-                            85, 92);
+  drawKoalagotchiModeScreen("killerkoala", activeSpeechTone, 85, 92);
   drawStatusBars(true);
 }
 

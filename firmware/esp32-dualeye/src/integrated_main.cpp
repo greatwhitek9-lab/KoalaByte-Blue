@@ -68,6 +68,7 @@ char selectedLabel[74] = "Menu";
 char currentAction[74] = "";
 char currentResult[98] = "";
 char currentEvent[34] = "";
+char currentExpression[32] = "neutral";
 
 uint16_t rgb565(uint8_t red, uint8_t green, uint8_t blue) {
   return static_cast<uint16_t>(((red & 0xF8U) << 8U) |
@@ -216,8 +217,73 @@ void drawStatusBars(bool force = false) {
   }
 }
 
+const char *jsonText(JsonDocument &doc, const char *primary,
+                     const char *secondary, const char *fallback) {
+  if (doc[primary].is<const char *>()) {
+    const char *value = doc[primary].as<const char *>();
+    if (value && value[0]) return value;
+  }
+  if (secondary && doc[secondary].is<const char *>()) {
+    const char *value = doc[secondary].as<const char *>();
+    if (value && value[0]) return value;
+  }
+  return fallback;
+}
+
+void applyEyeDocument(JsonDocument &doc, const char *fallbackLook = "cyber",
+                      const char *fallbackAnimation = "idle") {
+  const char *look = jsonText(doc, "eye_look", "look", fallbackLook);
+  const char *animation =
+      jsonText(doc, "eye_animation", "animation", fallbackAnimation);
+  const char *left = jsonText(doc, "left_eye", "left_color", "#A54BFF");
+  const char *right = jsonText(doc, "right_eye", "right_color", "#32FF71");
+  const char *mood = jsonText(doc, "mood", "tone", "neutral");
+  int brightness = 100;
+  if (doc["eye_brightness"].is<int>()) {
+    brightness = doc["eye_brightness"].as<int>();
+  } else if (doc["brightness"].is<int>()) {
+    brightness = doc["brightness"].as<int>();
+  } else if (doc["intensity"].is<int>()) {
+    brightness = doc["intensity"].as<int>();
+  }
+  copyText(currentExpression, sizeof(currentExpression), mood, "neutral");
+  setKoalagotchiEyeStyle(look, left, right, animation,
+                         constrain(brightness, 20, 100));
+}
+
+void emitEyeStyleAck(const char *statusType = "eye_style_ack") {
+  StaticJsonDocument<512> doc;
+  doc["type"] = statusType;
+  doc["device"] = "esp32-s3-dualeye";
+  doc["look"] = getKoalagotchiEyeLook();
+  doc["animation"] = getKoalagotchiEyeAnimation();
+  doc["left_color"] = getKoalagotchiLeftEyeHex();
+  doc["right_color"] = getKoalagotchiRightEyeHex();
+  doc["brightness"] = getKoalagotchiEyeBrightness();
+  doc["mood"] = currentExpression;
+  doc["expression_coordinator"] = KOALA_EXPRESSION_SYNC_COORDINATOR;
+  doc["expression_revision"] = "cyber_koala_face_v2";
+  sendPayload(doc);
+}
+
+void handleEyeStyle(JsonDocument &doc) {
+  clearDisplayModes();
+  if (doc["reset"] | false) {
+    resetKoalagotchiEyeStyle();
+    copyText(currentExpression, sizeof(currentExpression), "neutral");
+  } else {
+    applyEyeDocument(doc, getKoalagotchiEyeLook(),
+                     getKoalagotchiEyeAnimation());
+  }
+  drawKoalagotchiModeScreen(doc["mode"] | "killerkoala",
+                            currentExpression, doc["contentment"] | 85,
+                            doc["xp_percent"] | 92);
+  emitEyeStyleAck();
+}
+
 void setFace(const char *state, const char *message = "") {
   clearDisplayModes();
+  copyText(currentExpression, sizeof(currentExpression), state, "neutral");
   const char *look = "cyber";
   const char *animation = "idle";
   if (!strcmp(state, "wake") || !strcmp(state, "listening")) animation = "pulse";
@@ -239,6 +305,7 @@ void setFace(const char *state, const char *message = "") {
 
 void showIdleEyes() {
   voiceMode = false;
+  copyText(currentExpression, sizeof(currentExpression), "neutral");
   faceReturnAt = 0;
   clearOverlay();
   setFace("idle", "calm");
@@ -616,6 +683,8 @@ void handleMenu(JsonDocument &doc) {
   const bool selected = !strcmp(eventType, "select") ||
                         !strcmp(eventType, "touch_long_press_select");
   copyText(currentAction, sizeof(currentAction), selectedLabel);
+  applyEyeDocument(doc, getKoalagotchiEyeLook(),
+                   getKoalagotchiEyeAnimation());
 
   if (selected && voiceRequest) {
     voiceMode = true;
@@ -738,10 +807,28 @@ void handleCommand(const String &line) {
                      doc["status"] | "RUNNING", doc["duration_ms"] | 0);
   } else if (!strcmp(type, "screen")) {
     clearDisplayModes();
+    applyEyeDocument(doc, getKoalagotchiEyeLook(),
+                     getKoalagotchiEyeAnimation());
     drawKoalagotchiModeScreen(doc["mode"] | "eucalyptus",
                               doc["mood"] | "calm",
                               doc["contentment"] | 75,
                               doc["xp_percent"] | 88);
+  } else if (!strcmp(type, "eye_style")) {
+    handleEyeStyle(doc);
+  } else if (!strcmp(type, "eye_status")) {
+    emitEyeStyleAck("eye_style");
+  } else if (!strcmp(type, "koalagotchi_status")) {
+    clearDisplayModes();
+    applyEyeDocument(doc, getKoalagotchiEyeLook(),
+                     getKoalagotchiEyeAnimation());
+    int contentment = doc["contentment"].is<int>()
+                          ? doc["contentment"].as<int>()
+                          : (doc["health"].is<int>()
+                                 ? doc["health"].as<int>()
+                                 : 75);
+    drawKoalagotchiModeScreen("killerkoala", doc["mood"] | currentExpression,
+                              contentment, doc["xp_percent"] | 88);
+    emitEyeStyleAck("koalagotchi_eye_ack");
   }
 }
 

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .bounded_log import append_jsonl
+from .killerkoala_expression import expression_for_face_state
 from .runtime_log_hardening import atomic_write_json
 
 DEFAULT_STATE_PATH = Path("logs/menu_sync/current_menu_state.json")
@@ -68,6 +69,33 @@ def _visible_item_payloads(menu: Any) -> list[dict[str, object]]:
     return rows
 
 
+def _expression_payload(
+    state: str,
+    message: str,
+    *,
+    input_source: str,
+    event_type: str = "",
+    command: str = "",
+) -> dict[str, object]:
+    expression = expression_for_face_state(
+        state,
+        message,
+        context={
+            "input_source": input_source,
+            "event_type": event_type,
+            "command": command,
+        },
+    )
+    return {
+        **expression.to_payload(),
+        "mood": expression.tone,
+        "brightness": expression.intensity,
+        "face_state": state,
+        "expression_source": "pi_button_voice_menu_state",
+        "input_source": input_source,
+    }
+
+
 def build_menu_sync_payload(menu: Any, event: Any | None = None) -> dict[str, object]:
     selected = menu.selected_item
     displayed = menu._display_item(selected) if hasattr(menu, "_display_item") else selected
@@ -120,6 +148,26 @@ def build_menu_sync_payload(menu: Any, event: Any | None = None) -> dict[str, ob
         payload["event_type"] = str(event_payload.get("event_type", "unknown"))
     else:
         payload["event_type"] = "state"
+    event_type = str(payload.get("event_type", "state"))
+    command = str(payload.get("event", {}).get("command", "")) if isinstance(payload.get("event"), dict) else ""
+    input_source = "voice" if "voice" in command or "voice" in event_type else "button_or_menu"
+    if event_type in {"select", "touch_long_press_select", "action_running"}:
+        face_state = "action"
+    elif event_type in {"disabled", "action_error"}:
+        face_state = "error"
+    elif "keyboard" in event_type:
+        face_state = "keyboard"
+    else:
+        face_state = "navigation"
+    payload.update(
+        _expression_payload(
+            face_state,
+            str(payload.get("selected_label", "Menu")),
+            input_source=input_source,
+            event_type=event_type,
+            command=command,
+        )
+    )
     return payload
 
 
@@ -152,6 +200,16 @@ def build_ai_face_payload(
             payload["event_type"] = state
     else:
         payload["event_type"] = state
+    event_type = str(payload.get("event_type", state))
+    payload.update(
+        _expression_payload(
+            state,
+            message,
+            input_source="voice" if "voice" in event_type else "button_or_runtime",
+            event_type=event_type,
+            command=str(payload.get("selected_command", "")),
+        )
+    )
     return payload
 
 
@@ -198,7 +256,7 @@ def _send_json_line(port: str, payload: dict[str, object]) -> tuple[bool, str]:
 
 def _heltec_face_payload(payload: dict[str, object]) -> dict[str, object]:
     if payload.get("type") == "ai_face_sync":
-        return {
+        wire = {
             "type": "killerkoala_face",
             "state": str(payload.get("state", "idle"))[:31],
             "message": str(payload.get("message", "KillerKoala idle"))[:92],
@@ -206,13 +264,22 @@ def _heltec_face_payload(payload: dict[str, object]) -> dict[str, object]:
             "duration_ms": 60000,
             "enabled": True,
         }
+        for key, limit in (
+            ("tone", 14), ("mouth_expression", 16),
+            ("speech_motion", 18),
+        ):
+            if payload.get(key):
+                wire[key] = str(payload[key])[:limit]
+        if "intensity" in payload:
+            wire["intensity"] = int(payload["intensity"])
+        return wire
 
     # The T114 is the mouth/Koalagotchi surface, never a duplicate text menu.
     # While the Pi menu is active, show Koalagotchi and use the selected label
     # only as the action caption. Idle ai_face_sync restores the animated mouth.
     selected_index = max(0, int(payload.get("selected_index", 0)))
     label = str(payload.get("selected_label", "Menu"))
-    return {
+    wire = {
         "type": "killerkoala_face",
         "state": "action",
         "message": label[:92],
@@ -225,6 +292,12 @@ def _heltec_face_payload(payload: dict[str, object]) -> dict[str, object]:
         "duration_ms": 30000,
         "enabled": True,
     }
+    for key, limit in (("tone", 14), ("mouth_expression", 16)):
+        if payload.get(key):
+            wire[key] = str(payload[key])[:limit]
+    if "intensity" in payload:
+        wire["intensity"] = int(payload["intensity"])
+    return wire
 
 
 def _esp32_menu_payload(payload: dict[str, object]) -> dict[str, object]:
@@ -242,7 +315,7 @@ def _esp32_menu_payload(payload: dict[str, object]) -> dict[str, object]:
                     "enabled": bool(raw.get("enabled", True)),
                 }
             )
-    return {
+    wire = {
         "type": "menu_sync",
         "source": "koalabyte-blue-pi",
         "menu_name": str(payload.get("menu_name", "main"))[:32],
@@ -260,19 +333,35 @@ def _esp32_menu_payload(payload: dict[str, object]) -> dict[str, object]:
         "visible_items": compact_items,
         "execute_hint": "K3 select | K2 back | K5/K6 scroll",
     }
+    for key in (
+        "face_state", "mood", "tone", "subject", "intensity", "eye_look",
+        "eye_animation", "left_eye", "right_eye", "brightness",
+        "expression_source", "input_source",
+    ):
+        if key in payload:
+            wire[key] = payload[key]
+    return wire
 
 
 def _esp32_face_payload(payload: dict[str, object]) -> dict[str, object]:
-    return {
+    wire = {
         "type": "killerkoala_face",
         "state": str(payload.get("state", "idle"))[:31],
+        "mood": str(payload.get("mood", payload.get("tone", "neutral")))[:31],
         "message": str(payload.get("message", "KillerKoala idle"))[:92],
-        "left_eye": "#A54BFF",
-        "right_eye": "#32FF71",
-        "brightness": 92,
+        "left_eye": str(payload.get("left_eye", "#A54BFF"))[:10],
+        "right_eye": str(payload.get("right_eye", "#32FF71"))[:10],
+        "brightness": int(payload.get("brightness", payload.get("intensity", 92))),
         "enabled": True,
         "menu_reopen_hint": "K1/menu or touchscreen double-tap; B1 legacy alias accepted",
     }
+    for key in (
+        "tone", "subject", "intensity", "eye_look", "eye_animation",
+        "expression_source", "input_source",
+    ):
+        if key in payload:
+            wire[key] = payload[key]
+    return wire
 
 
 def _send_to_displays(payload: dict[str, object]) -> dict[str, list[dict[str, object]]]:

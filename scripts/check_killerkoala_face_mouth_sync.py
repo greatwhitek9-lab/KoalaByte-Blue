@@ -84,12 +84,22 @@ def validate_protocol() -> list[str]:
             failures.append(f"payload type mismatch for {state}")
         if payload.get("state") != state:
             failures.append(f"payload state mismatch for {state}")
-        if payload.get("left_eye") != "#A54BFF":
-            failures.append("left eye UV color changed")
-        if payload.get("right_eye") != "#32FF71":
-            failures.append("right eye green color changed")
+        for field in (
+            "mood", "tone", "eye_look", "eye_animation", "left_eye",
+            "right_eye", "mouth_expression", "expression_source",
+        ):
+            if not payload.get(field):
+                failures.append(f"shared face state {state} lost {field}")
         if payload.get("transport") != "usb-cdc":
             failures.append("face transport must stay usb-cdc")
+
+    if build_face_payload("thinking").get("eye_animation") != "scan":
+        failures.append("thinking no longer selects scanning eyes")
+    if build_face_payload("success").get("tone") != "happy":
+        failures.append("success no longer selects happy eyes")
+    error_face = build_face_payload("error")
+    if error_face.get("eye_look") != "angry" or error_face.get("eye_animation") != "glitch":
+        failures.append("error no longer selects the angry purple/green alarm eyes")
 
     heltec_loading = build_heltec_loading_payload("<< LOAD >>", "Readiness Monitors", duration_ms=1400)
     esp32_loading = build_esp32_loading_eyes_payload("Readiness Monitors", duration_ms=1400)
