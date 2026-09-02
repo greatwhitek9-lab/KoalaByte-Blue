@@ -7,6 +7,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from .killerkoala_expression import expression_for_face_state
+
 DEFAULT_LOG_DIR = Path("logs/killerkoala_face")
 DEFAULT_BAUD = 115200
 KOALAGOTCHI_DISPLAY_COMMANDS = {"eucalyptus_mode", "boomerang"}
@@ -21,15 +23,22 @@ def _short(text: str, limit: int = 68) -> str:
 
 
 def build_face_payload(state: str, message: str = "", enabled: bool = True, duration_ms: int = 4500) -> dict:
+    normalized_state = (state or "listening").strip().lower()
+    expression = expression_for_face_state(
+        normalized_state,
+        message,
+        context={"source": "pi-companion", "display": "shared_face"},
+    )
     return {
         "type": "killerkoala_face",
         "enabled": enabled,
-        "state": (state or "listening").strip().lower(),
+        "state": normalized_state,
+        "mood": expression.tone,
         "message": _short(message),
         "duration_ms": max(250, int(duration_ms)),
-        "left_eye": "#A54BFF",
-        "right_eye": "#32FF71",
-        "brightness": 100,
+        **expression.to_payload(),
+        "brightness": expression.intensity,
+        "expression_source": "pi_shared_face_state",
         "source": "pi-companion",
         "transport": "usb-cdc",
         "ts": time.time(),
@@ -239,18 +248,41 @@ def emit_face(state: str, message: str = "", *, enabled: bool = True, duration_m
 
 
 def emit_koalagotchi_status(health: int, mood: str = "") -> dict:
-    """Drive the shared Koalagotchi state used by the T114 mouth and HUD."""
+    """Drive one Pi-owned mood across the T114 mouth and ESP32 eyes."""
 
-    payload = build_koalagotchi_status_payload(health, mood)
-    _publish_hdmi(payload)
-    _, heltec_port = _resolve_ports()
+    heltec_payload = build_koalagotchi_status_payload(health, mood)
+    expression = expression_for_face_state(
+        mood or "idle",
+        mood or "calm",
+        context={"health": max(0, min(100, int(health))), "display": "koalagotchi"},
+    )
+    esp32_payload = build_face_payload(
+        expression.tone,
+        mood or expression.tone,
+        duration_ms=30000,
+    )
+    esp32_payload.update(expression.to_payload())
+    esp32_payload["type"] = "koalagotchi_status"
+    esp32_payload["health"] = max(0, min(100, int(health)))
+    esp32_payload["contentment"] = esp32_payload["health"]
+    esp32_payload["mood"] = mood or expression.tone
+    esp32_payload["expression_source"] = "pi_koalagotchi_shared_state"
+    esp32_payload["target_display"] = "esp32-s3-dualeye"
+    _publish_hdmi(heltec_payload)
+    _publish_hdmi(esp32_payload)
+    esp32_port, heltec_port = _resolve_ports()
     baud = int(os.getenv("KOALABYTE_FACE_BAUD", str(DEFAULT_BAUD)))
     disabled = bool(os.getenv("KOALABYTE_FACE_DISABLED"))
-    wrote_heltec = False if disabled else _serial_write(heltec_port, baud, payload)
+    wrote_heltec = False if disabled else _serial_write(heltec_port, baud, heltec_payload)
+    wrote_esp32 = False if disabled else _serial_write(esp32_port, baud, esp32_payload)
     result = {
         "mode": "koalagotchi_shared_state",
-        "payload": payload,
+        "payload": heltec_payload,
+        "heltec_payload": heltec_payload,
+        "esp32_payload": esp32_payload,
+        "esp32_port": esp32_port,
         "heltec_usb_port": heltec_port,
+        "wrote_esp32": wrote_esp32,
         "wrote_heltec": wrote_heltec,
         "disabled": disabled,
     }

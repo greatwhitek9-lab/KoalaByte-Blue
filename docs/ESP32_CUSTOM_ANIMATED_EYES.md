@@ -2,6 +2,15 @@
 
 KoalaByte Blue supports runtime-customizable KillerKoala eyes on the ESP32-S3 DualEye display.
 
+The production renderer uses a cyberpunk koala face rather than floating eye
+symbols: silver-grey fur, irregular fur tufts, deep eye sockets, animated
+eyebrows, vertical animal pupils, asymmetric catchlights, natural gaze, and
+eased blink/color/expression transitions at 30 FPS.
+
+The Raspberry Pi is the expression coordinator. Button, voice, action,
+Koalagotchi, speech, success, and error events carry one authoritative mood to
+the ESP32 eyes and Heltec mouth; neither board independently chooses a mood.
+
 The Pi can send a serial JSON command to change:
 
 - eye look
@@ -151,6 +160,17 @@ The existing `screen` command also accepts eye fields:
 ```
 
 This lets the Pi companion match the eyes to KillerKoala moods, XP rank, Eucalyptus mode, Boomerang mode, or future custom profiles.
+
+## Button and voice behavior
+
+- Button navigation sends a `navigation`/curious expression and an updated menu selection.
+- Voice wake uses alert, pulsing eyes; listening and thinking use curious/scanning eyes.
+- A selected action uses focused/scanning eyes, success uses happy eyes, and errors latch the angry purple/green alarm face until the Pi clears it.
+- The right display remains the menu. The left display remains the selected action and live status/result panel.
+- When the face returns, it animates smoothly toward the latest Pi-selected expression instead of jumping between still poses.
+
+The active compiled firmware accepts `eye_style`, `eye_status`, `screen`,
+`killerkoala_face`, `menu_sync`, and `koalagotchi_status` JSON commands.
 
 ## Firmware files
 

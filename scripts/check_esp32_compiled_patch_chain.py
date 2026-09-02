@@ -154,7 +154,7 @@ def validate_release_stamp() -> dict[str, str]:
             f"release version contract invalid: old_matches={len(matches)} new_present={bool(new)}"
         )
     stamped = text.replace(matches[0], new, 1)
-    if "0.9.23-dualeye-menu-restore-v1" not in stamped:
+    if "0.9.24-cyber-koala-expression-sync-v2" not in stamped:
         raise PatchContractError("release version output marker is missing")
     return {"source": matches[0], "target": new}
 

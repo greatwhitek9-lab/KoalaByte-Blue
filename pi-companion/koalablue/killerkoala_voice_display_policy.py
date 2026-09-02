@@ -8,6 +8,7 @@ from .killerkoala_voice_control import (
     parse_voice_command,
 )
 from .killerkoala_voice_router import canonicalize_killerkoala_wake
+from .killerkoala_expression import expression_for_face_state
 
 
 TRUSTED_PI_MENU_SOURCE = "koalabyte-blue-pi"
@@ -74,6 +75,17 @@ def voice_menu_preview(self: Any, phrase: str) -> Optional[dict[str, Any]]:
         "execution_owner": "raspberry-pi",
         "display_intent": "voice_menu_preview",
     }
+    expression = expression_for_face_state(
+        "action",
+        label,
+        context={"input_source": "voice", "command": command, "menu": "voice"},
+    )
+    payload.update(expression.to_payload())
+    payload["mood"] = expression.tone
+    payload["brightness"] = expression.intensity
+    payload["face_state"] = "action"
+    payload["expression_source"] = "pi_voice_menu_state"
+    payload["input_source"] = "voice"
     self._write_json(payload)
     return payload
 

@@ -25,7 +25,10 @@ struct EyeRuntime {
   char rightHex[10];
   Rgb left;
   Rgb right;
+  Rgb renderedLeft;
+  Rgb renderedRight;
   int brightness;
+  float renderedBrightness;
   float gazeX;
   float gazeY;
   float targetX;
@@ -39,8 +42,19 @@ struct EyeRuntime {
 
 EyeRuntime eyes = {
     "cyber", "idle", "#A54BFF", "#32FF71",
-    {165, 75, 255}, {50, 255, 113}, 100,
+    {165, 75, 255}, {50, 255, 113},
+    {165, 75, 255}, {50, 255, 113}, 100, 100.0f,
     0.0f, 0.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0};
+
+struct ExpressionPose {
+  float openness;
+  float browMood;
+  float browLift;
+  float irisScale;
+  uint32_t lastUpdateMs;
+};
+
+ExpressionPose pose = {1.0f, 0.0f, 0.04f, 1.0f, 0};
 
 char lastMode[24] = "eucalyptus";
 char lastMood[96] = "calm";
@@ -149,12 +163,77 @@ void updateMotion(uint32_t now) {
   const float follow = 1.0f - expf(-8.0f * dt);
   eyes.gazeX += (eyes.targetX - eyes.gazeX) * follow;
   eyes.gazeY += (eyes.targetY - eyes.gazeY) * follow;
+  const float colorFollow = 1.0f - expf(-5.2f * dt);
+  eyes.renderedLeft = mixRgb(eyes.renderedLeft, eyes.left, colorFollow);
+  eyes.renderedRight = mixRgb(eyes.renderedRight, eyes.right, colorFollow);
+  eyes.renderedBrightness +=
+      (eyes.brightness - eyes.renderedBrightness) * colorFollow;
 
   if (eyes.nextBlinkMs == 0) eyes.nextBlinkMs = now + random(1800, 4400);
   if (now >= eyes.nextBlinkMs && eyes.blinkStartMs == 0) {
     eyes.blinkStartMs = now;
     eyes.nextBlinkMs = now + random(1900, 5000);
   }
+}
+
+void updateExpressionPose(uint32_t now) {
+  float targetOpenness = 1.0f;
+  float targetBrowMood = 0.0f;
+  float targetBrowLift = 0.04f;
+  float targetIrisScale = 1.0f;
+
+  if (eqi(eyes.animation, "sleepy") || containsI(lastMood, "sleep") ||
+      containsI(lastMood, "disappointed")) {
+    targetOpenness = 0.50f;
+    targetBrowMood = 0.18f;
+    targetBrowLift = -0.08f;
+    targetIrisScale = 0.92f;
+  } else if (eqi(eyes.look, "angry") || containsI(lastMood, "angry") ||
+             containsI(lastMood, "error") || containsI(lastMood, "alarm")) {
+    targetOpenness = 0.72f;
+    targetBrowMood = 0.90f;
+    targetBrowLift = -0.02f;
+    targetIrisScale = 0.88f;
+  } else if (containsI(lastMood, "happy") || containsI(lastMood, "success") ||
+             eqi(eyes.look, "heart") || eqi(eyes.look, "star")) {
+    targetOpenness = 0.88f;
+    targetBrowMood = -0.32f;
+    targetBrowLift = 0.36f;
+    targetIrisScale = 1.08f;
+  } else if (eqi(eyes.animation, "scan") || containsI(lastMood, "thinking") ||
+             containsI(lastMood, "focused")) {
+    targetOpenness = 0.84f;
+    targetBrowMood = 0.24f;
+    targetBrowLift = 0.12f;
+    targetIrisScale = 0.94f;
+  } else if (containsI(lastMood, "curious") ||
+             containsI(lastMood, "listening")) {
+    targetOpenness = 1.0f;
+    targetBrowMood = -0.10f;
+    targetBrowLift = 0.42f;
+    targetIrisScale = 1.05f;
+  } else if (containsI(lastMood, "mischievous") || eqi(eyes.look, "slit")) {
+    targetOpenness = 0.68f;
+    targetBrowMood = 0.34f;
+    targetBrowLift = 0.10f;
+    targetIrisScale = 0.90f;
+  }
+
+  if (lastContentment < 35) {
+    targetOpenness *= 0.82f;
+    targetBrowMood += 0.20f;
+  }
+
+  const float dt = pose.lastUpdateMs == 0
+                       ? 0.033f
+                       : clampFloat((now - pose.lastUpdateMs) / 1000.0f,
+                                    0.0f, 0.08f);
+  pose.lastUpdateMs = now;
+  const float follow = 1.0f - expf(-7.0f * dt);
+  pose.openness += (targetOpenness - pose.openness) * follow;
+  pose.browMood += (targetBrowMood - pose.browMood) * follow;
+  pose.browLift += (targetBrowLift - pose.browLift) * follow;
+  pose.irisScale += (targetIrisScale - pose.irisScale) * follow;
 }
 
 void drawCentered(GFXcanvas16 &canvas, const char *text, int16_t y,
@@ -272,18 +351,19 @@ void drawAnimalEye(GFXcanvas16 &canvas, bool leftEye, Rgb baseColor,
   const Rgb green = {50, 255, 113};
 
   Rgb iris = scale(baseColor,
-                   (eyes.brightness / 100.0f) * (0.86f + pulse * 0.20f));
+                   (eyes.renderedBrightness / 100.0f) *
+                       (0.86f + pulse * 0.20f));
   if (errorState) iris = mixRgb(purple, green, sirenMix);
 
   drawKoalaFaceBase(canvas, leftEye, iris, errorState, sirenMix, breathing);
 
   float openness = 1.0f - blinkAmount(now);
-  float browMood = 0.0f;
-  float browLift = 0.04f;
+  openness *= pose.openness;
+  float browMood = pose.browMood;
+  float browLift = pose.browLift;
 
   if (eqi(eyes.animation, "sleepy") || containsI(lastMood, "sleep")) {
-    openness *= 0.48f;
-    browLift = -0.08f;
+    openness *= 0.92f;
   }
   if (eqi(eyes.animation, "speaking") || eqi(eyes.animation, "blink") ||
       containsI(lastMood, "speaking")) {
@@ -291,20 +371,17 @@ void drawAnimalEye(GFXcanvas16 &canvas, bool leftEye, Rgb baseColor,
     browLift = 0.22f + 0.13f * sinf(phase * 3.8f);
   }
   if (eqi(eyes.animation, "scan") || containsI(lastMood, "thinking")) {
-    browMood = 0.24f;
     openness *= 0.84f;
   }
   if (eqi(eyes.look, "angry") || errorState || containsI(lastMood, "angry")) {
-    browMood = 0.88f;
     openness *= errorState ? 0.68f + 0.20f * sirenWave : 0.72f;
   }
   if (containsI(lastMood, "happy") || containsI(lastMood, "success")) {
-    browMood = -0.30f;
-    browLift = 0.36f;
+    openness *= 0.94f;
   }
   if (lastContentment < 35) {
     openness *= 0.78f;
-    browMood += 0.22f;
+    openness *= 0.92f;
   }
 
   const int eyeCy = menuState ? 76 : 104;
@@ -331,7 +408,8 @@ void drawAnimalEye(GFXcanvas16 &canvas, bool leftEye, Rgb baseColor,
     gazeY += (int)(cosf(phase * 10.0f) * 2.0f);
   }
 
-  const int irisR = menuState ? 18 : 26;
+  const int irisR = clampInt(
+      (int)((menuState ? 18.0f : 26.0f) * pose.irisScale), 14, 30);
   canvas.fillCircle(kCenter + gazeX, eyeCy + gazeY, irisR + 6, glow);
   canvas.fillCircle(kCenter + gazeX, eyeCy + gazeY, irisR + 2, irisColor);
   canvas.drawCircle(kCenter + gazeX, eyeCy + gazeY, irisR - 3,
@@ -377,7 +455,7 @@ void pushPanel(uint8_t panelNumber, bool leftEye, uint32_t now,
                bool errorState, bool menuState) {
   if (!dualEyePanelReady(panelNumber)) return;
   GFXcanvas16 &canvas = dualEyeCanvas();
-  const Rgb color = leftEye ? eyes.left : eyes.right;
+  const Rgb color = leftEye ? eyes.renderedLeft : eyes.renderedRight;
   drawAnimalEye(canvas, leftEye, color, now, errorState, menuState);
 
   if (menuState && panelNumber == KOALA_PRIMARY_DISPLAY && !errorState) {
@@ -397,6 +475,7 @@ void pushPanel(uint8_t panelNumber, bool leftEye, uint32_t now,
 void renderFrame(uint32_t now) {
   if (!dualEyeDisplayReady() || !dualEyeCanvasReady()) return;
   updateMotion(now);
+  updateExpressionPose(now);
 
   const bool errorState = containsI(lastMood, "error") ||
                           containsI(lastMood, "failed") ||
