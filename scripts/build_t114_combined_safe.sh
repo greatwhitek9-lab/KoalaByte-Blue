@@ -54,6 +54,7 @@ cat > "${STATUS_PATH}" <<JSON
   "software_uf2_entry": true,
   "installer_owned_flash": true,
   "linked_identity_markers_checked": true,
+  "stateful_koalagotchi_hud": true,
   "safety": "BLE RX/TX and GNSS can run together; LoRa driver guarded until pin validation.",
   "updated_at": $(date +%s)
 }
@@ -117,8 +118,8 @@ command -v strings >/dev/null 2>&1 || {
 LINKED_STRINGS="${BUILD_DIR}/zephyr/koalabyte-linked-strings.txt"
 strings "${ELF_PATH}" > "${LINKED_STRINGS}"
 
-# Prove runtime identity, lifecycle, canonical Koalagotchi HUD, and software-UF2
-# behavior survived archive linking and section garbage collection.
+# Prove runtime identity, lifecycle, canonical/stateful Koalagotchi HUD, and
+# software-UF2 behavior survived archive linking and section garbage collection.
 for marker in \
     "${EXPECTED_FW}" \
     "${EXPECTED_PROTOCOL}" \
@@ -129,6 +130,7 @@ for marker in \
     koalagotchi_mode \
     koalagotchi_exit \
     KILLERKOALA//KOALAGOTCHI \
+    stateful_koalagotchi_hud_v2 \
     disappointed \
     angry \
     error_clear \
@@ -158,13 +160,13 @@ for marker in \
     fi
 done
 
-write_status "built" "T114 firmware built with exact linked identity, canonical Koalagotchi HUD, lifecycle, software UF2 entry, and articulated original-texture mouth renderer."
+write_status "built" "T114 firmware built with exact linked identity, canonical stateful Koalagotchi HUD, lifecycle, software UF2 entry, and articulated original-texture mouth renderer."
 
 echo ""
 echo "======================================"
 echo "Build completed successfully."
 echo "Runtime identity: ${EXPECTED_FW} / ${EXPECTED_PROTOCOL}"
-echo "Koalagotchi HUD: canonical renderer linked and verified"
+echo "Koalagotchi HUD: canonical stateful renderer linked and verified"
 echo "Koalagotchi lifecycle: linked and verified"
 echo "Software UF2 entry: linked and verified"
 echo "Mouth renderer: original texture articulated jaw v2"
