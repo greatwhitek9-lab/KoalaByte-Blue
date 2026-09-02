@@ -17,7 +17,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 WAKE_WORD = "killerkoala"
-LAUNCH_VERBS = {"run", "open"}
+LAUNCH_VERBS = {"run", "start", "launch", "open", "select"}
 DEFAULT_MENU_VOICE_DIR = Path("logs/menu_voice")
 
 
@@ -90,6 +90,8 @@ def build_menu_voice_manifest() -> dict[str, Any]:
                 "voice_examples": [
                     f"{WAKE_WORD} run {entry.get('label', '')}",
                     f"{WAKE_WORD} open {entry.get('label', '')}",
+                    f"{WAKE_WORD} launch {entry.get('label', '')}",
+                    f"{WAKE_WORD} select {entry.get('label', '')}",
                     f"{WAKE_WORD} run {command.replace('_', ' ')}",
                 ],
                 "aliases": sorted(_aliases_for_entry(entry)),
@@ -100,7 +102,10 @@ def build_menu_voice_manifest() -> dict[str, Any]:
         "launch_verbs": sorted(LAUNCH_VERBS),
         "syntax": [
             "killerkoala run <menu item or command>",
+            "killerkoala start <menu item or command>",
+            "killerkoala launch <menu item or command>",
             "killerkoala open <menu item or command>",
+            "killerkoala select <menu item or command>",
             "keyboard text <words> after a text-input page is open",
         ],
         "entry_count": len(entries),
