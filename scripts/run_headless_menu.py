@@ -14,7 +14,7 @@ from koalablue.gpio_buttons import GPIOButtonManager
 from koalablue.hdmi_display_state import drain_menu_commands
 from koalablue.killerkoala_error_dig import run_standalone_error_sequence
 from koalablue.killerkoala_runtime_limits import install_killerkoala_runtime_limits
-from koalablue.menu_display_sync import sync_menu_state
+from koalablue.menu_display_sync import sync_ai_face_display, sync_menu_state
 from koalablue.runtime_serial_ownership import install_display_command_clients
 from scripts.run_menu_screen import make_menu
 
@@ -46,6 +46,18 @@ def write_status(status: str, **extra: object) -> None:
 
 def append_event(payload: dict[str, object]) -> None:
     append_jsonl(EVENT_PATH, payload)
+
+
+def sync_current_display(menu: object, event: object | None = None) -> dict[str, object]:
+    """Publish the current Pi-owned menu/face state after every runtime transition."""
+    if str(getattr(menu, "display_mode", "menu")) == "ai_face":
+        return sync_ai_face_display(
+            menu,
+            event,
+            state=str(getattr(menu, "face_state", "idle")),
+            message=str(getattr(menu, "face_message", "KillerKoala is watching the canopy")),
+        )
+    return sync_menu_state(menu, event)
 
 
 def main() -> int:
@@ -80,7 +92,7 @@ def main() -> int:
         button_error=buttons.error,
         selected_label=menu.selected_item.label,
     )
-    sync_menu_state(menu, menu.reopen_menu("main_menu"))
+    sync_current_display(menu, menu.reopen_menu("main_menu"))
 
     try:
         while not stop_requested:
@@ -115,6 +127,7 @@ def main() -> int:
                 append_event(event_payload)
                 try:
                     menu_event = menu.handle_command(command)
+                    sync_result = sync_current_display(menu, menu_event)
                     write_status(
                         "HEADLESS_MENU_RUNNING",
                         buttons_available=buttons.available,
@@ -124,6 +137,7 @@ def main() -> int:
                         ),
                         display_mode=menu.display_mode,
                         selected_label=menu.selected_item.label,
+                        last_display_sync=sync_result.get("sync_results", sync_result.get("sync_status")),
                     )
                 except Exception as exc:
                     error_event: dict[str, object] = {
@@ -155,11 +169,13 @@ def main() -> int:
 
             idle_event = menu.check_idle_timeout()
             if idle_event is not None:
+                sync_result = sync_current_display(menu, idle_event)
                 write_status(
                     "HEADLESS_MENU_IDLE_FACE",
                     buttons_available=buttons.available,
                     display_mode=menu.display_mode,
                     last_menu_event=idle_event.__dict__,
+                    last_display_sync=sync_result.get("sync_results", sync_result.get("sync_status")),
                 )
     finally:
         buttons.close()
