@@ -22,6 +22,15 @@ LOCAL_VOICE_TYPES = {
     "local_voice_status",
     "local_voice_detected",
     "local_ai_response",
+    "fallback_entry_probe",
+    "mic_capture_probe",
+    "mic_level_status",
+}
+LATEST_STATUS_TYPES = {
+    "local_voice_status",
+    "fallback_entry_probe",
+    "mic_capture_probe",
+    "mic_level_status",
 }
 
 
@@ -39,13 +48,14 @@ def _append_event(path: Path, payload: dict[str, Any]) -> None:
 
 
 def install_esp32_local_voice_diagnostics(bridge_cls: type[Any]) -> type[Any]:
-    """Persist firmware-local recognizer and voice-response diagnostics.
+    """Persist firmware-local and Pi-fallback voice diagnostics.
 
-    The production bridge historically ignored ``local_voice_status``,
-    ``local_voice_detected`` and ``local_ai_response`` because they are not Pi
-    voice-routing requests. Keeping them visible makes failures in the ES7210
-    microphone, ESP-SR/MultiNet model, wake recognition, and local speaker bank
-    independently diagnosable without opening a second serial monitor.
+    The production bridge historically ignored the local voice telemetry because
+    those packets are diagnostic/runtime state rather than Pi voice-routing
+    requests. Persist both the one-shot local voice messages and the repeating
+    Pi-wake fallback probes so the ES7210 PCM path, wake threshold, recognition,
+    and local response bank can be diagnosed without opening a second serial
+    monitor.
     """
 
     if getattr(bridge_cls, "_koalabyte_local_voice_diagnostics_installed", False):
@@ -62,7 +72,7 @@ def install_esp32_local_voice_diagnostics(bridge_cls: type[Any]) -> type[Any]:
                 **dict(payload),
             }
             _append_event(LOCAL_VOICE_EVENTS_PATH, record)
-            if payload_type == "local_voice_status":
+            if payload_type in LATEST_STATUS_TYPES:
                 _atomic_write_json(LOCAL_VOICE_STATUS_PATH, record)
         return original_handle_payload(instance, payload)
 
@@ -72,6 +82,7 @@ def install_esp32_local_voice_diagnostics(bridge_cls: type[Any]) -> type[Any]:
 
 
 __all__ = [
+    "LATEST_STATUS_TYPES",
     "LOCAL_VOICE_STATUS_PATH",
     "LOCAL_VOICE_EVENTS_PATH",
     "LOCAL_VOICE_TYPES",
