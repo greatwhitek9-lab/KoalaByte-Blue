@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from .killerkoala_voice_control import VOICE_MODULES, voice_menu_actions
+from .killerkoala_voice_control import VOICE_MODULES
+from .menu_catalog import all_menu_entries
 
 DEFAULT_MAX_PHRASES = 512
 DEFAULT_GRAMMAR_PATH = Path("/tmp/koalabyte_pocketsphinx_commands.gram")
@@ -165,10 +166,16 @@ def _candidate_phrases() -> Iterable[tuple[str, bool]]:
         for phrase in spec.phrases:
             yield phrase, False
 
-    # Menu labels are added once. The JSGF grammar supplies one shared optional
-    # verb rule instead of duplicating each label for run/start/launch/open/select.
-    for action in voice_menu_actions():
-        label = normalize_spoken_phrase(action.label)
+    # Every enabled menu row participates in recognition, including submenu rows.
+    # The JSGF grammar supplies one shared optional verb rule instead of
+    # duplicating each label for run/start/launch/open/select.
+    for entry in all_menu_entries():
+        if not bool(entry.get("enabled", True)):
+            continue
+        command = str(entry.get("command", "")).strip()
+        if not command or command == "quit":
+            continue
+        label = normalize_spoken_phrase(str(entry.get("label", command)))
         if label:
             yield label, True
 
