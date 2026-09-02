@@ -19,6 +19,10 @@ from .menu_voice_launcher import build_menu_voice_manifest, route_menu_voice_lau
 
 _SPACED_WAKE_RE = re.compile(r"\b(?:hey\s+)?killer\s+koala\b", re.IGNORECASE)
 _FUSED_WAKE_RE = re.compile(r"\b(?:hey\s+)?killerkoala\b", re.IGNORECASE)
+_SHORT_QUERY_ALIASES = {
+    "killerkoala status": "killerkoala what is the current system status",
+    "hey killerkoala status": "killerkoala what is the current system status",
+}
 
 
 def _jsonable(value: Any) -> Any:
@@ -50,6 +54,13 @@ def canonicalize_killerkoala_wake(phrase: str) -> str:
         text,
     )
     return " ".join(text.split())
+
+
+def canonicalize_short_voice_query(phrase: str) -> str:
+    """Expand terse recognizer commands into established Pi-side queries."""
+
+    canonical = canonicalize_killerkoala_wake(phrase)
+    return _SHORT_QUERY_ALIASES.get(canonical.lower(), canonical)
 
 
 def speak(text: str) -> bool:
@@ -105,7 +116,7 @@ def route_voice_phrase(
     to the local TinyLlama companion, with web evidence added when available.
     """
 
-    canonical_phrase = canonicalize_killerkoala_wake(phrase)
+    canonical_phrase = canonicalize_short_voice_query(phrase)
 
     menu_result = route_menu_voice_launch(
         canonical_phrase,
@@ -135,6 +146,7 @@ def combined_manifest() -> dict[str, Any]:
         "killerkoala run <menu item or command>",
         "killerkoala open <menu item or command>",
         "killerkoala voice commands",
+        "killerkoala status",
         "killerkoala <general question>",
     ]
     return voice
