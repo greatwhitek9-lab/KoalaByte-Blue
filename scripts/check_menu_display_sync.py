@@ -102,8 +102,12 @@ def _check_gpio_button_to_heltec_path() -> list[str]:
         failures.append("K6/down did not move the highlighted menu row to Bravo")
     if heltec_down.get("target_display") == "esp32-s3-dualeye":
         failures.append("K6/down generated the wrong display target")
-    if heltec_down.get("menu_sync") is not True or heltec_down.get("state") != "menu_highlight":
-        failures.append("K6/down did not generate a Heltec menu_highlight payload")
+    if (
+        heltec_down.get("menu_sync") is not True
+        or heltec_down.get("state") != "action"
+        or heltec_down.get("display_mode") != "koalagotchi_action"
+    ):
+        failures.append("K6/down did not generate a Heltec Koalagotchi action payload")
     if "Bravo" not in str(heltec_down.get("message", "")):
         failures.append("K6/down Heltec payload does not include the highlighted row label")
 
@@ -112,8 +116,12 @@ def _check_gpio_button_to_heltec_path() -> list[str]:
     heltec_up = _heltec_face_payload(up_payload)
     if menu.selected_item.label != "Alpha":
         failures.append("K5/up did not move the highlighted menu row back to Alpha")
-    if heltec_up.get("menu_sync") is not True or heltec_up.get("state") != "menu_highlight":
-        failures.append("K5/up did not generate a Heltec menu_highlight payload")
+    if (
+        heltec_up.get("menu_sync") is not True
+        or heltec_up.get("state") != "action"
+        or heltec_up.get("display_mode") != "koalagotchi_action"
+    ):
+        failures.append("K5/up did not generate a Heltec Koalagotchi action payload")
 
     menu.handle_command(by_key["K6"])
     select_event = menu.handle_command(by_key["K3"])
