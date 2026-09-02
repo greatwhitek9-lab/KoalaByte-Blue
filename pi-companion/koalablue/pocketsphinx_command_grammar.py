@@ -20,6 +20,11 @@ CORE_COMMANDS = (
     "show modules",
     "status",
 )
+MENU_SHORTCUTS: dict[str, tuple[str, ...]] = {
+    "submenu:main": ("menu", "main menu", "main canopy"),
+    "submenu:kruisin": ("kruisin", "koala kruisin", "koala kombat kruisin"),
+    "submenu:koala_kan": ("commander", "kan commander", "koala kan commander"),
+}
 _TOKEN_RE = re.compile(r"[a-z]+(?:'[a-z]+)?")
 _VARIANT_RE = re.compile(r"\(\d+\)$")
 _DIGIT_WORDS = {
@@ -35,8 +40,6 @@ _DIGIT_WORDS = {
     "9": "nine",
 }
 
-# Project terms are deliberately local additions. The distro CMU dictionary is
-# never modified. Pronunciations use the same ARPAbet phone inventory as CMUdict.
 CUSTOM_PRONUNCIATIONS: dict[str, str] = {
     "bluez": "B L UW Z",
     "ble": "B IY EH L IY",
@@ -135,17 +138,14 @@ def _load_dictionary(root: Path) -> tuple[set[str], list[str]]:
             clean = line.rstrip("\n")
             lines.append(clean)
             stripped = clean.strip()
-            if not stripped or stripped.startswith(";;; "):
+            if not stripped or stripped.startswith(";;;"):
                 continue
             head = stripped.split(None, 1)[0].lower()
             words.add(_VARIANT_RE.sub("", head))
     return words, lines
 
 
-def _write_augmented_dictionary(
-    root: Path,
-    destination: Path,
-) -> tuple[set[str], tuple[str, ...]]:
+def _write_augmented_dictionary(root: Path, destination: Path) -> tuple[set[str], tuple[str, ...]]:
     words, lines = _load_dictionary(root)
     added: list[str] = []
     for word, pronunciation in sorted(CUSTOM_PRONUNCIATIONS.items()):
@@ -162,14 +162,9 @@ def _write_augmented_dictionary(
 def _candidate_phrases() -> Iterable[tuple[str, bool]]:
     for phrase in CORE_COMMANDS:
         yield phrase, False
-
     for spec in VOICE_MODULES.values():
         for phrase in spec.phrases:
             yield phrase, False
-
-    # Every enabled menu row participates in recognition, including submenu rows.
-    # The JSGF grammar supplies one shared optional verb rule instead of
-    # duplicating each label for run/start/launch/open/select.
     for entry in all_menu_entries():
         if not bool(entry.get("enabled", True)):
             continue
@@ -179,30 +174,19 @@ def _candidate_phrases() -> Iterable[tuple[str, bool]]:
         label = normalize_spoken_phrase(str(entry.get("label", command)))
         if label:
             yield label, True
+        if command.startswith("submenu:"):
+            submenu = normalize_spoken_phrase(command.split(":", 1)[1])
+            if submenu:
+                yield submenu, True
+        for shortcut in MENU_SHORTCUTS.get(command, ()):
+            yield shortcut, True
 
 
-def build_command_grammar(
-    root: Path,
-    *,
-    grammar_path: Path | None = None,
-    dictionary_path: Path | None = None,
-    max_phrases: int | None = None,
-) -> CommandGrammar:
-    destination_dictionary = dictionary_path or Path(
-        os.getenv(
-            "KOALABYTE_POCKETSPHINX_COMMAND_DICTIONARY_PATH",
-            str(DEFAULT_DICTIONARY_PATH),
-        )
-    )
-    dictionary, custom_words = _write_augmented_dictionary(
-        root, destination_dictionary
-    )
-
-    limit = max_phrases or int(
-        os.getenv("KOALABYTE_POCKETSPHINX_GRAMMAR_MAX_PHRASES", str(DEFAULT_MAX_PHRASES))
-    )
+def build_command_grammar(root: Path, *, grammar_path: Path | None = None, dictionary_path: Path | None = None, max_phrases: int | None = None) -> CommandGrammar:
+    destination_dictionary = dictionary_path or Path(os.getenv("KOALABYTE_POCKETSPHINX_COMMAND_DICTIONARY_PATH", str(DEFAULT_DICTIONARY_PATH)))
+    dictionary, custom_words = _write_augmented_dictionary(root, destination_dictionary)
+    limit = max_phrases or int(os.getenv("KOALABYTE_POCKETSPHINX_GRAMMAR_MAX_PHRASES", str(DEFAULT_MAX_PHRASES)))
     limit = max(16, min(limit, 1024))
-
     accepted: list[str] = []
     direct: list[str] = []
     menu: list[str] = []
@@ -210,7 +194,6 @@ def build_command_grammar(
     capacity_skipped: list[str] = []
     missing_words: set[str] = set()
     seen: set[str] = set()
-
     for candidate, is_menu in _candidate_phrases():
         phrase = normalize_spoken_phrase(candidate)
         if not phrase or phrase in seen:
@@ -230,25 +213,17 @@ def build_command_grammar(
             menu.append(phrase)
         else:
             direct.append(phrase)
-
     for required in ("killer", "koala"):
         if required not in dictionary:
             raise RuntimeError(f"PocketSphinx dictionary is missing required wake word: {required}")
-
     if not accepted:
         raise RuntimeError("PocketSphinx command grammar has no dictionary-compatible commands")
-
-    rules: list[str] = [
-        "#JSGF V1.0;",
-        "grammar killerkoala_commands;",
-    ]
-
+    rules: list[str] = ["#JSGF V1.0;", "grammar killerkoala_commands;"]
     alternatives: list[str] = []
     if direct:
         direct_body = " |\n    ".join(direct)
         rules.append(f"<direct_command> = (\n    {direct_body}\n);")
         alternatives.append("<direct_command>")
-
     if menu:
         verb_body = " | ".join(MENU_VERBS)
         menu_body = " |\n    ".join(menu)
@@ -256,37 +231,14 @@ def build_command_grammar(
         rules.append(f"<menu_label> = (\n    {menu_body}\n);")
         rules.append("<menu_command> = [<menu_verb>] <menu_label>;")
         alternatives.append("<menu_command>")
-
     if not alternatives:
         raise RuntimeError("PocketSphinx command grammar has no usable command rules")
-
-    rules.append(
-        "public <command> = (killer koala | hey killer koala) ("
-        + " | ".join(alternatives)
-        + ");"
-    )
+    rules.append("public <command> = (killer koala | hey killer koala) (" + " | ".join(alternatives) + ");")
     grammar = "\n".join(rules) + "\n"
-
-    destination = grammar_path or Path(
-        os.getenv(
-            "KOALABYTE_POCKETSPHINX_COMMAND_GRAMMAR_PATH",
-            str(DEFAULT_GRAMMAR_PATH),
-        )
-    )
+    destination = grammar_path or Path(os.getenv("KOALABYTE_POCKETSPHINX_COMMAND_GRAMMAR_PATH", str(DEFAULT_GRAMMAR_PATH)))
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(grammar, encoding="utf-8")
-
-    return CommandGrammar(
-        path=destination,
-        dictionary_path=destination_dictionary,
-        phrases=tuple(accepted),
-        menu_phrases=tuple(menu),
-        rejected_phrases=tuple(rejected),
-        capacity_skipped_phrases=tuple(capacity_skipped),
-        missing_dictionary_words=tuple(sorted(missing_words)),
-        dictionary_words=len(dictionary),
-        custom_dictionary_words=custom_words,
-    )
+    return CommandGrammar(path=destination, dictionary_path=destination_dictionary, phrases=tuple(accepted), menu_phrases=tuple(menu), rejected_phrases=tuple(rejected), capacity_skipped_phrases=tuple(capacity_skipped), missing_dictionary_words=tuple(sorted(missing_words)), dictionary_words=len(dictionary), custom_dictionary_words=custom_words)
 
 
 __all__ = [
@@ -296,6 +248,7 @@ __all__ = [
     "DEFAULT_DICTIONARY_PATH",
     "DEFAULT_GRAMMAR_PATH",
     "DEFAULT_MAX_PHRASES",
+    "MENU_SHORTCUTS",
     "MENU_VERBS",
     "build_command_grammar",
     "normalize_spoken_phrase",
