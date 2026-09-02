@@ -11,6 +11,13 @@ def patch_once(path: Path, old: str, new: str, label: str) -> None:
     path.write_text(text.replace(old, new, 1), encoding="utf-8")
 
 
+def require_once(path: Path, marker: str, label: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    count = text.count(marker)
+    if count != 1:
+        raise RuntimeError(f"{label} expected one marker, found {count}")
+
+
 def apply(project: Path) -> None:
     config = project / "include" / "config.h"
     audio = project / "src" / "dualeye_audio.cpp"
@@ -21,11 +28,13 @@ def apply(project: Path) -> None:
         "#define MIC_INPUT_DIGITAL_GAIN_DB 0",
         "vendor microphone digital-gain patch",
     )
-    patch_once(
+    # Keep the source 0.010 RMS wake gate. Bench telemetry with this vendor
+    # gain profile showed a much lower idle floor than normal spoken input, so
+    # the former 0.030 override prevented ordinary speech from opening capture.
+    require_once(
         config,
         "#define MIC_WAKE_RMS_THRESHOLD 0.010f",
-        "#define MIC_WAKE_RMS_THRESHOLD 0.030f",
-        "calibrated microphone energy-gate patch",
+        "calibrated microphone energy-gate",
     )
     patch_once(
         audio,
@@ -35,7 +44,7 @@ def apply(project: Path) -> None:
     )
 
     print(
-        "Applied calibrated ES7210 profile: 30 dB analog, 0 dB digital, 0.030 RMS wake gate"
+        "Applied calibrated ES7210 profile: 30 dB analog, 0 dB digital, 0.010 RMS wake gate"
     )
 
 
