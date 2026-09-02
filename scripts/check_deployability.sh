@@ -78,6 +78,7 @@ run_step "Read-only HDMI display and Pi OS switch" env PYTHONPATH=pi-companion "
 run_step "KillerKoala face and mouth protocol" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_killerkoala_face_mouth_sync.py
 run_step "KillerKoala AI" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_killerkoala_ai.py
 run_step "KillerKoala short status routing" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_killerkoala_short_status.py
+run_step "KillerKoala misheard-command fastpath" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_killerkoala_misheard_fastpath.py
 run_step "Mopidy music player" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_music_player.py
 run_step "BLE failover" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_ble_role_failover.py
 run_step "Universal error sequence" env PYTHONPATH=pi-companion "${PYTHON_BIN}" scripts/check_killerkoala_error_sequence.py
