@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
 
 from .killerkoala_vocabulary import rank_for_xp
-from .menu_catalog import MAIN_MENU_ITEMS, SUBMENU_ITEMS, all_menu_entries, submenu_name_from_command, submenu_title
+from .menu_catalog import MAIN_MENU_ITEMS, SUBMENU_ITEMS, submenu_name_from_command, submenu_title
 from .menu_ui import MenuItem
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -19,6 +19,12 @@ if str(ROOT) not in sys.path:
 WAKE_WORD = "killerkoala"
 LAUNCH_VERBS = {"run", "start", "launch", "open", "select"}
 DEFAULT_MENU_VOICE_DIR = Path("logs/menu_voice")
+VOICE_SHORTCUT_ALIASES: dict[str, set[str]] = {
+    "submenu:main": {"menu", "main menu", "main canopy"},
+    "submenu:kruisin": {"kruisin", "koala kruisin", "koala kombat kruisin"},
+    "submenu:koala_kan": {"commander", "kan commander", "koala kan commander"},
+}
+BARE_MENU_ALIASES = {alias for aliases in VOICE_SHORTCUT_ALIASES.values() for alias in aliases}
 
 
 @dataclass(frozen=True)
@@ -67,6 +73,7 @@ def _aliases_for_entry(entry: dict[str, Any]) -> set[str]:
         aliases.add(submenu.replace("_", " "))
         aliases.add(submenu_title(submenu))
         aliases.add(f"{submenu_title(submenu)} menu")
+    aliases.update(VOICE_SHORTCUT_ALIASES.get(command, set()))
     aliases.add(f"{label} menu")
     return {_normalize(alias) for alias in aliases if _normalize(alias)}
 
@@ -100,7 +107,11 @@ def build_menu_voice_manifest() -> dict[str, Any]:
     return {
         "wake_word": WAKE_WORD,
         "launch_verbs": sorted(LAUNCH_VERBS),
+        "bare_menu_aliases": sorted(BARE_MENU_ALIASES),
         "syntax": [
+            "killerkoala menu",
+            "killerkoala kruisin",
+            "killerkoala commander",
             "killerkoala run <menu item or command>",
             "killerkoala start <menu item or command>",
             "killerkoala launch <menu item or command>",
@@ -128,10 +139,19 @@ def parse_menu_voice_launch(phrase: str, require_wake_word: bool = True) -> Opti
         except ValueError:
             working = working.replace(WAKE_WORD, " ").strip()
 
-    parts = working.split(maxsplit=1)
-    if len(parts) < 2 or parts[0] not in LAUNCH_VERBS:
+    if not working:
         return None
-    verb, requested = parts[0], parts[1].strip()
+
+    parts = working.split(maxsplit=1)
+    if len(parts) >= 2 and parts[0] in LAUNCH_VERBS:
+        verb: Optional[str] = parts[0]
+        requested = parts[1].strip()
+    else:
+        verb = None
+        requested = working
+        if _normalize(requested) not in BARE_MENU_ALIASES:
+            return None
+
     requested_norm = _normalize(requested)
     if not requested_norm:
         return None
@@ -178,21 +198,11 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _voice_result(
-    *,
-    status: str,
-    match: MenuVoiceMatch,
-    started_at: float,
-    ended_at: float,
-    xp_before: int,
-    xp_after: int,
-    xp_reward: int,
-    companion_line: str,
-    artifacts: dict[str, str],
-    details: dict[str, Any],
-    error: Optional[str] = None,
+    *, status: str, match: MenuVoiceMatch, started_at: float, ended_at: float,
+    xp_before: int, xp_after: int, xp_reward: int, companion_line: str,
+    artifacts: dict[str, str], details: dict[str, Any], error: Optional[str] = None,
 ):
     from .killerkoala_voice_control import VoiceExecutionResult
-
     return VoiceExecutionResult(
         status=status,
         module_key="menu_voice_launch",
@@ -221,7 +231,6 @@ def _voice_result(
 
 def _select_match_in_menu(menu: Any, match: MenuVoiceMatch) -> dict[str, Any]:
     from scripts.run_menu_screen import open_submenu
-
     if match.menu != "main":
         if not open_submenu(menu, f"submenu:{match.menu}"):
             raise RuntimeError(f"menu not available: {match.menu}")
@@ -313,17 +322,9 @@ def execute_menu_voice_launch(match: MenuVoiceMatch, output_dir: Path = DEFAULT_
     else:
         companion_line = f"Opening {match.label}, mate." if status == "success" else f"Could not open {match.requested_item}: {error}"
     result = _voice_result(
-        status=status,
-        match=match,
-        started_at=started,
-        ended_at=ended,
-        xp_before=xp_before,
-        xp_after=xp_state.xp,
-        xp_reward=xp_reward,
-        companion_line=companion_line,
-        artifacts=artifacts,
-        details=details,
-        error=error,
+        status=status, match=match, started_at=started, ended_at=ended,
+        xp_before=xp_before, xp_after=xp_state.xp, xp_reward=xp_reward,
+        companion_line=companion_line, artifacts=artifacts, details=details, error=error,
     )
     result_path = output_dir / f"menu_voice_result_{int(started)}.json"
     _write_json(result_path, asdict(result))
