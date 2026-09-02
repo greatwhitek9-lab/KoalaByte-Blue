@@ -3,6 +3,7 @@ Import("env")
 from pathlib import Path
 import audioop
 import base64
+import os
 import re
 import shutil
 import subprocess
@@ -18,6 +19,16 @@ VOICE_NAME = "en-AU-WilliamNeural"
 SPOKEN_IDENTITY = "KillerKoala"
 RECENT_HISTORY_DEPTH = 3
 _DISALLOWED_SPOKEN_IDENTITY = re.compile(r"\bwilliam\b", re.IGNORECASE)
+
+try:
+    VOICE_COMMAND_TIMEOUT_SECONDS = max(
+        45,
+        int(os.getenv("KOALABYTE_LOCAL_VOICE_COMMAND_TIMEOUT_SECONDS", "180")),
+    )
+except ValueError as exc:
+    raise RuntimeError(
+        "KOALABYTE_LOCAL_VOICE_COMMAND_TIMEOUT_SECONDS must be an integer"
+    ) from exc
 
 # Forty compact offline clips. Every category has at least four unique lines so a
 # three-entry recent-history window can always exclude the last three responses.
@@ -132,7 +143,7 @@ with tempfile.TemporaryDirectory(prefix="koalabyte-killerkoala-voice-") as temp:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=45,
+            timeout=VOICE_COMMAND_TIMEOUT_SECONDS,
         )
         subprocess.run(
             [
@@ -140,6 +151,7 @@ with tempfile.TemporaryDirectory(prefix="koalabyte-killerkoala-voice-") as temp:
                 "-hide_banner",
                 "-loglevel",
                 "error",
+                "-nostdin",
                 "-y",
                 "-i",
                 str(media),
@@ -154,7 +166,7 @@ with tempfile.TemporaryDirectory(prefix="koalabyte-killerkoala-voice-") as temp:
                 str(raw),
             ],
             check=True,
-            timeout=45,
+            timeout=VOICE_COMMAND_TIMEOUT_SECONDS,
         )
         pcm = raw.read_bytes()
         mulaw = audioop.lin2ulaw(pcm, 2)
