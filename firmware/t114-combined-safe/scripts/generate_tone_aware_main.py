@@ -161,6 +161,39 @@ def generate(source: Path, output: Path) -> None:
 
     text = replace_once(
         text,
+        '''    if (strstr(line, "\\"display_mode\\":\\"koalagotchi_action\\"")) {
+        copy_safe(current_state, sizeof(current_state),
+                  "koalagotchi_action", "koalagotchi_action");
+        koalagotchi_frame =
+            (uint8_t)extract_json_int(line, "frame_index", 0);
+    } else if (strstr(line, "\\"display_mode\\":\\"jungle_loading_banner\\"")) {
+        copy_safe(current_state, sizeof(current_state), "loading", "loading");
+    }
+''',
+        '''    if (strstr(line, "\\"display_mode\\":\\"koalagotchi_action\\"")) {
+        char action_title[sizeof(current_message)] = "";
+        copy_safe(current_state, sizeof(current_state),
+                  "koalagotchi_action", "koalagotchi_action");
+        if (!current_message[0] &&
+            extract_json_string(line, "action_title", action_title,
+                                sizeof(action_title))) {
+            copy_safe(current_message, sizeof(current_message), action_title,
+                      "EXECUTING");
+        }
+        koalagotchi_frame =
+            (uint8_t)extract_json_int(line, "frame_index", 0);
+        koala_centered_set_action_progress(
+            extract_json_int(line, "progress", -1));
+    } else if (strstr(line, "\\"display_mode\\":\\"jungle_loading_banner\\"")) {
+        koala_centered_set_action_progress(-1);
+        copy_safe(current_state, sizeof(current_state), "loading", "loading");
+    }
+''',
+        "Koalagotchi action metadata",
+    )
+
+    text = replace_once(
+        text,
         '''    speaking_active = strcmp(current_state, "speaking") == 0;
     mouth_expression = expression_for_face_state(current_state);
     reset_mouth_animation(now);
@@ -176,6 +209,21 @@ def generate(source: Path, output: Path) -> None:
     reset_mouth_animation(now);
 ''',
         "face mouth expression selection",
+    )
+
+    text = replace_once(
+        text,
+        '''    mouth_expression = expression_from_koalagotchi(
+        expression, koalagotchi_mood, koalagotchi_health);
+    face_enabled = true;
+''',
+        '''    mouth_expression = expression_from_koalagotchi(
+        expression, koalagotchi_mood, koalagotchi_health);
+    koala_centered_set_status(koalagotchi_health, koalagotchi_mood,
+                              mouth_expression_name(mouth_expression));
+    face_enabled = true;
+''',
+        "Koalagotchi HUD status wiring",
     )
 
     text = replace_once(
