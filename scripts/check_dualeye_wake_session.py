@@ -129,6 +129,13 @@ def main() -> int:
     ):
         require(response_patch, marker, failures, "local response runtime patch")
 
+    for marker in (
+        "KOALABYTE_LOCAL_VOICE_COMMAND_TIMEOUT_SECONDS",
+        "VOICE_COMMAND_TIMEOUT_SECONDS",
+        '"-nostdin"',
+    ):
+        require(response_generator, marker, failures, "local response generator")
+
     catalog_markers = [
         '(100, "k1_main_menu", "Main Menu", "main", "Menu", "K one")',
         '(105, "k6_down", "Down", "main", "Down", "K six")',
