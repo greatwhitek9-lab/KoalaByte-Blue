@@ -60,6 +60,7 @@ target_sources(app PRIVATE
   src/display_power_init.c
   src/koalagotchi_lifecycle_wrapper.c
   src/centered_koalagotchi_renderer.c
+  src/stateful_koalagotchi_overlay.c
   src/koala_abs_compat.c
   ${KOALABYTE_FINAL_MAIN_SOURCE}
   src/loading_display.c
@@ -71,11 +72,16 @@ target_include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 # loading_display.c still owns boot/menu/action drawing. The normal mouth path is
 # provided by original_texture_warp_renderer.c, which continuously deforms one
 # approved original texture and never compiles the procedural replacement mouth.
-# Action-mode Koalagotchi rendering is routed to the centered renderer so the
-# character remains anchored on-screen instead of traversing left/right.
+# The canonical centered renderer is compiled as a private base frame; the
+# stateful overlay owns the public centered action symbol and adds live
+# health/mood/expression/progress without creating another full-screen buffer.
 set_source_files_properties(src/loading_display.c PROPERTIES
   COMPILE_DEFINITIONS
     "render_killerkoala_mouth=koala_base_render_killerkoala_mouth;render_menu_status=koala_base_render_menu_status;render_koalagotchi_action=koala_base_render_koalagotchi_action"
+)
+set_source_files_properties(src/centered_koalagotchi_renderer.c PROPERTIES
+  COMPILE_DEFINITIONS
+    "koala_centered_render_koalagotchi_action=koala_centered_render_koalagotchi_action_base"
 )
 set_source_files_properties(src/original_texture_warp_renderer.c PROPERTIES
   COMPILE_DEFINITIONS
