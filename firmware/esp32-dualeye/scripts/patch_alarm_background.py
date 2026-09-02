@@ -113,6 +113,31 @@ replace_once(
 )
 
 replace_once(
+    """void handleEyeStyle(JsonDocument &doc) {
+  clearDisplayModes();
+""",
+    """void handleEyeStyle(JsonDocument &doc) {
+  clearDisplayModes();
+  const char *requestedMood = doc["mood"] | doc["tone"] | "neutral";
+  const char *requestedLook = doc["eye_look"] | doc["look"] | "cyber";
+  const char *requestedAnimation =
+      doc["eye_animation"] | doc["animation"] | "idle";
+  const bool requestedAlarmStyle =
+      !strcmp(requestedMood, "error") || !strcmp(requestedMood, "alarm") ||
+      !strcmp(requestedMood, "failed") || !strcmp(requestedMood, "fault") ||
+      (!strcmp(requestedLook, "angry") &&
+       (!strcmp(requestedAnimation, "glitch") ||
+        !strcmp(requestedAnimation, "error")));
+  if (!requestedAlarmStyle) {
+    alarmBackgroundActive = false;
+    overlayError = false;
+    lastAlarmBackgroundDraw = 0;
+  }
+""",
+    "normal eye style clears stale alarm",
+)
+
+replace_once(
     """void handleFace(JsonDocument &doc) {
   const char *state = doc["state"] | "idle";
   const char *message = doc["message"] | state;
