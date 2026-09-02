@@ -50,12 +50,42 @@ def compact_heltec_payload(payload: dict[str, Any]) -> dict[str, Any]:
             compact["frame_index"] = max(
                 0, min(int(payload.get("frame_index") or 0), 255)
             )
+        if payload.get("action_title"):
+            compact["action_title"] = str(payload.get("action_title") or "")[:32]
+        if "progress" in payload:
+            compact["progress"] = max(
+                -1, min(int(payload.get("progress") or 0), 100)
+            )
+        for key, limit in (
+            ("tone", 23),
+            ("subject", 27),
+            ("speech_motion", 27),
+            ("mouth_expression", 31),
+        ):
+            if payload.get(key):
+                compact[key] = str(payload.get(key) or "")[:limit]
+        if "intensity" in payload:
+            compact["intensity"] = max(
+                20, min(int(payload.get("intensity") or 60), 100)
+            )
     elif payload_type == "killerkoala_speech":
         compact = {
             "type": payload_type,
             "active": bool(payload.get("active", False)),
             "message": str(payload.get("message") or "")[:92],
         }
+        for key, limit in (
+            ("tone", 23),
+            ("subject", 27),
+            ("speech_motion", 27),
+            ("mouth_expression", 31),
+        ):
+            if payload.get(key):
+                compact[key] = str(payload.get(key) or "")[:limit]
+        if "intensity" in payload:
+            compact["intensity"] = max(
+                20, min(int(payload.get("intensity") or 60), 100)
+            )
     elif payload_type == "koalagotchi_status":
         compact = {
             "type": payload_type,
