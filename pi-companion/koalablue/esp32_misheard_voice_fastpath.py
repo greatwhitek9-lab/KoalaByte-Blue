@@ -58,11 +58,14 @@ def should_fast_clarify_misheard_phrase(phrase: str, recognizer_search: str) -> 
     if normalized in _FAST_STATUS_FORMS:
         return False
 
-    parsed = parse_voice_command(phrase, require_wake_word=True)
+    # The core parser recognizes the canonical fused wake token (killerkoala).
+    # Feed it the same normalized form used by this guard so a valid spaced-wake
+    # command such as "killer koala bluez status" is never misclassified.
+    parsed = parse_voice_command(normalized, require_wake_word=True)
     if parsed.module_key is not None or parsed.menu_action is not None:
         return False
 
-    working = _working_phrase(phrase)
+    working = _working_phrase(normalized)
     if not working:
         return True
     if looks_like_general_question(working):
