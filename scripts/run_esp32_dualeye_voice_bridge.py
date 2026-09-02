@@ -19,6 +19,9 @@ from koalablue.esp32_misheard_voice_fastpath import (
 from koalablue.esp32_owner_runtime_transport import (
     install_esp32_owner_runtime_transport,
 )
+from koalablue.esp32_speech_feedback_guard import (
+    install_esp32_speech_feedback_guard,
+)
 from koalablue.esp32_udp_serial_fallback import install_esp32_udp_serial_fallback
 from koalablue.killerkoala_llm_policy import install_killerkoala_llm_fastpath
 from koalablue.killerkoala_runtime_limits import install_killerkoala_runtime_limits
@@ -37,6 +40,7 @@ install_esp32_owner_runtime_transport(ESP32DualEyeVoiceBridge)
 install_esp32_local_voice_diagnostics(ESP32DualEyeVoiceBridge)
 install_esp32_audio_end_watchdog(ESP32DualEyeVoiceBridge)
 install_music_speech_ducking(ESP32DualEyeVoiceBridge)
+install_esp32_speech_feedback_guard(ESP32DualEyeVoiceBridge)
 install_esp32_misheard_voice_fastpath(ESP32DualEyeVoiceBridge)
 install_display_command_clients()
 install_esp32_serial_owner(ESP32DualEyeVoiceBridge)
