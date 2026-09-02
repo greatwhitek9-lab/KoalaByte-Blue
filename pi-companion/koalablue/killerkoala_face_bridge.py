@@ -77,12 +77,16 @@ def build_speech_payload(active: bool, message: str = "", channel: str = "pi-ai"
     }
 
 
-def build_heltec_loading_payload(frame: str, action_title: str = "", duration_ms: int = 1400) -> dict:
-    """Build a compact Koalagotchi frame that fits the T114 USB command buffer."""
+def build_heltec_loading_payload(
+    frame: str,
+    action_title: str = "",
+    duration_ms: int = 1400,
+    progress: Optional[int] = None,
+) -> dict:
+    """Build a compact Koalagotchi action frame with optional real progress."""
 
     frame_index = max(0, sum(1 for ch in str(frame) if ch.isalpha()) - 1)
-
-    return {
+    payload = {
         "type": "killerkoala_face",
         "enabled": True,
         "state": "koalagotchi_action",
@@ -93,6 +97,9 @@ def build_heltec_loading_payload(frame: str, action_title: str = "", duration_ms
         "action_title": _short(action_title, 24),
         "frame_index": frame_index,
     }
+    if progress is not None:
+        payload["progress"] = max(0, min(100, int(progress)))
+    return payload
 
 
 def build_esp32_loading_eyes_payload(action_title: str = "", duration_ms: int = 1400) -> dict:
@@ -232,7 +239,7 @@ def emit_face(state: str, message: str = "", *, enabled: bool = True, duration_m
 
 
 def emit_koalagotchi_status(health: int, mood: str = "") -> dict:
-    """Drive the T114 cyber-mouth from the shared Koalagotchi state."""
+    """Drive the shared Koalagotchi state used by the T114 mouth and HUD."""
 
     payload = build_koalagotchi_status_payload(health, mood)
     _publish_hdmi(payload)
@@ -241,7 +248,7 @@ def emit_koalagotchi_status(health: int, mood: str = "") -> dict:
     disabled = bool(os.getenv("KOALABYTE_FACE_DISABLED"))
     wrote_heltec = False if disabled else _serial_write(heltec_port, baud, payload)
     result = {
-        "mode": "koalagotchi_mood_mouth",
+        "mode": "koalagotchi_shared_state",
         "payload": payload,
         "heltec_usb_port": heltec_port,
         "wrote_heltec": wrote_heltec,
@@ -271,10 +278,18 @@ def emit_speech_state(active: bool, message: str = "", *, channel: str = "pi-ai"
     return result
 
 
-def emit_loading_frame(frame: str, action_title: str = "", *, duration_ms: int = 1400) -> dict:
-    """Play Koalagotchi on T114 while DualEye names the executing action."""
+def emit_loading_frame(
+    frame: str,
+    action_title: str = "",
+    *,
+    duration_ms: int = 1400,
+    progress: Optional[int] = None,
+) -> dict:
+    """Play Koalagotchi while DualEye names the action; show real progress if known."""
 
-    heltec_payload = build_heltec_loading_payload(frame, action_title, duration_ms)
+    heltec_payload = build_heltec_loading_payload(
+        frame, action_title, duration_ms, progress=progress
+    )
     esp32_payload = build_esp32_loading_eyes_payload(action_title, duration_ms)
     _publish_hdmi(heltec_payload)
     _publish_hdmi(esp32_payload)
@@ -287,6 +302,7 @@ def emit_loading_frame(frame: str, action_title: str = "", *, duration_ms: int =
         "mode": "split_loading",
         "frame": frame,
         "action_title": action_title,
+        "progress": progress,
         "heltec_payload": heltec_payload,
         "esp32_payload": esp32_payload,
         "heltec_usb_port": heltec_port,
