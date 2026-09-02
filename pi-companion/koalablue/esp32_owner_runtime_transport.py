@@ -8,10 +8,13 @@ from typing import Any
 # command parser is healthy while USB writes from the long-lived serial-owner
 # process can be accepted by pyserial without producing a visible firmware action.
 # Provisioning/status requests remain USB-first because they are also used before
-# Wi-Fi is configured.
+# Wi-Fi is configured. The local voice diagnostic/test commands are intentionally
+# USB-first because those handlers live in the ESP32 clean-voice serial loop.
 USB_FIRST_TYPES = {
     "wifi_config",
     "node_status",
+    "local_voice_status_request",
+    "local_voice_test",
 }
 
 
