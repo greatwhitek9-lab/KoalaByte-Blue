@@ -5,6 +5,7 @@ import argparse
 import json
 import time
 
+from koalablue.esp32_audio_end_watchdog import install_esp32_audio_end_watchdog
 from koalablue.esp32_dualeye_observed_bridge import (
     ESP32DualEyeVoiceBridge,
     default_esp32_port,
@@ -34,6 +35,7 @@ install_voice_menu_display_restore(ESP32DualEyeVoiceBridge)
 install_esp32_udp_serial_fallback(ESP32DualEyeVoiceBridge)
 install_esp32_owner_runtime_transport(ESP32DualEyeVoiceBridge)
 install_esp32_local_voice_diagnostics(ESP32DualEyeVoiceBridge)
+install_esp32_audio_end_watchdog(ESP32DualEyeVoiceBridge)
 install_music_speech_ducking(ESP32DualEyeVoiceBridge)
 install_esp32_misheard_voice_fastpath(ESP32DualEyeVoiceBridge)
 install_display_command_clients()
