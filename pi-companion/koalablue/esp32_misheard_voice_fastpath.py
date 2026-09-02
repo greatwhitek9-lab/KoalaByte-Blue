@@ -49,12 +49,13 @@ def _working_phrase(phrase: str) -> str:
 
 
 def should_fast_clarify_misheard_phrase(phrase: str, recognizer_search: str) -> bool:
-    """Fail fast on unresolved physical STT instead of generating random banter.
+    """Identify unresolved physical STT before the legacy AI fallback.
 
     Any supported physical recognizer may mishear a command. If the normalized
     wake phrase maps to a real module/menu action, a general question, or an
     explicit conversational request, normal routing continues. Everything else
-    receives one deterministic clarification with no TinyLlama/web request.
+    is treated as an unresolved recognition event. Whether that event should be
+    spoken or silently ignored depends on independent wake confirmation.
     """
 
     recognizer = str(recognizer_search or "").strip()
@@ -79,8 +80,16 @@ def should_fast_clarify_misheard_phrase(phrase: str, recognizer_search: str) -> 
     return True
 
 
+def wake_is_independently_confirmed(event: Any) -> bool:
+    payload = getattr(event, "payload", {})
+    if isinstance(payload, dict) and bool(payload.get("wake_already_confirmed")):
+        return True
+    source = str(getattr(event, "source", "") or "").strip().lower()
+    return source == "esp32_s3_es7210_confirmed_wake_followup"
+
+
 def install_esp32_misheard_voice_fastpath(bridge_class: type) -> Callable[..., Dict[str, Any]]:
-    """Install deterministic clarification ahead of the legacy AI fallback."""
+    """Install deterministic unresolved-STT handling ahead of AI fallback."""
 
     original = bridge_class._route_phrase
     if getattr(original, "_koalabyte_misheard_fastpath", False):
@@ -91,6 +100,33 @@ def install_esp32_misheard_voice_fastpath(bridge_class: type) -> Callable[..., D
             event.phrase,
             str(getattr(self, "_last_stt_search", "")),
         ):
+            if not wake_is_independently_confirmed(event):
+                result_data = {
+                    "status": "ignored",
+                    "module_key": "killerkoala_false_wake_guard",
+                    "module_title": "KillerKoala False Wake Guard",
+                    "phrase": event.phrase,
+                    "companion_line": "",
+                    "source": "local_unconfirmed_stt_guard",
+                    "llm_used": False,
+                    "web_searched": False,
+                    "wake_confirmed": False,
+                }
+                self._write_json(
+                    {
+                        "type": "voice_rejected",
+                        "request_id": event.request_id,
+                        "reason": "unconfirmed_stt_miss",
+                        "resume_menu": bool(
+                            getattr(event, "payload", {}).get("menu_was_visible", False)
+                            if isinstance(getattr(event, "payload", {}), dict)
+                            else False
+                        ),
+                        "result": result_data,
+                    }
+                )
+                return {"event": asdict(event), "result": result_data}
+
             message = "Didn't catch that command, mate. Try that again."
             result_data = {
                 "status": "clarify",
@@ -101,6 +137,7 @@ def install_esp32_misheard_voice_fastpath(bridge_class: type) -> Callable[..., D
                 "source": "local_misheard_fastpath",
                 "llm_used": False,
                 "web_searched": False,
+                "wake_confirmed": True,
             }
             self._write_json(
                 {
@@ -126,4 +163,5 @@ def install_esp32_misheard_voice_fastpath(bridge_class: type) -> Callable[..., D
 __all__ = [
     "install_esp32_misheard_voice_fastpath",
     "should_fast_clarify_misheard_phrase",
+    "wake_is_independently_confirmed",
 ]
