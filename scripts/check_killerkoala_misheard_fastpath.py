@@ -15,6 +15,10 @@ def main() -> int:
         "unsupported JSGF wake fragment did not select fast clarification",
     )
     require(
+        should_fast_clarify_misheard_phrase("killer koala that's not", "general_lm"),
+        "unsupported general-LM wake fragment did not select fast clarification",
+    )
+    require(
         not should_fast_clarify_misheard_phrase("killer koala status", "jsgf_commands"),
         "exact short status was incorrectly intercepted",
     )
@@ -23,21 +27,25 @@ def main() -> int:
         "supported command was incorrectly intercepted",
     )
     require(
+        not should_fast_clarify_misheard_phrase("killer koala bluez status", "general_lm"),
+        "valid general-LM command was incorrectly intercepted",
+    )
+    require(
         not should_fast_clarify_misheard_phrase(
-            "killer koala what is bluetooth low energy", "jsgf_commands"
+            "killer koala what is bluetooth low energy", "general_lm"
         ),
         "general question was incorrectly intercepted",
     )
     require(
-        not should_fast_clarify_misheard_phrase("killer koala chat", "jsgf_commands"),
+        not should_fast_clarify_misheard_phrase("killer koala chat", "general_lm"),
         "explicit conversational request was incorrectly intercepted",
     )
     require(
-        not should_fast_clarify_misheard_phrase("killer koala that's not", "general_lm"),
-        "non-command recognizer output was incorrectly intercepted",
+        not should_fast_clarify_misheard_phrase("killer koala that's not", "none"),
+        "non-physical recognizer state was incorrectly intercepted",
     )
 
-    print("KillerKoala misheard-command fastpath check passed")
+    print("KillerKoala deterministic unresolved-voice check passed")
     return 0
 
 
