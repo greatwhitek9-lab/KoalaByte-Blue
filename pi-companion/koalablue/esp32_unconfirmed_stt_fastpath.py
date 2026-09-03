@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import math
+import os
+import struct
 from dataclasses import asdict
 from typing import Any, Callable, Optional
 
@@ -12,6 +15,103 @@ from .esp32_dualeye_voice_bridge import (
     ESP32DualEyeVoiceEvent,
     _wake_detected,
 )
+
+_DEFAULT_GATE_RMS = 0.0135
+_DEFAULT_MIN_VOICED_MS = 60
+_DEFAULT_PRE_ROLL_MS = 240
+_DEFAULT_POST_ROLL_MS = 520
+
+
+def _float_env(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, str(default)).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def _int_env(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def _prepare_command_pcm(
+    pcm: bytes,
+    sample_rate: int,
+    sample_width: int,
+) -> tuple[bytes, dict[str, Any]]:
+    """Cheaply reject noise-floor captures and trim silence before PocketSphinx.
+
+    The ESP32 intentionally has a sensitive 0.010 RMS wake threshold. On the
+    physical DualEye that can open long ambient sessions at roughly 0.010-0.012
+    RMS. Scanning 20 ms PCM blocks on the Pi is far cheaper than asking
+    PocketSphinx to decode the full 4-6.5 second capture. Real speech keeps a
+    short pre/post roll so wake consonants and final syllables are preserved.
+    """
+
+    metrics: dict[str, Any] = {
+        "input_pcm_bytes": len(pcm),
+        "prepared_pcm_bytes": 0,
+        "gate_rms": _float_env("KOALABYTE_UNCONFIRMED_RMS_GATE", _DEFAULT_GATE_RMS),
+        "peak_block_rms": 0.0,
+        "voiced_blocks": 0,
+        "total_blocks": 0,
+        "trimmed": False,
+        "gate_passed": False,
+    }
+    if not pcm or sample_rate != 16000 or sample_width != 2:
+        return b"", metrics
+
+    block_samples = max(1, sample_rate // 50)  # 20 ms
+    block_bytes = block_samples * sample_width
+    gate_rms = float(metrics["gate_rms"])
+    min_voiced_blocks = max(
+        1,
+        math.ceil(_int_env("KOALABYTE_UNCONFIRMED_MIN_VOICED_MS", _DEFAULT_MIN_VOICED_MS) / 20.0),
+    )
+    pre_blocks = max(
+        0,
+        math.ceil(_int_env("KOALABYTE_UNCONFIRMED_PRE_ROLL_MS", _DEFAULT_PRE_ROLL_MS) / 20.0),
+    )
+    post_blocks = max(
+        0,
+        math.ceil(_int_env("KOALABYTE_UNCONFIRMED_POST_ROLL_MS", _DEFAULT_POST_ROLL_MS) / 20.0),
+    )
+
+    voiced: list[int] = []
+    peak = 0.0
+    block_index = 0
+    for offset in range(0, len(pcm) - 1, block_bytes):
+        chunk = pcm[offset : min(len(pcm), offset + block_bytes)]
+        sample_count = len(chunk) // 2
+        if sample_count <= 0:
+            continue
+        values = struct.unpack_from(f"<{sample_count}h", chunk)
+        mean_square = sum(sample * sample for sample in values) / float(sample_count)
+        rms = math.sqrt(mean_square) / 32768.0
+        peak = max(peak, rms)
+        if rms >= gate_rms:
+            voiced.append(block_index)
+        block_index += 1
+
+    metrics["peak_block_rms"] = round(peak, 6)
+    metrics["voiced_blocks"] = len(voiced)
+    metrics["total_blocks"] = block_index
+    if len(voiced) < min_voiced_blocks:
+        return b"", metrics
+
+    first = max(0, voiced[0] - pre_blocks)
+    last = min(max(0, block_index - 1), voiced[-1] + post_blocks)
+    start = first * block_bytes
+    end = min(len(pcm), (last + 1) * block_bytes)
+    prepared = pcm[start:end]
+    metrics["prepared_pcm_bytes"] = len(prepared)
+    metrics["trimmed"] = start > 0 or end < len(pcm)
+    metrics["gate_passed"] = True
+    metrics["trim_start_ms"] = first * 20
+    metrics["trim_end_ms"] = (last + 1) * 20
+    return prepared, metrics
 
 
 def _cached_command_transcript(
@@ -70,8 +170,8 @@ def _cached_command_transcript(
 def install_esp32_unconfirmed_stt_fastpath(bridge_cls: type[Any]) -> type[Any]:
     """Keep ambient/unconfirmed captures out of the expensive STT fallback stack.
 
-    Unconfirmed physical captures use one reusable JSGF command decoder only.
-    Grammar misses are rejected immediately instead of loading Whisper/general
+    Unconfirmed physical captures are energy-gated, silence-trimmed, then sent to
+    one reusable JSGF command decoder. Grammar misses never load Whisper/general
     language models. Confirmed wake sessions retain the full recognizer pipeline.
     """
 
@@ -101,7 +201,15 @@ def install_esp32_unconfirmed_stt_fastpath(bridge_cls: type[Any]) -> type[Any]:
             meta.get("menu_was_visible", payload.get("menu_was_visible", False))
         )
 
-        phrase = _cached_command_transcript(self, pcm, sample_rate, sample_width)
+        prepared_pcm, pcm_metrics = _prepare_command_pcm(pcm, sample_rate, sample_width)
+        phrase = ""
+        if prepared_pcm:
+            phrase = _cached_command_transcript(
+                self,
+                prepared_pcm,
+                sample_rate,
+                sample_width,
+            )
 
         self._last_stt_search = "jsgf_commands"
         self._last_stt_transcript = phrase
@@ -111,10 +219,23 @@ def install_esp32_unconfirmed_stt_fastpath(bridge_cls: type[Any]) -> type[Any]:
                 "recognizer_decision",
                 request_id=request_id,
                 pcm_bytes=len(pcm),
+                prepared_pcm_bytes=len(prepared_pcm),
                 search="jsgf_commands",
                 transcript=phrase,
-                scope="unconfirmed_command_only_cached",
+                scope="unconfirmed_command_energy_gated_cached",
+                **pcm_metrics,
             )
+
+        if not prepared_pcm:
+            self._write_json(
+                {
+                    "type": "voice_rejected",
+                    "request_id": request_id,
+                    "reason": "ambient_below_command_energy_gate",
+                    "resume_menu": resume_menu,
+                }
+            )
+            return None
 
         if not phrase:
             self._write_json(
@@ -148,6 +269,7 @@ def install_esp32_unconfirmed_stt_fastpath(bridge_cls: type[Any]) -> type[Any]:
             payload={
                 "transcript": phrase,
                 "wake_already_confirmed": False,
+                "pcm_gate": pcm_metrics,
                 **meta,
                 **payload,
             },
@@ -162,4 +284,7 @@ def install_esp32_unconfirmed_stt_fastpath(bridge_cls: type[Any]) -> type[Any]:
     return bridge_cls
 
 
-__all__ = ["install_esp32_unconfirmed_stt_fastpath"]
+__all__ = [
+    "_prepare_command_pcm",
+    "install_esp32_unconfirmed_stt_fastpath",
+]
