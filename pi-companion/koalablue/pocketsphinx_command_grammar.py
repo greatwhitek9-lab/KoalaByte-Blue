@@ -23,7 +23,14 @@ CORE_COMMANDS = (
 MENU_SHORTCUTS: dict[str, tuple[str, ...]] = {
     "submenu:main": ("menu", "main menu", "main canopy"),
     "submenu:kruisin": ("kruisin", "koala kruisin", "koala kombat kruisin"),
-    "submenu:koala_kan": ("commander", "kan commander", "koala kan commander"),
+    "submenu:koala_kan": (
+        "commander",
+        "kommander",
+        "kan commander",
+        "kan kommander",
+        "koala kan commander",
+        "koala kan kommander",
+    ),
 }
 _TOKEN_RE = re.compile(r"[a-z]+(?:'[a-z]+)?")
 _VARIANT_RE = re.compile(r"\(\d+\)$")
@@ -54,6 +61,7 @@ CUSTOM_PRONUNCIATIONS: dict[str, str] = {
     "koalabyte": "K OW AA L AH B AY T",
     "killerkoala": "K IH L ER K OW AA L AH",
     "koalagotchi": "K OW AA L AH G OW T CH IY",
+    "kan": "K AE N",
     "kommander": "K AH M AE N D ER",
     "kapture": "K AE P CH ER",
     "kry": "K R AY",
@@ -172,7 +180,10 @@ def _candidate_phrases() -> Iterable[tuple[str, bool]]:
         if not command or command == "quit":
             continue
         label = normalize_spoken_phrase(str(entry.get("label", command)))
-        if label:
+        # Visible return rows such as "Back to CAN Bench Tools" are useful on
+        # screen but make poor acoustic commands. They were colliding with
+        # "Koala Kan Kommander" and producing transcripts such as "back to can".
+        if label and not label.startswith("back to "):
             yield label, True
         if command.startswith("submenu:"):
             submenu = normalize_spoken_phrase(command.split(":", 1)[1])
