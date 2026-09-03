@@ -5,6 +5,7 @@ import argparse
 import json
 import time
 
+from koalablue.esp32_async_pi_speech import install_esp32_async_pi_speech
 from koalablue.esp32_audio_end_watchdog import install_esp32_audio_end_watchdog
 from koalablue.esp32_command_decoder_cache import install_esp32_command_decoder_cache
 from koalablue.esp32_dualeye_observed_bridge import (
@@ -50,6 +51,9 @@ install_esp32_local_voice_diagnostics(ESP32DualEyeVoiceBridge)
 install_esp32_audio_end_watchdog(ESP32DualEyeVoiceBridge)
 install_music_speech_ducking(ESP32DualEyeVoiceBridge)
 install_esp32_speech_feedback_guard(ESP32DualEyeVoiceBridge)
+# Install async speech after the feedback wrapper so its payload suppression stays
+# active while the replacement scheduler owns the speech-active/cooldown state.
+install_esp32_async_pi_speech(ESP32DualEyeVoiceBridge)
 install_esp32_unconfirmed_stt_fastpath(ESP32DualEyeVoiceBridge)
 install_esp32_misheard_voice_fastpath(ESP32DualEyeVoiceBridge)
 install_display_command_clients()
