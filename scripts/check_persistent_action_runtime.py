@@ -97,6 +97,22 @@ def main() -> int:
         if not state_path.is_file():
             failures.append("persistent action state file was not written")
 
+        # Package import must install the lifecycle wrapper for direct callers of
+        # menu_action_runner too, not only the headless-menu/voice entrypoints.
+        state_path.unlink(missing_ok=True)
+        from koalablue.menu_action_runner import run_automated_menu_action
+
+        direct = run_automated_menu_action(
+            "eucalyptus_gps_on",
+            "Eucalyptus GPS ON",
+            "Bluetooth Tools",
+        )
+        transition = direct.get("persistent_action") if isinstance(direct, dict) else None
+        if not isinstance(transition, dict) or not transition.get("active"):
+            failures.append("direct menu_action_runner call bypassed lifecycle persistence")
+        if not state_path.is_file():
+            failures.append("direct menu_action_runner call did not create persistent state file")
+
     if failures:
         print("Persistent action runtime check FAILED")
         for failure in failures:
