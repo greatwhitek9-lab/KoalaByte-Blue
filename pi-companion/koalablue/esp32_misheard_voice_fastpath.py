@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import time
 from dataclasses import asdict
 from typing import Any, Callable, Dict, Optional
 
@@ -32,6 +34,7 @@ _SUPPORTED_RECOGNIZERS = {
     "whisper",
     "online",
 }
+_DEFAULT_UNCONFIRMED_ROUTE_MAX_AGE_SECONDS = 2.5
 
 
 def _normalize_phrase(phrase: str) -> str:
@@ -84,6 +87,64 @@ def wake_is_independently_confirmed(event: Any) -> bool:
     return source == "esp32_s3_es7210_confirmed_wake_followup"
 
 
+def _unconfirmed_route_max_age_seconds() -> float:
+    try:
+        configured = float(
+            os.getenv(
+                "KOALABYTE_UNCONFIRMED_ROUTE_MAX_AGE_SECONDS",
+                str(_DEFAULT_UNCONFIRMED_ROUTE_MAX_AGE_SECONDS),
+            )
+        )
+    except (TypeError, ValueError):
+        configured = _DEFAULT_UNCONFIRMED_ROUTE_MAX_AGE_SECONDS
+    return max(0.5, min(configured, 10.0))
+
+
+def _event_age_seconds(event: Any) -> Optional[float]:
+    payload = getattr(event, "payload", {})
+    if not isinstance(payload, dict):
+        return None
+    value = payload.get("pi_stt_completed_at")
+    try:
+        timestamp = float(value)
+    except (TypeError, ValueError):
+        return None
+    return max(0.0, time.time() - timestamp)
+
+
+def _reject_unconfirmed(self: Any, event: Any, reason: str, **extra: Any) -> Dict[str, Any]:
+    result_data: Dict[str, Any] = {
+        "status": "ignored",
+        "module_key": "killerkoala_unconfirmed_voice_guard",
+        "module_title": "KillerKoala Unconfirmed Voice Guard",
+        "phrase": event.phrase,
+        "companion_line": "",
+        "source": "local_unconfirmed_stt_guard",
+        "llm_used": False,
+        "web_searched": False,
+        "wake_confirmed": False,
+        "navigation_only": True,
+        **extra,
+    }
+    self._write_json(
+        {
+            "type": "voice_rejected",
+            "request_id": event.request_id,
+            "reason": reason,
+            "resume_menu": bool(
+                getattr(event, "payload", {}).get("menu_was_visible", False)
+                if isinstance(getattr(event, "payload", {}), dict)
+                else False
+            ),
+            "result": result_data,
+        }
+    )
+    # Unconfirmed STT sets the eyes to thinking before routing. Every rejection
+    # must explicitly restore idle so purple thinking can never remain latched.
+    self._fanout_face("idle", "", 1000)
+    return {"event": asdict(event), "result": result_data}
+
+
 def _route_live_voice_submenu(self: Any, event: Any) -> Optional[Dict[str, Any]]:
     """Open voice-requested submenus on the live Pi menu and DualEye immediately."""
 
@@ -109,7 +170,7 @@ def _route_live_voice_submenu(self: Any, event: Any) -> Optional[Dict[str, Any]]
             menu.display_mode = "menu"
             menu.face_state = "menu"
             menu.face_message = f"{menu.menu_title} open"
-            menu.last_input_at = __import__("time").time()
+            menu.last_input_at = time.time()
             menu_event = menu._event("submenu_voice_open", match.command)
             live_command = match.command
 
@@ -175,13 +236,44 @@ def _route_live_voice_submenu(self: Any, event: Any) -> Optional[Dict[str, Any]]
 
 
 def install_esp32_misheard_voice_fastpath(bridge_class: type) -> Callable[..., Dict[str, Any]]:
-    """Install live menu navigation and deterministic unresolved-STT handling."""
+    """Install live navigation and fail-closed unresolved/unconfirmed STT handling."""
 
     original = bridge_class._route_phrase
     if getattr(original, "_koalabyte_misheard_fastpath", False):
         return original
 
     def _route_phrase(self, event):
+        independently_confirmed = wake_is_independently_confirmed(event)
+
+        if not independently_confirmed:
+            age = _event_age_seconds(event)
+            if age is not None and age > _unconfirmed_route_max_age_seconds():
+                return _reject_unconfirmed(
+                    self,
+                    event,
+                    "stale_unconfirmed_voice_event",
+                    event_age_seconds=round(age, 3),
+                )
+
+            # Unconfirmed microphone speech is navigation-only. This is the hard
+            # execution boundary that prevents a bad JSGF decode from launching
+            # AntEater, BLE Defense, scans, captures, or any other leaf action.
+            menu_match = parse_menu_voice_launch(
+                _normalize_phrase(event.phrase),
+                require_wake_word=True,
+            )
+            if menu_match is not None and menu_match.is_submenu:
+                return _route_live_voice_submenu(self, event)
+
+            return _reject_unconfirmed(
+                self,
+                event,
+                "unconfirmed_navigation_only",
+                matched_command=(menu_match.command if menu_match is not None else ""),
+                matched_label=(menu_match.label if menu_match is not None else ""),
+                leaf_action_blocked=bool(menu_match is not None and not menu_match.is_submenu),
+            )
+
         live_menu = _route_live_voice_submenu(self, event)
         if live_menu is not None:
             return live_menu
@@ -190,37 +282,6 @@ def install_esp32_misheard_voice_fastpath(bridge_class: type) -> Callable[..., D
             event.phrase,
             str(getattr(self, "_last_stt_search", "")),
         ):
-            if not wake_is_independently_confirmed(event):
-                result_data = {
-                    "status": "ignored",
-                    "module_key": "killerkoala_false_wake_guard",
-                    "module_title": "KillerKoala False Wake Guard",
-                    "phrase": event.phrase,
-                    "companion_line": "",
-                    "source": "local_unconfirmed_stt_guard",
-                    "llm_used": False,
-                    "web_searched": False,
-                    "wake_confirmed": False,
-                }
-                self._write_json(
-                    {
-                        "type": "voice_rejected",
-                        "request_id": event.request_id,
-                        "reason": "unconfirmed_stt_miss",
-                        "resume_menu": bool(
-                            getattr(event, "payload", {}).get("menu_was_visible", False)
-                            if isinstance(getattr(event, "payload", {}), dict)
-                            else False
-                        ),
-                        "result": result_data,
-                    }
-                )
-                # The STT fastpath switches the eyes to thinking before routing.
-                # An ignored unconfirmed phrase must explicitly clear that state
-                # or the DualEye remains latched purple until another command.
-                self._fanout_face("idle", "", 1000)
-                return {"event": asdict(event), "result": result_data}
-
             message = "Didn't catch that command, mate. Try that again."
             result_data = {
                 "status": "clarify",
