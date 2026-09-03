@@ -18,6 +18,15 @@ except Exception:
     # explicitly import the same package and source validation checks the module.
     pass
 
+try:
+    from .eucalyptus_persistent_control import install_eucalyptus_persistent_control
+
+    install_eucalyptus_persistent_control()
+except Exception:
+    # Eucalyptus remains importable during partial installs. Deployment checks and
+    # the explicit worker status command surface a missing runtime dependency.
+    pass
+
 # T114 menu, status, scan, and bounded-lab TX actions must never compete with the
 # BLE/GNSS service for the Heltec tty. This is a required runtime safety layer;
 # import failures intentionally fail package validation rather than reverting to
@@ -128,10 +137,21 @@ except Exception:
 try:
     from .menu_actionability import install_menu_actionability
 
-    # Install last so it audits the final composed GreatWhite, TwoCan, Lyrebird,
-    # RF/BLE, core menu and UI dispatch chain rather than only the base runner.
+    # Install after the composed GreatWhite, TwoCan, Lyrebird, RF/BLE and core
+    # menus so actionability wraps the final backend routing surface.
     install_menu_actionability()
 except Exception:
     # Core imports remain available, but CI treats a missing actionability layer
     # as a deployment failure before the one-shot is considered flash-ready.
+    pass
+
+try:
+    from .persistent_action_runtime import install_persistent_action_runtime
+
+    # Install last so direct menu_action_runner imports, headless-menu execution,
+    # voice execution, and UI handlers all share the same START/STOP registry.
+    install_persistent_action_runtime()
+except Exception:
+    # Lifecycle persistence is validated by deployment checks. Core imports stay
+    # fail-soft during partial installation, but production should not omit it.
     pass

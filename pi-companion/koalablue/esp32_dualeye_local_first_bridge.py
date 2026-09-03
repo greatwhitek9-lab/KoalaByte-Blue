@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -25,6 +26,77 @@ _MENU_NAVIGATION_IDS = {
     "k5_up",
     "k6_down",
 }
+_FAST_STATUS_FORMS = {
+    "killerkoala status",
+    "hey killerkoala status",
+}
+_DEFAULT_NODE_STATUS_PATH = Path("logs/killerkoala/esp32_dualeye_mic_status.json")
+
+
+def _normalize_local_voice_phrase(phrase: str) -> str:
+    text = " ".join(str(phrase or "").lower().split())
+    text = text.replace("killer koala", "killerkoala")
+    return text.strip(" ,.!?;:")
+
+
+def is_fast_local_status_phrase(phrase: str) -> bool:
+    """Return True only for the terse system-status voice command."""
+
+    return _normalize_local_voice_phrase(phrase) in _FAST_STATUS_FORMS
+
+
+def _load_dualeye_node_payload(path: Path = _DEFAULT_NODE_STATUS_PATH) -> Dict[str, Any]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        payload = data.get("payload", {}) if isinstance(data, dict) else {}
+        return dict(payload) if isinstance(payload, dict) else {}
+    except Exception:
+        return {}
+
+
+def build_fast_local_status(node: Dict[str, Any]) -> Dict[str, Any]:
+    """Build a deterministic status response without invoking TinyLlama/web research."""
+
+    checks = {
+        "wifi_ready": bool(node.get("wifi_ready")),
+        "mic_ready": bool(node.get("mic_ready")),
+        "audio_ready": bool(node.get("audio_ready")),
+        "speaker_ready": bool(node.get("speaker_ready")),
+    }
+    if node and all(checks.values()):
+        message = (
+            "All core systems are online, mate. Wi-Fi, microphone, audio and speaker are ready."
+        )
+        status = "success"
+    elif node:
+        missing = [
+            label
+            for key, label in (
+                ("wifi_ready", "Wi-Fi"),
+                ("mic_ready", "microphone"),
+                ("audio_ready", "audio"),
+                ("speaker_ready", "speaker"),
+            )
+            if not checks[key]
+        ]
+        message = "KillerKoala is online, but " + ", ".join(missing) + " is not ready yet."
+        status = "warning"
+    else:
+        message = "KillerKoala is online, but the DualEye hardware status report is unavailable."
+        status = "warning"
+
+    return {
+        "status": status,
+        "module_key": "killerkoala_status",
+        "module_title": "KillerKoala System Status",
+        "companion_line": message,
+        "source": "local_node_status_fastpath",
+        "llm_used": False,
+        "web_searched": False,
+        "checks": checks,
+        "wifi_ip": str(node.get("wifi_ip") or ""),
+        "firmware": str(node.get("fw") or ""),
+    }
 
 
 class ESP32DualEyeVoiceBridge(_IntegratedVoiceBridge):
@@ -127,6 +199,33 @@ class ESP32DualEyeVoiceBridge(_IntegratedVoiceBridge):
             )
             self._heltec_speech(False, "", channel)
 
+    def _route_fast_local_status(
+        self, event: ESP32DualEyeVoiceEvent
+    ) -> Optional[Dict[str, Any]]:
+        if not is_fast_local_status_phrase(event.phrase):
+            return None
+
+        result_data = build_fast_local_status(_load_dualeye_node_payload())
+        message = str(result_data.get("companion_line") or "KillerKoala is online.")
+        status = str(result_data.get("status") or "warning")
+        success = status == "success"
+
+        self._write_json(
+            {
+                "type": "pi_execution_result",
+                "request_id": event.request_id,
+                "status": status,
+                "message": message,
+                "action": "KillerKoala System Status",
+                "voice_request": True,
+                "command_id": "killerkoala_status",
+                "result": result_data,
+            }
+        )
+        self._fanout_face("success" if success else "curious", message, 4200)
+        self._play_response(message, "pi-status")
+        return {"event": asdict(event), "result": result_data}
+
     def _route_exact_catalog_command(
         self, event: ESP32DualEyeVoiceEvent
     ) -> Optional[Dict[str, Any]]:
@@ -201,6 +300,9 @@ class ESP32DualEyeVoiceBridge(_IntegratedVoiceBridge):
         return {"event": asdict(event), "result": result_data}
 
     def _route_phrase(self, event: ESP32DualEyeVoiceEvent) -> Dict[str, Any]:
+        fast_status = self._route_fast_local_status(event)
+        if fast_status is not None:
+            return fast_status
         exact = self._route_exact_catalog_command(event)
         if exact is not None:
             return exact
@@ -294,5 +396,7 @@ class ESP32DualEyeVoiceBridge(_IntegratedVoiceBridge):
 __all__ = [
     "ESP32DualEyeVoiceBridge",
     "ESP32DualEyeVoiceEvent",
+    "build_fast_local_status",
     "default_esp32_port",
+    "is_fast_local_status_phrase",
 ]
