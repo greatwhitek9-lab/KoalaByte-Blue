@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import signal
 import time
 from pathlib import Path
@@ -15,13 +16,20 @@ from koalablue.hdmi_display_state import drain_menu_commands
 from koalablue.killerkoala_error_dig import run_standalone_error_sequence
 from koalablue.killerkoala_runtime_limits import install_killerkoala_runtime_limits
 from koalablue.menu_display_sync import sync_ai_face_display, sync_menu_state
+from koalablue.persistent_action_runtime import install_persistent_action_runtime
+from koalablue.persistent_action_state import active_actions
 from koalablue.runtime_serial_ownership import install_display_command_clients
 from scripts.run_menu_screen import make_menu, open_submenu
 
 STATUS_PATH = Path("logs/runtime/headless_menu_status.json")
 EVENT_PATH = Path("logs/runtime/headless_menu_events.jsonl")
+MENU_COMMAND_MAX_AGE_SECONDS = max(
+    0.5,
+    min(float(os.getenv("KOALABYTE_MENU_COMMAND_MAX_AGE_SECONDS", "3.0")), 30.0),
+)
 
 install_killerkoala_runtime_limits()
+install_persistent_action_runtime()
 
 
 def write_status(status: str, **extra: object) -> None:
@@ -32,6 +40,7 @@ def write_status(status: str, **extra: object) -> None:
         "gpio_buttons": "K1-K8",
         "serial_transport": "single_owner_command_bus",
         "low_memory_ai_limits": True,
+        "persistent_actions": active_actions(),
         "updated_at": time.time(),
         **extra,
     }
@@ -73,6 +82,28 @@ def dispatch_live_menu_command(menu: object, command: str):
         menu.last_input_at = time.time()
         return menu._event("submenu_voice_open", clean)
     return menu.handle_command(clean)
+
+
+def _fresh_queued_request(request: dict[str, object]) -> bool:
+    submitted = request.get("submitted_at")
+    try:
+        age = max(0.0, time.time() - float(submitted))
+    except (TypeError, ValueError):
+        age = 0.0
+    if age <= MENU_COMMAND_MAX_AGE_SECONDS:
+        return True
+    append_event(
+        {
+            "type": "stale_menu_command_dropped",
+            "command": str(request.get("command") or ""),
+            "source": str(request.get("source") or "hdmi"),
+            "submitted_at": submitted,
+            "age_seconds": round(age, 3),
+            "max_age_seconds": MENU_COMMAND_MAX_AGE_SECONDS,
+            "timestamp": time.time(),
+        }
+    )
+    return False
 
 
 def main() -> int:
@@ -127,6 +158,8 @@ def main() -> int:
                 queued = drain_menu_commands(max_items=1)
                 if queued:
                     request = queued[0]
+                    if not _fresh_queued_request(request):
+                        continue
                     command = str(request.get("command") or "").strip()
                     event_payload = {
                         "type": "hdmi_menu_command_dispatch",
