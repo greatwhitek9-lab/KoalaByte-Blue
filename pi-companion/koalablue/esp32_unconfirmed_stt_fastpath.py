@@ -219,7 +219,6 @@ def install_esp32_unconfirmed_stt_fastpath(bridge_cls: type[Any]) -> type[Any]:
                 "recognizer_decision",
                 request_id=request_id,
                 pcm_bytes=len(pcm),
-                prepared_pcm_bytes=len(prepared_pcm),
                 search="jsgf_commands",
                 transcript=phrase,
                 scope="unconfirmed_command_energy_gated_cached",
