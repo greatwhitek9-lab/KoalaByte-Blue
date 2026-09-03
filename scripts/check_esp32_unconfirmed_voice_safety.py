@@ -39,10 +39,16 @@ def main() -> int:
 
     original_live = fastpath._route_live_voice_submenu
     try:
-        fastpath._route_live_voice_submenu = lambda self, event: {
-            "event": event,
-            "result": {"status": "submenu_allowed"},
-        }
+        def fake_live_submenu(self, event):
+            match = parse_menu_voice_launch(event.phrase, require_wake_word=True)
+            if match is None or not match.is_submenu:
+                return None
+            return {
+                "event": event,
+                "result": {"status": "submenu_allowed", "command_id": match.command},
+            }
+
+        fastpath._route_live_voice_submenu = fake_live_submenu
         fastpath.install_esp32_misheard_voice_fastpath(DummyBridge)
 
         bridge = DummyBridge()
