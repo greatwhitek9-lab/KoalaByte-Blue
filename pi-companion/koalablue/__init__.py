@@ -18,6 +18,15 @@ except Exception:
     # explicitly import the same package and source validation checks the module.
     pass
 
+try:
+    from .eucalyptus_persistent_worker import install_eucalyptus_persistent_control
+
+    install_eucalyptus_persistent_control()
+except Exception:
+    # Eucalyptus remains importable during partial installs. Deployment checks and
+    # the explicit worker status command surface a missing runtime dependency.
+    pass
+
 # T114 menu, status, scan, and bounded-lab TX actions must never compete with the
 # BLE/GNSS service for the Heltec tty. This is a required runtime safety layer;
 # import failures intentionally fail package validation rather than reverting to
