@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import queue
 
+import koalablue.esp32_unconfirmed_stt_fastpath as fastpath
 from koalablue.esp32_unconfirmed_stt_fastpath import (
     install_esp32_unconfirmed_stt_fastpath,
 )
@@ -31,10 +32,6 @@ class DummyBridge:
         self.full_calls += 1
         return "full-recognizer-path"
 
-    def _transcribe_with_command_grammar(self, pcm, sample_rate, sample_width):
-        self.grammar_calls += 1
-        return self.grammar_result
-
     def _write_json(self, payload):
         self.writes.append(dict(payload))
 
@@ -60,29 +57,39 @@ def seed(bridge: DummyBridge, request_id: str, *, confirmed: bool) -> None:
 def main() -> int:
     install_esp32_unconfirmed_stt_fastpath(DummyBridge)
 
-    bridge = DummyBridge()
-    bridge.grammar_result = "killer koala menu"
-    seed(bridge, "one", confirmed=False)
-    event = bridge._finish_audio({"request_id": "one", "reason": "silence"})
-    require(event is not None, "valid unconfirmed JSGF command was rejected")
-    require(bridge.grammar_calls == 1, "unconfirmed command did not use JSGF")
-    require(bridge.full_calls == 0, "unconfirmed command entered full STT stack")
-    require(event.phrase == "killer koala menu", f"wrong routed phrase: {event.phrase}")
+    original_cached = fastpath._cached_command_transcript
 
-    bridge.grammar_result = ""
-    seed(bridge, "two", confirmed=False)
-    event = bridge._finish_audio({"request_id": "two", "reason": "silence"})
-    require(event is None, "ambient grammar miss should be rejected")
-    require(bridge.full_calls == 0, "ambient grammar miss entered full STT stack")
-    require(
-        bridge.writes[-1].get("reason") == "unconfirmed_command_grammar_no_match",
-        "ambient miss did not record fast rejection",
-    )
+    def fake_cached(bridge, _pcm, _sample_rate, _sample_width):
+        bridge.grammar_calls += 1
+        return bridge.grammar_result
 
-    seed(bridge, "three", confirmed=True)
-    result = bridge._finish_audio({"request_id": "three", "reason": "silence"})
-    require(result == "full-recognizer-path", "confirmed wake lost full STT path")
-    require(bridge.full_calls == 1, "confirmed wake did not use full STT stack")
+    fastpath._cached_command_transcript = fake_cached
+    try:
+        bridge = DummyBridge()
+        bridge.grammar_result = "killer koala menu"
+        seed(bridge, "one", confirmed=False)
+        event = bridge._finish_audio({"request_id": "one", "reason": "silence"})
+        require(event is not None, "valid unconfirmed JSGF command was rejected")
+        require(bridge.grammar_calls == 1, "unconfirmed command did not use command-only decoder")
+        require(bridge.full_calls == 0, "unconfirmed command entered full STT stack")
+        require(event.phrase == "killer koala menu", f"wrong routed phrase: {event.phrase}")
+
+        bridge.grammar_result = ""
+        seed(bridge, "two", confirmed=False)
+        event = bridge._finish_audio({"request_id": "two", "reason": "silence"})
+        require(event is None, "ambient grammar miss should be rejected")
+        require(bridge.full_calls == 0, "ambient grammar miss entered full STT stack")
+        require(
+            bridge.writes[-1].get("reason") == "unconfirmed_command_grammar_no_match",
+            "ambient miss did not record fast rejection",
+        )
+
+        seed(bridge, "three", confirmed=True)
+        result = bridge._finish_audio({"request_id": "three", "reason": "silence"})
+        require(result == "full-recognizer-path", "confirmed wake lost full STT path")
+        require(bridge.full_calls == 1, "confirmed wake did not use full STT stack")
+    finally:
+        fastpath._cached_command_transcript = original_cached
 
     print("ESP32 unconfirmed STT fastpath check passed")
     return 0
