@@ -3,23 +3,76 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any, Callable, Optional
 
+from .esp32_dualeye_sphinx_bridge import (
+    _command_grammar_enabled,
+    _command_grammar_for_root,
+    resolve_pocketsphinx_model,
+)
 from .esp32_dualeye_voice_bridge import (
     ESP32DualEyeVoiceEvent,
     _wake_detected,
 )
 
 
+def _cached_command_transcript(
+    bridge: Any,
+    pcm: bytes,
+    sample_rate: int,
+    sample_width: int,
+) -> str:
+    """Decode one command with a reusable JSGF decoder."""
+
+    if (
+        not pcm
+        or sample_rate != 16000
+        or sample_width != 2
+        or not _command_grammar_enabled()
+    ):
+        return ""
+
+    root = resolve_pocketsphinx_model()
+    if root is None:
+        return ""
+
+    try:
+        from pocketsphinx import Decoder  # type: ignore
+
+        decoder = getattr(bridge, "_koalabyte_unconfirmed_command_decoder", None)
+        if decoder is None:
+            grammar = _command_grammar_for_root(root)
+            decoder = Decoder(
+                hmm=str(root / "en-us"),
+                jsgf=str(grammar.path),
+                dict=str(grammar.dictionary_path),
+                samprate=sample_rate,
+                loglevel="ERROR",
+            )
+            bridge._koalabyte_unconfirmed_command_decoder = decoder
+
+        decoder.start_utt()
+        decoder.process_raw(pcm, False, True)
+        decoder.end_utt()
+        hypothesis = decoder.hyp()
+        if hypothesis is None:
+            return ""
+        phrase = " ".join(str(hypothesis.hypstr or "").lower().split())
+        if not (
+            phrase.startswith("killer koala ")
+            or phrase.startswith("hey killer koala ")
+        ):
+            return ""
+        return phrase
+    except Exception:
+        bridge._koalabyte_unconfirmed_command_decoder = None
+        return ""
+
+
 def install_esp32_unconfirmed_stt_fastpath(bridge_cls: type[Any]) -> type[Any]:
     """Keep ambient/unconfirmed captures out of the expensive STT fallback stack.
 
-    For one-shot physical commands where the ESP32 has not independently
-    confirmed the wake word, only the bounded JSGF command grammar is allowed.
-    A grammar miss is rejected immediately instead of falling through Whisper
-    and the general PocketSphinx language model, both of which can block the
-    bridge loop long enough to delay K1-K6 display commands.
-
-    Independently confirmed wake sessions retain the original full recognizer
-    pipeline so open questions and conversational follow-ups still work.
+    Unconfirmed physical captures use one reusable JSGF command decoder only.
+    Grammar misses are rejected immediately instead of loading Whisper/general
+    language models. Confirmed wake sessions retain the full recognizer pipeline.
     """
 
     if getattr(bridge_cls, "_koalabyte_unconfirmed_stt_fastpath_installed", False):
@@ -48,13 +101,8 @@ def install_esp32_unconfirmed_stt_fastpath(bridge_cls: type[Any]) -> type[Any]:
             meta.get("menu_was_visible", payload.get("menu_was_visible", False))
         )
 
-        grammar_transcriber = getattr(self, "_transcribe_with_command_grammar", None)
-        phrase = ""
-        if callable(grammar_transcriber):
-            phrase = str(grammar_transcriber(pcm, sample_rate, sample_width) or "").strip()
+        phrase = _cached_command_transcript(self, pcm, sample_rate, sample_width)
 
-        # Preserve observed-bridge recognizer metadata without invoking the full
-        # _transcribe_pcm fallback chain.
         self._last_stt_search = "jsgf_commands"
         self._last_stt_transcript = phrase
         diag = getattr(self, "_diag", None)
@@ -65,7 +113,7 @@ def install_esp32_unconfirmed_stt_fastpath(bridge_cls: type[Any]) -> type[Any]:
                 pcm_bytes=len(pcm),
                 search="jsgf_commands",
                 transcript=phrase,
-                scope="unconfirmed_command_only",
+                scope="unconfirmed_command_only_cached",
             )
 
         if not phrase:
@@ -109,6 +157,7 @@ def install_esp32_unconfirmed_stt_fastpath(bridge_cls: type[Any]) -> type[Any]:
         return event
 
     bridge_cls._finish_audio = _finish_audio
+    bridge_cls._koalabyte_unconfirmed_command_decoder = None
     bridge_cls._koalabyte_unconfirmed_stt_fastpath_installed = True
     return bridge_cls
 
