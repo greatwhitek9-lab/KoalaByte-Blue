@@ -87,7 +87,10 @@ def wake_is_independently_confirmed(event: Any) -> bool:
 def _route_live_voice_submenu(self: Any, event: Any) -> Optional[Dict[str, Any]]:
     """Open voice-requested submenus on the live Pi menu and DualEye immediately."""
 
-    match = parse_menu_voice_launch(event.phrase, require_wake_word=True)
+    match = parse_menu_voice_launch(
+        _normalize_phrase(event.phrase),
+        require_wake_word=True,
+    )
     if match is None or not match.is_submenu:
         return None
 
@@ -115,8 +118,6 @@ def _route_live_voice_submenu(self: Any, event: Any) -> Optional[Dict[str, Any]]
         compact_payload["source"] = "killerkoala-voice-live-menu"
         compact_payload["voice_request"] = True
 
-        # Push the frame directly from the serial-owner process before TTS can
-        # block, then update the persistent headless menu state for K1-K6.
         self._write_json(compact_payload)
         queue_record = submit_menu_command(live_command, source="killerkoala_voice")
 
