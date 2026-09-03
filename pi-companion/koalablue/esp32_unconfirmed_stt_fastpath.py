@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import os
 import struct
+import time
 from dataclasses import asdict
 from typing import Any, Callable, Optional
 
@@ -259,6 +260,7 @@ def install_esp32_unconfirmed_stt_fastpath(bridge_cls: type[Any]) -> type[Any]:
             )
             return None
 
+        completed_at = time.time()
         self._fanout_face("thinking", "", 1800)
         event = ESP32DualEyeVoiceEvent(
             type="voice_command",
@@ -268,6 +270,7 @@ def install_esp32_unconfirmed_stt_fastpath(bridge_cls: type[Any]) -> type[Any]:
             payload={
                 "transcript": phrase,
                 "wake_already_confirmed": False,
+                "pi_stt_completed_at": completed_at,
                 "pcm_gate": pcm_metrics,
                 **meta,
                 **payload,
