@@ -170,6 +170,7 @@ def _route_live_voice_submenu(self: Any, event: Any) -> Optional[Dict[str, Any]]
                 "result": result_data,
             }
         )
+        self._fanout_face("idle", "", 1000)
         return {"event": asdict(event), "result": result_data}
 
 
@@ -214,6 +215,10 @@ def install_esp32_misheard_voice_fastpath(bridge_class: type) -> Callable[..., D
                         "result": result_data,
                     }
                 )
+                # The STT fastpath switches the eyes to thinking before routing.
+                # An ignored unconfirmed phrase must explicitly clear that state
+                # or the DualEye remains latched purple until another command.
+                self._fanout_face("idle", "", 1000)
                 return {"event": asdict(event), "result": result_data}
 
             message = "Didn't catch that command, mate. Try that again."
