@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import time
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from typing import Any, Callable, Dict, Optional
 
 from .killerkoala_voice_control import parse_voice_command
@@ -50,6 +50,33 @@ def _working_phrase(phrase: str) -> str:
     if normalized.startswith("killerkoala"):
         return normalized[len("killerkoala") :].strip()
     return normalized
+
+
+def _event_dict(event: Any) -> Dict[str, Any]:
+    """Serialize a voice event without allowing rejection/reporting to crash.
+
+    Production ESP32 events are dataclasses, but safety wrappers may also see
+    lightweight proxy/test objects. A fail-closed rejection path must never raise
+    merely because the event container is not a dataclass.
+    """
+
+    if is_dataclass(event) and not isinstance(event, type):
+        try:
+            payload = asdict(event)
+            if isinstance(payload, dict):
+                return dict(payload)
+        except Exception:
+            pass
+    if isinstance(event, dict):
+        return dict(event)
+    raw_payload = getattr(event, "payload", {})
+    return {
+        "type": str(getattr(event, "type", "voice_command") or "voice_command"),
+        "phrase": str(getattr(event, "phrase", "") or ""),
+        "source": str(getattr(event, "source", "") or ""),
+        "request_id": str(getattr(event, "request_id", "") or ""),
+        "payload": dict(raw_payload) if isinstance(raw_payload, dict) else {},
+    }
 
 
 def should_fast_clarify_misheard_phrase(phrase: str, recognizer_search: str) -> bool:
@@ -142,7 +169,7 @@ def _reject_unconfirmed(self: Any, event: Any, reason: str, **extra: Any) -> Dic
     # Unconfirmed STT sets the eyes to thinking before routing. Every rejection
     # must explicitly restore idle so purple thinking can never remain latched.
     self._fanout_face("idle", "", 1000)
-    return {"event": asdict(event), "result": result_data}
+    return {"event": _event_dict(event), "result": result_data}
 
 
 def _route_live_voice_submenu(self: Any, event: Any) -> Optional[Dict[str, Any]]:
@@ -211,7 +238,7 @@ def _route_live_voice_submenu(self: Any, event: Any) -> Optional[Dict[str, Any]]
             }
         )
         self._play_response(message, "pi-menu-navigation")
-        return {"event": asdict(event), "result": result_data}
+        return {"event": _event_dict(event), "result": result_data}
     except Exception as exc:
         result_data = {
             "status": "error",
@@ -232,7 +259,7 @@ def _route_live_voice_submenu(self: Any, event: Any) -> Optional[Dict[str, Any]]
             }
         )
         self._fanout_face("idle", "", 1000)
-        return {"event": asdict(event), "result": result_data}
+        return {"event": _event_dict(event), "result": result_data}
 
 
 def install_esp32_misheard_voice_fastpath(bridge_class: type) -> Callable[..., Dict[str, Any]]:
@@ -307,7 +334,7 @@ def install_esp32_misheard_voice_fastpath(bridge_class: type) -> Callable[..., D
             )
             self._fanout_face("curious", message, 2800)
             self._play_response(message, "pi-clarification")
-            return {"event": asdict(event), "result": result_data}
+            return {"event": _event_dict(event), "result": result_data}
         return original(self, event)
 
     _route_phrase._koalabyte_misheard_fastpath = True  # type: ignore[attr-defined]
