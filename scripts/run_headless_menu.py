@@ -16,7 +16,7 @@ from koalablue.killerkoala_error_dig import run_standalone_error_sequence
 from koalablue.killerkoala_runtime_limits import install_killerkoala_runtime_limits
 from koalablue.menu_display_sync import sync_ai_face_display, sync_menu_state
 from koalablue.runtime_serial_ownership import install_display_command_clients
-from scripts.run_menu_screen import make_menu
+from scripts.run_menu_screen import make_menu, open_submenu
 
 STATUS_PATH = Path("logs/runtime/headless_menu_status.json")
 EVENT_PATH = Path("logs/runtime/headless_menu_events.jsonl")
@@ -60,6 +60,21 @@ def sync_current_display(menu: object, event: object | None = None) -> dict[str,
     return sync_menu_state(menu, event)
 
 
+def dispatch_live_menu_command(menu: object, command: str):
+    """Dispatch GPIO/HDMI/voice commands through the one live menu state machine."""
+
+    clean = str(command or "").strip()
+    if clean.startswith("submenu:"):
+        if not open_submenu(menu, clean):
+            raise RuntimeError(f"submenu target not available: {clean}")
+        menu.display_mode = "menu"
+        menu.face_state = "menu"
+        menu.face_message = f"{menu.menu_title} open"
+        menu.last_input_at = time.time()
+        return menu._event("submenu_voice_open", clean)
+    return menu.handle_command(clean)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Run KoalaByte headless K1-K8 menu and display synchronization"
@@ -67,8 +82,6 @@ def main() -> int:
     parser.add_argument("--poll-seconds", type=float, default=0.05)
     args = parser.parse_args()
 
-    # The voice bridge and BLE manager are the exclusive ESP32 and Heltec tty
-    # owners. Menu updates are submitted to their local command sockets.
     install_display_command_clients()
 
     stop_requested = False
@@ -126,7 +139,7 @@ def main() -> int:
             if event_payload is not None and command:
                 append_event(event_payload)
                 try:
-                    menu_event = menu.handle_command(command)
+                    menu_event = dispatch_live_menu_command(menu, command)
                     sync_result = sync_current_display(menu, menu_event)
                     write_status(
                         "HEADLESS_MENU_RUNNING",
