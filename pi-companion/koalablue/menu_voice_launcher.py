@@ -45,7 +45,8 @@ class MenuVoiceMatch:
 
 
 def _normalize(text: str) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", text.lower())).strip()
+    normalized = re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", text.lower())).strip()
+    return normalized.replace("killer koala", WAKE_WORD)
 
 
 def _entry_rows() -> list[dict[str, Any]]:
