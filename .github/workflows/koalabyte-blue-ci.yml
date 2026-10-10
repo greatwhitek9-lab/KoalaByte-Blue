@@ -54,6 +54,11 @@ jobs:
       - name: Compile Pi and deployment runtime
         run: python -m compileall -q pi-companion scripts firmware/t114-combined-safe/scripts
 
+      - name: Validate Pi 5 Ultra RAM-aware model and processing profiles
+        run: |
+          bash -n scripts/setup_killerkoala_ollama.sh
+          PYTHONPATH=pi-companion python scripts/check_pi5_ultra_profile.py --check-only
+
       - name: Validate whole-system firmware deployment source
         run: python scripts/check_whole_system_deployment.py --source-only
 
