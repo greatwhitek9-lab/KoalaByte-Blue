@@ -12,10 +12,19 @@ MODEFILE_PATH="${KILLERKOALA_MODELFILE_PATH:-${REPO_ROOT}/training/killerkoala_l
 STATUS_PATH="${KILLERKOALA_OLLAMA_STATUS_PATH:-${REPO_ROOT}/logs/killerkoala/ollama_setup_status.json}"
 CHECK_ONLY=0
 SKIP_SMOKE_TEST="${KILLERKOALA_OLLAMA_SKIP_SMOKE_TEST:-0}"
-OLLAMA_CONTEXT_LENGTH="${OLLAMA_CONTEXT_LENGTH:-768}"
-OLLAMA_NUM_PARALLEL="${OLLAMA_NUM_PARALLEL:-1}"
+
+# Select a conservative RAM-aware profile. Explicit user settings always win.
+PROFILE_JSON="$(PYTHONPATH="${REPO_ROOT}/pi-companion" python3 -c 'import json; from koalablue.pi_runtime_profile import detect_profile; print(json.dumps(detect_profile()))' 2>/dev/null || printf '{}')"
+profile_value() {
+  PROFILE_JSON="${PROFILE_JSON}" python3 -c 'import json,os,sys; d=json.loads(os.environ.get("PROFILE_JSON","{}")); v=d; [v:=v[k] for k in sys.argv[1].split(".")]; print(v)' "$1" 2>/dev/null || true
+}
+PROFILE_CONTEXT="$(profile_value ai.context_length)"
+PROFILE_PARALLEL="$(profile_value ai.num_parallel)"
+PROFILE_KEEP_ALIVE="$(profile_value ai.keep_alive)"
+OLLAMA_CONTEXT_LENGTH="${OLLAMA_CONTEXT_LENGTH:-${PROFILE_CONTEXT:-768}}"
+OLLAMA_NUM_PARALLEL="${OLLAMA_NUM_PARALLEL:-${PROFILE_PARALLEL:-1}}"
 OLLAMA_MAX_LOADED_MODELS="${OLLAMA_MAX_LOADED_MODELS:-1}"
-OLLAMA_KEEP_ALIVE="${OLLAMA_KEEP_ALIVE:-60s}"
+OLLAMA_KEEP_ALIVE="${OLLAMA_KEEP_ALIVE:-${PROFILE_KEEP_ALIVE:-60s}}"
 OLLAMA_PULL_ATTEMPTS="${OLLAMA_PULL_ATTEMPTS:-3}"
 OLLAMA_CREATE_ATTEMPTS="${OLLAMA_CREATE_ATTEMPTS:-3}"
 SMOKE_PATH="${TMPDIR:-${HOME}/.cache/koalabyte/tmp}/killerkoala_ollama_smoke.txt"
@@ -114,7 +123,7 @@ Environment="OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS}"
 Environment="OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE}"
 EOF
   "${sudo_cmd[@]}" install -d -m 0755 "${dir}"
-  "${sudo_cmd[@]}" install -m 0644 "${temp}" "${dir}/10-koalabyte-pi3.conf"
+  "${sudo_cmd[@]}" install -m 0644 "${temp}" "${dir}/10-koalabyte-ultra.conf"
   rm -f "${temp}"
   "${sudo_cmd[@]}" systemctl daemon-reload
 }
