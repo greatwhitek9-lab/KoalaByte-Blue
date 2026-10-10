@@ -1,4 +1,4 @@
-"""Optional, local-only camera inference for KoalaByte Blue Ultra Pi 5.
+"""Optional local or explicitly opted-in Ollama Cloud camera inference for KoalaByte Blue Ultra Pi 5.
 
 This module performs one operator-triggered frame capture and generic object
 classification. GPS enrichment is opt-in and goes through the existing protected
@@ -237,17 +237,29 @@ def observe_camera_with_companion(
 
     import httpx
 
-    vision_model = (model or os.getenv("KILLERKOALA_VISION_MODEL", "")).strip()
-    ollama_host = (host or os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")).strip().rstrip("/")
+    ai_mode = os.getenv("KILLERKOALA_AI_MODE", "local").strip().lower()
+    if ai_mode == "online":
+        vision_model = (model or os.getenv("KILLERKOALA_ONLINE_VISION_MODEL", "") or os.getenv("KILLERKOALA_VISION_MODEL", "")).strip()
+        ollama_host = "https://ollama.com"
+        api_key = os.getenv("OLLAMA_API_KEY", "").strip()
+        if not api_key:
+            raise RuntimeError("Online camera vision needs OLLAMA_API_KEY in the private environment file.")
+        headers = {"Authorization": f"Bearer {api_key}"}
+    elif ai_mode == "local":
+        vision_model = (model or os.getenv("KILLERKOALA_VISION_MODEL", "")).strip()
+        ollama_host = (host or os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")).strip().rstrip("/")
+        headers = {}
+    else:
+        raise RuntimeError("KILLERKOALA_AI_MODE must be 'local' or 'online'.")
     parsed_host = urlparse(ollama_host)
-    local_hosts = {"localhost", "127.0.0.1", "::1"}
-    if parsed_host.scheme != "http" or parsed_host.hostname not in local_hosts:
-        raise RuntimeError(
-            "Camera images are sent only to a local Ollama endpoint by default. "
-            "Remote/hosted inference is disabled."
-        )
-    if vision_model.lower().endswith(":cloud"):
-        raise RuntimeError("Use a downloaded local Ollama vision model.")
+    if ai_mode == "local":
+        local_hosts = {"localhost", "127.0.0.1", "::1"}
+        if parsed_host.scheme != "http" or parsed_host.hostname not in local_hosts:
+            raise RuntimeError("Local camera vision requires a loopback Ollama endpoint.")
+        if vision_model.lower().endswith(":cloud"):
+            raise RuntimeError("Local camera vision requires a downloaded Ollama model.")
+    elif ollama_host != "https://ollama.com":
+        raise RuntimeError("Online camera vision supports only https://ollama.com.")
     if not vision_model:
         raise RuntimeError(
             "KillerKoala vision is not configured. Set KILLERKOALA_VISION_MODEL "
