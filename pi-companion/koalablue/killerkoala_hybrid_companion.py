@@ -12,6 +12,7 @@ import httpx
 
 from .dualeye_tts import sanitize_spoken_identity
 from .killerkoala_vocabulary import line_for_event, rank_for_xp
+from .pi_runtime_profile import detect_profile
 
 DEFAULT_TRACE_DIR = Path("logs/killerkoala")
 DEFAULT_CONVERSATION_HISTORY_PATH = DEFAULT_TRACE_DIR / "conversation_history.json"
@@ -61,12 +62,19 @@ class KillerKoalaCompanionResponse:
 
 
 def load_config() -> KillerKoalaLLMConfig:
+    # Match request-generation budgets to the same detected RAM tier used by
+    # the Ollama installer. Explicit operator settings still take precedence.
+    try:
+        profile_ai = detect_profile().get("ai", {})
+        profile_num_predict = int(profile_ai.get("num_predict", DEFAULT_NUM_PREDICT))
+    except Exception:
+        profile_num_predict = DEFAULT_NUM_PREDICT
     return KillerKoalaLLMConfig(
         mode=os.getenv("KILLERKOALA_LLM_MODE", "tinyllama").strip().lower(),
         model=os.getenv("KILLERKOALA_LLM_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL,
         host=os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST).strip().rstrip("/") or DEFAULT_OLLAMA_HOST,
         timeout_seconds=float(os.getenv("KILLERKOALA_LLM_TIMEOUT_SECONDS", str(DEFAULT_TIMEOUT_SECONDS))),
-        num_predict=int(os.getenv("KILLERKOALA_LLM_NUM_PREDICT", str(DEFAULT_NUM_PREDICT))),
+        num_predict=int(os.getenv("KILLERKOALA_LLM_NUM_PREDICT", str(profile_num_predict))),
         max_response_chars=int(os.getenv("KILLERKOALA_LLM_MAX_CHARS", str(DEFAULT_MAX_RESPONSE_CHARS))),
         dialogue_turns=max(0, int(os.getenv("KILLERKOALA_DIALOGUE_TURNS", str(DEFAULT_DIALOGUE_TURNS)))),
         lora_expected=os.getenv("KILLERKOALA_LLM_LORA_EXPECTED", "1").strip() not in {"0", "false", "False", "no"},
