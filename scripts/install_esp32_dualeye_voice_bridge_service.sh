@@ -120,6 +120,10 @@ KILLERKOALA_DIALOGUE_TURNS=${KILLERKOALA_DIALOGUE_TURNS}
 KILLERKOALA_LLM_NUM_CTX=${KILLERKOALA_LLM_NUM_CTX}
 KILLERKOALA_LLM_NUM_PREDICT=${KILLERKOALA_LLM_NUM_PREDICT}
 KILLERKOALA_LLM_KEEP_ALIVE=60s
+# Optional local Ollama multimodal model, e.g. llava:7b. Blank disables camera vision.
+KILLERKOALA_VISION_MODEL=
+# Camera is opened only for an explicit visual request; no continuous stream.
+KOALABYTE_VISION_CAMERA_INDEX=0
 # BRAVE_SEARCH_API_KEY=
 ENVEOF
   "${sudo_cmd[@]}" install -m 0600 "${temp_env}" "${KILLERKOALA_ENV_FILE}"
@@ -127,6 +131,15 @@ ENVEOF
 else
   "${sudo_cmd[@]}" chmod 0600 "${KILLERKOALA_ENV_FILE}"
 fi
+
+# Upgrade older private env files without overwriting any existing operator settings.
+if ! "${sudo_cmd[@]}" grep -q '^KILLERKOALA_VISION_MODEL=' "${KILLERKOALA_ENV_FILE}"; then
+  printf '\n# Optional local Ollama vision model; blank disables camera vision.\nKILLERKOALA_VISION_MODEL=\n' | "${sudo_cmd[@]}" tee -a "${KILLERKOALA_ENV_FILE}" >/dev/null
+fi
+if ! "${sudo_cmd[@]}" grep -q '^KOALABYTE_VISION_CAMERA_INDEX=' "${KILLERKOALA_ENV_FILE}"; then
+  printf 'KOALABYTE_VISION_CAMERA_INDEX=0\n' | "${sudo_cmd[@]}" tee -a "${KILLERKOALA_ENV_FILE}" >/dev/null
+fi
+"${sudo_cmd[@]}" chmod 0600 "${KILLERKOALA_ENV_FILE}"
 
 if [[ -f "${REPO_ROOT}/scripts/provision_esp32_wifi_env.sh" ]]; then
   KOALABYTE_ENV_FILE="${KILLERKOALA_ENV_FILE}" \
