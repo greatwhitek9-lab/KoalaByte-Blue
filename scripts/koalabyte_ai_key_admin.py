@@ -143,6 +143,12 @@ def main() -> int:
                 return 1
             updated = replace_setting(lines, "OLLAMA_API_KEY", new_key)
             atomic_write(updated)
+            if mode == "online" and not restart_service():
+                atomic_write(lines)
+                restart_service()
+                emit("AI_KEY_SAVE_FAILED_ROLLED_BACK", mode, configured,
+                     message="Service restart failed; the previous key was restored.")
+                return 1
             emit("AI_KEY_SAVED", mode, True,
                  message="API key validated and saved securely. No key value is displayed.")
             return 0
