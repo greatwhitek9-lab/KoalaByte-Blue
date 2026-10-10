@@ -148,6 +148,24 @@ if ! "${sudo_cmd[@]}" grep -q '^KOALABYTE_VISION_CAMERA_INDEX=' "${KILLERKOALA_E
 fi
 "${sudo_cmd[@]}" chmod 0600 "${KILLERKOALA_ENV_FILE}"
 
+# Install a root-owned, narrowly scoped helper so the menu can switch AI mode
+# without exposing the private environment file or granting general sudo access.
+AI_MODE_HELPER="/usr/local/sbin/koalabyte-ai-mode"
+if [[ -f "${REPO_ROOT}/scripts/koalabyte_ai_mode_admin.py" ]]; then
+  if [[ ! "${SERVICE_USER}" =~ ^[a-z_][a-z0-9_-]*[$]?$ ]]; then
+    echo "Invalid service username for AI mode sudoers rule: ${SERVICE_USER}" >&2
+    exit 1
+  fi
+  "${sudo_cmd[@]}" install -o root -g root -m 0755 \
+    "${REPO_ROOT}/scripts/koalabyte_ai_mode_admin.py" "${AI_MODE_HELPER}"
+  sudoers_tmp="$(mktemp)"
+  printf '%s ALL=(root) NOPASSWD: %s status, %s online, %s local\n' \
+    "${SERVICE_USER}" "${AI_MODE_HELPER}" "${AI_MODE_HELPER}" "${AI_MODE_HELPER}" >"${sudoers_tmp}"
+  "${sudo_cmd[@]}" visudo -cf "${sudoers_tmp}"
+  "${sudo_cmd[@]}" install -o root -g root -m 0440 "${sudoers_tmp}" /etc/sudoers.d/koalabyte-ai-mode
+  rm -f "${sudoers_tmp}"
+fi
+
 if [[ -f "${REPO_ROOT}/scripts/provision_esp32_wifi_env.sh" ]]; then
   KOALABYTE_ENV_FILE="${KILLERKOALA_ENV_FILE}" \
     bash "${REPO_ROOT}/scripts/provision_esp32_wifi_env.sh" || \
