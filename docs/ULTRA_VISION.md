@@ -55,7 +55,7 @@ PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python scripts/run_ultra_vision
 
 ## KillerKoala conversational vision
 
-KillerKoala can use the camera as a visual input during conversation. When the user explicitly asks a visual question—such as “KillerKoala, what do you see?”, “look at this”, “describe the scene”, or “identify this object”—voice control routes it to the companion. The companion captures **one still frame**, sends it to the configured local Ollama multimodal model, and speaks the answer. The frame is held in memory and is not saved by this conversational path. The endpoint is enforced as the Pi's local Ollama service. Remote/hosted endpoints are blocked with no override. Use a locally downloaded model; cloud model tags are not supported.
+KillerKoala can use the camera as a visual input during conversation. When the user explicitly asks a visual question—such as “KillerKoala, what do you see?”, “look at this”, “describe the scene”, or “identify this object”—voice control routes it to the companion. The companion captures **one still frame**, sends it to the configured local Ollama multimodal model, and speaks the answer. The frame is held in memory and is not saved by this conversational path. By default, vision uses the Pi's local Ollama service. If the operator explicitly sets `KILLERKOALA_AI_MODE=online` and provides `OLLAMA_API_KEY`, it can instead use `https://ollama.com`; in that mode the still image is sent to the hosted service. No automatic local-to-online fallback occurs.
 
 1. Install camera dependencies in the KoalaByte virtual environment:
    ```bash
@@ -70,12 +70,12 @@ KillerKoala can use the camera as a visual input during conversation. When the u
    sudoedit /etc/koalabyte-blue/killerkoala.env
    # Set: KILLERKOALA_VISION_MODEL=llava:7b
 
-KillerKoala's conversational and vision inference run through the Pi's local Ollama server. They do not require paid LLM tokens. Do not configure hosted Ollama endpoints or cloud model tags.
+Local mode runs conversational and vision inference through the Pi's local Ollama server and does not require paid LLM tokens. Online mode is optional, requires `KILLERKOALA_AI_MODE=online` plus `OLLAMA_API_KEY`, and may incur hosted-service charges. Keep the key in `/etc/koalabyte-blue/killerkoala.env` (mode `0600`), never in Git. Online camera mode sends the requested frame to Ollama Cloud.
    sudo systemctl restart koalabyte-dualeye-voice-bridge.service
    ```
 4. Check the configured camera index and test with a direct, explicit visual request. The default is camera index `0`; override `KOALABYTE_VISION_CAMERA_INDEX` if needed.
 
-If the model is blank, the camera is missing, or inference fails, KillerKoala reports that vision is unavailable rather than pretending to see. It does not start a continuous stream or activate the camera for unrelated conversation. A new frame is requested for each explicit visual question.
+To opt in to online vision, set `KILLERKOALA_AI_MODE=online`, `OLLAMA_API_KEY`, and `KILLERKOALA_ONLINE_VISION_MODEL` in `/etc/koalabyte-blue/killerkoala.env`, then restart the voice bridge. Use a vision-capable model supported by Ollama Cloud. To return to local-only processing, set `KILLERKOALA_AI_MODE=local` and restart.\n\nIf the model is blank, the camera is missing, or inference fails, KillerKoala reports that vision is unavailable rather than pretending to see. It does not start a continuous stream or activate the camera for unrelated conversation. A new frame is requested for each explicit visual question.
 
 ## Spotting camera-like objects
 
