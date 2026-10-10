@@ -31,36 +31,35 @@ These add-ons are optional. Install and validate them independently after the ba
 
 ### Choose local or online AI
 
-1. Edit the private settings file:
-   ```bash
-   sudoedit /etc/koalabyte-blue/killerkoala.env
-   ```
-2. For local, no-token inference, keep:
-   ```bash
-   KILLERKOALA_AI_MODE=local
-   ```
-3. To opt in to Ollama Cloud instead, set:
-   ```bash
-   KILLERKOALA_AI_MODE=online
-   KILLERKOALA_ONLINE_LLM_MODEL=gemma4:31b
-   OLLAMA_API_KEY=your_ollama_api_key
-   ```
-   Create/manage the key through your Ollama account. Do not paste it into chat, commit it to Git, or place it in a shell command that will be saved in shell history. The private environment file is installed with mode `0600`.
-4. Restart and verify the service:
-   ```bash
-   sudo systemctl restart koalabyte-dualeye-voice-bridge.service
-   sudo systemctl --no-pager --full status koalabyte-dualeye-voice-bridge.service
-   ```
-5. To return to no-token local inference, set `KILLERKOALA_AI_MODE=local`, clear `OLLAMA_API_KEY` if you no longer need it, and restart the service.
+KillerKoala defaults to `local` Ollama inference, which does not require paid LLM tokens. Online mode is an explicit opt-in to Ollama Cloud and may incur provider charges. The ESP32 menu is supplied by the Pi, so use the Pi's Settings menu to change the active mode:
 
-Online mode is never used as an automatic fallback. If the key or network is unavailable, the request fails instead of silently sending data elsewhere. Online camera vision also requires an explicitly configured compatible model:
+**Settings → AI → Online AI ON / Online AI OFF**
+
+- **AI Mode Status** shows the active mode and whether an API key is configured.
+- **Online AI ON** updates the private setting and restarts the KillerKoala voice bridge. It fails safely if no API key is configured.
+- **Online AI OFF** switches back to local Ollama and restarts the bridge. There is no automatic online fallback.
+
+Configure the key once on the Pi:
+
 ```bash
-KILLERKOALA_ONLINE_VISION_MODEL=your_supported_vision_model
+sudoedit /etc/koalabyte-blue/killerkoala.env
 ```
-When online mode is active, camera frames for explicit visual requests are sent to Ollama Cloud for processing. Keep camera vision disabled or use local mode if you do not want images sent off-device.
+
+Set `OLLAMA_API_KEY` to your Ollama API key and, if desired, choose a hosted model:
+
+```bash
+OLLAMA_API_KEY=your_ollama_api_key
+KILLERKOALA_ONLINE_LLM_MODEL=gemma4:31b
+KILLERKOALA_ONLINE_VISION_MODEL=
+```
+
+Keep the key private; do not paste it into chat, commit it to Git, or put it in a shell command that may be saved in history. The environment file is mode `0600`. The service installer installs a root-owned helper with a restricted sudo rule for only `status`, `online`, and `local` mode operations. If the menu does not yet show **Settings → AI**, rerun `bash scripts/install_esp32_dualeye_voice_bridge_service.sh` from the repository checkout, then restart the menu UI.
+
+When online mode is active, prompts are sent to Ollama Cloud. If online vision is configured, explicit visual requests also send the captured camera frame to the hosted service. Leave online vision blank or switch to local mode if you do not want camera images sent off-device.
+
 ### A. Optional AI camera — KillerKoala conversational vision
 
-**What it does:** With a compatible USB UVC camera and a configured local multimodal Ollama model, KillerKoala can answer explicit visual requests such as “what do you see?”, “look at this”, or “describe the scene.” Each request captures one still frame; it is not a continuous stream. The camera frame is held in memory and is not saved by the conversational path.
+**What it does:** With a compatible USB UVC camera and a configured local or hosted Ollama multimodal model, KillerKoala can answer explicit visual requests such as “what do you see?”, “look at this”, or “describe the scene.” Each request captures one still frame; it is not a continuous stream. The camera frame is held in memory and is not saved by the conversational path.
 
 **Hardware and prerequisites**
 
