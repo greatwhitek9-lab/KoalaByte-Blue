@@ -23,6 +23,7 @@ KEYBOARD_TARGETS: dict[str, dict[str, Any]] = {
     "meshtastic_send_message": {"label": "Meshtastic Message", "secret": False, "placeholder": "message text"},
     "meshtastic_send_dest": {"label": "Meshtastic Destination", "secret": False, "placeholder": "optional node id"},
     "bluez_lab_target": {"label": "BlueZ Lab Target", "secret": False, "placeholder": "owned device address"},
+    "ollama_api_key": {"label": "Ollama Cloud API Key", "secret": True, "placeholder": "paste/type API key; input is masked"},
 }
 
 
@@ -196,8 +197,33 @@ def _save_bluez_lab_target(value: str) -> dict[str, Any]:
     return {"target": "bluez_lab_target", **result}
 
 
+def _save_ollama_api_key(value: str) -> dict[str, Any]:
+    import subprocess
+
+    if not value or any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+        return {"status": "AI_KEY_INVALID_INPUT", "message": "Key is empty or contains control characters."}
+    try:
+        proc = subprocess.run(
+            ["sudo", "-n", "/usr/local/sbin/koalabyte-ai-key", "set-key"],
+            input=value, capture_output=True, text=True, timeout=90, check=False,
+        )
+    except Exception as exc:
+        return {"status": "AI_KEY_ERROR", "message": f"Secure key helper unavailable ({type(exc).__name__})."}
+    try:
+        payload = json.loads(proc.stdout.strip().splitlines()[-1])
+    except Exception:
+        payload = {"status": "AI_KEY_ERROR", "message": "Secure key helper returned no status."}
+    # Do not persist or return the entered value or helper stdout beyond its redacted JSON status.
+    payload.pop("key", None)
+    payload.pop("api_key", None)
+    payload["secret"] = True
+    return payload
+
+
 def save_keyboard_value(target: str, value: str) -> dict[str, Any]:
-    if target in {"wigle_api_name", "wigle_api_token"}:
+    if target == "ollama_api_key":
+        payload = _save_ollama_api_key(value)
+    elif target in {"wigle_api_name", "wigle_api_token"}:
         payload = _save_wigle(target, value)
     elif target in {"location_password", "location_unlock_password"}:
         payload = _save_location_password(target, value)
