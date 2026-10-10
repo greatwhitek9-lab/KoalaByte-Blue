@@ -225,6 +225,8 @@ MISC_COMMANDS = {
     "location_gate_status",
     "koala_kapture",
     "boomerang",
+    "ultra_vision_status",
+    "ultra_vision_capture",
     "twocan_vehicle_diagnostics",
     "twocan_clear_codes_safety_note",
     "vehicle_diagnostics_readiness",
