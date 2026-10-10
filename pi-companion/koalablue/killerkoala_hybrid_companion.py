@@ -162,7 +162,13 @@ def _system_prompt() -> str:
         "dialogue context, answer follow-ups coherently, vary openings, and avoid repeating catchphrases. "
         "Use Australian slang lightly so clarity comes first. For factual questions, use supplied research evidence, "
         "distinguish verified facts from uncertainty, and never invent current information. Do not claim to have "
-        "searched unless research evidence is supplied. Keep replies suitable for speech and do not mention that you are an LLM."
+        "searched unless research evidence is supplied. Keep replies suitable for speech and do not mention that you are an LLM. "
+        "You have an optional camera vision capability on KoalaByte Blue Ultra. When a user explicitly asks you to look, see, "
+        "inspect, identify an object in view, or describe the scene, the companion may capture one still frame and ask the configured "
+        "local vision model. Never claim to see the live scene unless a camera result is supplied for this turn. Camera access is "
+        "request-triggered, single-frame, and not a continuous stream; never activate it covertly or in response to unrelated prompts. "
+        "Describe visible objects with uncertainty, do not identify people, read plates, track people or vehicles, or infer the location "
+        "of Wi-Fi/BLE emitters from an image. Treat security-camera detections as tentative unless verified by the operator."
     )
 
 
@@ -270,6 +276,24 @@ def _fallback_line(event: str, xp: int, history_path: Optional[str | Path]) -> t
     return sanitize_spoken_identity(fallback_state.selected_text), fallback_state.selected_event
 
 
+
+def _camera_request_intent(user_text: str) -> bool:
+    """Only invoke the camera for a clear, user-authored visual request."""
+    text = " ".join(str(user_text or "").casefold().split())
+    if not text:
+        return False
+    explicit_visual_phrases = (
+        "what do you see", "what can you see", "look through the camera",
+        "look at this", "take a look", "look at that", "describe what you see",
+        "describe the scene", "describe this image", "what's in front of you",
+        "what is in front of you", "identify this object", "identify that object",
+        "what is this object", "what's this object", "inspect this", "inspect that",
+        "use your camera", "use the camera", "camera snapshot", "take a picture",
+        "take a photo", "check the camera view", "can you see this",
+    )
+    return any(phrase in text for phrase in explicit_visual_phrases)
+
+
 def companion_response(
     event: str,
     xp: int = 0,
@@ -298,7 +322,29 @@ def companion_response(
     web_research_artifact = ""
     web_context = ""
 
-    if selected_event == "inquiry_question":
+    camera_handled = False
+    if selected_event == "inquiry_question" and _camera_request_intent(user_text):
+        camera_handled = True
+        try:
+            from .ultra_vision import observe_camera_with_companion
+            vision = observe_camera_with_companion(
+                user_text,
+                camera_index=int(os.getenv("KOALABYTE_VISION_CAMERA_INDEX", "0")),
+            )
+            text = str(vision.get("answer", "")).strip()
+            source = "killerkoala_camera_vision"
+            llm_used = True
+            fallback_reason = ""
+            web_context = json.dumps(
+                {key: value for key, value in vision.items() if key != "answer"}, sort_keys=True
+            )
+        except Exception as exc:
+            text = "I can't see through the camera just now, mate. " + str(exc)
+            source = "killerkoala_camera_unavailable"
+            fallback_reason = str(exc)
+            llm_used = False
+
+    if selected_event == "inquiry_question" and not camera_handled:
         try:
             from .killerkoala_web_research import research_question
 
@@ -313,7 +359,7 @@ def companion_response(
         except Exception as exc:
             web_error = str(exc)
 
-    if llm_requested:
+    if llm_requested and not camera_handled:
         try:
             prompt = _build_prompt(
                 selected_event,
