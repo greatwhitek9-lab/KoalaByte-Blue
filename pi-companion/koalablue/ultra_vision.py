@@ -1,9 +1,13 @@
-"""Optional, local-only camera inference for KoalaByte Blue Ultra.
+"""Optional, local-only camera inference for KoalaByte Blue Ultra Pi 5.
 
-This module performs a single operator-triggered frame capture and generic object
-detection. It does not perform face recognition, person re-identification, plate
-OCR, continuous tracking, RF scans, or correlation with Wi-Fi/BLE survey records.
-Model weights must already exist locally; no model is downloaded automatically.
+This module performs one operator-triggered frame capture and generic object
+classification. GPS enrichment is opt-in and goes through the existing protected
+GNSS gate; it never opens the Heltec serial port itself. User-supplied event and
+observation references are contextual links only, not proof that an RF emitter is
+physically at the photographed point.
+
+No face recognition, person re-identification, plate OCR, continuous tracking,
+RF scans, or model downloads are performed.
 """
 from __future__ import annotations
 
@@ -18,10 +22,15 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_LOG_ROOT = ROOT / "logs" / "ultra_vision"
 DEFAULT_MODEL = os.getenv("KOALABYTE_VISION_MODEL", "").strip()
+CAMERA_LIKE_LABELS = {
+    "camera", "security camera", "surveillance camera", "traffic camera",
+    "webcam", "cctv camera", "dome camera", "bullet camera",
+}
+LOCATION_MAX_AGE_SECONDS = 120
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def dependency_status() -> dict[str, Any]:
@@ -61,6 +70,53 @@ def _load_model(model_path: str):
     return YOLO(str(path))
 
 
+def _location_context(enabled: bool) -> dict[str, Any]:
+    """Return a recent valid fix only when geotagging was explicitly enabled."""
+    if not enabled:
+        return {"status": "not_requested", "latitude": None, "longitude": None}
+    try:
+        # current_fix enforces the existing protected-actions location gate and
+        # uses the brokered GNSS owner rather than opening a serial port here.
+        from .gnss_location import current_fix, valid_lat_lon
+        fix = current_fix(authorized=True, prompt=False)
+    except Exception:
+        fix = None
+        valid_lat_lon = lambda lat, lon: False  # type: ignore[assignment]
+    if fix is None:
+        return {"status": "unknown", "latitude": None, "longitude": None, "reason": "no authorized recent GNSS fix"}
+    latitude = getattr(fix, "latitude", None)
+    longitude = getattr(fix, "longitude", None)
+    if not valid_lat_lon(latitude, longitude):
+        return {"status": "unknown", "latitude": None, "longitude": None, "reason": "invalid GNSS coordinates"}
+    captured_at = str(getattr(fix, "captured_at_utc", "") or "")
+    try:
+        stamp = datetime.fromisoformat(captured_at.replace("Z", "+00:00"))
+        if stamp.tzinfo is None:
+            stamp = stamp.replace(tzinfo=timezone.utc)
+        age = (datetime.now(timezone.utc) - stamp.astimezone(timezone.utc)).total_seconds()
+    except (ValueError, TypeError):
+        return {"status": "unknown", "latitude": None, "longitude": None, "reason": "GNSS fix timestamp missing or invalid"}
+    if age < -5 or age > LOCATION_MAX_AGE_SECONDS:
+        return {"status": "unknown", "latitude": None, "longitude": None, "reason": "GNSS fix is stale"}
+    return {
+        "status": "fix",
+        "latitude": float(latitude),
+        "longitude": float(longitude),
+        "altitude_meters": getattr(fix, "altitude_meters", None),
+        "accuracy_meters": getattr(fix, "accuracy_meters", None),
+        "source": str(getattr(fix, "source", "authorized_gnss")),
+        "captured_at_utc": captured_at,
+        "age_seconds": round(max(0.0, age), 1),
+    }
+
+
+def _is_camera_like(label: str) -> bool:
+    normalized = " ".join(label.casefold().replace("_", " ").replace("-", " ").split())
+    return normalized in CAMERA_LIKE_LABELS or (
+        "camera" in normalized and any(token in normalized for token in ("security", "surveillance", "traffic", "cctv", "dome", "bullet", "license"))
+    )
+
+
 def capture_and_detect(
     *,
     camera_index: int = 0,
@@ -71,6 +127,11 @@ def capture_and_detect(
     save_frame: bool = False,
     record: bool = False,
     site_label: str = "",
+    geotag: bool = False,
+    session_id: str = "",
+    event_id: str = "",
+    observation_ref: str = "",
+    camera_spotting: bool = False,
     log_root: Path = DEFAULT_LOG_ROOT,
 ) -> dict[str, Any]:
     if not 0.05 <= confidence <= 0.99:
@@ -96,8 +157,6 @@ def capture_and_detect(
     finally:
         capture.release()
 
-    # Explicitly use CPU inference for predictable memory use. The Pi 5 profile
-    # can later add an opt-in accelerator backend after hardware benchmarking.
     predictions = model.predict(source=frame, conf=confidence, device="cpu", verbose=False)
     detections: list[dict[str, Any]] = []
     for prediction in predictions:
@@ -108,21 +167,25 @@ def capture_and_detect(
         for box in boxes:
             cls_id = int(box.cls[0].item())
             label = str(names.get(cls_id, cls_id)) if isinstance(names, dict) else str(cls_id)
-            # Keep detections categorical. Never expose identities, faces, or
-            # plate text; this module contains no face/plate recognition code.
-            if label.lower() in {"face", "license plate", "licence plate"}:
+            if label.casefold() in {"face", "license plate", "licence plate"}:
                 continue
-            xyxy = [int(value) for value in box.xyxy[0].tolist()]
             detections.append({
                 "label": label,
                 "confidence": round(float(box.conf[0].item()), 4),
-                "bbox_xyxy": xyxy,
+                "bbox_xyxy": [int(value) for value in box.xyxy[0].tolist()],
+                "camera_like_candidate": bool(camera_spotting and _is_camera_like(label)),
+                "verification": "unverified model suggestion" if camera_spotting and _is_camera_like(label) else None,
             })
 
     now = datetime.now(timezone.utc)
+    timestamp = now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    effective_event_id = event_id.strip() or f"vision-{now.strftime('%Y%m%dT%H%M%SZ')}"
+    location = _location_context(geotag)
     event: dict[str, Any] = {
         "status": "ULTRA_VISION_CAPTURE_COMPLETE",
-        "observed_at_utc": now.replace(microsecond=0).isoformat(),
+        "event_id": effective_event_id,
+        "session_id": session_id.strip() or None,
+        "observed_at_utc": timestamp,
         "camera_index": int(camera_index),
         "frame_width": int(frame.shape[1]),
         "frame_height": int(frame.shape[0]),
@@ -130,8 +193,15 @@ def capture_and_detect(
         "model_file": str(Path(model_path).expanduser().resolve()),
         "confidence_threshold": confidence,
         "site_label": site_label.strip(),
+        "location": location,
+        "observation_reference": observation_ref.strip() or None,
+        "observation_link_semantics": (
+            "operator-supplied contextual reference only; does not prove an observed Wi-Fi/BLE device is located at this photo or GNSS point"
+            if observation_ref.strip() else None
+        ),
         "detections": detections,
-        "privacy_scope": "single operator-triggered frame; no identity recognition or RF correlation",
+        "camera_like_candidates": [item for item in detections if item["camera_like_candidate"]],
+        "privacy_scope": "single operator-triggered frame; local CPU inference; no identity recognition, RF scan, or automatic device correlation",
     }
 
     if save_frame or record:
@@ -152,7 +222,7 @@ def capture_and_detect(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Optional local-only KoalaByte Blue Ultra camera")
+    parser = argparse.ArgumentParser(description="Optional local-only KoalaByte Blue Ultra Pi 5 camera")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("status", help="Check optional camera and inference dependencies")
     capture = sub.add_parser("capture", help="Capture one frame and run local object detection")
@@ -161,9 +231,14 @@ def main(argv: list[str] | None = None) -> int:
     capture.add_argument("--confidence", type=float, default=0.45)
     capture.add_argument("--width", type=int, default=1280)
     capture.add_argument("--height", type=int, default=720)
-    capture.add_argument("--site-label", default="", help="Optional operator-entered site label; no GPS is collected")
+    capture.add_argument("--site-label", default="", help="Optional operator-entered site label")
     capture.add_argument("--save-frame", action="store_true", help="Explicitly save the captured image locally")
-    capture.add_argument("--record", action="store_true", help="Append detection metadata to local JSONL")
+    capture.add_argument("--record", action="store_true", help="Explicitly append event/detection metadata to local JSONL")
+    capture.add_argument("--geotag", action="store_true", help="Attach a valid GNSS fix no older than 120 seconds; uses the protected location gate")
+    capture.add_argument("--session-id", default="", help="Optional Kruisin/session identifier supplied by the operator")
+    capture.add_argument("--event-id", default="", help="Optional event identifier supplied by the operator")
+    capture.add_argument("--observation-ref", default="", help="Optional operator-supplied survey row/event reference; no radio identifiers are imported")
+    capture.add_argument("--camera-spotting", action="store_true", help="Flag generic camera-like model detections for manual verification")
     args = parser.parse_args(argv)
 
     try:
@@ -182,6 +257,11 @@ def main(argv: list[str] | None = None) -> int:
             save_frame=args.save_frame,
             record=args.record,
             site_label=args.site_label,
+            geotag=args.geotag,
+            session_id=args.session_id,
+            event_id=args.event_id,
+            observation_ref=args.observation_ref,
+            camera_spotting=args.camera_spotting,
         )
         print(json.dumps(payload, indent=2, sort_keys=True))
         return 0
