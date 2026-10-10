@@ -39,21 +39,28 @@ KillerKoala defaults to `local` Ollama inference, which does not require paid LL
 - **Online AI ON** updates the private setting and restarts the KillerKoala voice bridge. It fails safely if no API key is configured.
 - **Online AI OFF** switches back to local Ollama and restarts the bridge. There is no automatic online fallback.
 
-Configure the key once on the Pi:
+Configure the key through either supported setup path—there is no need to edit the private environment file by hand.
+
+**HDMI / menu setup:** Open **Settings → AI → Configure Online AI Key**. Enter the key with the physical keyboard or the on-screen keyboard controls; characters are masked. Voice dictation is disabled for this field. KoalaByte validates the key with a minimal authenticated Ollama Cloud request before saving it. That test sends a short prompt and may count as provider usage.
+
+**Terminal setup:**
 
 ```bash
-sudoedit /etc/koalabyte-blue/killerkoala.env
+cd ~/KoalaByte-Blue
+python3 scripts/koalabyte_ai_key.py setup
+python3 scripts/koalabyte_ai_key.py status
+python3 scripts/koalabyte_ai_key.py test
 ```
 
-Set `OLLAMA_API_KEY` to your Ollama API key and, if desired, choose a hosted model:
+The terminal utility uses hidden input and asks you to repeat the key. To remove the key:
 
 ```bash
-OLLAMA_API_KEY=your_ollama_api_key
-KILLERKOALA_ONLINE_LLM_MODEL=gemma4:31b
-KILLERKOALA_ONLINE_VISION_MODEL=
+python3 scripts/koalabyte_ai_key.py remove
 ```
 
-Keep the key private; do not paste it into chat, commit it to Git, or put it in a shell command that may be saved in history. The environment file is mode `0600`. The service installer installs a root-owned helper with a restricted sudo rule for only `status`, `online`, and `local` mode operations. If the menu does not yet show **Settings → AI**, rerun `bash scripts/install_esp32_dualeye_voice_bridge_service.sh` from the repository checkout, then restart the menu UI.
+The saved key is stored only in `/etc/koalabyte-blue/killerkoala.env`, with mode `0600`; the helper is root-owned, and a restricted sudoers rule grants only the required key-management operations. The key is never stored in ESP32 firmware, printed in status output, or committed to Git. **Settings → AI** also contains **Test API Key**, **API Key Status**, and **Remove API Key**. Removing the key automatically returns to local AI if online mode was active.
+
+Online AI uses Ollama Cloud and may incur provider charges. The key test sends one minimal model request; it is not a zero-usage authentication-only check. If the menu does not show the new options, update branch `koalabyte-blue-ultra`, rerun `bash scripts/install_esp32_dualeye_voice_bridge_service.sh`, and restart the menu UI.
 
 When online mode is active, prompts are sent to Ollama Cloud. If online vision is configured, explicit visual requests also send the captured camera frame to the hosted service. Leave online vision blank or switch to local mode if you do not want camera images sent off-device.
 
