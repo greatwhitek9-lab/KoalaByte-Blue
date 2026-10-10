@@ -152,7 +152,16 @@ class MenuSelectionScreen:
     def _finish_keyboard(self, result: dict[str, object]) -> MenuEvent:
         status = str(result.get("status", "KEYBOARD_COMPLETE"))
         self.keyboard = None
-        self.show_ai_face("keyboard_complete", status.replace("_", " ").title(), log_event_type="keyboard_complete")
+        failures = {
+            "AI_KEY_INVALID_INPUT", "AI_KEY_VALIDATION_FAILED", "AI_KEY_ERROR",
+            "AI_MODE_NEEDS_API_KEY", "AI_KEY_REMOVE_FAILED_ROLLED_BACK",
+        }
+        if status in failures:
+            detail = str(result.get("message") or result.get("status") or "Key setup failed")
+            self.show_ai_face("error", f"AI key: {detail[:90]}", log_event_type="keyboard_error")
+        else:
+            detail = str(result.get("message") or status.replace("_", " ").title())
+            self.show_ai_face("keyboard_complete", detail[:100], log_event_type="keyboard_complete")
         return self._event("keyboard_complete", status)
 
     def _handle_keyboard_command(self, raw: str, normalized: str, now: float) -> Optional[MenuEvent]:
