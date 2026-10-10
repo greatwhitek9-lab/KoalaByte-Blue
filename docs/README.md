@@ -43,6 +43,10 @@ Use these components only on systems, radios, networks, captures, vehicles, and 
 - [Ear Tag TX Lab](EAR_TAG_TX_LAB_REVA15.md)
 - [That's Not a Knife service](THATS_NOT_A_KNIFE_SERVICE.md)
 
+## Raspberry Pi 5 Ultra add-ons
+
+- [Ultra Vision](ULTRA_VISION.md) — optional, operator-triggered local object detection using a connected camera.
+
 ## Documentation maintenance
 
 When changing behavior, update the relevant document in the same pull request. Keep commands copy-pasteable, identify the target hardware explicitly, and distinguish verified behavior from planned work. Do not commit generated logs, release bundles, credentials, local SDK worktrees, or PlatformIO build output.
