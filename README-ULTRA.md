@@ -25,10 +25,39 @@
 
 ## Optional add-ons: AI camera and InnoMaker USB-to-CAN
 
-**KillerKoala uses local Ollama models; paid LLM tokens are not required.** The companion uses the Raspberry Pi's local Ollama service and a locally downloaded `killerkoala-tinyllama:latest` model. Optional conversational vision also uses a local Ollama vision model. The runtime and setup helper reject non-loopback inference endpoints and hosted/cloud model tags; there is no hosted LLM fallback. Downloading models requires an internet connection and disk space, but normal inference runs on the Pi. This does not include optional web-search provider credentials, electricity, hardware, or internet-service costs. See [Ollama's local API documentation](https://github.com/ollama/ollama/blob/main/docs/api/introduction.mdx).
+**KillerKoala supports two AI modes.** `local` (default) runs downloaded Ollama models on the Pi and does not require paid LLM tokens. `online` is an explicit opt-in to Ollama Cloud and requires an Ollama API key; cloud usage may be billed according to Ollama's current terms. Online mode sends prompts—and, if online vision is enabled, camera frames—to Ollama's hosted service. The companion does not silently switch modes when local inference fails. Model downloads need internet access and storage; local inference also uses electricity and Pi resources. See [Ollama's local API documentation](https://github.com/ollama/ollama/blob/main/docs/api/introduction.mdx) and [Ollama Cloud documentation](https://github.com/ollama/ollama/blob/main/docs/cloud.mdx).
 
 These add-ons are optional. Install and validate them independently after the base KoalaByte Blue Ultra system is stable. The camera path does not require MCU firmware changes. The InnoMaker adapter remains on its stock firmware and is used through Linux SocketCAN.
 
+### Choose local or online AI
+
+1. Edit the private settings file:
+   ```bash
+   sudoedit /etc/koalabyte-blue/killerkoala.env
+   ```
+2. For local, no-token inference, keep:
+   ```bash
+   KILLERKOALA_AI_MODE=local
+   ```
+3. To opt in to Ollama Cloud instead, set:
+   ```bash
+   KILLERKOALA_AI_MODE=online
+   KILLERKOALA_ONLINE_LLM_MODEL=gemma4:31b
+   OLLAMA_API_KEY=your_ollama_api_key
+   ```
+   Create/manage the key through your Ollama account. Do not paste it into chat, commit it to Git, or place it in a shell command that will be saved in shell history. The private environment file is installed with mode `0600`.
+4. Restart and verify the service:
+   ```bash
+   sudo systemctl restart koalabyte-dualeye-voice-bridge.service
+   sudo systemctl --no-pager --full status koalabyte-dualeye-voice-bridge.service
+   ```
+5. To return to no-token local inference, set `KILLERKOALA_AI_MODE=local`, clear `OLLAMA_API_KEY` if you no longer need it, and restart the service.
+
+Online mode is never used as an automatic fallback. If the key or network is unavailable, the request fails instead of silently sending data elsewhere. Online camera vision also requires an explicitly configured compatible model:
+```bash
+KILLERKOALA_ONLINE_VISION_MODEL=your_supported_vision_model
+```
+When online mode is active, camera frames for explicit visual requests are sent to Ollama Cloud for processing. Keep camera vision disabled or use local mode if you do not want images sent off-device.
 ### A. Optional AI camera — KillerKoala conversational vision
 
 **What it does:** With a compatible USB UVC camera and a configured local multimodal Ollama model, KillerKoala can answer explicit visual requests such as “what do you see?”, “look at this”, or “describe the scene.” Each request captures one still frame; it is not a continuous stream. The camera frame is held in memory and is not saved by the conversational path.
