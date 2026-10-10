@@ -13,7 +13,7 @@ if [[ ! "${KILLERKOALA_OLLAMA_HOST}" =~ ^http://(localhost|127\.0\.0\.1|\[::1\])
   echo "KillerKoala requires local Ollama on loopback; remote endpoints are blocked." >&2
   exit 2
 fi
-if [[ "${KILLERKOALA_LLM_MODEL,,}" == *:cloud || "${KILLERKOALA_BASE_MODEL,,}" == *:cloud ]]; then
+if [[ "${KILLERKOALA_LLM_MODEL,,}" == *:cloud ]]; then
   echo "KillerKoala requires a local Ollama model; cloud model tags are blocked." >&2
   exit 2
 fi
@@ -33,6 +33,10 @@ PROFILE_PARALLEL="$(profile_value ai.num_parallel)"
 PROFILE_KEEP_ALIVE="$(profile_value ai.keep_alive)"
 PROFILE_NUM_PREDICT="$(profile_value ai.num_predict)"
 KILLERKOALA_BASE_MODEL="${KILLERKOALA_BASE_MODEL:-${PROFILE_BASE_MODEL:-tinyllama:1.1b}}"
+if [[ "${KILLERKOALA_BASE_MODEL,,}" == *:cloud ]]; then
+  echo "KillerKoala requires a local base model; cloud model tags are blocked." >&2
+  exit 2
+fi
 OLLAMA_CONTEXT_LENGTH="${OLLAMA_CONTEXT_LENGTH:-${PROFILE_CONTEXT:-768}}"
 OLLAMA_NUM_PARALLEL="${OLLAMA_NUM_PARALLEL:-${PROFILE_PARALLEL:-1}}"
 OLLAMA_MAX_LOADED_MODELS="${OLLAMA_MAX_LOADED_MODELS:-1}"
