@@ -159,10 +159,12 @@ if [[ -f "${REPO_ROOT}/scripts/koalabyte_ai_mode_admin.py" ]]; then
   "${sudo_cmd[@]}" install -o root -g root -m 0755 \
     "${REPO_ROOT}/scripts/koalabyte_ai_mode_admin.py" "${AI_MODE_HELPER}"
   sudoers_tmp="$(mktemp)"
+  sudoers_candidate="/etc/sudoers.d/koalabyte-ai-mode.tmp"
   printf '%s ALL=(root) NOPASSWD: %s status, %s online, %s local\n' \
     "${SERVICE_USER}" "${AI_MODE_HELPER}" "${AI_MODE_HELPER}" "${AI_MODE_HELPER}" >"${sudoers_tmp}"
-  "${sudo_cmd[@]}" visudo -cf "${sudoers_tmp}"
-  "${sudo_cmd[@]}" install -o root -g root -m 0440 "${sudoers_tmp}" /etc/sudoers.d/koalabyte-ai-mode
+  "${sudo_cmd[@]}" install -o root -g root -m 0440 "${sudoers_tmp}" "${sudoers_candidate}"
+  "${sudo_cmd[@]}" visudo -cf "${sudoers_candidate}"
+  "${sudo_cmd[@]}" mv "${sudoers_candidate}" /etc/sudoers.d/koalabyte-ai-mode
   rm -f "${sudoers_tmp}"
 fi
 
