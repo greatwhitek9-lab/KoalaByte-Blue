@@ -25,6 +25,8 @@
 
 ## Optional add-ons: AI camera and InnoMaker USB-to-CAN
 
+**KillerKoala uses local Ollama models; paid LLM tokens are not required.** The companion uses the Raspberry Pi's local Ollama service and a locally downloaded `killerkoala-tinyllama:latest` model. Optional conversational vision also uses a local Ollama vision model. The runtime and setup helper reject non-loopback inference endpoints and hosted/cloud model tags; there is no hosted LLM fallback. Downloading models requires an internet connection and disk space, but normal inference runs on the Pi. This does not include optional web-search provider credentials, electricity, hardware, or internet-service costs. See [Ollama's local API documentation](https://github.com/ollama/ollama/blob/main/docs/api/introduction.mdx).
+
 These add-ons are optional. Install and validate them independently after the base KoalaByte Blue Ultra system is stable. The camera path does not require MCU firmware changes. The InnoMaker adapter remains on its stock firmware and is used through Linux SocketCAN.
 
 ### A. Optional AI camera — KillerKoala conversational vision
