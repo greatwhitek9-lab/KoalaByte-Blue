@@ -20,7 +20,7 @@ def validate(profile: dict) -> list[str]:
     ai = profile["ai"]
     display = profile["display"]
     processing = profile["processing"]
-    if ai["context_length"] not in {768, 1024, 1536, 2048}:
+    if ai["context_length"] not in {768, 1024, 1536, 2048, 3072}:
         errors.append("AI context is outside the validated conservative tiers")
     if ai["num_parallel"] not in {1, 2}:
         errors.append("AI parallelism must remain at one or two requests")
@@ -34,6 +34,15 @@ def validate(profile: dict) -> list[str]:
         errors.append("processing budgets must be positive")
     if profile["is_pi5"] and profile["profile"] != "pi5":
         errors.append("Pi 5 was not assigned the Pi 5 profile")
+    if profile["is_pi5"]:
+        expected_model = (
+            "qwen2.5:7b" if profile["memory_mib"] >= 14000
+            else "qwen2.5:3b" if profile["memory_mib"] >= 7000
+            else "qwen2.5:1.5b" if profile["memory_mib"] >= 3500
+            else "tinyllama:1.1b"
+        )
+        if ai.get("base_model") != expected_model:
+            errors.append(f"Pi 5 model mismatch for {profile['memory_mib']} MiB: {ai.get('base_model')}")
     return errors
 
 
@@ -47,8 +56,8 @@ def main() -> int:
     fixtures = [
         ("Raspberry Pi 5 Model B Rev 1.0", 2048, "pi5", 1024, 30, 1),
         ("Raspberry Pi 5 Model B Rev 1.0", 4096, "pi5", 1536, 45, 1),
-        ("Raspberry Pi 5 Model B Rev 1.0", 8192, "pi5", 2048, 60, 2),
-        ("Raspberry Pi 5 Model B Rev 1.0", 16384, "pi5", 2048, 60, 2),
+        ("Raspberry Pi 5 Model B Rev 1.0", 8192, "pi5", 2048, 60, 1),
+        ("Raspberry Pi 5 Model B Rev 1.0", 16384, "pi5", 3072, 60, 1),
         ("Raspberry Pi 3 Model B Plus Rev 1.3", 1024, "pi3_or_older", 768, 20, 1),
     ]
     failures = []
