@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import time
+from urllib.parse import urlparse
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional
@@ -239,7 +240,19 @@ def _clean_llm_text(text: str, max_chars: int) -> str:
     return cleaned
 
 
+def _require_local_ollama(host: str, model: str, purpose: str = "KillerKoala AI") -> None:
+    """Fail closed unless inference uses a downloaded model on this Pi."""
+    parsed = urlparse(str(host or "").strip())
+    if parsed.scheme != "http" or parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
+        raise RuntimeError(
+            f"{purpose} is local-only: endpoint must be loopback; remote and hosted APIs are blocked."
+        )
+    if str(model or "").strip().lower().endswith(":cloud"):
+        raise RuntimeError(f"{purpose} requires a locally downloaded Ollama model; ':cloud' models are blocked.")
+
+
 def _ollama_generate(config: KillerKoalaLLMConfig, prompt: str) -> str:
+    _require_local_ollama(config.host, config.model)
     payload = {
         "model": config.model,
         "prompt": prompt,
