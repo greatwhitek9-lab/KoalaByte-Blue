@@ -245,6 +245,29 @@ def _boomerang_export() -> dict[str, Any]:
     return {"status": "BOOMERANG_EXPORT_READY", "records": len(observations), "summary": build_summary(observations), "json_path": str(export_json(observations, root)), "csv_path": str(export_csv(observations, root))}
 
 
+def _ultra_vision_action(command: str) -> dict[str, Any]:
+    from .ultra_vision import DEFAULT_MODEL, capture_and_detect, dependency_status
+
+    if command == "ultra_vision_status":
+        return dependency_status()
+    model_path = os.getenv("KOALABYTE_VISION_MODEL", DEFAULT_MODEL).strip()
+    if not model_path:
+        return {
+            "status": "ULTRA_VISION_NOT_CONFIGURED",
+            "message": "Set KOALABYTE_VISION_MODEL to an existing local model file before selecting Ultra Vision Snapshot.",
+        }
+    # This branch runs only after the operator explicitly selects the menu item.
+    # One frame is captured, saved locally, and logged; no GPS or RF records are joined.
+    return capture_and_detect(
+        model_path=model_path,
+        camera_index=int(os.getenv("KOALABYTE_VISION_CAMERA_INDEX", "0")),
+        confidence=float(os.getenv("KOALABYTE_VISION_CONFIDENCE", "0.45")),
+        save_frame=True,
+        record=True,
+        site_label=os.getenv("KOALABYTE_VISION_SITE_LABEL", ""),
+    )
+
+
 def _prompt(command: str) -> dict[str, Any]:
     from . import menu_prompt_state
     handlers: dict[str, Callable[[], Any]] = {
@@ -514,6 +537,8 @@ def run_automated_menu_action(command: str, label: str = "", group: str = "") ->
             return _ok(command, label, _koala_kry(command))
         if command == "boomerang":
             return _ok(command, label, _boomerang_export())
+        if command in {"ultra_vision_status", "ultra_vision_capture"}:
+            return _ok(command, label, _ultra_vision_action(command))
         if command in {"authorized_ble_inventory", "gatt_readiness_checklist", "pairing_security_review", "lab_beacon_plan", "packet_capture_notes", "defensive_report", "report", "restricted_placeholder"}:
             return _ok(command, label, _lab_action("defensive_report" if command == "report" else command))
         if command in {"vehicle_diagnostics_readiness", "vehicle_clear_codes_safety_note", "twocan_vehicle_diagnostics", "twocan_clear_codes_safety_note"}:
