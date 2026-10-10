@@ -3,7 +3,7 @@ name: Installer Contract
 on:
   workflow_dispatch:
   push:
-    branches: [Main, main]
+    branches: [Main, main, koalabyte-blue-ultra]
     paths:
       - "install.sh"
       - "one-shot-install.sh"
@@ -71,6 +71,11 @@ jobs:
 
       - name: Validate compiled ESP32 patch chain
         run: python3 scripts/check_esp32_compiled_patch_chain.py
+
+      - name: Validate KoalaByte Blue Ultra Pi profiles
+        env:
+          PYTHONPATH: pi-companion
+        run: python3 scripts/check_pi5_ultra_profile.py --check-only
 
       - name: Validate hardened installer invariants
         run: |
