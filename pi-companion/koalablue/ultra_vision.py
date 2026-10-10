@@ -221,6 +221,90 @@ def capture_and_detect(
     return event
 
 
+
+def observe_camera_with_companion(
+    question: str,
+    *,
+    camera_index: int = 0,
+    host: str | None = None,
+    model: str | None = None,
+    width: int = 1280,
+    height: int = 720,
+) -> dict[str, Any]:
+    """Capture one requested frame and ask a local Ollama vision model about it."""
+    import base64
+    import httpx
+
+    vision_model = (model or os.getenv("KILLERKOALA_VISION_MODEL", "")).strip()
+    ollama_host = (host or os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")).strip().rstrip("/")
+    if not vision_model:
+        raise RuntimeError(
+            "KillerKoala vision is not configured. Set KILLERKOALA_VISION_MODEL "
+            "to an installed Ollama vision model before asking me to look through the camera."
+        )
+    try:
+        import cv2  # type: ignore
+    except Exception as exc:
+        raise RuntimeError("Camera vision dependencies are missing; install requirements-vision.txt.") from exc
+
+    capture = cv2.VideoCapture(int(camera_index))
+    try:
+        if not capture.isOpened():
+            raise RuntimeError(f"No camera could be opened at index {camera_index}.")
+        capture.set(cv2.CAP_PROP_FRAME_WIDTH, int(width))
+        capture.set(cv2.CAP_PROP_FRAME_HEIGHT, int(height))
+        ok, frame = capture.read()
+        if not ok or frame is None:
+            raise RuntimeError("The camera opened but did not return an image.")
+        encoded_ok, encoded = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 82])
+        if not encoded_ok:
+            raise RuntimeError("The camera frame could not be encoded for local vision.")
+        image_b64 = base64.b64encode(encoded.tobytes()).decode("ascii")
+        frame_shape = {"width": int(frame.shape[1]), "height": int(frame.shape[0])}
+    finally:
+        capture.release()
+
+    prompt = (
+        "You are KillerKoala's visual perception module. Describe only visible, image-grounded details "
+        "and answer the user's request: " + " ".join(str(question).split())[:600]
+        + "\nBe clear about uncertainty and low image quality. Do not identify a person, infer a person's identity, "
+        "track anyone, read license plates, or claim a device make/model/owner/function unless the image supports "
+        "the category. For camera-like objects, say it is a possible camera and needs human verification. "
+        "Do not infer Wi-Fi/Bluetooth device locations from this image. Keep the answer concise and suitable for speech."
+    )
+    try:
+        with httpx.Client(timeout=float(os.getenv("KILLERKOALA_VISION_TIMEOUT_SECONDS", "90"))) as client:
+            response = client.post(
+                f"{ollama_host}/api/generate",
+                json={
+                    "model": vision_model,
+                    "prompt": prompt,
+                    "images": [image_b64],
+                    "stream": False,
+                    "options": {"num_predict": 160, "temperature": 0.2},
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+    except Exception as exc:
+        raise RuntimeError(f"Local vision model request failed ({vision_model}): {exc}") from exc
+
+    answer = " ".join(str(data.get("response", "")).split()).strip()
+    if not answer:
+        raise RuntimeError("The local vision model returned no description.")
+    return {
+        "status": "KILLERKOALA_VISION_RESPONSE_READY",
+        "answer": answer[:1800],
+        "model": vision_model,
+        "camera_index": int(camera_index),
+        "frame": frame_shape,
+        "captured_at_utc": _utc_now(),
+        "saved_to_disk": False,
+        "transport": "local_ollama",
+        "continuous_stream": False,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Optional local-only KoalaByte Blue Ultra Pi 5 camera")
     sub = parser.add_subparsers(dest="command", required=True)
