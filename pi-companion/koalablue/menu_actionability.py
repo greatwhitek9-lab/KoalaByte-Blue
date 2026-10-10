@@ -187,6 +187,9 @@ LAB_REPORT_COMMANDS = {
 }
 
 SYSTEM_COMMANDS = {
+    "ai_mode_status",
+    "ai_online_on",
+    "ai_online_off",
     "killerkoala_voice",
     "buttons",
     "level/status",
