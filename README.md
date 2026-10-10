@@ -4,6 +4,10 @@
 
 # KoalaByte Blue
 
+KoalaByte Blue Ultra is the Raspberry Pi 5-focused edition of the KoalaByte Blue cyberpet and authorized-device lab platform. This branch adds hardware-aware AI, HDMI and processing budgets while preserving the ESP32-S3 DualEye and Heltec T114 interfaces.
+
+**Pi 5 Ultra branch guide:** see [README-ULTRA.md](README-ULTRA.md) for the upgrade ledger, 8 GB profile, install steps, and validation checklist.
+
 KoalaByte Blue is a Raspberry Pi 3B+-coordinated cyberpet and authorized-device lab platform. One canonical command now builds, flashes, installs, and verifies the current system:
 
 ```bash
