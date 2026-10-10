@@ -55,7 +55,7 @@ PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python scripts/run_ultra_vision
 
 ## KillerKoala conversational vision
 
-KillerKoala can use the camera as a visual input during conversation. When the user explicitly asks a visual question—such as “KillerKoala, what do you see?”, “look at this”, “describe the scene”, or “identify this object”—voice control routes it to the companion. The companion captures **one still frame**, sends it to the configured local Ollama multimodal model, and speaks the answer. The frame is held in memory and is not saved by this conversational path.
+KillerKoala can use the camera as a visual input during conversation. When the user explicitly asks a visual question—such as “KillerKoala, what do you see?”, “look at this”, “describe the scene”, or “identify this object”—voice control routes it to the companion. The companion captures **one still frame**, sends it to the configured local Ollama multimodal model, and speaks the answer. The frame is held in memory and is not saved by this conversational path. The default endpoint is the Pi's local Ollama service; sending frames to a non-loopback Ollama host is blocked unless the operator explicitly sets `KILLERKOALA_VISION_ALLOW_REMOTE=1` in the private environment file.
 
 1. Install camera dependencies in the KoalaByte virtual environment:
    ```bash
