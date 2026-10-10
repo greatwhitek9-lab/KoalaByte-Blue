@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import os
+from collections import OrderedDict
 import re
 import shutil
 import subprocess
@@ -15,6 +16,11 @@ from pathlib import Path
 WILLIAM_VOICE = "en-AU-WilliamNeural"
 SPOKEN_IDENTITY = "KillerKoala"
 _BACKEND_NAME_PATTERN = re.compile(r"\bWilliam\b", re.IGNORECASE)
+# A small process-local LRU avoids a second network TTS round-trip for repeated
+# menu/status phrases. Audio is never persisted to disk.
+_TTS_CACHE: OrderedDict[tuple[str, str, str, str], bytes] = OrderedDict()
+_TTS_CACHE_MAX_ITEMS = 24
+_TTS_CACHE_MAX_BYTES = 8 * 1024 * 1024
 
 
 def sanitize_spoken_identity(text: str) -> str:
@@ -31,9 +37,9 @@ def _edge_tts_pcm(text: str) -> bytes:
         return b""
 
     voice = os.getenv("KILLERKOALA_TTS_VOICE", WILLIAM_VOICE).strip() or WILLIAM_VOICE
-    rate = os.getenv("KILLERKOALA_EDGE_RATE", "+4%").strip() or "+4%"
-    volume = os.getenv("KILLERKOALA_EDGE_VOLUME", "+18%").strip() or "+18%"
-    pitch = os.getenv("KILLERKOALA_EDGE_PITCH", "-2Hz").strip() or "-2Hz"
+    rate = os.getenv("KILLERKOALA_EDGE_RATE", "+2%").strip() or "+2%"
+    volume = os.getenv("KILLERKOALA_EDGE_VOLUME", "+12%").strip() or "+12%"
+    pitch = os.getenv("KILLERKOALA_EDGE_PITCH", "-4Hz").strip() or "-4Hz"
 
     try:
         with tempfile.TemporaryDirectory(prefix="killerkoala-william-") as temp:
@@ -56,7 +62,7 @@ def _edge_tts_pcm(text: str) -> bytes:
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                timeout=45,
+                timeout=float(os.getenv("KILLERKOALA_TTS_TIMEOUT_SECONDS", "18")),
             )
             subprocess.run(
                 [
@@ -80,7 +86,7 @@ def _edge_tts_pcm(text: str) -> bytes:
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                timeout=45,
+                timeout=float(os.getenv("KILLERKOALA_TTS_TIMEOUT_SECONDS", "18")),
             )
             return raw.read_bytes()
     except Exception:
@@ -214,4 +220,22 @@ def synthesize_pcm16_mono_16k(text: str) -> bytes:
     clean = sanitize_spoken_identity(text)
     if not clean:
         return b""
-    return _edge_tts_pcm(clean) or _espeak_pcm(clean)
+    key = (
+        clean,
+        os.getenv("KILLERKOALA_TTS_VOICE", WILLIAM_VOICE),
+        os.getenv("KILLERKOALA_EDGE_RATE", "+2%"),
+        os.getenv("KILLERKOALA_EDGE_PITCH", "-4Hz"),
+    )
+    cached = _TTS_CACHE.get(key)
+    if cached is not None:
+        _TTS_CACHE.move_to_end(key)
+        return cached
+    # Neural Australian TTS is preferred; if the network voice is slow or
+    # unavailable, fail over quickly to the local Australian eSpeak voice.
+    pcm = _edge_tts_pcm(clean) or _espeak_pcm(clean)
+    if pcm:
+        _TTS_CACHE[key] = pcm
+        _TTS_CACHE.move_to_end(key)
+        while len(_TTS_CACHE) > _TTS_CACHE_MAX_ITEMS or sum(len(v) for v in _TTS_CACHE.values()) > _TTS_CACHE_MAX_BYTES:
+            _TTS_CACHE.popitem(last=False)
+    return pcm
