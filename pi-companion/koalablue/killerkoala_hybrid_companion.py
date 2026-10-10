@@ -314,6 +314,7 @@ def companion_response(
     text = phrase_text
     fallback_reason = ""
     llm_used = False
+    response_model = config.model
     web_searched = False
     web_available = False
     web_provider = "none"
@@ -323,7 +324,7 @@ def companion_response(
     web_context = ""
 
     camera_handled = False
-    if selected_event == "inquiry_question" and _camera_request_intent(user_text):
+    if _camera_request_intent(user_text):
         camera_handled = True
         try:
             from .ultra_vision import observe_camera_with_companion
@@ -333,6 +334,7 @@ def companion_response(
             )
             text = str(vision.get("answer", "")).strip()
             source = "killerkoala_camera_vision"
+            response_model = str(vision.get("model", config.model))
             llm_used = True
             fallback_reason = ""
             web_context = json.dumps(
@@ -402,7 +404,7 @@ def companion_response(
         text=text,
         source=source,
         phrase_engine_text=phrase_text,
-        llm_model=config.model,
+        llm_model=response_model,
         llm_used=llm_used,
         llm_requested=llm_requested,
         fallback_reason=fallback_reason,
