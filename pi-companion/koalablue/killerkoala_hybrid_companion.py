@@ -70,10 +70,19 @@ def load_config() -> KillerKoalaLLMConfig:
         profile_num_predict = int(profile_ai.get("num_predict", DEFAULT_NUM_PREDICT))
     except Exception:
         profile_num_predict = DEFAULT_NUM_PREDICT
+    ai_mode = os.getenv("KILLERKOALA_AI_MODE", "local").strip().lower()
+    if ai_mode not in {"local", "online"}:
+        ai_mode = "local"
+    if ai_mode == "online":
+        model = os.getenv("KILLERKOALA_ONLINE_LLM_MODEL", "gemma4:31b").strip() or "gemma4:31b"
+        host = "https://ollama.com"
+    else:
+        model = os.getenv("KILLERKOALA_LLM_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
+        host = os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST).strip().rstrip("/") or DEFAULT_OLLAMA_HOST
     return KillerKoalaLLMConfig(
         mode=os.getenv("KILLERKOALA_LLM_MODE", "tinyllama").strip().lower(),
-        model=os.getenv("KILLERKOALA_LLM_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL,
-        host=os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST).strip().rstrip("/") or DEFAULT_OLLAMA_HOST,
+        model=model,
+        host=host,
         timeout_seconds=float(os.getenv("KILLERKOALA_LLM_TIMEOUT_SECONDS", str(DEFAULT_TIMEOUT_SECONDS))),
         num_predict=int(os.getenv("KILLERKOALA_LLM_NUM_PREDICT", str(profile_num_predict))),
         max_response_chars=int(os.getenv("KILLERKOALA_LLM_MAX_CHARS", str(DEFAULT_MAX_RESPONSE_CHARS))),
@@ -240,19 +249,28 @@ def _clean_llm_text(text: str, max_chars: int) -> str:
     return cleaned
 
 
-def _require_local_ollama(host: str, model: str, purpose: str = "KillerKoala AI") -> None:
-    """Fail closed unless inference uses a downloaded model on this Pi."""
+def _validate_ollama_target(host: str, model: str, purpose: str = "KillerKoala AI") -> dict[str, str]:
+    """Allow loopback inference by default; hosted Ollama only after explicit opt-in."""
+    ai_mode = os.getenv("KILLERKOALA_AI_MODE", "local").strip().lower()
     parsed = urlparse(str(host or "").strip())
+    if ai_mode == "online":
+        if str(host).rstrip("/") != "https://ollama.com":
+            raise RuntimeError(f"{purpose} online mode supports only https://ollama.com.")
+        api_key = os.getenv("OLLAMA_API_KEY", "").strip()
+        if not api_key:
+            raise RuntimeError(f"{purpose} online mode needs OLLAMA_API_KEY in the private environment file.")
+        return {"Authorization": f"Bearer {api_key}"}
+    if ai_mode != "local":
+        raise RuntimeError("KILLERKOALA_AI_MODE must be 'local' or 'online'.")
     if parsed.scheme != "http" or parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
-        raise RuntimeError(
-            f"{purpose} is local-only: endpoint must be loopback; remote and hosted APIs are blocked."
-        )
+        raise RuntimeError(f"{purpose} local mode requires a loopback Ollama endpoint.")
     if str(model or "").strip().lower().endswith(":cloud"):
-        raise RuntimeError(f"{purpose} requires a locally downloaded Ollama model; ':cloud' models are blocked.")
+        raise RuntimeError(f"{purpose} local mode requires a locally downloaded model; cloud model tags are not allowed.")
+    return {}
 
 
 def _ollama_generate(config: KillerKoalaLLMConfig, prompt: str) -> str:
-    _require_local_ollama(config.host, config.model)
+    headers = _validate_ollama_target(config.host, config.model)
     payload = {
         "model": config.model,
         "prompt": prompt,
@@ -267,7 +285,7 @@ def _ollama_generate(config: KillerKoalaLLMConfig, prompt: str) -> str:
         },
     }
     with httpx.Client(timeout=config.timeout_seconds) as client:
-        response = client.post(f"{config.host}/api/generate", json=payload)
+        response = client.post(f"{config.host}/api/generate", json=payload, headers=headers)
         response.raise_for_status()
         data = response.json()
     return str(data.get("response", ""))
