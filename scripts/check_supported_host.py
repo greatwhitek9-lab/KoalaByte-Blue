@@ -85,9 +85,21 @@ def main() -> int:
             failures.append(
                 f"Raspberry Pi firmware builds require a 64-bit OS; machine={machine}, userspace={bits}-bit"
             )
-        if "3 model b plus" not in model.lower():
+        model_lower = model.lower()
+        supported_pi_models = (
+            "raspberry pi 3 model b plus",
+            "raspberry pi 4",
+            "raspberry pi 400",
+            "raspberry pi 5",
+            "raspberry pi 500",
+        )
+        if not any(candidate in model_lower for candidate in supported_pi_models):
             warnings.append(
-                f"installer is tuned for Raspberry Pi 3B+; detected {model}"
+                f"host model is not in the explicitly tuned Pi 3B+/4/5 family; detected {model}"
+            )
+        elif "raspberry pi 5" in model_lower or "raspberry pi 500" in model_lower:
+            warnings.append(
+                "Raspberry Pi 5 detected: use the KoalaByte Blue Ultra hardware-aware runtime profile"
             )
     elif machine not in {"x86_64", "amd64", "aarch64", "arm64"}:
         failures.append(f"unsupported build host architecture: {machine}")
