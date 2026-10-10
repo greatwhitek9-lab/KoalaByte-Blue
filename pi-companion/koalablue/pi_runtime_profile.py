@@ -48,24 +48,33 @@ def build_profile(model: str, memory_mib: int, cpu_count: int | None = None) -> 
 
     if is_pi5:
         generation = "pi5"
-        if memory >= 7000:
-            context, parallel, keep_alive, predict, fps, workers = 2048, 2, "300s", 160, 60, min(4, cpus)
+        if memory >= 14000:
+            context, parallel, keep_alive, predict, fps, workers = 3072, 1, "600s", 160, 60, min(4, cpus)
+            base_model = "qwen2.5:7b"
+        elif memory >= 7000:
+            context, parallel, keep_alive, predict, fps, workers = 2048, 1, "300s", 128, 60, min(4, cpus)
+            base_model = "qwen2.5:3b"
         elif memory >= 3500:
-            context, parallel, keep_alive, predict, fps, workers = 1536, 1, "120s", 128, 45, min(4, cpus)
+            context, parallel, keep_alive, predict, fps, workers = 1536, 1, "180s", 96, 45, min(3, cpus)
+            base_model = "qwen2.5:1.5b"
         else:
-            context, parallel, keep_alive, predict, fps, workers = 1024, 1, "60s", 96, 30, min(2, cpus)
+            context, parallel, keep_alive, predict, fps, workers = 1024, 1, "60s", 64, 30, min(2, cpus)
+            base_model = "tinyllama:1.1b"
     elif is_pi4:
         generation = "pi4"
         context, parallel, keep_alive, predict, fps, workers = (
-            (1536, 1, "120s", 112, 30, min(3, cpus)) if memory >= 3500
-            else (1024, 1, "60s", 80, 24, min(2, cpus))
+            (1536, 1, "120s", 96, 30, min(3, cpus)) if memory >= 3500
+            else (1024, 1, "60s", 64, 24, min(2, cpus))
         )
+        base_model = "qwen2.5:1.5b" if memory >= 3500 else "tinyllama:1.1b"
     elif is_pi:
         generation = "pi3_or_older"
-        context, parallel, keep_alive, predict, fps, workers = 768, 1, "60s", 64, 20, 1
+        context, parallel, keep_alive, predict, fps, workers = 768, 1, "60s", 48, 20, 1
+        base_model = "tinyllama:1.1b"
     else:
         generation = "generic_linux"
-        context, parallel, keep_alive, predict, fps, workers = 1024, 1, "60s", 96, 30, min(2, cpus)
+        context, parallel, keep_alive, predict, fps, workers = 1024, 1, "60s", 64, 30, min(2, cpus)
+        base_model = "qwen2.5:1.5b" if memory >= 3500 else "tinyllama:1.1b"
 
     return {
         "profile": generation,
@@ -77,12 +86,13 @@ def build_profile(model: str, memory_mib: int, cpu_count: int | None = None) -> 
         "cpu_count": cpus,
         "ai": {
             "model": "killerkoala-tinyllama:latest",
+            "base_model": base_model,
             "context_length": context,
             "num_parallel": parallel,
             "max_loaded_models": 1,
             "keep_alive": keep_alive,
             "num_predict": predict,
-            "reason": "conservative RAM-aware Ollama limits; user-provided environment overrides take precedence",
+            "reason": "RAM-aware Qwen2.5/TinyLlama selection; Pi 5 keeps the selected model warm for lower repeat latency; explicit environment overrides take precedence",
         },
         "display": {
             "hdmi_fps": fps,
