@@ -146,6 +146,7 @@ fi
 if ! "${sudo_cmd[@]}" grep -q '^KOALABYTE_VISION_CAMERA_INDEX=' "${KILLERKOALA_ENV_FILE}"; then
   printf 'KOALABYTE_VISION_CAMERA_INDEX=0\n' | "${sudo_cmd[@]}" tee -a "${KILLERKOALA_ENV_FILE}" >/dev/null
 fi
+"${sudo_cmd[@]}" chown root:root "${KILLERKOALA_ENV_FILE}"
 "${sudo_cmd[@]}" chmod 0600 "${KILLERKOALA_ENV_FILE}"
 
 # Install a root-owned, narrowly scoped helper so the menu can switch AI mode
