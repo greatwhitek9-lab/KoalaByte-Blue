@@ -64,6 +64,10 @@ def main() -> int:
     assert 'self.keyboard.target == "ollama_api_key"' in menu_ui
     assert "/usr/local/sbin/koalabyte-ai-key" in installer
     assert "/etc/sudoers.d/koalabyte-ai-key" in installer
+    assert '"${sudo_cmd[@]}" chown root:root "${KILLERKOALA_ENV_FILE}"' in installer
+    assert "ENV_FILE.is_symlink() or not ENV_FILE.is_file()" in key_helper
+    assert "Authorization" in key_helper and "Bearer " in key_helper
+    assert 'print(json.dumps({"status": "AI_KEY_SAVED"' in key_helper
     print("AI_MENU_TOGGLE_SOURCE_CONTRACT_PASS")
     print("Settings > AI, masked HDMI input, terminal utility, validation, removal, and restricted sudo rules PASS")
     return 0
