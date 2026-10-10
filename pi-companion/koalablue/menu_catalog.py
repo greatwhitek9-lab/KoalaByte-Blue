@@ -306,6 +306,10 @@ def submenu_name_from_command(command: str) -> str:
 
 
 def submenu_title(menu_name: str) -> str:
+    if menu_name == "ai":
+        return "AI"
+    if menu_name == "settings":
+        return "Settings"
     if menu_name == "main":
         return "Main Canopy"
     if menu_name == "can_bench":
