@@ -17,6 +17,7 @@ def main() -> int:
         ROOT / "scripts" / "koalabyte_ai_mode_admin.py",
         ROOT / "pi-companion" / "koalablue" / "menu_action_runner.py",
         ROOT / "pi-companion" / "koalablue" / "menu_actionability.py",
+        ROOT / "pi-companion" / "koalablue" / "menu_ui.py",
     ]
     for path in paths:
         ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -24,6 +25,7 @@ def main() -> int:
     main_commands = menu_catalog.menu_commands("main")
     assert "submenu:settings" in main_commands
     assert "submenu:ai" in menu_catalog.menu_commands("settings")
+    assert menu_catalog.submenu_title("ai") == "AI"
     ai_entries = menu_catalog.sorted_menu_entries("ai")
     labels = {str(row["label"]): str(row["command"]) for row in ai_entries}
     assert labels.get("Online AI ON") == "ai_online_on"
@@ -36,10 +38,12 @@ def main() -> int:
     helper = (ROOT / "scripts" / "koalabyte_ai_mode_admin.py").read_text(encoding="utf-8")
     runner = (ROOT / "pi-companion" / "koalablue" / "menu_action_runner.py").read_text(encoding="utf-8")
     installer = (ROOT / "scripts" / "install_esp32_dualeye_voice_bridge_service.sh").read_text(encoding="utf-8")
+    menu_ui = (ROOT / "pi-companion" / "koalablue" / "menu_ui.py").read_text(encoding="utf-8")
     assert 'sys.argv[1] not in {"local", "online", "status"}' in helper
     assert "AI_MODE_NEEDS_API_KEY" in helper
     assert '["systemctl", "restart", SERVICE]' in helper
     assert '["sudo", "-n", helper, operation]' in runner
+    assert '"AI_MODE_NEEDS_API_KEY"' in menu_ui
     assert "/etc/sudoers.d/koalabyte-ai-mode" in installer
     assert "visudo -cf" in installer
     print("AI_MENU_TOGGLE_SOURCE_CONTRACT_PASS")
