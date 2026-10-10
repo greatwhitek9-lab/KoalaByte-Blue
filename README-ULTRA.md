@@ -110,6 +110,7 @@ PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python scripts/run_ultra_vision
 - [ ] Host gate identifies Raspberry Pi 5 and a supported 64-bit OS.
 - [ ] `check_pi5_ultra_profile.py --check-only` passes all simulated profile fixtures.
 - [ ] Whole-system source checks and installer `--check-only` pass.
+- [ ] Optional Ultra Vision source contract passes without requiring a camera or model.
 - [ ] Ollama context, parallelism and keep-alive settings are confirmed in the installed service.
 - [ ] HDMI compositor opens on the actual display backend; KoalaByte/Pi OS switching works.
 - [ ] ESP32-S3 and T114 owner services remain the only readers of their respective serial ports.
