@@ -1,24 +1,24 @@
 # KoalaByte Blue Ultra — Raspberry Pi 5 (8 GB)
 
 **Target platform:** Raspberry Pi 5, 8 GB RAM, 64-bit Raspberry Pi OS Bookworm or Trixie.  
-**Branch:** `koalabyte-blue-ultra` (Git branch names cannot contain spaces).  
+**Branch:** `koalabyte-blue-ultra` (Git refs cannot contain spaces).  
 **Base:** `Main` from KoalaByte Blue.  
 **Scope:** Pi-host upgrades; preserve the ESP32-S3 DualEye and Heltec T114 firmware/protocol contracts.
 
-> **Port status:** The branch contains source-level migration work and hardware-aware profiles. It has not yet been verified on the target Pi 5. Run the preflight and check-only gates below before installing or flashing anything.
+> **Port status:** This branch contains Pi 5 host-profile and adaptive-resource source changes. It has not yet been verified on the physical target Pi 5. Run the hardware-free profile tests and deployment check gates before installing or flashing anything.
 
 ## Ultra upgrade ledger
 
 | Area | Change in this branch | Validation status |
 |---|---|---|
 | Host support | Pi 5 is explicitly recognized in the 64-bit host preflight; Pi 3B+, Pi 4, Pi 400, Pi 500 and Pi 5 remain recognized. | Source change; run host gate on target |
-| Hardware-aware budgets | Canonical `pi_runtime_profile.py` detects model, RAM, CPU count and emits AI, HDMI, worker/build and power recommendations. | Offline/profile-checkable |
+| Hardware-aware budgets | Canonical `pi_runtime_profile.py` detects model, RAM, CPU count and emits AI, HDMI, worker/build and power recommendations. | Hardware-free profile tests available |
 | Local AI | Pi 5 with at least 7,000 MiB detected RAM recommends a 2,048-token context, up to two parallel requests, one loaded model, 300-second keep-alive and 160-token output budget. Explicit environment overrides win. | Recommendation; smoke-test on hardware |
-| HDMI | Renderer reads the same profile. Pi 5 8 GB targets up to 60 FPS; lower-RAM Pi 5 targets 45 FPS; Pi 3-class hosts remain conservative. Explicit `KOALABYTE_HDMI_FPS` or `--fps` overrides remain available. | Source change; display backend must be tested on target |
+| HDMI / Koalagotchi | Renderer selects synchronized frame budgets by Pi generation/RAM. Pi 5 8 GB targets up to 60 FPS; 4 GB Pi 5 targets 45 FPS; 2 GB Pi 5 targets 30 FPS. Wayland/X11 is preferred when available, with SDL KMS/DRM fallback. | Source change; display backend must be tested on target |
 | Processing | Profile recommends up to four runtime workers and up to four firmware build jobs for Pi 5 8 GB; lower-memory systems get more conservative build budgets. Swap target and thermal policy are reported, not silently applied by profile detection. | Profile output; benchmark on target |
 | Power and thermal safety | No overclock is introduced. Existing deployment power gate remains in force; a current or latched under-voltage condition must be cleared before hardware writes. Official Pi 5 27 W / 5 V 5 A supply is recommended for full peripheral load. | Must verify on target |
 | MCU compatibility | ESP32-S3 and Heltec T114 sources, identities, serial ownership, and protocols are intentionally preserved. | Must run existing source and firmware gates |
-| Documentation | This branch-specific README records the Ultra profile and its validation status. | Added |
+| Documentation | This branch-specific README records the Ultra profile and its validation status; detailed technical notes live in `docs/PI5_ULTRA.md`. | Added |
 
 ## Recommended clean install
 
@@ -30,10 +30,11 @@ git clone --branch koalabyte-blue-ultra --single-branch \
 cd KoalaByte-Blue
 ```
 
-Check the detected hardware profile:
+Run the hardware-free profile checks and inspect the detected profile:
 
 ```bash
-PYTHONPATH=pi-companion python3 scripts/koalabyte_ultra_profile.py --require-8gb
+PYTHONPATH=pi-companion python3 scripts/check_pi5_ultra_profile.py --check-only
+PYTHONPATH=pi-companion python3 scripts/check_pi5_ultra_profile.py --json
 ```
 
 Run non-writing validation before installation:
@@ -48,7 +49,7 @@ If those checks pass, run the project's normal deployment procedure. Do not flas
 
 ## Runtime profile
 
-The canonical detector is `pi-companion/koalablue/pi_runtime_profile.py`. It reads the device-tree model and `/proc/meminfo`; profile detection does not require network access, alter files, change clocks/voltage, or flash firmware. The CLI wrapper is `scripts/koalabyte_ultra_profile.py`.
+The canonical detector is `pi-companion/koalablue/pi_runtime_profile.py`. It reads the device-tree model and `/proc/meminfo`; profile detection does not require network access, alter files, change clocks/voltage, or flash firmware. Hardware-free fixtures in `scripts/check_pi5_ultra_profile.py` exercise 2 GB, 4 GB and 8/16 GB Pi 5 profiles and a legacy Pi 3B+ profile.
 
 For a Pi 5 with at least 7,000 MiB detected RAM, the profile recommends:
 
@@ -67,27 +68,27 @@ These are starting points, not guarantees of sustained throughput. Cooling, powe
 ## AI and Koalagotchi
 
 - KillerKoala remains the persona; the Australian `en-AU-WilliamNeural` voice remains a TTS backend, not the persona identity.
-- The branch adapts Ollama resource defaults to detected hardware but does not automatically download a larger language model or claim a newly fine-tuned model. Keep TinyLlama as the compatibility baseline until candidate models pass latency, memory and response-quality tests.
+- The installer adapts Ollama resource defaults to detected hardware and creates a temporary profile-specific Modelfile, leaving the checked-in Pi 3-safe Modelfile unchanged. It does not automatically download a larger language model or claim a newly fine-tuned model. Keep TinyLlama as the compatibility baseline until candidate models pass latency, memory and response-quality tests.
 - Existing expression/state payloads remain the source of truth for Koalagotchi; the Pi 5 profile adds resource headroom without changing the ESP32/T114 protocol contract.
 - Web research remains optional and network-dependent. Offline local responses and wake/session routing must continue to work.
 - Existing T114 passive BLE/GNSS defaults, guarded LoRa hooks and receive-first CAN posture remain unchanged.
 
 ## HDMI and processing
 
-The compositor's profile-based frame-rate default is selected by `pi_runtime_profile.py`. You can inspect it before launching the display:
+The compositor's profile-based frame-rate default is selected by `pi_runtime_profile.py`. Inspect it before launching the display:
 
 ```bash
-PYTHONPATH=pi-companion python3 scripts/koalabyte_ultra_profile.py --check
+PYTHONPATH=pi-companion python3 scripts/check_pi5_ultra_profile.py --check-only
 PYTHONPATH=pi-companion python3 scripts/check_hdmi_display.py
 systemctl status koalabyte-hdmi.service --no-pager -l
 ```
 
-The compositor still respects `KOALABYTE_HDMI_FPS` and the `--fps` command-line option. The profile's worker/build values are advisory budgets; they are not a promise that every subsystem is parallelized. Serial ports remain owned by their dedicated services, and the HDMI renderer must not open board serial ports or initialize a competing audio mixer.
+The renderer still respects `KOALABYTE_HDMI_FPS` and its `--fps` command-line option. The profile's worker/build values are bounded recommendations; they are not a promise that every subsystem is parallelized. Serial ports remain owned by their dedicated services, and the HDMI renderer must not open board serial ports or initialize a competing audio mixer.
 
 ## Verification checklist
 
 - [ ] Host gate identifies Raspberry Pi 5 and a supported 64-bit OS.
-- [ ] `koalabyte_ultra_profile.py --require-8gb` exits successfully and reports `is_pi5: true` with at least 7,000 MiB RAM.
+- [ ] `check_pi5_ultra_profile.py --check-only` passes all simulated profile fixtures.
 - [ ] Whole-system source checks and installer `--check-only` pass.
 - [ ] Ollama context, parallelism and keep-alive settings are confirmed in the installed service.
 - [ ] HDMI compositor opens on the actual display backend; KoalaByte/Pi OS switching works.
