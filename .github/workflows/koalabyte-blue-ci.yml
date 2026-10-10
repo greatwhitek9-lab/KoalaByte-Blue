@@ -59,6 +59,11 @@ jobs:
           bash -n scripts/setup_killerkoala_ollama.sh
           PYTHONPATH=pi-companion python scripts/check_pi5_ultra_profile.py --check-only
 
+      - name: Validate optional Ultra Vision source contract
+        run: |
+          python -m py_compile pi-companion/koalablue/ultra_vision.py scripts/run_ultra_vision.py scripts/check_ultra_vision.py
+          PYTHONPATH=pi-companion python scripts/check_ultra_vision.py
+
       - name: Validate whole-system firmware deployment source
         run: python scripts/check_whole_system_deployment.py --source-only
 
