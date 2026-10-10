@@ -4,7 +4,6 @@ set -Eeuo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OLLAMA_INSTALL_MODE="${INSTALL_KILLERKOALA_OLLAMA:-auto}"
 STRICT_KILLERKOALA_OLLAMA="${STRICT_KILLERKOALA_OLLAMA:-0}"
-KILLERKOALA_BASE_MODEL="${KILLERKOALA_BASE_MODEL:-tinyllama:1.1b}"
 KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-tinyllama:latest}"
 KILLERKOALA_OLLAMA_HOST="${OLLAMA_HOST:-http://127.0.0.1:11434}"
 KILLERKOALA_OLLAMA_TIMEOUT="${KILLERKOALA_OLLAMA_TIMEOUT:-180}"
@@ -18,10 +17,12 @@ PROFILE_JSON="$(PYTHONPATH="${REPO_ROOT}/pi-companion" python3 -c 'import json; 
 profile_value() {
   PROFILE_JSON="${PROFILE_JSON}" python3 -c 'import json,os,sys; d=json.loads(os.environ.get("PROFILE_JSON","{}")); v=d; [v:=v[k] for k in sys.argv[1].split(".")]; print(v)' "$1" 2>/dev/null || true
 }
+PROFILE_BASE_MODEL="$(profile_value ai.base_model)"
 PROFILE_CONTEXT="$(profile_value ai.context_length)"
 PROFILE_PARALLEL="$(profile_value ai.num_parallel)"
 PROFILE_KEEP_ALIVE="$(profile_value ai.keep_alive)"
 PROFILE_NUM_PREDICT="$(profile_value ai.num_predict)"
+KILLERKOALA_BASE_MODEL="${KILLERKOALA_BASE_MODEL:-${PROFILE_BASE_MODEL:-tinyllama:1.1b}}"
 OLLAMA_CONTEXT_LENGTH="${OLLAMA_CONTEXT_LENGTH:-${PROFILE_CONTEXT:-768}}"
 OLLAMA_NUM_PARALLEL="${OLLAMA_NUM_PARALLEL:-${PROFILE_PARALLEL:-1}}"
 OLLAMA_MAX_LOADED_MODELS="${OLLAMA_MAX_LOADED_MODELS:-1}"
@@ -34,9 +35,10 @@ usage() {
   cat <<'EOF'
 KoalaByte Blue KillerKoala Ollama/TinyLlama setup helper
 
-Installs Ollama, pulls TinyLlama, creates the KillerKoala alias, and performs a
-short smoke test. Pi 3B+ defaults allow one model and one request at a time,
-use a 768-token context, and unload the model after 60 seconds.
+Installs Ollama, selects a model based on detected Raspberry Pi RAM, creates the
+KillerKoala alias, and performs a short smoke test. Pi 5 Ultra uses Qwen2.5 1.5B,
+3B, or 7B as RAM allows; smaller hosts retain TinyLlama. The selected model is
+kept warm longer on Pi 5 to reduce repeat-response latency.
 EOF
 }
 
@@ -216,7 +218,8 @@ retry_command "${OLLAMA_PULL_ATTEMPTS}" "TinyLlama pull" \
 # Pi 5 Ollama server context. The source Modelfile is never edited in-place.
 RUNTIME_MODEFILE_PATH="$(mktemp "${TMPDIR:-/tmp}/koalabyte-ultra-modelfile.XXXXXX")"
 trap 'rm -f "${RUNTIME_MODEFILE_PATH:-}"' EXIT
-sed -e "s/^PARAMETER num_ctx [0-9][0-9]*/PARAMETER num_ctx ${OLLAMA_CONTEXT_LENGTH}/" \
+sed -e "s/^FROM .*/FROM ${KILLERKOALA_BASE_MODEL}/" \
+    -e "s/^PARAMETER num_ctx [0-9][0-9]*/PARAMETER num_ctx ${OLLAMA_CONTEXT_LENGTH}/" \
     -e "s/^PARAMETER num_predict [0-9][0-9]*/PARAMETER num_predict ${PROFILE_NUM_PREDICT:-64}/" \
     "${MODEFILE_PATH}" >"${RUNTIME_MODEFILE_PATH}"
 grep -Fxq "PARAMETER num_ctx ${OLLAMA_CONTEXT_LENGTH}" "${RUNTIME_MODEFILE_PATH}" && \
