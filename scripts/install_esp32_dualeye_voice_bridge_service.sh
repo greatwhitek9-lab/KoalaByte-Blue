@@ -168,6 +168,22 @@ if [[ -f "${REPO_ROOT}/scripts/koalabyte_ai_mode_admin.py" ]]; then
   rm -f "${sudoers_tmp}"
 fi
 
+# Install the separate root-owned API-key manager. Key bytes arrive on stdin only;
+# the helper never accepts secrets in command-line arguments and never prints them.
+AI_KEY_HELPER="/usr/local/sbin/koalabyte-ai-key"
+if [[ -f "${REPO_ROOT}/scripts/koalabyte_ai_key_admin.py" ]]; then
+  "${sudo_cmd[@]}" install -o root -g root -m 0755 \
+    "${REPO_ROOT}/scripts/koalabyte_ai_key_admin.py" "${AI_KEY_HELPER}"
+  key_sudoers_tmp="$(mktemp)"
+  key_sudoers_candidate="/etc/sudoers.d/koalabyte-ai-key.tmp"
+  printf '%s ALL=(root) NOPASSWD: %s set-key, %s test-key, %s status, %s remove-key\\n' \
+    "${SERVICE_USER}" "${AI_KEY_HELPER}" "${AI_KEY_HELPER}" "${AI_KEY_HELPER}" "${AI_KEY_HELPER}" >"${key_sudoers_tmp}"
+  "${sudo_cmd[@]}" install -o root -g root -m 0440 "${key_sudoers_tmp}" "${key_sudoers_candidate}"
+  "${sudo_cmd[@]}" visudo -cf "${key_sudoers_candidate}"
+  "${sudo_cmd[@]}" mv "${key_sudoers_candidate}" /etc/sudoers.d/koalabyte-ai-key
+  rm -f "${key_sudoers_tmp}"
+fi
+
 if [[ -f "${REPO_ROOT}/scripts/provision_esp32_wifi_env.sh" ]]; then
   KOALABYTE_ENV_FILE="${KILLERKOALA_ENV_FILE}" \
     bash "${REPO_ROOT}/scripts/provision_esp32_wifi_env.sh" || \
