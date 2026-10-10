@@ -78,7 +78,7 @@ These add-ons are optional. Install and validate them independently after the ba
    ```bash
    KILLERKOALA_VISION_MODEL=llava:7b
    ```
-   Keep this file private; do not put local credentials or personal data into Git. Leave the model value blank to disable conversational vision. The local Ollama endpoint is used by default; sending frames to a non-local endpoint is blocked unless the operator deliberately opts in with `KILLERKOALA_VISION_ALLOW_REMOTE=1`.
+   Keep this file private; do not put local credentials or personal data into Git. Leave the model value blank to disable conversational vision. Only local loopback Ollama inference is supported; there is no remote override.
 
 6. Restart the voice bridge so it reads the setting:
    ```bash
