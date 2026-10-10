@@ -12,7 +12,7 @@ SERVICE_USER="${KOALABYTE_SERVICE_USER:-${SUDO_USER:-${USER:-pi}}}"
 SERVICE_GROUP="${KOALABYTE_SERVICE_GROUP:-}"
 SERIAL_BUS_DIR="${KOALABYTE_SERIAL_BUS_DIR:-${REPO_ROOT}/logs/runtime/serial_bus}"
 KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-tinyllama:latest}"
-KILLERKOALA_OLLAMA_HOST="${OLLAMA_HOST:-http://127.0.0.1:11434}"
+KILLERKOALA_OLLAMA_HOST="${KILLERKOALA_OLLAMA_HOST:-http://127.0.0.1:11434}"
 KILLERKOALA_TTS_VOICE="${KILLERKOALA_TTS_VOICE:-en-AU-WilliamNeural}"
 KILLERKOALA_ENV_DIR="${KILLERKOALA_ENV_DIR:-/etc/koalabyte-blue}"
 KILLERKOALA_ENV_FILE="${KILLERKOALA_ENV_FILE:-${KILLERKOALA_ENV_DIR}/killerkoala.env}"
@@ -26,7 +26,7 @@ Install/start the KoalaByte ESP32-S3 DualEye voice bridge service.
 
 The service is the exclusive ESP32 serial owner. Pi 3B+ defaults use a 768-token
 context, 64 predicted tokens, and two retained dialogue turns. Private Wi-Fi,
-audio, and API settings belong in /etc/koalabyte-blue/killerkoala.env.
+audio and private runtime settings belong in /etc/koalabyte-blue/killerkoala.env. LLM inference is local-only Ollama; remote endpoints are rejected.
 EOF
 }
 
