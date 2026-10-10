@@ -12,6 +12,7 @@ SERVICE_USER="${KOALABYTE_SERVICE_USER:-${SUDO_USER:-${USER:-pi}}}"
 SERVICE_GROUP="${KOALABYTE_SERVICE_GROUP:-}"
 SERIAL_BUS_DIR="${KOALABYTE_SERIAL_BUS_DIR:-${REPO_ROOT}/logs/runtime/serial_bus}"
 KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-tinyllama:latest}"
+KILLERKOALA_AI_MODE="${KILLERKOALA_AI_MODE:-local}"
 KILLERKOALA_OLLAMA_HOST="${KILLERKOALA_OLLAMA_HOST:-http://127.0.0.1:11434}"
 KILLERKOALA_TTS_VOICE="${KILLERKOALA_TTS_VOICE:-en-AU-WilliamNeural}"
 KILLERKOALA_ENV_DIR="${KILLERKOALA_ENV_DIR:-/etc/koalabyte-blue}"
@@ -26,7 +27,7 @@ Install/start the KoalaByte ESP32-S3 DualEye voice bridge service.
 
 The service is the exclusive ESP32 serial owner. Pi 3B+ defaults use a 768-token
 context, 64 predicted tokens, and two retained dialogue turns. Private Wi-Fi,
-audio and private runtime settings belong in /etc/koalabyte-blue/killerkoala.env. LLM inference is local-only Ollama; remote endpoints are rejected.
+audio and private runtime settings belong in /etc/koalabyte-blue/killerkoala.env. AI mode defaults to local Ollama; online Ollama Cloud is available only when explicitly selected and configured.
 EOF
 }
 
@@ -133,6 +134,12 @@ else
 fi
 
 # Upgrade older private env files without overwriting any existing operator settings.
+for setting in 'KILLERKOALA_AI_MODE=local' 'KILLERKOALA_ONLINE_LLM_MODEL=gemma4:31b' 'KILLERKOALA_ONLINE_VISION_MODEL=' 'OLLAMA_API_KEY='; do
+  key="${setting%%=*}"
+  if ! "${sudo_cmd[@]}" grep -q "^${key}=" "${KILLERKOALA_ENV_FILE}"; then
+    printf '%s\n' "${setting}" | "${sudo_cmd[@]}" tee -a "${KILLERKOALA_ENV_FILE}" >/dev/null
+  fi
+done
 if ! "${sudo_cmd[@]}" grep -q '^KILLERKOALA_VISION_MODEL=' "${KILLERKOALA_ENV_FILE}"; then
   printf '\n# Optional local Ollama vision model; blank disables camera vision.\nKILLERKOALA_VISION_MODEL=\n' | "${sudo_cmd[@]}" tee -a "${KILLERKOALA_ENV_FILE}" >/dev/null
 fi
@@ -171,6 +178,7 @@ Environment=KILLERKOALA_LLM_NUM_CTX=${KILLERKOALA_LLM_NUM_CTX}
 Environment=KILLERKOALA_LLM_NUM_PREDICT=${KILLERKOALA_LLM_NUM_PREDICT}
 Environment=KILLERKOALA_DIALOGUE_TURNS=${KILLERKOALA_DIALOGUE_TURNS}
 Environment=OLLAMA_HOST=${KILLERKOALA_OLLAMA_HOST}
+Environment=KILLERKOALA_AI_MODE=${KILLERKOALA_AI_MODE}
 Environment=KILLERKOALA_TTS_VOICE=${KILLERKOALA_TTS_VOICE}
 Environment=KILLERKOALA_WEB_SEARCH=auto
 EnvironmentFile=-${KILLERKOALA_ENV_FILE}
