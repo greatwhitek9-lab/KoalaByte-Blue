@@ -20,8 +20,8 @@ API_URL = "https://ollama.com/api/chat"
 
 
 def read_env() -> tuple[list[str], str, str, str]:
-    if not ENV_FILE.is_symlink() and not ENV_FILE.is_file():
-        raise RuntimeError("Private settings file is missing; run the service installer first.")
+    if ENV_FILE.is_symlink() or not ENV_FILE.is_file():
+        raise RuntimeError("Private settings file is missing or is an unsafe symlink; run the service installer first.")
     lines = ENV_FILE.read_text(encoding="utf-8").splitlines()
     mode, key, model = "local", "", "gemma4:31b"
     for line in lines:
