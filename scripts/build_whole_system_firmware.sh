@@ -16,8 +16,12 @@ STATUS_PATH="${KOALABYTE_FIRMWARE_BUILD_STATUS:-${ROOT}/logs/deployment/firmware
 ESP32_TOOLS_VENV="${ESP32_TOOLS_VENV:-${HOME}/.venvs/platformio}"
 PLATFORMIO_CORE_DIR="${PLATFORMIO_CORE_DIR:-${HOME}/.platformio}"
 PIO_BIN="${PIO_BIN:-}"
-PIO_JOBS="${PIO_JOBS:-1}"
-CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-1}"
+# Default build concurrency follows detected Pi generation/RAM; explicit user
+# overrides remain authoritative and the legacy Pi 3 profile stays single-job.
+PROFILE_JSON="$(PYTHONPATH="${ROOT}/pi-companion" python3 -c 'import json; from koalablue.pi_runtime_profile import detect_profile; print(json.dumps(detect_profile()))' 2>/dev/null || printf '{}')"
+PROFILE_BUILD_JOBS="$(PROFILE_JSON="${PROFILE_JSON}" python3 -c 'import json,os; print(json.loads(os.environ.get("PROFILE_JSON","{}")).get("processing",{}).get("firmware_build_jobs",1))' 2>/dev/null || echo 1)"
+PIO_JOBS="${PIO_JOBS:-${PROFILE_BUILD_JOBS}}"
+CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-${PROFILE_BUILD_JOBS}}"
 SOURCE_BACKUP_DIR="${ROOT}/logs/deployment/esp32-source-backup"
 SOURCE_BACKUP_ACTIVE=0
 
