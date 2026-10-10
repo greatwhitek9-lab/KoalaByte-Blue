@@ -233,10 +233,19 @@ def observe_camera_with_companion(
 ) -> dict[str, Any]:
     """Capture one requested frame and ask a local Ollama vision model about it."""
     import base64
+    from urllib.parse import urlparse
+
     import httpx
 
     vision_model = (model or os.getenv("KILLERKOALA_VISION_MODEL", "")).strip()
     ollama_host = (host or os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")).strip().rstrip("/")
+    parsed_host = urlparse(ollama_host)
+    local_hosts = {"localhost", "127.0.0.1", "::1"}
+    if parsed_host.hostname not in local_hosts and os.getenv("KILLERKOALA_VISION_ALLOW_REMOTE", "0").strip().lower() not in {"1", "true", "yes", "on"}:
+        raise RuntimeError(
+            "Camera images are sent only to a local Ollama endpoint by default. "
+            "For a deliberately configured remote endpoint, set KILLERKOALA_VISION_ALLOW_REMOTE=1."
+        )
     if not vision_model:
         raise RuntimeError(
             "KillerKoala vision is not configured. Set KILLERKOALA_VISION_MODEL "
