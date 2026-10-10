@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hardware-free contract check for the optional Ultra Vision feature."""
+"""Hardware-free contract check for optional Ultra Vision on Pi 5."""
 from __future__ import annotations
 
 import ast
@@ -21,11 +21,14 @@ def main() -> int:
         "ULTRA_VISION_READY",
         "ULTRA_VISION_OPTIONAL_DEPENDENCIES_MISSING",
     }
-    assert "VideoCapture" in source
-    assert "model.predict" in source
-    assert "save_frame" in source
-    assert "privacy_scope" in source
+    for marker in (
+        "VideoCapture", "model.predict", "save_frame", "privacy_scope",
+        "current_fix", "--geotag", "observation_reference",
+        "camera_like_candidate", "LOCATION_MAX_AGE_SECONDS",
+    ):
+        assert marker in source, f"missing Ultra Vision contract marker: {marker}"
     print("ULTRA_VISION_SOURCE_CONTRACT_PASS")
+    print("GNSS is opt-in, protected, and freshness-checked; observation links are contextual only.")
     print(f"Optional dependencies: {status['status']}")
     return 0
 
