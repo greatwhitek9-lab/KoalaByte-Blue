@@ -92,7 +92,13 @@ def build_profile(model: str, memory_mib: int, cpu_count: int | None = None) -> 
         },
         "processing": {
             "worker_budget": workers,
-            "firmware_build_jobs": 1 if memory < 4096 else min(4, cpus),
+            "firmware_build_jobs": (
+                min(4, cpus) if is_pi5 and memory >= 7000
+                else min(2, cpus) if is_pi5 and memory >= 3500
+                else 1 if memory < 4096
+                else min(3, cpus) if is_pi4
+                else min(2, cpus)
+            ),
             "build_swap_target_mib": 2048 if memory < 4096 else 1024,
             "thermal_policy": "observe_only_no_overclock",
         },
