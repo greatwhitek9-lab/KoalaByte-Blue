@@ -12,7 +12,7 @@ STATUS_PATH = LOG_DIR / "popup_keyboard_status.json"
 
 LOWER_ROWS = ["abcdefghi", "jklmnopqr", "stuvwxyz", "0123456789", "@._-:/!#$%+?&="]
 UPPER_ROWS = [row.upper() if row.isalpha() else row for row in LOWER_ROWS]
-SYMBOL_ROWS = ["0123456789", "@._-:/", "!#$%+?&=", "*()[]{}", "'\" ,;"]
+SYMBOL_ROWS = ["0123456789", "@._-:/~", "!#$%+?&=", "*()[]{}", "'\" ,;"]
 SPECIAL_KEYS = ["space", "back", "clear", "shift", "symbols", "voice", "save", "cancel"]
 
 KEYBOARD_TARGETS: dict[str, dict[str, Any]] = {
