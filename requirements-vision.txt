@@ -1,0 +1,4 @@
+# Optional vision dependencies only; do not install in the base runtime.
+# Use existing local model weights; the feature does not auto-download models.
+opencv-python-headless>=4.10,<5
+ultralytics>=8.3,<9
