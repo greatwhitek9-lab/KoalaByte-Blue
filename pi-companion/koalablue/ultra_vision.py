@@ -241,10 +241,10 @@ def observe_camera_with_companion(
     ollama_host = (host or os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")).strip().rstrip("/")
     parsed_host = urlparse(ollama_host)
     local_hosts = {"localhost", "127.0.0.1", "::1"}
-    if parsed_host.hostname not in local_hosts and os.getenv("KILLERKOALA_VISION_ALLOW_REMOTE", "0").strip().lower() not in {"1", "true", "yes", "on"}:
+    if parsed_host.scheme != "http" or parsed_host.hostname not in local_hosts:
         raise RuntimeError(
             "Camera images are sent only to a local Ollama endpoint by default. "
-            "For a deliberately configured remote endpoint, set KILLERKOALA_VISION_ALLOW_REMOTE=1."
+            "Remote/hosted inference is disabled."
         )
     if not vision_model:
         raise RuntimeError(
