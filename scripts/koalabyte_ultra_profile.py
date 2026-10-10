@@ -13,7 +13,7 @@ for path in (ROOT, PI_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from koalablue.hardware_profile import detect_hardware_profile
+from koalablue.pi_runtime_profile import detect_profile
 
 
 def main() -> int:
@@ -21,9 +21,9 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="fail unless a Raspberry Pi 5 is detected")
     parser.add_argument("--require-8gb", action="store_true", help="fail unless Pi 5 with at least 7,000 MiB RAM is detected")
     args = parser.parse_args()
-    profile = detect_hardware_profile()
+    profile = detect_profile()
     print(json.dumps(profile, indent=2, sort_keys=True))
-    if args.require_8gb and not profile["is_pi5_8gb"]:
+    if args.require_8gb and not (profile["is_pi5"] and profile["memory_mib"] >= 7000):
         print("Required profile not detected: Raspberry Pi 5 with approximately 8 GB RAM.", file=sys.stderr)
         return 2
     if args.check and not profile["is_pi5"]:
