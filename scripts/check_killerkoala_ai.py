@@ -284,6 +284,11 @@ def safe_smoke() -> dict[str, Any]:
 
 
 def main() -> int:
+    companion_source = (ROOT / "pi-companion/koalablue/killerkoala_hybrid_companion.py").read_text(encoding="utf-8")
+    installer_source = (ROOT / "scripts/setup_killerkoala_ollama.sh").read_text(encoding="utf-8")
+    assert "def _require_local_ollama" in companion_source
+    assert "remote and hosted APIs are blocked" in companion_source
+    assert "cloud model tags are blocked" in installer_source
     parser = argparse.ArgumentParser(
         description=(
             "Check KillerKoala TinyLlama, offline STT, expression, and William "
