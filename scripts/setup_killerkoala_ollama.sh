@@ -21,6 +21,7 @@ profile_value() {
 PROFILE_CONTEXT="$(profile_value ai.context_length)"
 PROFILE_PARALLEL="$(profile_value ai.num_parallel)"
 PROFILE_KEEP_ALIVE="$(profile_value ai.keep_alive)"
+PROFILE_NUM_PREDICT="$(profile_value ai.num_predict)"
 OLLAMA_CONTEXT_LENGTH="${OLLAMA_CONTEXT_LENGTH:-${PROFILE_CONTEXT:-768}}"
 OLLAMA_NUM_PARALLEL="${OLLAMA_NUM_PARALLEL:-${PROFILE_PARALLEL:-1}}"
 OLLAMA_MAX_LOADED_MODELS="${OLLAMA_MAX_LOADED_MODELS:-1}"
@@ -215,9 +216,11 @@ retry_command "${OLLAMA_PULL_ATTEMPTS}" "TinyLlama pull" \
 # Pi 5 Ollama server context. The source Modelfile is never edited in-place.
 RUNTIME_MODEFILE_PATH="$(mktemp "${TMPDIR:-/tmp}/koalabyte-ultra-modelfile.XXXXXX")"
 trap 'rm -f "${RUNTIME_MODEFILE_PATH:-}"' EXIT
-sed "s/^PARAMETER num_ctx [0-9][0-9]*/PARAMETER num_ctx ${OLLAMA_CONTEXT_LENGTH}/" \
-  "${MODEFILE_PATH}" >"${RUNTIME_MODEFILE_PATH}"
-grep -Fxq "PARAMETER num_ctx ${OLLAMA_CONTEXT_LENGTH}" "${RUNTIME_MODEFILE_PATH}" || {
+sed -e "s/^PARAMETER num_ctx [0-9][0-9]*/PARAMETER num_ctx ${OLLAMA_CONTEXT_LENGTH}/" \
+    -e "s/^PARAMETER num_predict [0-9][0-9]*/PARAMETER num_predict ${PROFILE_NUM_PREDICT:-64}/" \
+    "${MODEFILE_PATH}" >"${RUNTIME_MODEFILE_PATH}"
+grep -Fxq "PARAMETER num_ctx ${OLLAMA_CONTEXT_LENGTH}" "${RUNTIME_MODEFILE_PATH}" && \
+  grep -Fxq "PARAMETER num_predict ${PROFILE_NUM_PREDICT:-64}" "${RUNTIME_MODEFILE_PATH}" || {
   fail_setup create_killerkoala_model "could not apply the RAM-aware context length to the temporary Modelfile"
   exit 1
 }
