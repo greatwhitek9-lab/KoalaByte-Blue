@@ -40,6 +40,8 @@ def main() -> int:
     assert _camera_request_intent("KillerKoala, what do you see?")
     assert _camera_request_intent("KillerKoala, look at this")
     assert _camera_request_intent("describe the scene")
+    assert _camera_request_intent("is there a camera in view?")
+    assert _camera_request_intent("KillerKoala, can you see the object on the desk?")
     assert not _camera_request_intent("tell me a joke")
     parsed = parse_voice_command("KillerKoala, look at this")
     assert parsed.module_key == "killerkoala_question", parsed.module_key
