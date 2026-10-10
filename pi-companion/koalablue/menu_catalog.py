@@ -33,6 +33,7 @@ MAIN_MENU_ITEMS: List[dict[str, object]] = [
     _item("CAN Bench Tools", "CAN Bench Tools", "submenu:can_bench", "Open Koala Kan bench checks"),
     _item("Reports & Reviews", "Reports & Reviews", "submenu:reports", "Open reports, reviews, and notes"),
     _item("System / Companion", "System / Companion", "submenu:system", "Open companion, voice, buttons, settings, and modes"),
+    _item("System / Companion", "Settings", "submenu:settings", "Open device and AI settings"),
     _item("System / Companion", "Lab", "submenu:lab", "Open the Authorized Lab Use submenu"),
     _item("System / Companion", "Power On/Off", "shutdown_confirm", "K7 requests safe software shutdown from the main screen"),
     _item("System / Companion", "Reset / Reboot", "reset_confirm", "K8 requests safe Raspberry Pi reboot from the main screen"),
@@ -230,6 +231,16 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("Reports & Reviews", "Packet Capture Notes", "packet_capture_notes", "Write packet-capture documentation notes"),
         _item("Reports & Reviews", "Defensive Lab Report", "defensive_lab_report", "Build a defensive lab report"),
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
+    ],
+    "settings": [
+        _item("System / Companion", "AI", "submenu:ai", "Choose local or online KillerKoala AI"),
+        _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
+    ],
+    "ai": [
+        _item("System / Companion", "AI Mode Status", "ai_mode_status", "Show whether KillerKoala uses local Ollama or online Ollama Cloud"),
+        _item("System / Companion", "Online AI ON", "ai_online_on", "Switch KillerKoala to Ollama Cloud; requires an API key"),
+        _item("System / Companion", "Online AI OFF", "ai_online_off", "Switch KillerKoala back to local Ollama"),
+        _item("System / Companion", "Back to Settings", "submenu:settings", "Return to Settings"),
     ],
     "system": [
         _item("System / Companion", "Prompt State Status", "prompt_state_status", "Show saved menu prompt state and protected input readiness"),
