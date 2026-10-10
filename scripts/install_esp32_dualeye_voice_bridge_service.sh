@@ -176,7 +176,7 @@ if [[ -f "${REPO_ROOT}/scripts/koalabyte_ai_key_admin.py" ]]; then
     "${REPO_ROOT}/scripts/koalabyte_ai_key_admin.py" "${AI_KEY_HELPER}"
   key_sudoers_tmp="$(mktemp)"
   key_sudoers_candidate="/etc/sudoers.d/koalabyte-ai-key.tmp"
-  printf '%s ALL=(root) NOPASSWD: %s set-key, %s test-key, %s status, %s remove-key\\n' \
+  printf '%s ALL=(root) NOPASSWD: %s set-key, %s test-key, %s status, %s remove-key\n' \
     "${SERVICE_USER}" "${AI_KEY_HELPER}" "${AI_KEY_HELPER}" "${AI_KEY_HELPER}" "${AI_KEY_HELPER}" >"${key_sudoers_tmp}"
   "${sudo_cmd[@]}" install -o root -g root -m 0440 "${key_sudoers_tmp}" "${key_sudoers_candidate}"
   "${sudo_cmd[@]}" visudo -cf "${key_sudoers_candidate}"
