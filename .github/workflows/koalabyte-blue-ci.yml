@@ -3,9 +3,9 @@ name: KoalaByte Blue CI
 on:
   workflow_dispatch:
   push:
-    branches: [Main, main]
+    branches: [Main, main, koalabyte-blue-ultra]
   pull_request:
-    branches: [Main, main]
+    branches: [Main, main, koalabyte-blue-ultra]
 
 jobs:
   whole-system-readiness:
