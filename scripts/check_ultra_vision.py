@@ -32,6 +32,11 @@ def main() -> int:
     assert "observe_camera_with_companion" in source
     assert "images" in source
     assert "continuous_stream" in source
+    assert "KILLERKOALA_VISION_ALLOW_REMOTE" in source
+    companion_source = (PI_ROOT / "koalablue" / "killerkoala_hybrid_companion.py").read_text(encoding="utf-8")
+    voice_source = (PI_ROOT / "koalablue" / "killerkoala_voice_control.py").read_text(encoding="utf-8")
+    assert "optional camera vision capability" in companion_source
+    assert "_camera_request_intent(working)" in voice_source
     assert _camera_request_intent("KillerKoala, what do you see?")
     assert _camera_request_intent("KillerKoala, look at this")
     assert _camera_request_intent("describe the scene")
