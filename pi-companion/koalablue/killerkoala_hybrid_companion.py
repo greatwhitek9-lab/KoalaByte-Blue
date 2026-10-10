@@ -289,7 +289,11 @@ def _camera_request_intent(user_text: str) -> bool:
         "what is in front of you", "identify this object", "identify that object",
         "what is this object", "what's this object", "inspect this", "inspect that",
         "use your camera", "use the camera", "camera snapshot", "take a picture",
-        "take a photo", "check the camera view", "can you see this",
+        "take a photo", "check the camera view", "can you see", "do you see",
+        "show me what you see", "what am i looking at", "what is in this image",
+        "what's in this image", "what is in the frame", "what's in the frame",
+        "look around", "is there a camera", "spot a camera", "find a camera",
+        "is that a camera", "what object is that",
     )
     return any(phrase in text for phrase in explicit_visual_phrases)
 
