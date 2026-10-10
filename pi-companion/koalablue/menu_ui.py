@@ -177,6 +177,8 @@ class MenuSelectionScreen:
                 return self._event("keyboard_key_text", "key_text")
         for prefix in ("keyboard text ", "voice text ", "dictate ", "type "):
             if normalized.startswith(prefix):
+                if self.keyboard.target == "ollama_api_key":
+                    return self._event("keyboard_voice_rejected", "secret_requires_physical_keyboard")
                 text = raw[len(prefix):].strip()
                 self.keyboard.apply_voice_text(text, append=True)
                 return self._event("keyboard_voice_text", "voice_text")
