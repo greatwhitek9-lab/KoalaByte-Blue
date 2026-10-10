@@ -3,7 +3,7 @@
 **Target platform:** Raspberry Pi 5, 8 GB RAM, 64-bit Raspberry Pi OS Bookworm or Trixie.  
 **Branch:** `koalabyte-blue-ultra` (Git refs cannot contain spaces).  
 **Base:** `Main` from KoalaByte Blue.  
-**Scope:** Pi-host upgrades; preserve the ESP32-S3 DualEye and Heltec T114 firmware/protocol contracts.
+**Scope:** Pi 5 host upgrades; preserve the ESP32-S3 DualEye and Heltec T114 firmware/protocol contracts.
 
 > **Port status:** This branch contains Pi 5 host-profile and adaptive-resource source changes. It has not yet been verified on the physical target Pi 5. Run the hardware-free profile tests and deployment check gates before installing or flashing anything.
 
@@ -17,10 +17,15 @@
 | Local response sizing | Response length is tuned by detected RAM tier to avoid long generations on lower-memory Pis while allowing more headroom on Pi 5 8 GB. | Source change; measure latency on target |
 | HDMI / Koalagotchi | Renderer selects synchronized frame budgets by Pi generation/RAM. Pi 5 8 GB targets up to 60 FPS; 4 GB Pi 5 targets 45 FPS; 2 GB Pi 5 targets 30 FPS. Wayland/X11 is preferred when available, with SDL KMS/DRM fallback. | Source change; display backend must be tested on target |
 | Processing | Profile recommends up to four runtime workers and up to four firmware build jobs for Pi 5 8 GB; lower-memory systems get more conservative build budgets. Swap target and thermal policy are reported, not silently applied by profile detection. | Profile output; benchmark on target |
+| Optional Ultra Vision | USB/UVC camera capture and local object detection; opt-in protected GNSS tagging, operator-supplied Kruisin event/session references, and confidence-scored camera-like candidates for manual verification. No automatic RF-to-photo matching. | Source-contract check; camera/model/GNSS must be tested on hardware |
 | Power and thermal safety | No overclock is introduced. Existing deployment power gate remains in force; a current or latched under-voltage condition must be cleared before hardware writes. Official Pi 5 27 W / 5 V 5 A supply is recommended for full peripheral load. | Must verify on target |
 | MCU compatibility | ESP32-S3 and Heltec T114 sources, identities, serial ownership, and protocols are intentionally preserved. | Must run existing source and firmware gates |
 | Validation and CI | Hardware-free fixtures cover Pi 5 2/4/8/16 GB and Pi 3B+ resource tiers; the profile is included in dependency and installer-contract checks. | Checks are committed; execution results must be confirmed in CI/on hardware |
 | Documentation | This branch-specific README records the Ultra profile and its validation status; detailed technical notes live in `docs/PI5_ULTRA.md`. | Added |
+
+## Optional AI camera
+
+See [Ultra Vision](docs/ULTRA_VISION.md) for USB/UVC setup, local model requirements, operator-triggered capture, opt-in GNSS, Kruisin event references, camera-like object review, privacy constraints, and hardware-free validation. The feature is optional and does not install camera dependencies unless the operator requests them.
 
 ## Recommended clean install
 
@@ -56,74 +61,13 @@ The canonical detector is `pi-companion/koalablue/pi_runtime_profile.py`. It rea
 For a Pi 5 with at least 7,000 MiB detected RAM, the profile recommends:
 
 - Ollama context: 2,048 tokens
-- Ollama parallel requests: 2
+- Ollama parallel requests: 1
 - Maximum loaded models: 1
 - Ollama keep-alive: 300 seconds
-- Generated output budget: 160 tokens
+- Generated output budget: 128 tokens
 - HDMI / Koalagotchi target: up to 60 FPS
 - Runtime worker budget: up to four
 - Firmware build jobs: up to four
 - Build swap target: 1,024 MiB (profile recommendation)
 
-These are starting points, not guarantees of sustained throughput. Cooling, power, storage, audio/voice workload and actual model memory use still affect performance. Use an active cooler and an adequate Pi 5 power supply for sustained AI or firmware builds. Swap and parallelism should be validated under load rather than assumed optimal.
-
-## AI and Koalagotchi
-
-- KillerKoala remains the persona; the Australian `en-AU-WilliamNeural` voice remains a TTS backend, not the persona identity.
-- The installer adapts Ollama resource defaults to detected hardware and creates a temporary profile-specific Modelfile, leaving the checked-in Pi 3-safe Modelfile unchanged. It does not automatically download a larger language model or claim a newly fine-tuned model. Keep TinyLlama as the compatibility baseline until candidate models pass latency, memory and response-quality tests.
-- Existing expression/state payloads remain the source of truth for Koalagotchi; the Pi 5 profile adds resource headroom without changing the ESP32/T114 protocol contract.
-- Web research remains optional and network-dependent. Offline local responses and wake/session routing must continue to work.
-- Existing T114 passive BLE/GNSS defaults, guarded LoRa hooks and receive-first CAN posture remain unchanged.
-
-## HDMI and processing
-
-The compositor's profile-based frame-rate default is selected by `pi_runtime_profile.py`. Inspect it before launching the display:
-
-```bash
-PYTHONPATH=pi-companion python3 scripts/check_pi5_ultra_profile.py --check-only
-PYTHONPATH=pi-companion python3 scripts/check_hdmi_display.py
-systemctl status koalabyte-hdmi.service --no-pager -l
-```
-
-The renderer still respects `KOALABYTE_HDMI_FPS` and its `--fps` command-line option. The profile's worker/build values are bounded recommendations; they are not a promise that every subsystem is parallelized. Serial ports remain owned by their dedicated services, and the HDMI renderer must not open board serial ports or initialize a competing audio mixer.
-
-## Optional camera add-on: Ultra Vision
-
-Ultra Vision is a separate, opt-in Pi 5 feature for one-shot camera capture and generic local object detection. It is not installed with the base runtime and does not change the ESP32-S3 or T114 firmware. See [docs/ULTRA_VISION.md](docs/ULTRA_VISION.md).
-
-- Optional dependencies are in `requirements-vision.txt`; install them only after reviewing package size and Pi OS compatibility.
-- Use an existing local model file through `KOALABYTE_VISION_MODEL` or `--model`; model weights are not downloaded automatically.
-- A frame is captured only when the operator runs the command. Saving images and detection logs is explicit.
-- The feature has no face recognition, identity tracking, GPS lookup, RF scan, or automatic association with Kruisin' Wi-Fi/BLE records.
-- For camera-awareness records, use Boomerang's manual/public-observation workflow and verify any observation yourself.
-
-Example:
-
-```bash
-PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python scripts/run_ultra_vision.py status
-PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python scripts/run_ultra_vision.py capture \
-  --camera-index 0 --model /opt/koalabyte/models/your-object-model.pt --record
-```
-
-## Verification checklist
-
-- [ ] Host gate identifies Raspberry Pi 5 and a supported 64-bit OS.
-- [ ] `check_pi5_ultra_profile.py --check-only` passes all simulated profile fixtures.
-- [ ] Whole-system source checks and installer `--check-only` pass.
-- [ ] Optional Ultra Vision source contract passes without requiring a camera or model.
-- [ ] Ollama context, parallelism and keep-alive settings are confirmed in the installed service.
-- [ ] HDMI compositor opens on the actual display backend; KoalaByte/Pi OS switching works.
-- [ ] ESP32-S3 and T114 owner services remain the only readers of their respective serial ports.
-- [ ] Voice, K1–K8, menu/action state, Koalagotchi, audio ducking and alarm behavior pass on hardware.
-- [ ] Power/thermal state stays clean under sustained use.
-- [ ] Existing firmware identities are verified before any MCU flash.
-
-## Rollback
-
-This work is isolated to `koalabyte-blue-ultra`. To return to the original branch without changing it:
-
-```bash
-git switch Main
-```
-
-The profile detector itself does not alter the Pi OS image, bootloader, partition table or device firmware.
+These are starting points, not guarantees of performance. Full documentation remains in [Pi 5 Ultra notes](docs/PI5_ULTRA.md).
