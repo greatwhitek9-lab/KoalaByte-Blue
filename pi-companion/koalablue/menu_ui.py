@@ -154,7 +154,8 @@ class MenuSelectionScreen:
         self.keyboard = None
         failures = {
             "AI_KEY_INVALID_INPUT", "AI_KEY_VALIDATION_FAILED", "AI_KEY_ERROR",
-            "AI_MODE_NEEDS_API_KEY", "AI_KEY_REMOVE_FAILED_ROLLED_BACK",
+            "AI_KEY_SAVE_FAILED_ROLLED_BACK", "AI_MODE_NEEDS_API_KEY",
+            "AI_KEY_REMOVE_FAILED_ROLLED_BACK",
         }
         if status in failures:
             detail = str(result.get("message") or result.get("status") or "Key setup failed")
