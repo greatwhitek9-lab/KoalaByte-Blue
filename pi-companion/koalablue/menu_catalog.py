@@ -221,6 +221,8 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
     "reports": [
         _item("Reports & Reviews", "Koala Kry RF Review", "koala_kry_run_review", "Write Koala Kry RF bench review"),
         _item("Reports & Reviews", "Boomerang", "boomerang", "Open camera-awareness logbook mode"),
+        _item("Reports & Reviews", "Ultra Vision Status", "ultra_vision_status", "Check optional local camera and object-detection readiness"),
+        _item("Reports & Reviews", "Ultra Vision Snapshot", "ultra_vision_capture", "Capture one operator-requested frame and detect generic objects"),
         _item("Reports & Reviews", "Authorized BLE Inventory", "authorized_ble_inventory", "Build an owned-device BLE inventory template"),
         _item("Reports & Reviews", "GATT Readiness Checklist", "gatt_readiness_checklist", "Write a defensive GATT readiness checklist"),
         _item("Reports & Reviews", "Pairing Security Review", "pairing_security_review", "Create a safe pairing-security review"),
