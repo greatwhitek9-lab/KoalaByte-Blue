@@ -94,6 +94,7 @@ validate_sources() {
   PYTHONPATH=pi-companion python3 scripts/check_hdmi_display.py >/dev/null
 }
 validate_sources
+PYTHONPATH="${ROOT}/pi-companion" python3 scripts/check_pi5_ultra_profile.py --write-report
 
 if [[ "${CHECK_ONLY}" == "1" ]]; then
   python3 scripts/pi_hardware_doctor.py --can-interface "${CAN_INTERFACE}" || true
