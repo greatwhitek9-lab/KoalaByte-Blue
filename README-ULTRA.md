@@ -25,7 +25,7 @@
 
 ## Optional AI camera
 
-See [Ultra Vision](docs/ULTRA_VISION.md) for USB/UVC setup, local model requirements, operator-triggered capture, opt-in GNSS, Kruisin event references, camera-like object review, privacy constraints, and hardware-free validation. The feature is optional and does not install camera dependencies unless the operator requests them.
+See [Ultra Vision](docs/ULTRA_VISION.md) for USB/UVC setup, local model requirements, KillerKoala's request-triggered conversational vision (spoken requests such as “what do you see?”), opt-in GNSS, Kruisin event references, camera-like object review, privacy constraints, and hardware-free validation. KillerKoala captures one still frame per explicit visual request and answers from a configured local Ollama vision model; it does not pretend to see when the camera/model is unavailable. The feature is optional and does not install camera dependencies unless the operator requests them.
 
 ## Recommended clean install
 
