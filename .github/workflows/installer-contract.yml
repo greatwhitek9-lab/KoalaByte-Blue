@@ -96,6 +96,9 @@ jobs:
           grep -Fq 'claim_acknowledgement_required' scripts/check_serial_command_bus.py
           grep -Fq 'HELTEC_MAX_LINE_BYTES = 255' pi-companion/koalablue/runtime_serial_ownership.py
           grep -Fq 'KILLERKOALA_LLM_NUM_CTX' pi-companion/koalablue/killerkoala_runtime_limits.py
+          grep -Fq 'KILLERKOALA_VISION_MODEL' scripts/install_esp32_dualeye_voice_bridge_service.sh
+          grep -Fq 'observe_camera_with_companion' pi-companion/koalablue/ultra_vision.py
+          grep -Fq '_camera_request_intent' pi-companion/koalablue/killerkoala_hybrid_companion.py
           grep -Fq '/api/tags' scripts/check_live_runtime_services.py
           grep -Fq 'core.playback.get_state' scripts/check_live_runtime_services.py
           grep -Fq 'new_restarts_during_health_check' scripts/check_live_runtime_services.py
