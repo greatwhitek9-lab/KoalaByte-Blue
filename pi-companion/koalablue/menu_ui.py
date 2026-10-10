@@ -219,14 +219,21 @@ class MenuSelectionScreen:
         self.show_ai_face("action_running", f"Running {item.label}", log_event_type="action_running")
         try:
             if handler:
-                handler(item)
+                result = handler(item)
             else:
                 from .menu_action_runner import run_automated_menu_action
-                run_automated_menu_action(item.command, item.label, item.group)
+                result = run_automated_menu_action(item.command, item.label, item.group)
         except Exception:
             self.show_ai_face("error", f"{item.label} hit a snag", log_event_type="action_error")
             raise
-        self.show_ai_face("action_complete", f"{item.label} complete", log_event_type="action_complete")
+        if isinstance(result, dict) and str(result.get("status", "")).upper() in {
+            "AUTOMATED_ACTION_SKIPPED", "AUTOMATED_ACTION_ERROR", "AI_MODE_ERROR",
+            "AI_MODE_NEEDS_API_KEY", "AI_MODE_RESTART_FAILED_ROLLED_BACK",
+        }:
+            detail = str(result.get("error") or result.get("message") or result.get("status"))
+            self.show_ai_face("error", f"{item.label}: {detail[:90]}", log_event_type="action_error")
+        else:
+            self.show_ai_face("action_complete", f"{item.label} complete", log_event_type="action_complete")
         return event
 
     def select(self, select_event_type: str = "select") -> MenuEvent:
