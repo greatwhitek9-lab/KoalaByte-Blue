@@ -54,6 +54,11 @@ jobs:
       - name: Compile Pi and deployment runtime
         run: python -m compileall -q pi-companion scripts firmware/t114-combined-safe/scripts
 
+      - name: Validate secure AI mode and API-key configuration
+        run: |
+          python -m py_compile scripts/koalabyte_ai_mode_admin.py scripts/koalabyte_ai_key_admin.py scripts/koalabyte_ai_key.py
+          PYTHONPATH=pi-companion python scripts/check_ai_menu_toggle.py
+
       - name: Validate Pi 5 Ultra RAM-aware model and processing profiles
         run: |
           bash -n scripts/setup_killerkoala_ollama.sh
