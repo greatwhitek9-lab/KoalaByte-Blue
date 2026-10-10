@@ -107,7 +107,7 @@ When online mode is active, camera frames for explicit visual requests are sent 
    ```bash
    KILLERKOALA_VISION_MODEL=llava:7b
    ```
-   Keep this file private; do not put local credentials or personal data into Git. Leave the model value blank to disable conversational vision. Only local loopback Ollama inference is supported; there is no remote override.
+   Keep this file private; do not put credentials or personal data into Git. Leave the model value blank to disable camera vision. Local mode uses loopback Ollama; online mode is allowed only after the explicit opt-in and API-key setup above.
 
 6. Restart the voice bridge so it reads the setting:
    ```bash
