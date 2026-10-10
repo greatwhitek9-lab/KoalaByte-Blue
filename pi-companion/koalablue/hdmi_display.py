@@ -709,7 +709,17 @@ def run_cli(argv: Optional[list[str]] = None) -> int:
     )
     parser.add_argument("--state-dir", default=None)
     parser.add_argument("--status-path", default=str(DEFAULT_STATUS_PATH))
-    parser.add_argument("--fps", type=int, default=30)
+    try:
+        from .pi_runtime_profile import detect_profile
+        profile_fps = int(detect_profile()["display"]["hdmi_fps"])
+    except Exception:
+        profile_fps = 30
+    parser.add_argument(
+        "--fps",
+        type=int,
+        default=int(os.getenv("KOALABYTE_HDMI_FPS", str(profile_fps))),
+        help="Frame-rate cap; defaults to the detected Pi/RAM profile (15-60 FPS)",
+    )
     parser.add_argument("--windowed", action="store_true")
     parser.add_argument(
         "--check",
