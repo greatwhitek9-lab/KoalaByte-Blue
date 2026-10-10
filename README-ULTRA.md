@@ -23,9 +23,194 @@
 | Validation and CI | Hardware-free fixtures cover Pi 5 2/4/8/16 GB and Pi 3B+ resource tiers; the profile is included in dependency and installer-contract checks. | Checks are committed; execution results must be confirmed in CI/on hardware |
 | Documentation | This branch-specific README records the Ultra profile and its validation status; detailed technical notes live in `docs/PI5_ULTRA.md`. | Added |
 
-## Optional AI camera
+## Optional add-ons: AI camera and InnoMaker USB-to-CAN
 
-See [Ultra Vision](docs/ULTRA_VISION.md) for USB/UVC setup, local model requirements, KillerKoala's request-triggered conversational vision (spoken requests such as “what do you see?”), opt-in GNSS, Kruisin event references, camera-like object review, privacy constraints, and hardware-free validation. KillerKoala captures one still frame per explicit visual request and answers from a configured local Ollama vision model; it does not pretend to see when the camera/model is unavailable. The feature is optional and does not install camera dependencies unless the operator requests them.
+These add-ons are optional. Install and validate them independently after the base KoalaByte Blue Ultra system is stable. The camera path does not require MCU firmware changes. The InnoMaker adapter remains on its stock firmware and is used through Linux SocketCAN.
+
+### A. Optional AI camera — KillerKoala conversational vision
+
+**What it does:** With a compatible USB UVC camera and a configured local multimodal Ollama model, KillerKoala can answer explicit visual requests such as “what do you see?”, “look at this”, or “describe the scene.” Each request captures one still frame; it is not a continuous stream. The camera frame is held in memory and is not saved by the conversational path.
+
+**Hardware and prerequisites**
+
+- Raspberry Pi 5 running the `koalabyte-blue-ultra` branch and the normal KoalaByte virtual environment.
+- USB UVC camera that appears as a Linux video device.
+- Local Ollama installation and enough free RAM/storage for the vision model. A 7B vision model may be slow or memory-intensive on an 8 GB Pi 5, especially if the regular KillerKoala model is loaded at the same time.
+- Camera permission and a suitable view; test with a non-sensitive scene first.
+
+**Install and enable**
+
+1. Open a terminal on the Pi and enter the Ultra checkout:
+   ```bash
+   cd ~/KoalaByte-Blue
+   git checkout koalabyte-blue-ultra
+   git pull --ff-only origin koalabyte-blue-ultra
+   ```
+
+2. Install the optional camera/inference dependencies into KoalaByte's virtual environment:
+   ```bash
+   ./pi-companion/.venv/bin/pip install -r requirements-vision.txt
+   ```
+
+3. Confirm Linux can see the camera. If available, install the small diagnostic utility and list video devices:
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y v4l-utils
+   v4l2-ctl --list-devices
+   ls -l /dev/video*
+   ```
+   Use camera index `0` unless the camera appears at another index. If the device is absent, try a data-capable USB cable/port and check `dmesg --follow` while reconnecting it. USB UVC is the documented path; a Pi Camera Module needs a separately validated Picamera2 backend.
+
+4. Install a compatible vision model into local Ollama. Example:
+   ```bash
+   ollama pull llava:7b
+   ollama list
+   ```
+   Model choice is operator-controlled. Check model license, storage requirements, RAM use, response latency, and thermal behavior before keeping it enabled. Do not assume the example model will perform well under concurrent load on every Pi 5.
+
+5. Enable vision in the private service environment file:
+   ```bash
+   sudoedit /etc/koalabyte-blue/killerkoala.env
+   ```
+   Add or set this line (without `#`):
+   ```bash
+   KILLERKOALA_VISION_MODEL=llava:7b
+   ```
+   Keep this file private; do not put local credentials or personal data into Git. Leave the model value blank to disable conversational vision. The local Ollama endpoint is used by default; sending frames to a non-local endpoint is blocked unless the operator deliberately opts in with `KILLERKOALA_VISION_ALLOW_REMOTE=1`.
+
+6. Restart the voice bridge so it reads the setting:
+   ```bash
+   sudo systemctl restart koalabyte-dualeye-voice-bridge.service
+   systemctl --no-pager --full status koalabyte-dualeye-voice-bridge.service
+   ```
+
+7. Run the source-contract check, then ask KillerKoala an explicit visual question through the normal voice path:
+   ```bash
+   PYTHONPATH=pi-companion python3 scripts/check_ultra_vision.py
+   ```
+   Example voice requests: “KillerKoala, what do you see?”, “KillerKoala, look at this”, or “describe the scene.” The source check does not prove physical camera capture or model inference; confirm those on the actual Pi.
+
+**Direct capture / local code entry points**
+
+To check the camera/detector backend without starting conversational voice:
+```bash
+PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python scripts/run_ultra_vision.py status
+```
+
+For a one-frame object-detection run, first provide a model file compatible with the installed Ultralytics runtime. Model weights are not downloaded automatically by this command:
+```bash
+export KOALABYTE_VISION_MODEL=/opt/koalabyte/models/your-object-model.pt
+PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python scripts/run_ultra_vision.py capture \
+  --camera-index 0 --model "$KOALABYTE_VISION_MODEL"
+```
+
+Relevant implementation files:
+- `pi-companion/koalablue/ultra_vision.py` — camera capture, local object detection, conversational vision backend and privacy guards.
+- `pi-companion/koalablue/killerkoala_hybrid_companion.py` — routes explicit visual questions to camera vision.
+- `pi-companion/koalablue/killerkoala_voice_control.py` — voice intent routing.
+- `scripts/run_ultra_vision.py` — command-line entry point.
+- [Full Ultra Vision notes](docs/ULTRA_VISION.md).
+
+**Privacy and troubleshooting**
+
+- Capture happens only after an explicit visual request. No background monitoring, covert capture, or continuous recording is enabled.
+- Conversational frames are not saved. The separate CLI saves images/logs only when its explicit save/record flags are supplied.
+- The system must not identify people, read license plates, track people/vehicles, or infer a Wi-Fi/BLE emitter's location from an image.
+- If KillerKoala says vision is unavailable, check `v4l2-ctl --list-devices`, `ollama list`, the model setting, and `journalctl -u koalabyte-dualeye-voice-bridge.service -n 100 --no-pager`. Confirm the Ollama service is active with `systemctl status ollama.service`.
+- If RAM use, latency, or temperature is excessive, disable vision by blanking `KILLERKOALA_VISION_MODEL` and restarting the voice bridge.
+
+### B. Optional InnoMaker USB-to-CAN adapter — Koala Kan Kommander
+
+**What it does:** The InnoMaker USB-to-CAN adapter exposes a Linux SocketCAN interface (commonly `can0`) for authorized CAN bench observation, synthetic test payloads, and reporting. It is optional and separate from the ESP32-S3 and Heltec T114 serial links. The installer does not flash the adapter or transmit CAN frames during setup.
+
+**Safety and wiring first**
+
+- Use only an isolated CAN simulator or an owned, authorized bench harness for the documented Koala Kan Kommander workflow. Do not connect this setup to a live vehicle, safety-critical system, battery-management network, or industrial controller.
+- Connect the adapter to a Pi USB data port. Connect CAN_H, CAN_L, and GND only to the matching terminals on the isolated bench equipment, following the exact InnoMaker kit's manual. Do not wire CAN_H/CAN_L to Raspberry Pi GPIO. Check bus termination and the bench's required bitrate before bringing the interface up.
+- Adapter models/firmware revisions can differ. The setup script expects the Linux `gs_usb`/SocketCAN driver path; verify the exact model against the [InnoMaker USB2CAN documentation](https://github.com/INNO-MAKER/usb2can) and [product documentation](https://www.inno-maker.com/product/usb-can/).
+
+**Install and detect**
+
+1. Connect the InnoMaker adapter and isolated bench wiring, then enter the Ultra checkout:
+   ```bash
+   cd ~/KoalaByte-Blue
+   git checkout koalabyte-blue-ultra
+   git pull --ff-only origin koalabyte-blue-ultra
+   ```
+
+2. Install the Linux SocketCAN tools:
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y can-utils iproute2 usbutils
+   ```
+
+3. Ask the KoalaByte helper to load the standard Linux CAN modules, wait for the adapter, and configure `can0` at 500 kbit/s (change the bitrate only to match the bench equipment):
+   ```bash
+   CAN_INTERFACE=can0 CAN_BITRATE=500000 \
+     bash scripts/setup_can0.sh --interface can0 --bitrate 500000
+   ```
+   The helper writes diagnostic artifacts to `logs/koala_kan_kommander/`. It does not flash adapter firmware. If the interface is not found, inspect `lsusb`, `dmesg | tail -n 100`, and `ip -details link show`; do not install a random kernel driver or firmware image without confirming the exact adapter revision.
+
+4. Verify the Linux interface:
+   ```bash
+   ip -details -statistics link show can0
+   PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python \
+     scripts/run_koala_kan_kommander.py inventory
+   PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python \
+     scripts/run_koala_kan_kommander.py status --interface can0
+   ```
+
+5. If you want the one-shot installer to include the optional CAN service, plug in the adapter before deployment and use auto-detection (the default). To request it explicitly:
+   ```bash
+   INSTALL_INNOMAKER_CAN=1 KOALABYTE_SERVICE_USER="$(whoami)" \
+     bash one-shot-install.sh
+   ```
+   This enables CAN interface setup/service integration; it does not authorize CAN transmission. For a Pi-only non-writing contract check with the adapter omitted:
+   ```bash
+   INSTALL_INNOMAKER_CAN=0 KOALABYTE_SERVICE_USER="$(whoami)" \
+     bash one-shot-install.sh --check-only
+   ```
+
+**Use the menu and CLI**
+
+The menu path is **CAN Bench Tools → Koala Kan Kommander**. Start with inventory/status and a bounded listen on an isolated, correctly terminated simulator:
+```bash
+PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python \
+  scripts/run_koala_kan_kommander.py manifest
+PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python \
+  scripts/run_koala_kan_kommander.py listen --interface can0 --duration 10
+PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python \
+  scripts/run_koala_kan_kommander.py report --interface can0
+```
+
+Generate synthetic data without transmitting it:
+```bash
+PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python \
+  scripts/run_koala_kan_kommander.py generate-payloads \
+  --interface can0 --payload-profile all --base-id 0x600 \
+  --sequence-count 8 --tag KOALAKAN
+```
+
+The transmit interface is strictly limited to synthetic lab-range frames and requires both `--bench-simulator` and `--confirm-transmit`; the permitted standard 11-bit ID range is `0x600–0x67F`, and batches are capped. Use that gated path only with an isolated simulator—not a vehicle or operational control network. For example, on the isolated simulator only:
+```bash
+PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python \
+  scripts/run_koala_kan_kommander.py transmit \
+  --interface can0 --bench-simulator --confirm-transmit \
+  --payload-profile heartbeat --base-id 0x600 --sequence-count 3
+```
+
+Relevant implementation files:
+- `scripts/setup_can0.sh` — Linux module/interface setup and status artifacts.
+- `scripts/install_can0_service.sh` / `scripts/run_can0_service.sh` — optional persistent service.
+- `scripts/run_koala_kan_kommander.py` and `pi-companion/koalablue/koala_kan_kommander.py` — menu backend, inventory, bounded listening, synthetic payloads, reports, and gated bench transmit.
+- [Koala Kan Kommander technical notes](docs/KOALA_KAN_KOMMANDER_REVA22.md).
+
+**Troubleshooting**
+
+- No `can0`: check `lsusb`, `dmesg`, `lsmod | grep -E 'gs_usb|can_dev|can_raw'`, then rerun `scripts/setup_can0.sh` after confirming the model is supported.
+- Interface exists but is `DOWN`: confirm the bench bitrate and termination, then rerun the setup helper with the correct bitrate.
+- No frames during listen: confirm the simulator is powered, connected to CAN_H/CAN_L/GND correctly, set to the same bitrate, and terminated appropriately. A silent bus can be normal if no node is transmitting.
+- Keep CAN logs and captures local; do not publish sensitive payloads or identifiers.
 
 ## Recommended clean install
 
