@@ -299,6 +299,7 @@ def observe_camera_with_companion(
         with httpx.Client(timeout=float(os.getenv("KILLERKOALA_VISION_TIMEOUT_SECONDS", "90"))) as client:
             response = client.post(
                 f"{ollama_host}/api/generate",
+                headers=headers,
                 json={
                     "model": vision_model,
                     "prompt": prompt,
@@ -310,7 +311,7 @@ def observe_camera_with_companion(
             response.raise_for_status()
             data = response.json()
     except Exception as exc:
-        raise RuntimeError(f"Local vision model request failed ({vision_model}): {exc}") from exc
+        raise RuntimeError(f"Ollama vision request failed ({vision_model}, mode={ai_mode}): {exc}") from exc
 
     answer = " ".join(str(data.get("response", "")).split()).strip()
     if not answer:
