@@ -237,8 +237,12 @@ SUBMENU_ITEMS: Dict[str, List[dict[str, object]]] = {
         _item("System / Companion", "Back to Main Canopy", "submenu:main", "Return to the main menu"),
     ],
     "ai": [
+        _item("System / Companion", "Configure Online AI Key", "keyboard:ollama_api_key", "Open masked HDMI keyboard to enter and validate the Ollama Cloud API key"),
+        _item("System / Companion", "Test API Key", "ai_key_test", "Send a minimal authenticated request to verify the saved key"),
+        _item("System / Companion", "API Key Status", "ai_key_status", "Show configured/missing status without revealing the key"),
+        _item("System / Companion", "Remove API Key", "ai_key_remove", "Delete the saved key and return to local AI if online mode is active"),
         _item("System / Companion", "AI Mode Status", "ai_mode_status", "Show whether KillerKoala uses local Ollama or online Ollama Cloud"),
-        _item("System / Companion", "Online AI ON", "ai_online_on", "Switch KillerKoala to Ollama Cloud; requires an API key"),
+        _item("System / Companion", "Online AI ON", "ai_online_on", "Switch KillerKoala to Ollama Cloud; requires a validated API key"),
         _item("System / Companion", "Online AI OFF", "ai_online_off", "Switch KillerKoala back to local Ollama"),
         _item("System / Companion", "Back to Settings", "submenu:settings", "Return to Settings"),
     ],
