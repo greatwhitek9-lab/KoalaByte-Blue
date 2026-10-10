@@ -87,6 +87,24 @@ systemctl status koalabyte-hdmi.service --no-pager -l
 
 The renderer still respects `KOALABYTE_HDMI_FPS` and its `--fps` command-line option. The profile's worker/build values are bounded recommendations; they are not a promise that every subsystem is parallelized. Serial ports remain owned by their dedicated services, and the HDMI renderer must not open board serial ports or initialize a competing audio mixer.
 
+## Optional camera add-on: Ultra Vision
+
+Ultra Vision is a separate, opt-in Pi 5 feature for one-shot camera capture and generic local object detection. It is not installed with the base runtime and does not change the ESP32-S3 or T114 firmware. See [docs/ULTRA_VISION.md](docs/ULTRA_VISION.md).
+
+- Optional dependencies are in `requirements-vision.txt`; install them only after reviewing package size and Pi OS compatibility.
+- Use an existing local model file through `KOALABYTE_VISION_MODEL` or `--model`; model weights are not downloaded automatically.
+- A frame is captured only when the operator runs the command. Saving images and detection logs is explicit.
+- The feature has no face recognition, identity tracking, GPS lookup, RF scan, or automatic association with Kruisin' Wi-Fi/BLE records.
+- For camera-awareness records, use Boomerang's manual/public-observation workflow and verify any observation yourself.
+
+Example:
+
+```bash
+PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python scripts/run_ultra_vision.py status
+PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python scripts/run_ultra_vision.py capture \
+  --camera-index 0 --model /opt/koalabyte/models/your-object-model.pt --record
+```
+
 ## Verification checklist
 
 - [ ] Host gate identifies Raspberry Pi 5 and a supported 64-bit OS.
