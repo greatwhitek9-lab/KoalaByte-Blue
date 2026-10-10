@@ -210,9 +210,20 @@ retry_command "${OLLAMA_PULL_ATTEMPTS}" "TinyLlama pull" \
     exit 1
   }
 
-write_status running create_killerkoala_model "creating ${KILLERKOALA_LLM_MODEL}"
+# The checked-in Modelfile keeps a Pi 3-safe 768-token baseline. Materialize a
+# temporary profile-specific copy so the model's num_ctx does not override the
+# Pi 5 Ollama server context. The source Modelfile is never edited in-place.
+RUNTIME_MODEFILE_PATH="$(mktemp "${TMPDIR:-/tmp}/koalabyte-ultra-modelfile.XXXXXX")"
+trap 'rm -f "${RUNTIME_MODEFILE_PATH:-}"' EXIT
+sed "s/^PARAMETER num_ctx [0-9][0-9]*/PARAMETER num_ctx ${OLLAMA_CONTEXT_LENGTH}/" \
+  "${MODEFILE_PATH}" >"${RUNTIME_MODEFILE_PATH}"
+grep -Fxq "PARAMETER num_ctx ${OLLAMA_CONTEXT_LENGTH}" "${RUNTIME_MODEFILE_PATH}" || {
+  fail_setup create_killerkoala_model "could not apply the RAM-aware context length to the temporary Modelfile"
+  exit 1
+}
+write_status running create_killerkoala_model "creating ${KILLERKOALA_LLM_MODEL} with context ${OLLAMA_CONTEXT_LENGTH}"
 retry_command "${OLLAMA_CREATE_ATTEMPTS}" "KillerKoala model creation" \
-  ollama create "${KILLERKOALA_LLM_MODEL}" -f "${MODEFILE_PATH}" || {
+  ollama create "${KILLERKOALA_LLM_MODEL}" -f "${RUNTIME_MODEFILE_PATH}" || {
     fail_setup create_killerkoala_model "failed to create ${KILLERKOALA_LLM_MODEL}"
     exit 1
   }
