@@ -246,6 +246,8 @@ def observe_camera_with_companion(
             "Camera images are sent only to a local Ollama endpoint by default. "
             "Remote/hosted inference is disabled."
         )
+    if vision_model.lower().endswith(":cloud"):
+        raise RuntimeError("Use a downloaded local Ollama vision model.")
     if not vision_model:
         raise RuntimeError(
             "KillerKoala vision is not configured. Set KILLERKOALA_VISION_MODEL "
