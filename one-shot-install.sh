@@ -287,7 +287,8 @@ validate_sources() {
     scripts/check_killerkoala_ai.py scripts/check_ble_role_failover.py \
     scripts/check_killerkoala_error_sequence.py scripts/check_hdmi_display.py \
     scripts/check_music_player.py \
-    scripts/check_full_runtime_dependencies.py \
+    scripts/check_full_runtime_dependencies.py scripts/check_pi5_ultra_profile.py \
+    pi-companion/koalablue/pi_runtime_profile.py \
     pi-companion/koalablue/gpio_buttons.py pi-companion/koalablue/ble_role_coordinator.py \
     pi-companion/koalablue/ble_node_manager.py pi-companion/koalablue/dualeye_tts.py \
     pi-companion/koalablue/serial_command_bus.py \
@@ -324,6 +325,7 @@ run_runtime_checks() {
   PYTHONPATH=pi-companion "${py}" scripts/check_ble_role_failover.py
   PYTHONPATH=pi-companion "${py}" scripts/check_killerkoala_error_sequence.py
   PYTHONPATH=pi-companion "${py}" scripts/check_hdmi_display.py
+  PYTHONPATH=pi-companion "${py}" scripts/check_pi5_ultra_profile.py
   PYTHONPATH=pi-companion "${py}" scripts/check_music_player.py
   INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN}" \
     PYTHONPATH=pi-companion "${py}" scripts/check_full_runtime_dependencies.py
