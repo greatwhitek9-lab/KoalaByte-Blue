@@ -13,9 +13,17 @@ Use `koalabyte-blue-ultra` (Git refs cannot contain spaces).
 - Detects the actual board model, RAM tier, CPU count, 64-bit userspace, OS release,
   and power/throttle status rather than warning that the installer is only tuned
   for Pi 3B+.
-- Selects conservative AI limits by RAM. Pi 5 with 8/16 GB receives a 2048-token
-  context and at most two parallel requests; 4 GB receives a 1536-token context
-  and one request; 2 GB stays at 1024 tokens and one request.
+- Selects a stronger local AI base model by detected RAM: Qwen2.5 1.5B on 4 GB,
+  Qwen2.5 3B on 8 GB, and Qwen2.5 7B on 16 GB; 2 GB and older Pi hardware retain
+  TinyLlama 1.1B. Explicit `KILLERKOALA_BASE_MODEL` overrides remain supported.
+- Builds the same `killerkoala-tinyllama:latest` runtime alias from the selected
+  base model, so existing voice/command callers remain compatible. The current
+  persona is prompt-defined; the repository's commented adapter is not a trained
+  LoRA and is not falsely treated as one.
+- Keeps one model loaded, uses RAM-tiered context/prediction limits, and leaves
+  the selected model warm for 5 minutes on 8 GB Pi 5 or 10 minutes on 16 GB Pi 5
+  to reduce cold-start latency. A 3B model is the balanced Pi 5 default; 7B is
+  more capable but can respond more slowly on CPU-only hardware.
 - Raises HDMI/Koalagotchi rendering budget on higher-RAM Pi 5 models while keeping
   the two animation budgets synchronized. The renderer continues to prefer an
   existing Wayland/X11 desktop session and otherwise uses SDL KMS/DRM.
@@ -37,14 +45,25 @@ bash one-shot-install.sh --check-only
 On the Pi, the full profile is recorded at
 `logs/pi_hardware/pi5_ultra_profile.json` during the hardware setup stage.
 
-## AI tuning
+## KillerKoala AI, latency, and voice
 
-The installer uses the profile only when `OLLAMA_CONTEXT_LENGTH`,
-`OLLAMA_NUM_PARALLEL`, `OLLAMA_MAX_LOADED_MODELS`, or `OLLAMA_KEEP_ALIVE`
-are not explicitly set. The model remains TinyLlama 1.1B. This is resource-aware
-configuration, not a claim that the model has been retrained or that a larger
-model will fit safely. Existing voice routing, local STT, web-research policy,
-Australian TTS backend, and spoken identity are retained.
+The Ollama setup generates a temporary Modelfile with the selected base model,
+context size, and prediction budget. It does not overwrite the checked-in Pi 3
+baseline. User-supplied `KILLERKOALA_BASE_MODEL`, context, parallelism, and
+keep-alive settings take precedence.
+
+KillerKoala keeps its spoken identity and command-routing contract. Its persona
+is tuned toward a cheeky, dry Australian punk/hacker voice with restrained
+Australian slang, short first responses, and more detailed answers on request.
+The preferred speech backend remains Microsoft Edge Neural `en-AU-WilliamNeural`;
+audio uses a small process-local cache for repeated phrases and falls back to
+local Australian eSpeak when the neural service is unavailable. Neural TTS still
+requires network access, so a truly offline voice will sound less natural.
+
+No CPU-only Raspberry Pi can guarantee literally instant answers. Keeping a
+3B model loaded and limiting generated tokens should improve perceived latency
+without loading multiple models or consuming the entire system RAM. The 7B tier
+prioritizes capability over speed.
 
 ## Hardware notes
 
