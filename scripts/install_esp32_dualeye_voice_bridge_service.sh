@@ -111,7 +111,7 @@ fi
 
 "${sudo_cmd[@]}" chown -R "${SERVICE_USER}:${SERVICE_GROUP}" \
   "${REPO_ROOT}/logs/killerkoala" "${SERIAL_BUS_DIR}" || true
-"${sudo_cmd[@]}" install -d -m 0750 "${KILLERKOALA_ENV_DIR}"
+"${sudo_cmd[@]}" install -d -o root -g root -m 0750 "${KILLERKOALA_ENV_DIR}"
 if [[ ! -f "${KILLERKOALA_ENV_FILE}" ]]; then
   temp_env="$(mktemp)"
   cat >"${temp_env}" <<ENVEOF
