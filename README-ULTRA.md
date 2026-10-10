@@ -13,11 +13,13 @@
 |---|---|---|
 | Host support | Pi 5 is explicitly recognized in the 64-bit host preflight; Pi 3B+, Pi 4, Pi 400, Pi 500 and Pi 5 remain recognized. | Source change; run host gate on target |
 | Hardware-aware budgets | Canonical `pi_runtime_profile.py` detects model, RAM, CPU count and emits AI, HDMI, worker/build and power recommendations. | Hardware-free profile tests available |
-| Local AI | Pi 5 with at least 7,000 MiB detected RAM recommends a 2,048-token context, up to two parallel requests, one loaded model, 300-second keep-alive and 160-token output budget. Explicit environment overrides win. | Recommendation; smoke-test on hardware |
+| Local AI | Pi 5 with at least 7,000 MiB detected RAM recommends a 2,048-token context, up to two parallel requests, one loaded model, 300-second keep-alive and 160-token output budget. A temporary profile-specific Modelfile applies context/output limits without editing the checked-in Pi 3-safe source. Explicit environment overrides win. | Recommendation; smoke-test on hardware |
+| Local response sizing | Response length is tuned by detected RAM tier to avoid long generations on lower-memory Pis while allowing more headroom on Pi 5 8 GB. | Source change; measure latency on target |
 | HDMI / Koalagotchi | Renderer selects synchronized frame budgets by Pi generation/RAM. Pi 5 8 GB targets up to 60 FPS; 4 GB Pi 5 targets 45 FPS; 2 GB Pi 5 targets 30 FPS. Wayland/X11 is preferred when available, with SDL KMS/DRM fallback. | Source change; display backend must be tested on target |
 | Processing | Profile recommends up to four runtime workers and up to four firmware build jobs for Pi 5 8 GB; lower-memory systems get more conservative build budgets. Swap target and thermal policy are reported, not silently applied by profile detection. | Profile output; benchmark on target |
 | Power and thermal safety | No overclock is introduced. Existing deployment power gate remains in force; a current or latched under-voltage condition must be cleared before hardware writes. Official Pi 5 27 W / 5 V 5 A supply is recommended for full peripheral load. | Must verify on target |
 | MCU compatibility | ESP32-S3 and Heltec T114 sources, identities, serial ownership, and protocols are intentionally preserved. | Must run existing source and firmware gates |
+| Validation and CI | Hardware-free fixtures cover Pi 5 2/4/8/16 GB and Pi 3B+ resource tiers; the profile is included in dependency and installer-contract checks. | Checks are committed; execution results must be confirmed in CI/on hardware |
 | Documentation | This branch-specific README records the Ultra profile and its validation status; detailed technical notes live in `docs/PI5_ULTRA.md`. | Added |
 
 ## Recommended clean install
