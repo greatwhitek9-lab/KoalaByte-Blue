@@ -574,7 +574,7 @@ def run_automated_menu_action(command: str, label: str = "", group: str = "") ->
             return _ok(command, label, asdict(run_once(scan_seconds=12.0)))
         if command in {"ear_tag", "ear_tag_tx_lab"}:
             return _ok(command, label, _ear_tag_plan())
-        if command in {"killerkoala_voice", "buttons", "level/status", "wake killerkoala", "settings", "koala_mode_switcher", "hdmi_display_status", "hdmi_show_koalabyte", "hdmi_show_desktop", "hdmi_toggle", "shutdown_confirm", "power_toggle", "power_on_off", "reset_confirm", "reset", "reboot", "reset_reboot"}:
+        if command in {"ai_mode_status", "ai_online_on", "ai_online_off", "killerkoala_voice", "buttons", "level/status", "wake killerkoala", "settings", "koala_mode_switcher", "hdmi_display_status", "hdmi_show_koalabyte", "hdmi_show_desktop", "hdmi_toggle", "shutdown_confirm", "power_toggle", "power_on_off", "reset_confirm", "reset", "reboot", "reset_reboot"}:
             return _ok(command, label, _system_status(command))
         if command == "quit":
             return _ok(command, label, {"status": "QUIT_REQUEST_RECORDED"})
