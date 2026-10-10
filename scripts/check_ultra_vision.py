@@ -35,6 +35,7 @@ def main() -> int:
     assert 'ai_mode == "online"' in source
     assert "OLLAMA_API_KEY" in source
     assert "https://ollama.com" in source
+    assert "headers=headers" in source
     assert 'ai_mode == "local"' in source
     companion_source = (PI_ROOT / "koalablue" / "killerkoala_hybrid_companion.py").read_text(encoding="utf-8")
     voice_source = (PI_ROOT / "koalablue" / "killerkoala_voice_control.py").read_text(encoding="utf-8")
