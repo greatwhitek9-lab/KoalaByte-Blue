@@ -476,6 +476,25 @@ def _system_status(command: str) -> dict[str, Any]:
             detail = result.get("message") or result.get("error") or result.get("status") or completed.stderr.strip()
             raise RuntimeError(str(detail or "AI mode helper failed"))
         return result
+    if command in {"ai_key_status", "ai_key_test", "ai_key_remove"}:
+        helper = "/usr/local/sbin/koalabyte-ai-key"
+        operation = {
+            "ai_key_status": "status",
+            "ai_key_test": "test-key",
+            "ai_key_remove": "remove-key",
+        }[command]
+        completed = subprocess.run(
+            ["sudo", "-n", helper, operation],
+            check=False, capture_output=True, text=True, timeout=90,
+        )
+        try:
+            result = json.loads(completed.stdout.strip().splitlines()[-1])
+        except (json.JSONDecodeError, IndexError):
+            result = {"status": "AI_KEY_HELPER_INVALID_RESPONSE"}
+        if completed.returncode != 0:
+            detail = result.get("message") or result.get("status") or "API key operation failed"
+            raise RuntimeError(str(detail))
+        return result
 
     if command == "killerkoala_voice":
         from .killerkoala_voice_control import module_manifest
