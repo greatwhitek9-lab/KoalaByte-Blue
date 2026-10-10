@@ -5,8 +5,18 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OLLAMA_INSTALL_MODE="${INSTALL_KILLERKOALA_OLLAMA:-auto}"
 STRICT_KILLERKOALA_OLLAMA="${STRICT_KILLERKOALA_OLLAMA:-0}"
 KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-tinyllama:latest}"
-KILLERKOALA_OLLAMA_HOST="${OLLAMA_HOST:-http://127.0.0.1:11434}"
+KILLERKOALA_OLLAMA_HOST="${KILLERKOALA_OLLAMA_HOST:-http://127.0.0.1:11434}"
 KILLERKOALA_OLLAMA_TIMEOUT="${KILLERKOALA_OLLAMA_TIMEOUT:-180}"
+
+# KillerKoala inference must use this Pi's local Ollama server.
+if [[ ! "${KILLERKOALA_OLLAMA_HOST}" =~ ^http://(localhost|127\.0\.0\.1|\[::1\])(:[0-9]+)?$ ]]; then
+  echo "KillerKoala requires local Ollama on loopback; remote endpoints are blocked." >&2
+  exit 2
+fi
+if [[ "${KILLERKOALA_LLM_MODEL,,}" == *:cloud || "${KILLERKOALA_BASE_MODEL,,}" == *:cloud ]]; then
+  echo "KillerKoala requires a local Ollama model; cloud model tags are blocked." >&2
+  exit 2
+fi
 MODEFILE_PATH="${KILLERKOALA_MODELFILE_PATH:-${REPO_ROOT}/training/killerkoala_lora/Modelfile.killerkoala-tinyllama}"
 STATUS_PATH="${KILLERKOALA_OLLAMA_STATUS_PATH:-${REPO_ROOT}/logs/killerkoala/ollama_setup_status.json}"
 CHECK_ONLY=0
