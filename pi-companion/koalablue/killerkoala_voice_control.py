@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass, field, is_dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .killerkoala_hybrid_companion import companion_response
+from .killerkoala_hybrid_companion import _camera_request_intent, companion_response
 from .killerkoala_vocabulary import rank_for_xp
 from .killerkoala_web_research import clean_question, looks_like_general_question
 
@@ -296,7 +296,9 @@ def parse_voice_command(phrase: str, require_wake_word: bool = True) -> ParsedVo
         if menu_action is not None:
             module_key = f"menu:{menu_action.command}"
 
-    if module_key is None and looks_like_general_question(working):
+    if module_key is None and (_camera_request_intent(working) or looks_like_general_question(working)):
+        # Explicit visual requests are routed through the companion's question path,
+        # where a single frame is captured only for that user request.
         module_key = "killerkoala_question"
 
     return ParsedVoiceCommand(phrase, normalized, wake_detected, module_key, _extract_target(normalized), _owned_device_ack(normalized), _raw_addresses_ack(normalized), menu_action=menu_action)
