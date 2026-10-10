@@ -53,6 +53,28 @@ PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python scripts/run_ultra_vision
 - A survey-row reference is contextual correlation only. It is **not proof** that a Wi-Fi/BLE emitter is physically at the photographed location; GNSS describes the camera/operator position at capture time, not the emitter's location.
 - Geotagged images and survey logs can reveal sensitive locations. Keep logs local, set retention limits, and redact location and radio identifiers before sharing/exporting.
 
+## KillerKoala conversational vision
+
+KillerKoala can use the camera as a visual input during conversation. When the user explicitly asks a visual question—such as “KillerKoala, what do you see?”, “look at this”, “describe the scene”, or “identify this object”—voice control routes it to the companion. The companion captures **one still frame**, sends it to the configured local Ollama multimodal model, and speaks the answer. The frame is held in memory and is not saved by this conversational path.
+
+1. Install camera dependencies in the KoalaByte virtual environment:
+   ```bash
+   ./pi-companion/.venv/bin/pip install -r requirements-vision.txt
+   ```
+2. Install a compatible Ollama vision model intentionally. For example, `llava:7b` can be memory-intensive on an 8 GB Pi 5, especially while the normal companion model is loaded; measure RAM, latency, and thermals before using it in regular voice sessions:
+   ```bash
+   ollama pull llava:7b
+   ```
+3. Set the model in the private service environment file, then restart the voice bridge:
+   ```bash
+   sudoedit /etc/koalabyte-blue/killerkoala.env
+   # Set: KILLERKOALA_VISION_MODEL=llava:7b
+   sudo systemctl restart koalabyte-dualeye-voice-bridge.service
+   ```
+4. Check the configured camera index and test with a direct, explicit visual request. The default is camera index `0`; override `KOALABYTE_VISION_CAMERA_INDEX` if needed.
+
+If the model is blank, the camera is missing, or inference fails, KillerKoala reports that vision is unavailable rather than pretending to see. It does not start a continuous stream or activate the camera for unrelated conversation. A new frame is requested for each explicit visual question.
+
 ## Spotting camera-like objects
 
 Use `--camera-spotting` to flag detections whose model-provided labels look like a camera category:
