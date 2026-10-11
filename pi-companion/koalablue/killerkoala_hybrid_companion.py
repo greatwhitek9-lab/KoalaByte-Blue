@@ -18,7 +18,7 @@ from .pi_runtime_profile import detect_profile
 DEFAULT_TRACE_DIR = Path("logs/killerkoala")
 DEFAULT_CONVERSATION_HISTORY_PATH = DEFAULT_TRACE_DIR / "conversation_history.json"
 DEFAULT_OLLAMA_HOST = "http://127.0.0.1:11434"
-DEFAULT_MODEL = "killerkoala-tinyllama:latest"
+DEFAULT_MODEL = "killerkoala-llama3.2:latest"
 DEFAULT_TIMEOUT_SECONDS = 45.0
 DEFAULT_NUM_PREDICT = 128
 DEFAULT_MAX_RESPONSE_CHARS = 520
@@ -80,7 +80,7 @@ def load_config() -> KillerKoalaLLMConfig:
         model = os.getenv("KILLERKOALA_LLM_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
         host = os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST).strip().rstrip("/") or DEFAULT_OLLAMA_HOST
     return KillerKoalaLLMConfig(
-        mode=os.getenv("KILLERKOALA_LLM_MODE", "tinyllama").strip().lower(),
+        mode=os.getenv("KILLERKOALA_LLM_MODE", "llama3.2").strip().lower(),
         model=model,
         host=host,
         timeout_seconds=float(os.getenv("KILLERKOALA_LLM_TIMEOUT_SECONDS", str(DEFAULT_TIMEOUT_SECONDS))),
@@ -300,7 +300,7 @@ def should_try_llm(event: str, flexible: bool, config: KillerKoalaLLMConfig) -> 
 def _fallback_line(event: str, xp: int, history_path: Optional[str | Path]) -> tuple[str, str]:
     if event == "inquiry_question":
         return (
-            "TinyLlama is offline and I can't verify that one right now, mate. Check the Pi network and local AI service, then ask again.",
+            "My local AI is offline and I can't verify that one right now, mate. Check the Pi network and local AI service, then ask again.",
             event,
         )
     fallback_state = line_for_event(event, xp=xp, history_path=history_path)
@@ -412,14 +412,14 @@ def companion_response(
             if candidate:
                 text = candidate
                 if selected_event == "inquiry_question" and web_sources:
-                    source = "tinyllama_web_grounded"
+                    source = "llama32_web_grounded"
                 elif selected_event == "inquiry_question" and web_searched and not web_available:
-                    source = "tinyllama_offline"
+                    source = "llama32_offline"
                 else:
-                    source = "tinyllama_local_conversation"
+                    source = "llama32_local_conversation"
                 llm_used = True
             else:
-                fallback_reason = "TinyLlama returned an empty response"
+                fallback_reason = "Llama 3.2 returned an empty response"
                 source = "phrase_engine_fallback"
         except Exception as exc:
             fallback_reason = str(exc)
@@ -466,11 +466,11 @@ def companion_response(
 
 
 def run_cli() -> int:
-    parser = argparse.ArgumentParser(description="KillerKoala TinyLlama conversational companion preview")
+    parser = argparse.ArgumentParser(description="KillerKoala Llama 3.2 conversational companion preview")
     parser.add_argument("event", nargs="?", default="status")
     parser.add_argument("--xp", type=int, default=0)
     parser.add_argument("--text", default="", help="Optional user phrase or question")
-    parser.add_argument("--flexible", action="store_true", help="Request open-ended local TinyLlama output")
+    parser.add_argument("--flexible", action="store_true", help="Request open-ended local Llama 3.2 output")
     parser.add_argument("--history-path", default=str(DEFAULT_TRACE_DIR / "killerkoala_phrase_history.json"))
     parser.add_argument("--no-history", action="store_true")
     args = parser.parse_args()
