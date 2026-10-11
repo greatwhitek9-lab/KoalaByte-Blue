@@ -129,10 +129,14 @@ def _camera_backend_name() -> str:
     if requested != "auto":
         return requested
     try:
-        import picamera2  # type: ignore  # noqa: F401
-        return "picamera2"
+        from picamera2 import Picamera2  # type: ignore
+        # Do not prefer CSI just because its package is installed: Raspberry Pi
+        # OS may have Picamera2 installed while the user only has a USB webcam.
+        if Picamera2.global_camera_info():
+            return "picamera2"
     except Exception:
-        return "uvc"
+        pass
+    return "uvc"
 
 
 def _capture_frame(*, camera_index: int = 0, width: int = 1280, height: int = 720):
