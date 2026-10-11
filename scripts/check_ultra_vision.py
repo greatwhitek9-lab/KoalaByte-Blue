@@ -24,7 +24,8 @@ def main() -> int:
         "ULTRA_VISION_OPTIONAL_DEPENDENCIES_MISSING",
     }
     for marker in (
-        "VideoCapture", "model.predict", "save_frame", "privacy_scope",
+        "VideoCapture", "_capture_frame", "Picamera2", "KOALABYTE_VISION_CAMERA_BACKEND",
+        "KILLERKOALA_ONLINE_VISION_ENABLED", "model.predict", "save_frame", "privacy_scope",
         "current_fix", "--geotag", "observation_reference",
         "camera_like_candidate", "LOCATION_MAX_AGE_SECONDS",
     ):
@@ -35,6 +36,8 @@ def main() -> int:
     assert 'ai_mode == "online"' in source
     assert "OLLAMA_API_KEY" in source
     assert "https://ollama.com" in source
+    assert "Online camera upload is disabled" in source
+    assert '"camera_backend": camera_backend' in source
     assert "headers=headers" in source
     assert 'ai_mode == "local"' in source
     companion_source = (PI_ROOT / "koalablue" / "killerkoala_hybrid_companion.py").read_text(encoding="utf-8")
