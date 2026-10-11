@@ -109,7 +109,7 @@ PYTHONPATH=pi-companion python3 scripts/run_koala_kan_kommander.py inventory --i
 
 Keep CAN experiments on an isolated bench simulator. Do not connect experimental transmit traffic to a vehicle or live system. Follow the repository's explicit simulator/confirmation gates.
 
-## 7. Firmware and recovery
+## 8. Firmware and recovery
 
 Do not flash a board solely because a screen is blank. Confirm board identity, port, firmware target and bootloader variant first. Never interrupt power during flashing.
 
@@ -118,7 +118,7 @@ Do not flash a board solely because a screen is blank. Confirm board identity, p
 
 After updating, rerun readiness checks, confirm services and aliases, then test eyes, mouth, buttons, voice and HDMI independently.
 
-## 8. Troubleshooting quick reference
+## 9. Troubleshooting quick reference
 
 | Symptom | First checks |
 |---|---|
