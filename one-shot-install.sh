@@ -493,7 +493,7 @@ fi
 [[ "${SKIP_AI}" == "1" ]] || run_step local_ai "Local KillerKoala Llama 3.2 3B model" \
   env INSTALL_KILLERKOALA_OLLAMA="${INSTALL_KILLERKOALA_OLLAMA:-auto}" \
       STRICT_KILLERKOALA_OLLAMA="${STRICT_KILLERKOALA_OLLAMA:-0}" \
-      KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-tinyllama:latest}" \
+      KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-llama3.2:latest}" \
       bash scripts/setup_killerkoala_ollama.sh
 
 [[ "${SKIP_MUSIC}" == "1" ]] || run_step mopidy "Pi-owned Mopidy music player" \
