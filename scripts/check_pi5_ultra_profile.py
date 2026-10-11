@@ -36,8 +36,7 @@ def validate(profile: dict) -> list[str]:
         errors.append("Pi 5 was not assigned the Pi 5 profile")
     if profile["is_pi5"]:
         expected_model = (
-            "qwen2.5:7b" if profile["memory_mib"] >= 14000
-            else "qwen2.5:3b" if profile["memory_mib"] >= 7000
+            "llama3.2:3b" if profile["memory_mib"] >= 7000
             else "qwen2.5:1.5b" if profile["memory_mib"] >= 3500
             else "tinyllama:1.1b"
         )
