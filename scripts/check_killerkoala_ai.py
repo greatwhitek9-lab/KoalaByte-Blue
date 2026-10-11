@@ -128,9 +128,9 @@ def essential_file_contract_failures() -> list[str]:
     modelfile = (
         ROOT / "training/killerkoala_lora/Modelfile.killerkoala-tinyllama"
     ).read_text(encoding="utf-8", errors="ignore")
-    if "FROM tinyllama:1.1b" not in modelfile:
+    if "FROM llama3.2:3b" not in modelfile:
         failures.append(
-            "KillerKoala Modelfile no longer derives from tinyllama:1.1b"
+            "KillerKoala Modelfile no longer derives from llama3.2:3b"
         )
     return failures
 
@@ -294,7 +294,7 @@ def main() -> int:
     assert "cloud model tags are blocked" in installer_source
     parser = argparse.ArgumentParser(
         description=(
-            "Check KillerKoala TinyLlama, offline STT, expression, and William "
+            "Check KillerKoala Llama 3.2, offline STT, expression, and William "
             "TTS readiness"
         )
     )
@@ -356,8 +356,8 @@ def main() -> int:
                 "offline smoke test unexpectedly requested web access",
             ),
             (
-                smoke.get("default_model") == "killerkoala-tinyllama:latest",
-                "default Pi model is not killerkoala-tinyllama:latest",
+                smoke.get("default_model") == "killerkoala-llama3.2:latest",
+                "default Pi model is not killerkoala-llama3.2:latest",
             ),
             (
                 smoke.get("william_voice_backend") == "en-AU-WilliamNeural",
@@ -427,11 +427,11 @@ def main() -> int:
         "runtime_mode": "headless_pi_os_lite",
         "response_hierarchy": [
             "waveshare_saved_vocabulary_and_basic_responses",
-            "raspberry_pi_tinyllama_for_unmatched_or_open_ended_requests",
+            "raspberry_pi_llama32_for_unmatched_or_open_ended_requests",
             "web_research_context_when_internet_is_available",
-            "local_phrase_fallback_if_tinyllama_is_unavailable",
+            "local_phrase_fallback_if_llama32_is_unavailable",
         ],
-        "primary_pi_model": "killerkoala-tinyllama:latest",
+        "primary_pi_model": "killerkoala-llama3.2:latest",
         "offline_stt_backend": "pocketsphinx",
         "confirmed_wake_followup": True,
         "spoken_identity": "KillerKoala",
