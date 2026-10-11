@@ -102,7 +102,7 @@ rpicam-hello -t 5000
 
 The setup script installs the Raspberry Pi OS `imx500-all` and `python3-picamera2` packages and checks the sensor firmware files. First sensor/model loading may take several minutes. Test on-sensor MobileNet inference using the official IMX500 post-processing configuration installed by the OS; see [IMX500 camera notes](IMX500_AI_CAMERA.md).
 
-**Integration status:** the current conversational Ultra Vision capture path was originally written for USB UVC/OpenCV. Installing IMX500 firmware packages enables sensor support and supported on-sensor inference, but it does not by itself enable CSI/Picamera2 capture in KillerKoala's voice conversation path. That backend still needs implementation and end-to-end validation before the full camera-to-voice feature can be called complete.
+**Integration status:** Ultra Vision now includes a Picamera2 CSI capture backend alongside USB UVC. Set `KOALABYTE_VISION_CAMERA_BACKEND=picamera2` and `KOALABYTE_VISION_CAMERA_INDEX=0` in `/etc/koalabyte-blue/killerkoala.env`, then restart `koalabyte-dualeye-voice-bridge.service`. A spoken visual request captures one still frame; it is not a continuous stream. Local AI keeps image inference on the Pi's configured local Ollama endpoint. Online AI image upload is separately blocked unless `KILLERKOALA_ONLINE_VISION_ENABLED=true` is explicitly set, in addition to online mode and a valid key. Source changes are committed, but the physical IMX500 camera and full voice round-trip still require testing on the target Pi.
 
 The InnoMaker adapter is used through Linux SocketCAN. Start with interface inventory and isolated bench testing:
 
