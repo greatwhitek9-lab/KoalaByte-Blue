@@ -312,6 +312,12 @@ def observe_camera_with_companion(
 
     ai_mode = os.getenv("KILLERKOALA_AI_MODE", "local").strip().lower()
     if ai_mode == "online":
+        online_vision_enabled = os.getenv("KILLERKOALA_ONLINE_VISION_ENABLED", "false").strip().lower()
+        if online_vision_enabled not in {"1", "true", "yes", "on"}:
+            raise RuntimeError(
+                "Online camera upload is disabled. Set KILLERKOALA_ONLINE_VISION_ENABLED=true "
+                "only if you consent to sending each explicitly requested still frame to Ollama Cloud."
+            )
         vision_model = (model or os.getenv("KILLERKOALA_ONLINE_VISION_MODEL", "") or os.getenv("KILLERKOALA_VISION_MODEL", "")).strip()
         ollama_host = "https://ollama.com"
         api_key = os.getenv("OLLAMA_API_KEY", "").strip()
