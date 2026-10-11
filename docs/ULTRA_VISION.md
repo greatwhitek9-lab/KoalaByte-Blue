@@ -98,7 +98,7 @@ The output marks candidate detections with a confidence score and `unverified mo
 
 - One frame per explicit voice request; no continuous recording, background monitoring, covert capture, or remote activation. Online mode additionally requires `KILLERKOALA_ONLINE_VISION_ENABLED=true`; otherwise image upload is refused even if online AI and a key are configured.
 - No face recognition, person re-identification, license-plate OCR, identity matching, or automatic following of people/vehicles.
-- No Wi-Fi/BLE scan, device-address import, automatic radio-to-image correlation, external upload, or network request in the vision module.
+- The local object-detection command performs no external upload or network request and imports no Wi-Fi/BLE device addresses. Conversational vision sends a frame only to the configured local Ollama endpoint, unless hosted vision is explicitly enabled; online mode requires `KILLERKOALA_ONLINE_VISION_ENABLED=true` and sends the still image to Ollama Cloud.
 - CPU inference only. Benchmark latency, memory, and thermal behavior on the actual Pi 5 before considering an accelerator.
 - Save locally only when `--save-frame` or `--record` is explicitly passed. Follow applicable privacy/recording laws and obtain permission for private spaces.
 
