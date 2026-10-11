@@ -11,7 +11,7 @@ STATUS_PATH="${REPO_ROOT}/logs/killerkoala/esp32_dualeye_voice_bridge_service_st
 SERVICE_USER="${KOALABYTE_SERVICE_USER:-${SUDO_USER:-${USER:-pi}}}"
 SERVICE_GROUP="${KOALABYTE_SERVICE_GROUP:-}"
 SERIAL_BUS_DIR="${KOALABYTE_SERIAL_BUS_DIR:-${REPO_ROOT}/logs/runtime/serial_bus}"
-KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-tinyllama:latest}"
+KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-llama3.2:latest}"
 KILLERKOALA_AI_MODE="${KILLERKOALA_AI_MODE:-local}"
 KILLERKOALA_OLLAMA_HOST="${KILLERKOALA_OLLAMA_HOST:-http://127.0.0.1:11434}"
 KILLERKOALA_TTS_VOICE="${KILLERKOALA_TTS_VOICE:-en-AU-WilliamNeural}"
@@ -56,7 +56,7 @@ payload = {
     "service_user": user,
     "service_group": group,
     "waveshare_local_vocabulary_first": True,
-    "tinyllama_fallback_model": model,
+    "local_llm_model": model,
     "tts_voice_backend": voice,
     "llm_num_ctx": int(num_ctx),
     "web_search_mode": "auto_when_internet_available",
@@ -209,7 +209,7 @@ Environment=PYTHONPATH=${REPO_ROOT}/pi-companion
 Environment=PATH=${REPO_ROOT}/pi-companion/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=KOALABYTE_SERIAL_BUS_DIR=${SERIAL_BUS_DIR}
 Environment=KOALABYTE_ESP32_MIC_PORT=${ESP32_MIC_PORT}
-Environment=KILLERKOALA_LLM_MODE=tinyllama
+Environment=KILLERKOALA_LLM_MODE=llama3.2
 Environment=KILLERKOALA_LLM_MODEL=${KILLERKOALA_LLM_MODEL}
 Environment=KILLERKOALA_LLM_NUM_CTX=${KILLERKOALA_LLM_NUM_CTX}
 Environment=KILLERKOALA_LLM_NUM_PREDICT=${KILLERKOALA_LLM_NUM_PREDICT}
