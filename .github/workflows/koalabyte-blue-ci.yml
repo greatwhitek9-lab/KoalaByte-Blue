@@ -170,14 +170,14 @@ jobs:
           print(curious.to_payload())
           PY
 
-      - name: Validate KillerKoala identity and TinyLlama model
+      - name: Validate KillerKoala identity and Llama 3.2 model
         run: |
           PYTHONPATH=pi-companion KILLERKOALA_LLM_MODE=off KILLERKOALA_DIALOGUE_TURNS=0 python - <<'PY'
           from koalablue.dualeye_tts import SPOKEN_IDENTITY, WILLIAM_VOICE, sanitize_spoken_identity
           from koalablue.killerkoala_hybrid_companion import companion_response, load_config
           assert SPOKEN_IDENTITY == "KillerKoala"
           assert WILLIAM_VOICE == "en-AU-WilliamNeural"
-          assert load_config().model == "killerkoala-tinyllama:latest"
+          assert load_config().model == "killerkoala-llama3.2:latest"
           assert "William" not in sanitize_spoken_identity("I am William")
           response = companion_response("status", user_text="readiness", history_path=None)
           assert "William" not in response.text
