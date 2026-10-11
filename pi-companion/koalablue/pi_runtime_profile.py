@@ -50,10 +50,10 @@ def build_profile(model: str, memory_mib: int, cpu_count: int | None = None) -> 
         generation = "pi5"
         if memory >= 14000:
             context, parallel, keep_alive, predict, fps, workers = 3072, 1, "600s", 160, 60, min(4, cpus)
-            base_model = "qwen2.5:7b"
+            base_model = "llama3.2:3b"
         elif memory >= 7000:
             context, parallel, keep_alive, predict, fps, workers = 2048, 1, "300s", 128, 60, min(4, cpus)
-            base_model = "qwen2.5:3b"
+            base_model = "llama3.2:3b"
         elif memory >= 3500:
             context, parallel, keep_alive, predict, fps, workers = 1536, 1, "180s", 96, 45, min(3, cpus)
             base_model = "qwen2.5:1.5b"
@@ -85,14 +85,14 @@ def build_profile(model: str, memory_mib: int, cpu_count: int | None = None) -> 
         "memory_mib": memory,
         "cpu_count": cpus,
         "ai": {
-            "model": "killerkoala-tinyllama:latest",
+            "model": "killerkoala-llama3.2:latest",
             "base_model": base_model,
             "context_length": context,
             "num_parallel": parallel,
             "max_loaded_models": 1,
             "keep_alive": keep_alive,
             "num_predict": predict,
-            "reason": "RAM-aware Qwen2.5/TinyLlama selection; Pi 5 keeps the selected model warm for lower repeat latency; explicit environment overrides take precedence",
+            "reason": "KoalaByte Blue Ultra defaults to Llama 3.2 3B; smaller legacy Pi profiles retain TinyLlama; explicit environment overrides take precedence",
         },
         "display": {
             "hdmi_fps": fps,
