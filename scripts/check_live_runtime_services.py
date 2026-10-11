@@ -202,7 +202,7 @@ def main() -> int:
                     if isinstance(item, dict)
                 }
                 required_model = os.getenv(
-                    "KILLERKOALA_LLM_MODEL", "killerkoala-tinyllama:latest"
+                    "KILLERKOALA_LLM_MODEL", "killerkoala-llama3.2:latest"
                 )
                 last_api["ollama"] = {
                     "ready": required_model in names,
