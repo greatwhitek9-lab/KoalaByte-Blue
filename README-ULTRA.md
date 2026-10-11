@@ -25,7 +25,7 @@
 
 ## Optional add-ons: AI camera and InnoMaker USB-to-CAN
 
-**KillerKoala supports two AI modes.** `local` (default) runs downloaded Ollama models on the Pi and does not require paid LLM tokens. `online` is an explicit opt-in to Ollama Cloud and requires an Ollama API key; cloud usage may be billed according to Ollama's current terms. Online mode sends prompts—and, if online vision is enabled, camera frames—to Ollama's hosted service. The companion does not silently switch modes when local inference fails. Model downloads need internet access and storage; local inference also uses electricity and Pi resources. See [Ollama's local API documentation](https://github.com/ollama/ollama/blob/main/docs/api/introduction.mdx) and [Ollama Cloud documentation](https://github.com/ollama/ollama/blob/main/docs/cloud.mdx).
+**KillerKoala supports two AI modes.** `local` (default) runs downloaded Ollama models on the Pi and does not require paid LLM tokens. KoalaByte Blue Ultra defaults to the local **Llama 3.2 3B** model (`llama3.2:3b` base, `killerkoala-llama3.2:latest` KillerKoala persona alias) instead of TinyLlama. `online` is an explicit opt-in to Ollama Cloud and requires an Ollama API key; cloud usage may be billed according to Ollama's current terms. Online mode sends prompts—and, if online vision is enabled, camera frames—to Ollama's hosted service. The companion does not silently switch modes when local inference fails. Model downloads need internet access and storage; local inference also uses electricity and Pi resources. See [Ollama's local API documentation](https://github.com/ollama/ollama/blob/main/docs/api/introduction.mdx) and [Ollama Cloud documentation](https://github.com/ollama/ollama/blob/main/docs/cloud.mdx).
 
 These add-ons are optional. Install and validate them independently after the base KoalaByte Blue Ultra system is stable. The camera path does not require MCU firmware changes. The InnoMaker adapter remains on its stock firmware and is used through Linux SocketCAN.
 
@@ -71,7 +71,7 @@ When online mode is active, prompts are sent to Ollama Cloud. If online vision i
 **Hardware and prerequisites**
 
 - Raspberry Pi 5 running the `koalabyte-blue-ultra` branch and the normal KoalaByte virtual environment.
-- USB UVC camera that appears as a Linux video device.
+- Sony IMX500 CSI AI Camera or a USB UVC camera; select `KOALABYTE_VISION_CAMERA_BACKEND=picamera2` for the CSI camera.
 - Local Ollama installation and enough free RAM/storage for the vision model. A 7B vision model may be slow or memory-intensive on an 8 GB Pi 5, especially if the regular KillerKoala model is loaded at the same time.
 - Camera permission and a suitable view; test with a non-sensitive scene first.
 
@@ -96,7 +96,7 @@ When online mode is active, prompts are sent to Ollama Cloud. If online vision i
    v4l2-ctl --list-devices
    ls -l /dev/video*
    ```
-   Use camera index `0` unless the camera appears at another index. If the device is absent, try a data-capable USB cable/port and check `dmesg --follow` while reconnecting it. USB UVC is the documented path; a Pi Camera Module needs a separately validated Picamera2 backend.
+   Use camera index `0` unless the camera appears at another index. If the device is absent, try a data-capable USB cable/port and check `dmesg --follow` while reconnecting it. The IMX500/CSI camera uses the Picamera2 backend; USB webcams use UVC.
 
 4. Install a compatible vision model into local Ollama. Example:
    ```bash
