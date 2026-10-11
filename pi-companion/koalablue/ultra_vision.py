@@ -117,6 +117,86 @@ def _is_camera_like(label: str) -> bool:
     )
 
 
+def _camera_backend_name() -> str:
+    """Resolve the capture backend without changing MCU or display services.
+
+    auto prefers the CSI/Picamera2 stack when installed; otherwise it uses
+    OpenCV UVC. An explicitly selected backend never silently switches.
+    """
+    requested = os.getenv("KOALABYTE_VISION_CAMERA_BACKEND", "auto").strip().lower()
+    if requested not in {"auto", "picamera2", "uvc"}:
+        raise ValueError("KOALABYTE_VISION_CAMERA_BACKEND must be auto, picamera2, or uvc")
+    if requested != "auto":
+        return requested
+    try:
+        import picamera2  # type: ignore  # noqa: F401
+        return "picamera2"
+    except Exception:
+        return "uvc"
+
+
+def _capture_frame(*, camera_index: int = 0, width: int = 1280, height: int = 720):
+    """Capture exactly one frame and return (OpenCV BGR frame, backend label).
+
+    Camera capture is scoped to this call. No preview loop or background
+    capture is started, and the camera object is always released/stopped.
+    """
+    backend = _camera_backend_name()
+    if backend == "picamera2":
+        try:
+            import numpy as np
+            from picamera2 import Picamera2  # type: ignore
+        except Exception as exc:
+            raise RuntimeError(
+                "Picamera2 backend selected but Picamera2/NumPy is unavailable. "
+                "Install python3-picamera2 and use the system Python, or select uvc."
+            ) from exc
+        camera = None
+        try:
+            camera = Picamera2(camera_num=int(camera_index))
+            config = camera.create_still_configuration(
+                main={"size": (int(width), int(height)), "format": "BGR888"}
+            )
+            camera.configure(config)
+            camera.start()
+            # Sensor startup can take a moment; capture_array returns one frame.
+            frame = camera.capture_array("main")
+            if frame is None or not isinstance(frame, np.ndarray) or frame.size == 0:
+                raise RuntimeError("Picamera2 opened but did not return a frame.")
+            return frame, "picamera2"
+        except Exception as exc:
+            if isinstance(exc, RuntimeError) and "did not return a frame" in str(exc):
+                raise
+            raise RuntimeError(f"Picamera2 camera {camera_index} capture failed: {exc}") from exc
+        finally:
+            if camera is not None:
+                try:
+                    camera.stop()
+                except Exception:
+                    pass
+                try:
+                    camera.close()
+                except Exception:
+                    pass
+
+    try:
+        import cv2  # type: ignore
+    except Exception as exc:
+        raise RuntimeError("OpenCV is not installed; see requirements-vision.txt.") from exc
+    capture = cv2.VideoCapture(int(camera_index))
+    try:
+        if not capture.isOpened():
+            raise RuntimeError(f"UVC camera index {camera_index} could not be opened.")
+        capture.set(cv2.CAP_PROP_FRAME_WIDTH, int(width))
+        capture.set(cv2.CAP_PROP_FRAME_HEIGHT, int(height))
+        ok, frame = capture.read()
+        if not ok or frame is None:
+            raise RuntimeError("UVC camera opened but did not return a frame.")
+        return frame, "uvc"
+    finally:
+        capture.release()
+
+
 def capture_and_detect(
     *,
     camera_index: int = 0,
@@ -145,17 +225,9 @@ def capture_and_detect(
         raise RuntimeError("OpenCV is not installed; see requirements-vision.txt.") from exc
 
     model = _load_model(model_path)
-    capture = cv2.VideoCapture(int(camera_index))
-    try:
-        if not capture.isOpened():
-            raise RuntimeError(f"Camera index {camera_index} could not be opened.")
-        capture.set(cv2.CAP_PROP_FRAME_WIDTH, int(width))
-        capture.set(cv2.CAP_PROP_FRAME_HEIGHT, int(height))
-        ok, frame = capture.read()
-        if not ok or frame is None:
-            raise RuntimeError("Camera opened but did not return a frame.")
-    finally:
-        capture.release()
+    frame, camera_backend = _capture_frame(
+        camera_index=camera_index, width=width, height=height
+    )
 
     predictions = model.predict(source=frame, conf=confidence, device="cpu", verbose=False)
     detections: list[dict[str, Any]] = []
@@ -187,6 +259,7 @@ def capture_and_detect(
         "session_id": session_id.strip() or None,
         "observed_at_utc": timestamp,
         "camera_index": int(camera_index),
+        "camera_backend": camera_backend,
         "frame_width": int(frame.shape[1]),
         "frame_height": int(frame.shape[0]),
         "inference_device": "cpu",
@@ -270,22 +343,14 @@ def observe_camera_with_companion(
     except Exception as exc:
         raise RuntimeError("Camera vision dependencies are missing; install requirements-vision.txt.") from exc
 
-    capture = cv2.VideoCapture(int(camera_index))
-    try:
-        if not capture.isOpened():
-            raise RuntimeError(f"No camera could be opened at index {camera_index}.")
-        capture.set(cv2.CAP_PROP_FRAME_WIDTH, int(width))
-        capture.set(cv2.CAP_PROP_FRAME_HEIGHT, int(height))
-        ok, frame = capture.read()
-        if not ok or frame is None:
-            raise RuntimeError("The camera opened but did not return an image.")
-        encoded_ok, encoded = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 82])
-        if not encoded_ok:
-            raise RuntimeError("The camera frame could not be encoded for local vision.")
-        image_b64 = base64.b64encode(encoded.tobytes()).decode("ascii")
-        frame_shape = {"width": int(frame.shape[1]), "height": int(frame.shape[0])}
-    finally:
-        capture.release()
+    frame, camera_backend = _capture_frame(
+        camera_index=camera_index, width=width, height=height
+    )
+    encoded_ok, encoded = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 82])
+    if not encoded_ok:
+        raise RuntimeError("The camera frame could not be encoded for vision.")
+    image_b64 = base64.b64encode(encoded.tobytes()).decode("ascii")
+    frame_shape = {"width": int(frame.shape[1]), "height": int(frame.shape[0])}
 
     prompt = (
         "You are KillerKoala's visual perception module. Describe only visible, image-grounded details "
@@ -321,6 +386,7 @@ def observe_camera_with_companion(
         "answer": answer[:1800],
         "model": vision_model,
         "camera_index": int(camera_index),
+        "camera_backend": camera_backend,
         "frame": frame_shape,
         "captured_at_utc": _utc_now(),
         "saved_to_disk": False,
