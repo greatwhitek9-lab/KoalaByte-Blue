@@ -49,7 +49,7 @@ Options:
   --skip-packages                Reuse existing Pi packages and Python environment
   --skip-audio                   Do not select an external Pi audio sink
   --skip-can                     Do not configure optional SocketCAN
-  --skip-ai                      Do not install the local TinyLlama model
+  --skip-ai                      Do not install the local Llama 3.2 model
   --skip-music                   Do not install the Mopidy music engine
   --skip-firmware                Provision only the Pi; do not build or flash peripherals
   --firmware-build-only          Build/checksum firmware but do not flash it
@@ -61,7 +61,7 @@ Resume behavior:
   current checkout/runtime. Completed expensive stages are skipped only when the
   deployment profile matches the checkpoint. A first --resume after upgrading
   from an older installer conservatively adopts only strong success artifacts
-  for firmware, TinyLlama, and Mopidy.
+  for firmware, local AI model, and Mopidy.
 
 Run as the normal SSH/login user, not with `sudo bash`; privileged stages request
 sudo internally. The transaction verifies stable services, exclusive serial
@@ -137,7 +137,7 @@ Path(path).write_text(json.dumps({
     "build_tool_cleanup_requested": cleanup_tools.lower() in {"1", "true", "yes", "on", "auto"},
     "ai_setup_skipped": skip_ai == "1",
     "music_setup_skipped": skip_music == "1",
-    "local_ai_model": "killerkoala-tinyllama:latest",
+    "local_ai_model": "killerkoala-llama3.2:latest",
     "music_engine": "mopidy",
     "ble_roles": "heltec_primary_pi_bluez_preferred_esp32_guarded_fallback",
     "serial_ownership": "esp32_voice_bridge_and_heltec_ble_manager",
@@ -403,7 +403,7 @@ verify_runtime_services() {
   fi
   [[ "${failed}" == "0" ]] || return 1
 
-  KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-tinyllama:latest}" \
+  KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-llama3.2:latest}" \
     PYTHONPATH=pi-companion "$(python_for_runtime)" \
       scripts/check_live_runtime_services.py "${health_args[@]}"
 }
@@ -457,7 +457,7 @@ if [[ "${CHECK_ONLY}" == "1" ]]; then
   run_step firmware_deployment "Whole-system firmware deployment contract" bash scripts/deploy_whole_system_firmware.sh --check-only
   run_step power_permissions "Restricted K7/K8 power permissions" env KOALABYTE_SERVICE_USER="${SERVICE_USER}" bash scripts/install_power_controls.sh --check-only
   run_step pi_prerequisites "Pi hardware inventory" env INSTALL_INNOMAKER_CAN="${INSTALL_INNOMAKER_CAN}" bash scripts/setup_pi_hardware_stage.sh --check-only
-  [[ "${SKIP_AI}" == "1" ]] || run_step tinyllama "TinyLlama installer contract" bash scripts/setup_killerkoala_ollama.sh --check-only
+  [[ "${SKIP_AI}" == "1" ]] || run_step local_ai "Llama 3.2 installer contract" bash scripts/setup_killerkoala_ollama.sh --check-only
   [[ "${SKIP_MUSIC}" == "1" ]] || run_step mopidy "Mopidy installer contract" bash scripts/setup_mopidy_player.sh --check-only
   run_step runtime_verification "Control, AI, music, BLE, alarm, display, and serial ownership contracts" run_runtime_checks
   run_step audio_selection "Audio readiness" bash scripts/configure_pi_audio_output.sh --check-only
@@ -490,7 +490,7 @@ if [[ "${SKIP_FIRMWARE}" != "1" ]]; then
         bash scripts/deploy_whole_system_firmware.sh "${firmware_args[@]}"
 fi
 
-[[ "${SKIP_AI}" == "1" ]] || run_step tinyllama "Local KillerKoala TinyLlama model" \
+[[ "${SKIP_AI}" == "1" ]] || run_step local_ai "Local KillerKoala Llama 3.2 3B model" \
   env INSTALL_KILLERKOALA_OLLAMA="${INSTALL_KILLERKOALA_OLLAMA:-auto}" \
       STRICT_KILLERKOALA_OLLAMA="${STRICT_KILLERKOALA_OLLAMA:-0}" \
       KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-tinyllama:latest}" \
