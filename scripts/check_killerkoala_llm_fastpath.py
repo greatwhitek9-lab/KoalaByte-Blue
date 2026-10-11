@@ -7,10 +7,10 @@ from koalablue import killerkoala_hybrid_companion as companion
 from koalablue.killerkoala_llm_policy import install_killerkoala_llm_fastpath
 
 
-def _config(mode: str = "tinyllama") -> companion.KillerKoalaLLMConfig:
+def _config(mode: str = "llama3.2") -> companion.KillerKoalaLLMConfig:
     return companion.KillerKoalaLLMConfig(
         mode=mode,
-        model="killerkoala-tinyllama:latest",
+        model="killerkoala-llama3.2:latest",
         host="http://127.0.0.1:11434",
         timeout_seconds=45.0,
         num_predict=128,
@@ -48,7 +48,7 @@ def main() -> int:
         "cases": cases,
         "expected": expected,
         "failures": failures,
-        "policy": "ordinary_commands=phrase_engine; questions_or_explicit_banter=tinyllama",
+        "policy": "ordinary_commands=phrase_engine; questions_or_explicit_banter=llama3.2",
     }
     print(json.dumps(payload, indent=2, sort_keys=True))
     return 0 if not failures else 2
