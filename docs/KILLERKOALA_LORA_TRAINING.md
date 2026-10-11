@@ -1,4 +1,4 @@
-# KillerKoala TinyLlama LoRA Training Plan
+# KillerKoala LoRA Training Plan
 
 ## Runtime rule
 
@@ -24,13 +24,13 @@ The phrase engine stays the production-safe response path. The tiny LLM is only 
 Recommended base:
 
 ```text
-TinyLlama-1.1B-Chat
+Llama 3.2 3B
 ```
 
 Recommended deployment names:
 
 ```text
-killerkoala-tinyllama:latest
+killerkoala-llama3.2:latest
 ```
 
 Recommended runtime path on Raspberry Pi 3B+:
@@ -86,7 +86,7 @@ Review and hand-edit the JSONL before real training. The generated file is a see
 Train off the Pi on a stronger machine:
 
 ```text
-1. Pull TinyLlama-1.1B-Chat base model.
+1. Pull Llama 3.2 3B base model (`llama3.2:3b`).
 2. Train a small LoRA adapter using the reviewed JSONL dataset.
 3. Merge adapter or export the adapter in a runtime-compatible format.
 4. Quantize to GGUF Q4 or similar if using llama.cpp/Ollama.
@@ -104,7 +104,7 @@ training/killerkoala_lora/Modelfile.killerkoala-tinyllama
 Build example after placing the tuned model or adapter in the expected local path:
 
 ```bash
-ollama create killerkoala-tinyllama -f training/killerkoala_lora/Modelfile.killerkoala-tinyllama
+ollama create killerkoala-llama3.2 -f training/killerkoala_lora/Modelfile.killerkoala-tinyllama
 ```
 
 ## Runtime configuration
@@ -113,7 +113,7 @@ Default phrase-first mode:
 
 ```bash
 export KILLERKOALA_LLM_MODE=fast_default
-export KILLERKOALA_LLM_MODEL=killerkoala-tinyllama:latest
+export KILLERKOALA_LLM_MODEL=killerkoala-llama3.2:latest
 export KILLERKOALA_LLM_TIMEOUT_SECONDS=2.5
 ```
 
