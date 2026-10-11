@@ -96,7 +96,7 @@ VOICE_MODULES: Dict[str, VoiceModuleSpec] = {
     "koala_kry": VoiceModuleSpec("koala_kry", "Koala Kry", ["koala kry", "kry", "offline replay", "replay metadata", "chew through the logs"], 5, "koala_kry", "Replay captured metadata offline only. No RF transmission."),
     "ear_tag_tx_lab": VoiceModuleSpec("ear_tag_tx_lab", "KoalaByte Lab", ["koalabyte lab", "koala byte lab", "ear tag tx lab", "ear tag", "lab beacon plan", "beacon plan"], 5, "ear_tag_tx_lab", "Write a synthetic owned-device BLE advertisement plan artifact."),
     "killerkoala_help": VoiceModuleSpec("killerkoala_help", "KillerKoala Help", ["help", "what can you do", "list commands", "voice commands", "menu voice commands"], 1, "inquiry_help", "Show available voice-controlled modules and menu actions."),
-    "killerkoala_question": VoiceModuleSpec("killerkoala_question", "KillerKoala Question", [], 0, "inquiry_question", "Answer a general question through local TinyLlama, using web evidence when internet access is available and useful."),
+    "killerkoala_question": VoiceModuleSpec("killerkoala_question", "KillerKoala Question", [], 0, "inquiry_question", "Answer a general question through local Llama 3.2, using web evidence when internet access is available and useful."),
 }
 
 BASE_MODULE_TO_MENU_COMMAND = {
@@ -225,12 +225,12 @@ def module_manifest() -> Dict[str, Any]:
             "killerkoala explain how Bluetooth Low Energy advertising works",
         ],
         "companion": {
-            "primary_local_ai": "TinyLlama through local Ollama",
+            "primary_local_ai": "Llama 3.2 3B through local Ollama",
             "runtime": "pi-companion/koalablue/killerkoala_hybrid_companion.py",
             "fallback": "pi-companion/koalablue/killerkoala_vocabulary.py",
             "web_research": "pi-companion/koalablue/killerkoala_web_research.py",
             "llm_model_env": "KILLERKOALA_LLM_MODEL",
-            "default_llm_model": "killerkoala-tinyllama:latest",
+            "default_llm_model": "killerkoala-llama3.2:latest",
             "web_search_mode_env": "KILLERKOALA_WEB_SEARCH",
             "brave_search_key_env": "BRAVE_SEARCH_API_KEY",
             "lora_training_doc": "docs/KILLERKOALA_LORA_TRAINING.md",
@@ -416,7 +416,7 @@ def execute_module(parsed: ParsedVoiceCommand, output_dir: Path = DEFAULT_OUTPUT
             payload = {
                 "status": "QUESTION_RECEIVED",
                 "question": clean_question(parsed.raw_phrase),
-                "answer_engine": "killerkoala-tinyllama:latest",
+                "answer_engine": "killerkoala-llama3.2:latest",
                 "web_search_mode": "auto",
             }
         else:
