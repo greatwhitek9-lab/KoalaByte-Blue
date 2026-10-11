@@ -72,7 +72,7 @@ PYTHONPATH=pi-companion ./pi-companion/.venv/bin/python scripts/check_hdmi_displ
 
 ## 5. AI setup and privacy
 
-Local AI is the default documented mode. Online AI is opt-in and may incur provider charges. Online prompts—and camera frames when online vision is configured—are sent to the hosted provider.
+Local AI is the default documented mode and uses Llama 3.2 3B (`llama3.2:3b`) as the base for the KillerKoala persona model. Online AI is opt-in and may incur provider charges. Online prompts—and camera frames when online vision is configured—are sent to the hosted provider.
 
 Use **Settings → AI → Configure Online AI Key** or the terminal utility:
 
@@ -84,7 +84,7 @@ python3 scripts/koalabyte_ai_key.py test
 python3 scripts/koalabyte_ai_key.py remove
 ```
 
-The documented key location is `/etc/koalabyte-blue/killerkoala.env` with restrictive permissions. Never commit keys, put them in firmware, paste them into chat, or include them in screenshots/logs. A key-validation request may count as provider usage. Check the active mode before troubleshooting; the documented behavior does not silently fall back from online to local when hosted inference fails.
+The default local persona model is `killerkoala-llama3.2:latest`. The documented key location is `/etc/koalabyte-blue/killerkoala.env` with restrictive permissions. Never commit keys, put them in firmware, paste them into chat, or include them in screenshots/logs. A key-validation request may count as provider usage. Check the active mode before troubleshooting; the documented behavior does not silently fall back from online to local when hosted inference fails.
 
 ## 6. Sony IMX500 AI camera and CAN adapter
 
