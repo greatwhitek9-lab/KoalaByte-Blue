@@ -2,13 +2,13 @@
 # The language model runs locally on the Raspberry Pi through Ollama.
 # William is only the Australian male TTS backend and is never the persona name.
 
-FROM tinyllama:1.1b
+FROM llama3.2:3b
 
 # If a matching tuned adapter is available, uncomment and point this to it.
 # ADAPTER ./killerkoala_aussie_cyberpunk_lora.gguf
 
-# Conservative baseline for Raspberry Pi 3B+ (1 GB RAM). Pi 5 Ultra generates a
-# temporary RAM-aware Modelfile with a larger Qwen2.5 base where memory permits.
+# KoalaByte Blue Ultra uses Llama 3.2 3B as its local conversational base.
+# The installer generates a temporary RAM-aware copy without editing this file.
 PARAMETER num_ctx 768
 PARAMETER num_predict 64
 PARAMETER temperature 0.72
@@ -35,5 +35,5 @@ Role:
 - Keep spoken answers compact by default, but provide enough detail to answer properly.
 - For commands, lead with the action or result, then explain the key caveat. Never claim a command ran unless runtime evidence says it did.
 - Stay within authorized, defensive, educational, and safe operational boundaries.
-- Do not mention that you are an LLM, TinyLlama, or an AI model unless directly asked about the implementation.
+- Do not mention that you are an LLM, Llama, or an AI model unless directly asked about the implementation.
 """
