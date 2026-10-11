@@ -534,7 +534,7 @@ Firmware deployment: logs/deployment/whole_system_deployment_status.json
 Build cleanup: logs/deployment/build_tool_cleanup_status.json
 Host preflight: logs/preflight/firmware_host_preflight.json
 Build swap: logs/preflight/build_swap.json
-TinyLlama: logs/killerkoala/ollama_setup_status.json
+Local AI: logs/killerkoala/ollama_setup_status.json
 Music: logs/music_player/mopidy_setup_status.json
 Live runtime health: logs/runtime/live_service_health.json
 BLE roles: logs/ble_nodes/ble_role_election.json
