@@ -11,7 +11,7 @@ This manual describes the documented software architecture and gives safe first-
 - **Raspberry Pi:** owns the companion runtime, menu/action dispatch, AI integration, and optional HDMI display.
 - **ESP32-S3 DualEye:** dedicated eyes/face and interaction board. Exact behavior depends on installed firmware and audio configuration.
 - **Heltec T114:** nRF52840-based board used by this project for BLE-related functions and the small color mouth/display interface.
-- **Optional USB UVC camera:** supports explicit still-frame visual questions with a compatible model.
+- **Sony IMX500 AI Camera:** the designated Ultra camera, connected by the Pi camera ribbon connector. The Pi-side sensor firmware/runtime is installed with `bash scripts/setup_imx500_camera.sh`; the MCU boards do not need camera-specific firmware changes.
 - **Optional InnoMaker USB-to-CAN adapter:** used through Linux SocketCAN; it is not flashed by KoalaByte.
 
 ## 2. First boot and update
@@ -86,18 +86,23 @@ python3 scripts/koalabyte_ai_key.py remove
 
 The documented key location is `/etc/koalabyte-blue/killerkoala.env` with restrictive permissions. Never commit keys, put them in firmware, paste them into chat, or include them in screenshots/logs. A key-validation request may count as provider usage. Check the active mode before troubleshooting; the documented behavior does not silently fall back from online to local when hosted inference fails.
 
-## 6. Optional camera and CAN adapter
+## 6. Sony IMX500 AI camera and CAN adapter
 
-For a USB UVC camera:
+The designated Ultra camera is the **12.3 MP Sony IMX500 Intelligent Vision Sensor** with onboard neural-network acceleration and RP2040 management. It connects to the Pi camera ribbon connector, not USB UVC. The advertised modes are 4056×3040 at up to 10 fps and 2028×1520 at up to 30 fps, with a 76° field of view and manually adjustable focus. Exact modes depend on the camera/OS configuration.
+
+With the Pi powered off, connect the supplied ribbon cable with the correct orientation. Then run:
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y v4l-utils
-v4l2-ctl --list-devices
-ls -l /dev/video*
+cd ~/KoalaByte-Blue
+bash scripts/setup_imx500_camera.sh
+# Reboot when convenient, then:
+rpicam-hello --list-cameras
+rpicam-hello -t 5000
 ```
 
-The documented conversational path captures one still frame for an explicit visual request; it is not a continuous stream. A compatible multimodal model is required. Consider latency, RAM use, heat and privacy before enabling it.
+The setup script installs the Raspberry Pi OS `imx500-all` and `python3-picamera2` packages and checks the sensor firmware files. First sensor/model loading may take several minutes. Test on-sensor MobileNet inference using the official IMX500 post-processing configuration installed by the OS; see [IMX500 camera notes](IMX500_AI_CAMERA.md).
+
+**Integration status:** the current conversational Ultra Vision capture path was originally written for USB UVC/OpenCV. Installing IMX500 firmware packages enables sensor support and supported on-sensor inference, but it does not by itself enable CSI/Picamera2 capture in KillerKoala's voice conversation path. That backend still needs implementation and end-to-end validation before the full camera-to-voice feature can be called complete.
 
 The InnoMaker adapter is used through Linux SocketCAN. Start with interface inventory and isolated bench testing:
 
@@ -126,7 +131,7 @@ After updating, rerun readiness checks, confirm services and aliases, then test 
 | T114 stays idle or blank | USB data cable, detected port, firmware identity, mouth service logs |
 | HDMI blank | HDMI service/logs, display backend, video/render/input group membership |
 | Online AI unavailable | Active mode, key status (without revealing key), network and provider response |
-| Camera not found | `/dev/video*`, `v4l2-ctl`, known-good UVC cable/port |
+| IMX500 camera not found | Ribbon orientation/seating, `rpicam-hello --list-cameras`, `imx500-all` package and sensor firmware files |
 | CAN interface missing | USB enumeration and SocketCAN setup; isolated bench only |
 
 ## Safety and responsible use
