@@ -4,7 +4,7 @@ Ultra Vision is an optional camera add-on for the `koalabyte-blue-ultra` branch.
 
 ## Hardware and model
 
-- Initial hardware target: USB UVC camera connected to the Raspberry Pi 5 and exposed through OpenCV. Pi Camera Module support needs a separately validated Picamera2 backend.
+- Supported capture backends: USB UVC via OpenCV and CSI ribbon cameras via Picamera2 (including the Sony IMX500 AI Camera). Backend selection is controlled by `KOALABYTE_VISION_CAMERA_BACKEND=auto|picamera2|uvc`; `auto` prefers Picamera2 when its Python package is importable, otherwise it uses UVC. Explicit selections do not silently fall back. The camera index is controlled by `KOALABYTE_VISION_CAMERA_INDEX` in the voice bridge.
 - Install optional dependencies in the KoalaByte virtual environment after reviewing wheel compatibility and storage use:
   ```bash
   ./pi-companion/.venv/bin/pip install -r requirements-vision.txt
@@ -73,9 +73,14 @@ KillerKoala can use the camera as a visual input during conversation. When the u
 Local mode runs conversational and vision inference through the Pi's local Ollama server and does not require paid LLM tokens. Online mode is optional, requires `KILLERKOALA_AI_MODE=online` plus `OLLAMA_API_KEY`, and may incur hosted-service charges. Keep the key in `/etc/koalabyte-blue/killerkoala.env` (mode `0600`), never in Git. Online camera mode sends the requested frame to Ollama Cloud.
    sudo systemctl restart koalabyte-dualeye-voice-bridge.service
    ```
-4. Check the configured camera index and test with a direct, explicit visual request. The default is camera index `0`; override `KOALABYTE_VISION_CAMERA_INDEX` if needed.
+4. Configure the capture backend and camera index in `/etc/koalabyte-blue/killerkoala.env`, then test with a direct, explicit visual request:
+   ```bash
+   KOALABYTE_VISION_CAMERA_BACKEND=picamera2
+   KOALABYTE_VISION_CAMERA_INDEX=0
+   ```
+   For an IMX500 CSI camera, select `picamera2`. The backend captures one frame, releases the camera, and does not start a preview/recording loop. Restart the voice bridge after changing service environment settings.
 
-To opt in to online vision, set `KILLERKOALA_AI_MODE=online`, `OLLAMA_API_KEY`, and `KILLERKOALA_ONLINE_VISION_MODEL` in `/etc/koalabyte-blue/killerkoala.env`, then restart the voice bridge. Use a vision-capable model supported by Ollama Cloud. To return to local-only processing, set `KILLERKOALA_AI_MODE=local` and restart.\n\nIf the model is blank, the camera is missing, or inference fails, KillerKoala reports that vision is unavailable rather than pretending to see. It does not start a continuous stream or activate the camera for unrelated conversation. A new frame is requested for each explicit visual question.
+To opt in to online vision, set `KILLERKOALA_AI_MODE=online`, `KILLERKOALA_ONLINE_VISION_ENABLED=true`, `OLLAMA_API_KEY`, and `KILLERKOALA_ONLINE_VISION_MODEL` in `/etc/koalabyte-blue/killerkoala.env`, then restart the voice bridge. Use a vision-capable model supported by Ollama Cloud. To return to local-only processing, set `KILLERKOALA_AI_MODE=local` and restart.\n\nIf the model is blank, the camera is missing, or inference fails, KillerKoala reports that vision is unavailable rather than pretending to see. It does not start a continuous stream or activate the camera for unrelated conversation. A new frame is requested for each explicit visual question.
 
 ## Spotting camera-like objects
 
@@ -91,7 +96,7 @@ The output marks candidate detections with a confidence score and `unverified mo
 
 ## Privacy and resource controls
 
-- One frame per explicit command; no continuous recording, background monitoring, covert capture, or remote activation.
+- One frame per explicit voice request; no continuous recording, background monitoring, covert capture, or remote activation. Online mode additionally requires `KILLERKOALA_ONLINE_VISION_ENABLED=true`; otherwise image upload is refused even if online AI and a key are configured.
 - No face recognition, person re-identification, license-plate OCR, identity matching, or automatic following of people/vehicles.
 - No Wi-Fi/BLE scan, device-address import, automatic radio-to-image correlation, external upload, or network request in the vision module.
 - CPU inference only. Benchmark latency, memory, and thermal behavior on the actual Pi 5 before considering an accelerator.
