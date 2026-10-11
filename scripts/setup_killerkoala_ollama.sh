@@ -4,7 +4,7 @@ set -Eeuo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OLLAMA_INSTALL_MODE="${INSTALL_KILLERKOALA_OLLAMA:-auto}"
 STRICT_KILLERKOALA_OLLAMA="${STRICT_KILLERKOALA_OLLAMA:-0}"
-KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-tinyllama:latest}"
+KILLERKOALA_LLM_MODEL="${KILLERKOALA_LLM_MODEL:-killerkoala-llama3.2:latest}"
 KILLERKOALA_OLLAMA_HOST="${KILLERKOALA_OLLAMA_HOST:-http://127.0.0.1:11434}"
 KILLERKOALA_OLLAMA_TIMEOUT="${KILLERKOALA_OLLAMA_TIMEOUT:-180}"
 
@@ -32,7 +32,7 @@ PROFILE_CONTEXT="$(profile_value ai.context_length)"
 PROFILE_PARALLEL="$(profile_value ai.num_parallel)"
 PROFILE_KEEP_ALIVE="$(profile_value ai.keep_alive)"
 PROFILE_NUM_PREDICT="$(profile_value ai.num_predict)"
-KILLERKOALA_BASE_MODEL="${KILLERKOALA_BASE_MODEL:-${PROFILE_BASE_MODEL:-tinyllama:1.1b}}"
+KILLERKOALA_BASE_MODEL="${KILLERKOALA_BASE_MODEL:-${PROFILE_BASE_MODEL:-llama3.2:3b}}"
 if [[ "${KILLERKOALA_BASE_MODEL,,}" == *:cloud ]]; then
   echo "KillerKoala requires a local base model; cloud model tags are blocked." >&2
   exit 2
@@ -47,11 +47,11 @@ SMOKE_PATH="${TMPDIR:-${HOME}/.cache/koalabyte/tmp}/killerkoala_ollama_smoke.txt
 
 usage() {
   cat <<'EOF'
-KoalaByte Blue KillerKoala Ollama/TinyLlama setup helper
+KoalaByte Blue Ultra KillerKoala Ollama/Llama 3.2 setup helper
 
 Installs Ollama, selects a model based on detected Raspberry Pi RAM, creates the
-KillerKoala alias, and performs a short smoke test. Pi 5 Ultra uses Qwen2.5 1.5B,
-3B, or 7B as RAM allows; smaller hosts retain TinyLlama. The selected model is
+KillerKoala persona alias, and performs a short smoke test. Ultra uses Llama 3.2 3B;
+legacy lower-memory profiles may retain TinyLlama. The selected model is
 kept warm longer on Pi 5 to reduce repeat-response latency.
 EOF
 }
@@ -221,7 +221,7 @@ command -v ollama >/dev/null 2>&1 || { fail_setup ollama_install "ollama is unav
 start_ollama_service || { fail_setup ollama_service "systemd service/API did not become ready"; exit 1; }
 
 write_status running pull_base_model "pulling ${KILLERKOALA_BASE_MODEL}"
-retry_command "${OLLAMA_PULL_ATTEMPTS}" "TinyLlama pull" \
+retry_command "${OLLAMA_PULL_ATTEMPTS}" "Llama base-model pull" \
   ollama pull "${KILLERKOALA_BASE_MODEL}" || {
     fail_setup pull_base_model "failed to pull ${KILLERKOALA_BASE_MODEL}"
     exit 1
@@ -274,5 +274,5 @@ if [[ "${SKIP_SMOKE_TEST}" != "1" ]]; then
   }
 fi
 
-write_status ok killerkoala_ollama "Ollama system service, TinyLlama, and ${KILLERKOALA_LLM_MODEL} are ready"
+write_status ok killerkoala_ollama "Ollama system service, Llama base model, and ${KILLERKOALA_LLM_MODEL} are ready"
 cat "${STATUS_PATH}"
