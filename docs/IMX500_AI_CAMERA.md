@@ -51,7 +51,7 @@ There are two separate paths:
 1. **On-sensor inference:** IMX500 runs a supported compiled neural-network model and produces inference metadata. Raspberry Pi camera software interprets the output. This is suitable for supported object detection/classification tasks.
 2. **Conversational vision:** a natural-language model receives an image frame and produces a description or answer. This is a different operation from MobileNet inference and may use local or explicitly enabled hosted inference.
 
-The current Ultra Vision module in this branch was originally written around OpenCV's `VideoCapture` interface and a locally supplied Ultralytics model. That path is **not yet a verified IMX500/Picamera2 conversational capture backend**. Installing IMX500 packages enables the Raspberry Pi camera stack and sensor inference, but by itself does not make the existing UVC-only conversational capture path compatible with the CSI camera. Do not advertise full KoalaByte voice-to-camera integration as validated until a Picamera2 capture backend and end-to-end test are added.
+The Ultra Vision conversational capture path now has a Picamera2 backend alongside the existing OpenCV UVC backend. Set `KOALABYTE_VISION_CAMERA_BACKEND=picamera2` in `/etc/koalabyte-blue/killerkoala.env` for the CSI/IMX500 camera, and set `KOALABYTE_VISION_CAMERA_INDEX=0` (or the enumerated camera number). `auto` prefers Picamera2 when importable; an explicit backend never silently switches. The capture helper requests one still frame, then stops and closes Picamera2 before inference/network activity. This is a source-level integration; physical-camera and end-to-end voice testing are still required before claiming hardware validation. Conversational still-frame capture is separate from the IMX500 on-sensor MobileNet inference pipeline.
 
 ## Troubleshooting
 
@@ -59,7 +59,7 @@ The current Ultra Vision module in this branch was originally written around Ope
 - **Preview works but inference does not:** verify `imx500-all`, model assets and the exact post-processing JSON path.
 - **First run appears stuck:** allow time for the sensor to load firmware/model data; do not disconnect power while it is loading.
 - **Package unavailable:** confirm Raspberry Pi OS release and repositories before changing package sources.
-- **Conversational vision still reports no camera:** this is expected until the Ultra Vision CSI/Picamera2 backend is implemented and integrated.
+- **Conversational vision still reports no camera:** check `KOALABYTE_VISION_CAMERA_BACKEND`, camera index, the `python3-picamera2` package, and service logs. Source integration does not guarantee that a particular camera/OS combination has been physically validated.
 
 ## Official reference
 
