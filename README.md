@@ -18,7 +18,7 @@ The deployment includes:
 
 - **Heltec T114 / HT-n5262** — primary BLE controller, GNSS source, guarded LoRa/Meshtastic hooks, articulated KillerKoala mouth, and Koalagotchi action/alarm display.
 - **Waveshare ESP32-S3 DualEye** — wake word, saved local responses, microphone, local speaker, menu/eye display, Pi Wi-Fi/serial node, and guarded BLE fallback.
-- **Raspberry Pi OS Lite or Desktop** — main brain, K1-K8 menu controller, action executor, Heltec BLE node, Wi-Fi host, TinyLlama AI, optional web research, Australian speech, Mopidy music player, logs, services, diagnostics, and optional HDMI eyes/menu/Koalagotchi display.
+- **Raspberry Pi OS Lite or Desktop** — main brain, K1-K8 menu controller, action executor, Heltec BLE node, Wi-Fi host, Llama 3.2 3B local AI, optional web research, Australian speech, Mopidy music player, logs, services, diagnostics, and optional HDMI eyes/menu/Koalagotchi display.
 - **K1-K8 front-panel board** — physical menu navigation, protected shutdown, and protected reboot.
 
 Use the project only with systems, networks, radios, captures, vehicles, and test benches you own or are authorized to assess.
@@ -33,7 +33,7 @@ The current `Main` branch includes the following completed work added after the 
 | Firmware safety and recovery | The installer accepts a T114 in runtime USB or mounted `HT-n5262` recovery mode, proves the ESP32-S3 with a non-writing chip-ID probe before either board is written, checks Raspberry Pi power state, validates schema-2 bundles and compiled identities, and rejects missing, stale, or mismatched flash receipts. |
 | Heltec T114 | The source-built combined-safe firmware adds the six-second KillerKoala splash, smooth mood-aware mouth/speech motion, Koalagotchi action and alarm scenes, BLE/GNSS USB JSON, guarded bounded lab-beacon TX, and software UF2 entry. |
 | ESP32-S3 DualEye | The local front end now includes the KillerKoala wake session, generated fixed menu/action voice routes, saved rotating Australian responses, microphone capture with pre-roll, expressive cyberpunk koala eyes, action/result display, Pi AI escalation, and guarded BLE fallback. |
-| Raspberry Pi companion | The Pi now owns synchronized menu/action execution, TinyLlama responses, optional current-fact web research, Australian male TTS, Lyrebird/Mopidy playback and speech ducking, BLE-role election, bounded logs, diagnostics, and persistent state. |
+| Raspberry Pi companion | The Pi now owns synchronized menu/action execution, Llama 3.2 3B responses, optional current-fact web research, Australian male TTS, Lyrebird/Mopidy playback and speech ducking, BLE-role election, bounded logs, diagnostics, and persistent state. |
 | Runtime ownership | ESP32 and T114 requests are brokered through their exclusive serial-owning services, preventing menu, scan, status, and maintenance helpers from fighting over a board port. Managed KoalaByte nodes are excluded from owned-device surveys. |
 | K1-K8 controls | The one-shot installer now creates and preserves a validated persistent GPIO map, supports per-key BCM overrides, keeps K7/K8 protected hold actions locked, and falls back to touch, keyboard, and speech if GPIO initialization is unavailable. |
 | HDMI monitor mode | An optional auto-detected compositor mirrors the eyes, mouth, menu, Koalagotchi, speech, actions, and alarms, and can release the same output to Raspberry Pi OS without stopping voice or command services. |
@@ -63,7 +63,7 @@ The ESP32-S3 owns the local front-end experience:
 - Ten-second active voice session, refreshed by accepted speech and trusted K1-K8 events.
 - Saved local greetings, acknowledgements, status, help, banter, error, and generated menu responses.
 - Generated fixed menu/action command grammar and voice routes, gated by the active ten-second wake session.
-- Automatic Pi/TinyLlama escalation when the Waveshare vocabulary does not match.
+- Automatic Pi/Llama 3.2 3B escalation when the Waveshare vocabulary does not match.
 - Local microphone capture and local saved-response audio.
 - Animated cyberpunk koala eyes, eyebrows, fur, menu status, action names, results, and speech expressions.
 - Wi-Fi/serial command and telemetry node for the Pi.
@@ -79,7 +79,7 @@ The Pi is the project’s main brain:
 - Switches the same HDMI output between KoalaByte Blue and Raspberry Pi OS while voice, K1-K8, ESP32, Heltec, BLE, AI, music, and other commands keep running.
 - Runs the Heltec-primary BLE/GNSS node manager over the T114 USB CDC JSON stream.
 - Uses Pi BlueZ for secondary enrichment/fallback and coordinates guarded ESP32 BLE election when host Bluetooth is unavailable.
-- Runs local `killerkoala-tinyllama:latest` through Ollama.
+- Runs local `killerkoala-llama3.2:latest` through Ollama.
 - Performs web research for current or precision-dependent questions when internet access is available.
 - Maintains short conversational context and the gruff cyberpunk Australian KillerKoala persona.
 - Uses the male Australian `en-AU-WilliamNeural` TTS backend while the spoken identity remains **KillerKoala**.
@@ -174,7 +174,7 @@ The canonical installer performs this transaction:
 10. Request T114 UF2 mode when needed, copy the verified UF2 to `HT-n5262`, and observe the exact expected runtime identity.
 11. Re-probe the preserved ESP32 candidate immediately before flashing its bootloader, partition table, OTA data, application, and speech-model image, then observe its exact expected runtime identity.
 12. Reject stale or mismatched T114/ESP32 flash receipts and retain those successful receipts during later manual `--check-only` runs.
-13. Install TinyLlama, Mopidy, restricted power controls, K1-K8 auto-mapping, menu, BLE, voice, HDMI, and diagnostic services.
+13. Install Llama 3.2 3B, Mopidy, restricted power controls, K1-K8 auto-mapping, menu, BLE, voice, HDMI, and diagnostic services.
 14. Run K1-K8, AI, music, BLE failover, error lifecycle, display sync, HDMI, dependency, runtime ownership, and hardware checks.
 15. Enable and restart services, verify live health, clean build-only tools according to policy, and write the final status reports.
 
@@ -325,7 +325,7 @@ Expected marker: `HDMI_DISPLAY_CONTRACT_PASS`. After a first install, reboot onc
 3. Saved local vocabulary stays on the Waveshare and does not consume Pi AI resources.
 4. Exact menu/action commands are forwarded to the Pi for execution.
 5. An unmatched local phrase automatically arms full speech capture for the Pi.
-6. The Pi routes general questions to TinyLlama.
+6. The Pi routes general questions to Llama 3.2 3B.
 7. Questions requiring fresh or precise facts may receive web-research context when internet access is available.
 8. KillerKoala answers conversationally with recent-turn context and a gruff cyberpunk Australian attitude.
 9. Pi speech uses the Australian male TTS backend.
@@ -387,7 +387,7 @@ Private streaming credentials must remain outside the repository. See [Lyrebird 
 3. `koalabyte-menu.service` initializes K1-K8 and owns live display synchronization.
 4. `koalabyte-hdmi.service` auto-detects an optional monitor and presents the selected KoalaByte or Pi OS mode.
 5. `koalabyte-ble-node-manager.service` establishes Heltec-primary BLE roles.
-6. `koalabyte-dualeye-voice-bridge.service` coordinates local vocabulary, Pi execution, TinyLlama, TTS, music ducking, BLE election, and display expressions.
+6. `koalabyte-dualeye-voice-bridge.service` coordinates local vocabulary, Pi execution, Llama 3.2 3B, TTS, music ducking, BLE election, and display expressions.
 7. `koalabyte-doctor.service` records diagnostics.
 8. T114 shows the boot image and transitions to the articulated mouth.
 9. DualEye enters the active cyberpunk eye/menu state.
